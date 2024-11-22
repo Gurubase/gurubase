@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/SCR_20241122_nkqk_610ce2393b.png" alt="Gurubase Image" width="500px" /><br/>
+    <img src="https://pbs.twimg.com/profile_banners/1828170456110682112/1725545674/1500x500" alt="Gurubase Image" /><br/>
 </div>
 
 
