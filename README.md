@@ -1,2 +1,24 @@
-# gurubase
-The Tech World's Shortcut Search
+<div align="center">
+    <img src="https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/SCR_20241122_nkqk_610ce2393b.png" alt="Gurubase Image" width="500px" /><br/>
+</div>
+
+
+<div align="center">
+
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9CMRSQPqx6)
+[![Twitter](https://img.shields.io/badge/Twitter-%231DA1F2.svg?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/gurubaseio)
+[![Mastodon](https://img.shields.io/badge/Mastodon-%236364FF.svg?style=for-the-badge&logo=mastodon&logoColor=white)](https://mastodon.social/@gurubaseio)
+[![Bluesky](https://img.shields.io/badge/Bluesky-%230285FF.svg?style=for-the-badge&logo=bluesky&logoColor=white)](https://bsky.app/profile/gurubase.bsky.social)
+
+</div>
+
+# Gurubase
+
+- [What is Gurubase?](#whatisgurubase)
+- [How to create a Guru](#howtocreate)
+- [How to claim a Guru](#howtoclaim)
+- [How to remove a Guru](#howtoremove)
+- [License](#license)
+- [Datasource Update](#howtoupdateDS)
+- [Features](#features)
+- [Used By](#usedby)
