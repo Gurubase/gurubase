@@ -41,16 +41,18 @@ Although you can't create a Guru, you can manage it on Gurubase. For example, yo
 
 Like hundreds of GitHub repositories, you can add a badge to your README to guide your users to learn about your tool on Gurubase.
 
-Example Badge:
+[Example Badge:](https://github.com/opencost/opencost)
+```
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20OpenCost%20Guru-006BFF)](https://gurubase.io/g/opencost)
+```
 
-[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Anteon%20Guru-006BFF)](https://gurubase.io/g/anteon)
-```
-[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Anteon%20Guru-006BFF)](https://gurubase.io/g/anteon)
-```
+<img src="imgs/badge_sample.png" alt="Gurubase Image" width="500"/><br/>
 
 ### Widget
 
 You can also add an "Ask AI" widget to your documentation by importing a [small JS script](https://github.com/getanteon/guru-widget).
+
+<img src="imgs/widget_sample.png" alt="Gurubase Image" width="500"/><br/>
 
 ## How to Update Datasources
 
