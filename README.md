@@ -104,6 +104,17 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
+
+<td align="center">
+  <a href="https://github.com/duplicati/duplicati">
+    <img src="https://avatars.githubusercontent.com/u/8270231?s=48&v=4" width="40" height="40">
+    <br>
+    <b>Duplicati</b>
+    <br>
+    11.2K ★
+  </a>
+</td>
+
 <td  align="center">
   <a href="https://github.com/Nozbe/WatermelonDB">
     <img src="https://gurubase.io/_next/image?url=https%3A%2F%2Fs3.eu-central-1.amazonaws.com%2Fanteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x%2Fwatermelon_logo_83e295693d.png&w=96&q=75" width="40" height="40">
@@ -144,15 +155,6 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
-<td align="center">
-  <a href="https://github.com/runtipi/runtipi">
-    <img src="https://avatars.githubusercontent.com/u/147710665?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Runtipi</b>
-    <br>
-    7.5K ★
-  </a>
-</td>
 
 <td  align="center">
   <i>100+ more</i>
