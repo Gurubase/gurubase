@@ -134,6 +134,16 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
+<td align="center">
+  <a href="https://github.com/runtipi/runtipi">
+    <img src="https://avatars.githubusercontent.com/u/147710665?s=48&v=4" width="40" height="40">
+    <br>
+    <b>Runtipi</b>
+    <br>
+    7.5K ★
+  </a>
+</td>
+
 <td  align="center">
   <i>100+ more</i>
 </td>
