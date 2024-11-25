@@ -50,7 +50,7 @@ Like hundreds of GitHub repositories, you can add a badge to your README to guid
 
 ### Widget
 
-You can also add an "Ask AI" widget to your documentation by importing a [small JS script](https://github.com/getanteon/guru-widget).
+You can also add an "Ask AI" widget to your documentation by importing a [small JS script](https://github.com/getanteon/guru-widget). For an example, check the [Connexion docs](https://connexion-guru-badge.readthedocs.io/en/latest/).
 
 <img src="imgs/widget_sample.png" alt="Gurubase Image" width="500"/><br/>
 
