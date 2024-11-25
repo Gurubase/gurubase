@@ -84,7 +84,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
 
 <table>
 <tr>
-<td width="33%" align="center">
+<td align="center">
   <a href="https://github.com/openimsdk/open-im-server">
     <img src="https://avatars.githubusercontent.com/u/84842645?s=48&v=4" width="40" height="40">
     <br>
@@ -94,7 +94,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
-<td width="33%" align="center">
+<td  align="center">
   <a href="https://github.com/vanna-ai/vanna">
     <img src="https://avatars.githubusercontent.com/u/132533812?s=48&v=4" width="40" height="40">
     <br>
@@ -104,7 +104,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
-<td width="33%" align="center">
+<td  align="center">
   <a href="https://github.com/Nozbe/WatermelonDB">
     <img src="https://gurubase.io/_next/image?url=https%3A%2F%2Fs3.eu-central-1.amazonaws.com%2Fanteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x%2Fwatermelon_logo_83e295693d.png&w=96&q=75" width="40" height="40">
     <br>
@@ -113,9 +113,8 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
     10.6K ★
   </a>
 </td>
-</tr>
 
-<td width="33%" align="center">
+<td  align="center">
   <a href="https://github.com/gorse-io/gorse">
     <img src="https://avatars.githubusercontent.com/u/74893108?s=48&v=4" width="40" height="40">
     <br>
@@ -125,7 +124,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
-<td width="33%" align="center">
+<td align="center">
   <a href="https://github.com/sqlfluff/sqlfluff">
     <img src="https://avatars.githubusercontent.com/u/71874918?s=48&v=4" width="40" height="40">
     <br>
@@ -135,7 +134,8 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </a>
 </td>
 
-<td width="33%" align="center">
+<td  align="center">
   <i>100+ more</i>
 </td>
+</tr>
 </table>
