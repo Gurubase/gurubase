@@ -7,7 +7,7 @@ assignees: 'kursataktas'
 ---
 
 **Gurubase Username:** 
-<!--Click on your profile icon in the top-left corner of Gurubase.io to see your username, e.g., "Kursat Aktas" -->
+<!--Click on your profile icon in the top-right corner of Gurubase.io to see your username, e.g., "Kursat Aktas" -->
 
 **Guru Link:** 
 <!-- https://gurubase.io/g/anteon -->
