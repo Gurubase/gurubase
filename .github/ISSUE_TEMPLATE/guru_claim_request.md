@@ -1,6 +1,6 @@
 ---
 name: Guru Claim Request
-about: Claim request to your Gurubase account for an existing Guru
+about: Claim an existing Guru for your Gurubase account
 title: 'Guru Claim Request: <Guru_Name>'
 labels: guru_claim
 assignees: 'kursataktas'
