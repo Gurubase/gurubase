@@ -84,100 +84,141 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
 
 <table>
 <tr>
-<td align="center">
-  <a href="https://github.com/openimsdk/open-im-server">
-    <img src="https://avatars.githubusercontent.com/u/84842645?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Open IM</b>
-    <br>
-    14.1K ★
-  </a>
-</td>
+  <td align="center">
+    <a href="https://github.com/openimsdk/open-im-server">
+      <img src="https://avatars.githubusercontent.com/u/84842645?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Open IM</b>
+      <br>
+      14.1K ★
+    </a>
+  </td>
 
-<td  align="center">
-  <a href="https://github.com/navidrome/navidrome">
-    <img src="https://avatars.githubusercontent.com/u/26692192?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Navidrome</b>
-    <br>
-    12.3K ★
-  </a>
-</td>
+  <td  align="center">
+    <a href="https://github.com/navidrome/navidrome">
+      <img src="https://avatars.githubusercontent.com/u/26692192?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Navidrome</b>
+      <br>
+      12.3K ★
+    </a>
+  </td>
 
-<td  align="center">
-  <a href="https://github.com/vanna-ai/vanna">
-    <img src="https://avatars.githubusercontent.com/u/132533812?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Vanna</b>
-    <br>
-    12K ★
-  </a>
-</td>
+  <td  align="center">
+    <a href="https://github.com/vanna-ai/vanna">
+      <img src="https://avatars.githubusercontent.com/u/132533812?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Vanna</b>
+      <br>
+      12K ★
+    </a>
+  </td>
 
-<td  align="center">
-  <a href="https://github.com/carla-simulator/carla">
-    <img src="https://avatars.githubusercontent.com/u/33029185?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Carla</b>
-    <br>
-    11.6K ★
-  </a>
-</td>
-
-
-<td align="center">
-  <a href="https://github.com/duplicati/duplicati">
-    <img src="https://avatars.githubusercontent.com/u/8270231?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Duplicati</b>
-    <br>
-    11.2K ★
-  </a>
-</td>
-
-<td  align="center">
-  <a href="https://github.com/Nozbe/WatermelonDB">
-    <img src="https://gurubase.io/_next/image?url=https%3A%2F%2Fs3.eu-central-1.amazonaws.com%2Fanteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x%2Fwatermelon_logo_83e295693d.png&w=96&q=75" width="40" height="40">
-    <br>
-    <b>WatermelonDB</b>
-    <br>
-    10.6K ★
-  </a>
-</td>
-
-<td  align="center">
-  <a href="https://github.com/gorse-io/gorse">
-    <img src="https://avatars.githubusercontent.com/u/74893108?s=48&v=4" width="40" height="40">
-    <br>
-    <b>Gorse</b>
-    <br>
-    8.6K ★
-  </a>
-</td>
-
-<td align="center">
-  <a href="https://github.com/sqlfluff/sqlfluff">
-    <img src="https://avatars.githubusercontent.com/u/71874918?s=48&v=4" width="40" height="40">
-    <br>
-    <b>SQLFluff</b>
-    <br>
-    8K ★
-  </a>
-</td>
-
-<td align="center">
-  <a href="https://github.com/ast-grep/ast-grep">
-    <img src="https://avatars.githubusercontent.com/u/114017360?s=48&v=4" width="40" height="40">
-    <br>
-    <b>ast-grep(sg)</b>
-    <br>
-    7.6K ★
-  </a>
-</td>
+  <td  align="center">
+    <a href="https://github.com/carla-simulator/carla">
+      <img src="https://avatars.githubusercontent.com/u/33029185?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Carla</b>
+      <br>
+      11.6K ★
+    </a>
+  </td>
 
 
-<td  align="center">
-  <i>100+ more</i>
-</td>
+  <td align="center">
+    <a href="https://github.com/cesanta/mongoose">
+      <img src="https://avatars.githubusercontent.com/u/5111322?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Mongoose</b>
+      <br>
+      11.2K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/duplicati/duplicati">
+      <img src="https://avatars.githubusercontent.com/u/8270231?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Duplicati</b>
+      <br>
+      11.2K ★
+    </a>
+  </td>
+
+  <td  align="center">
+    <a href="https://github.com/Nozbe/WatermelonDB">
+      <img src="https://gurubase.io/_next/image?url=https%3A%2F%2Fs3.eu-central-1.amazonaws.com%2Fanteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x%2Fwatermelon_logo_83e295693d.png&w=96&q=75" width="40" height="40">
+      <br>
+      <b>WatermelonDB</b>
+      <br>
+      10.6K ★
+    </a>
+  </td>
+</tr>
+
+<tr>
+  <td  align="center">
+    <a href="https://github.com/gorse-io/gorse">
+      <img src="https://avatars.githubusercontent.com/u/74893108?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Gorse</b>
+      <br>
+      8.6K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/nhost/nhost">
+      <img src="https://avatars.githubusercontent.com/u/48448799?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Nhost</b>
+      <br>
+      8K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/sqlfluff/sqlfluff">
+      <img src="https://avatars.githubusercontent.com/u/71874918?s=48&v=4" width="40" height="40">
+      <br>
+      <b>SQLFluff</b>
+      <br>
+      8K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/databendlabs/databend">
+      <img src="https://avatars.githubusercontent.com/u/80994548?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Databend</b>
+      <br>
+      7.6K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/ast-grep/ast-grep">
+      <img src="https://avatars.githubusercontent.com/u/114017360?s=48&v=4" width="40" height="40">
+      <br>
+      <b>ast-grep(sg)</b>
+      <br>
+      7.6K ★
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/py-why/dowhy">
+      <img src="https://avatars.githubusercontent.com/u/101266056?s=48&v=4" width="40" height="40">
+      <br>
+      <b>DoWhy</b>
+      <br>
+      7.2K ★
+    </a>
+  </td>
+
+  <td  align="center">
+    <i>100+ more</i>
+  </td>
 </tr>
 </table>
