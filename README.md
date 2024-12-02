@@ -95,12 +95,32 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
 </td>
 
 <td  align="center">
+  <a href="https://github.com/navidrome/navidrome">
+    <img src="https://avatars.githubusercontent.com/u/26692192?s=48&v=4" width="40" height="40">
+    <br>
+    <b>Navidrome</b>
+    <br>
+    12.3K ★
+  </a>
+</td>
+
+<td  align="center">
   <a href="https://github.com/vanna-ai/vanna">
     <img src="https://avatars.githubusercontent.com/u/132533812?s=48&v=4" width="40" height="40">
     <br>
     <b>Vanna</b>
     <br>
     12K ★
+  </a>
+</td>
+
+<td  align="center">
+  <a href="https://github.com/carla-simulator/carla">
+    <img src="https://avatars.githubusercontent.com/u/33029185?s=48&v=4" width="40" height="40">
+    <br>
+    <b>Carla</b>
+    <br>
+    11.6K ★
   </a>
 </td>
 
