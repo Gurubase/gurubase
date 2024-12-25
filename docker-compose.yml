@@ -1,0 +1,200 @@
+services:
+  milvus:
+    image: milvusdb/milvus:v2.4.17
+    container_name: gurubase-milvus-standalone
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      ETCD_CONFIG_PATH: /milvus/configs/embedEtcd.yaml
+      COMMON_STORAGETYPE: local
+    volumes:
+      - ${HOME}/.gurubase/milvus/volumes/milvus:/var/lib/milvus
+    configs:
+      - source: milvus_etcd_config
+        target: /milvus/configs/embedEtcd.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 90s
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3.13.7-alpine
+    container_name: gurubase-rabbitmq
+    restart: always
+
+  postgres:
+    image: postgres:16.3-alpine
+    container_name: gurubase-postgres
+    env_file:
+      - ${HOME}/.gurubase/.env
+    environment:
+      POSTGRES_DB: gurubase
+    volumes:
+      - ${HOME}/.gurubase/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:7.2.6-alpine
+    container_name: gurubase-redis
+    volumes:
+      - ${HOME}/.gurubase/redis:/data
+    restart: always
+
+  reranker:
+    image: ddosify/text-embeddings-inference:cpu-1.5.1
+    container_name: gurubase-reranker
+    command: --model-id BAAI/bge-reranker-base --hostname 0.0.0.0 --port 8057
+    environment:
+      LOG_LEVEL: WARN
+    volumes:
+      - ${HOME}/.gurubase/reranker:/data
+    restart: always
+
+  backend:
+    image: ddosify/gurubase-backend:latest
+    container_name: gurubase-backend
+    command: /workspace/start_scripts/start_app_selfhosted.sh
+    env_file:
+      - ${HOME}/.gurubase/.env
+    volumes:
+      - ${HOME}/.gurubase/backend_media:/workspace/backend/media
+    ports:
+      - "8028:8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_started
+      reranker:
+        condition: service_started
+    restart: always
+
+  celery-worker-1:
+    image: ddosify/gurubase-backend:latest
+    container_name: gurubase-backend-celery-worker-1
+    command: /workspace/start_scripts/start_celery_worker.sh
+    env_file:
+      - ${HOME}/.gurubase/.env
+    depends_on:
+      - backend
+    restart: always
+
+  celery-worker-2:
+    image: ddosify/gurubase-backend:latest
+    container_name: gurubase-backend-celery-worker-2
+    command: /workspace/start_scripts/start_celery_worker.sh
+    env_file:
+      - ${HOME}/.gurubase/.env
+    depends_on:
+      - backend
+    restart: always
+
+  celery-beat:
+    image: ddosify/gurubase-backend:latest
+    container_name: gurubase-backend-celery-beat
+    command: /workspace/start_scripts/start_celery_beat.sh
+    env_file:
+      - ${HOME}/.gurubase/.env
+    depends_on:
+      - backend
+    restart: always
+
+  frontend:
+    image: ddosify/gurubase-frontend:latest-selfhosted
+    container_name: gurubase-frontend
+    depends_on:
+      - backend
+    restart: always
+
+  nginx:
+    image: nginx:1.23.3-alpine
+    container_name: gurubase-nginx
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/conf.d/default.conf
+    volumes:
+      - ${HOME}/.gurubase/backend_media:/django_media_files
+    ports:
+      - "8029:8029"
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+
+configs:
+  milvus_etcd_config:
+    content: |
+      listen-client-urls: http://0.0.0.0:2379
+      advertise-client-urls: http://0.0.0.0:2379
+      quota-backend-bytes: 4294967296
+      auto-compaction-mode: revision
+      auto-compaction-retention: '1000'
+
+  nginx_config:
+    content: |
+      upstream frontend {
+          server gurubase-frontend:3000;
+      }
+
+      upstream backend {
+          server gurubase-backend:8008;
+      }
+
+      server {
+          listen 8029;
+          client_max_body_size 96M;
+          http2_max_field_size 64k;
+          http2_max_header_size 512k;
+
+          error_log /var/log/nginx/error.log error;
+          access_log off;
+
+          location / {
+              proxy_pass http://frontend;
+              proxy_set_header Host $$host;
+              proxy_set_header X-Real-IP $$remote_addr;
+              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Host $$host:$$server_port;
+          }
+
+          location /api/ {
+              proxy_pass http://backend;
+              proxy_set_header Host $$host;
+              proxy_set_header X-Real-IP $$remote_addr;
+              proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Host $$host:$$server_port;
+              
+              # Streaming support
+              proxy_http_version 1.1;
+              proxy_set_header Connection '';
+              proxy_buffering off;
+              proxy_cache off;
+              proxy_read_timeout 24h;
+              chunked_transfer_encoding on;
+          }
+          
+          location /media/ {
+              alias /django_media_files/;
+          }
+      }
+
+networks:
+  default:
+    name: gurubase-dc
