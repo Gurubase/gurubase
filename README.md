@@ -15,7 +15,7 @@
 # Gurubase
 
 - [What is Gurubase](#what-is-gurubase)
-- [Installation](#installation)
+- [Installation](#installation-self-hosted)
 - [How to Create a Guru](#how-to-create-a-guru)
 - [How to Claim a Guru](#how-to-claim-a-guru)
 - [Showcase Your Guru](#showcase-your-guru)
