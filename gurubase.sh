@@ -9,6 +9,8 @@ cd "${SCRIPT_DIR}" 2>/dev/null || cd "$(pwd)"
 GURUBASE_DIR="$HOME/.gurubase"
 DOCKER_COMPOSE_FILE="$GURUBASE_DIR/docker-compose.yml"
 
+[ ! -f "$GURUBASE_DIR/.env.frontend" ] && touch "$GURUBASE_DIR/.env.frontend"
+
 remove_gurubase() {
     read -p "Are you sure you want to remove Gurubase? [Y/n] " response
     response=${response:-Y}
