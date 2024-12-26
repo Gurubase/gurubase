@@ -128,6 +128,8 @@ You can access the Django admin interface with the following credentials:
 |----------|------------------------|----------|
 | `http://localhost:8028/admin` | `root@gurubase.io` | `ChangeMe` |
 
+After logging in, you can change the admin password from `http://localhost:8028/admin/password_change/`.
+
 > [!WARNING]
 > This interface is intended for advanced users only. Be cautious when making changes as they can affect your Gurubase installation.
 
