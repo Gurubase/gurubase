@@ -282,7 +282,6 @@ fi
 
 # Create .env.frontend file
 if [ ! -f "$GURUBASE_DIR/.env.frontend" ] || ! grep -q "^NEXT_PUBLIC_TELEMETRY_ENABLED=" "$GURUBASE_DIR/.env.frontend" 2>/dev/null; then
-    echo "📝 Creating .env.frontend file..."
     echo "NEXT_PUBLIC_TELEMETRY_ENABLED=true" > "$GURUBASE_DIR/.env.frontend"
 fi
 
