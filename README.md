@@ -122,12 +122,13 @@ All data is stored locally in `~/.gurubase/`:
 
 ### Backend Django Admin Access
 
-You can access the Django admin interface at `http://localhost:8028/admin` with the following email and password:
+You can access the Django admin interface with the following credentials:
 
-```text
-root@gurubase.io
-ChangeMe
-```
+| <!-- -->    | <!-- -->    |
+|----------|------------------------|
+| **URL:**      | `http://localhost:8028/admin` |
+| **Email:**    | `root@gurubase.io`      |
+| **Password:** | `ChangeMe`              |
 
 > [!WARNING]
 > This interface is intended for advanced users only. Be cautious when making changes as they can affect your Gurubase installation.
