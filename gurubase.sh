@@ -278,6 +278,12 @@ if ! grep -q "^FIRECRAWL_API_KEY=.\+" "$GURUBASE_DIR/.env" 2>/dev/null; then
     echo "FIRECRAWL_API_KEY=$FIRECRAWL_API_KEY" >> $GURUBASE_DIR/.env
 fi
 
+# Create .env.frontend file
+if [ ! -f "$GURUBASE_DIR/.env.frontend" ] || ! grep -q "^NEXT_PUBLIC_TELEMETRY_ENABLED=" "$GURUBASE_DIR/.env.frontend" 2>/dev/null; then
+    echo "📝 Creating .env.frontend file..."
+    echo "NEXT_PUBLIC_TELEMETRY_ENABLED=true" > "$GURUBASE_DIR/.env.frontend"
+fi
+
 export $(cat $GURUBASE_DIR/.env | xargs)
 
 docker network inspect gurubase > /dev/null 2>&1 || docker network create gurubase

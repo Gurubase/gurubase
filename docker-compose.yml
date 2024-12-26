@@ -123,6 +123,8 @@ services:
   frontend:
     image: ddosify/gurubase-frontend:latest-selfhosted
     container_name: gurubase-frontend
+    env_file:
+      - ${HOME}/.gurubase/.env.frontend
     depends_on:
       - backend
     restart: always
