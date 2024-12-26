@@ -32,8 +32,8 @@
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/) (`docker compose` or `docker-compose`).
+- [Docker](https://docs.docker.com/get-docker/) `19.0.3` or later.
+- [Docker Compose](https://docs.docker.com/compose/install/) (`docker compose` or `docker-compose`) `2.6.1` or later.
 - OpenAI API key (for text generation and embeddings). Get it from [here](https://platform.openai.com/api-keys).
 - Firecrawl API key (for website scraping). Get it from [here](https://www.firecrawl.dev/app/api-keys).
 
