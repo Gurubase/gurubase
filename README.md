@@ -120,6 +120,32 @@ All data is stored locally in `~/.gurubase/`:
 - Media files: `~/.gurubase/backend_media/`
 - Environment variables: `~/.gurubase/.env`
 
+### Backend Django Admin Access
+
+You can access the Django admin interface at `http://localhost:8028/admin` with the following email and password:
+
+```text
+root@gurubase.io
+ChangeMe
+```
+
+> [!WARNING]
+> This interface is intended for advanced users only. Be cautious when making changes as they can affect your Gurubase installation.
+
+### Telemetry
+
+By default, Gurubase collects anonymous telemetry data using [PostHog](https://posthog.com/) to help improve the product. You can opt out of telemetry by following these steps:
+
+1. Edit the frontend environment file `~/.gurubase/.env.frontend`:
+```text
+NEXT_PUBLIC_TELEMETRY_ENABLED=false
+```
+
+2. Recreate the frontend service to apply the new environment:
+```bash
+cd ~/.gurubase && docker compose up -d --force-recreate frontend
+```
+
 ## How to Create a Guru
 
 Currently, only the Gurubase team can create a Guru. Please open an issue on this repository with the title "Guru Creation Request" and include the GitHub repository link in the issue content. We prioritize Guru creation requests from the maintainers of the tools. Please mention whether you are the maintainer of the tool. If you are not the maintainer, it would be helpful to obtain the maintainer's permission before opening a creation request for the tool.
