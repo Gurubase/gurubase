@@ -244,11 +244,6 @@ show_installation_summary() {
 Next Steps:
 1. Open http://localhost:8029 in your browser
 2. Follow the quick start guide: https://github.com/Gurubase/gurubase/blob/main/docs/quickstart.md
-
-Commands:
-- Upgrade: ./gurubase.sh upgrade
-- Remove: ./gurubase.sh rm
-- Logs: docker compose logs -f
 "
 }
 

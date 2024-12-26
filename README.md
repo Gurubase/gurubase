@@ -15,6 +15,7 @@
 # Gurubase
 
 - [What is Gurubase](#what-is-gurubase)
+- [Installation](#installation)
 - [How to Create a Guru](#how-to-create-a-guru)
 - [How to Claim a Guru](#how-to-claim-a-guru)
 - [Showcase Your Guru](#showcase-your-guru)
@@ -26,6 +27,98 @@
 ## What is Gurubase
 
 [Gurubase](https://gurubase.io) is a centralized RAG-based learning and troubleshooting assistant platform. Each "Guru" has its own custom knowledge base (such as the latest documentation, PDFs, YouTube videos, etc.) to generate answers for user queries. It is not a coding assistant like GitHub Copilot or similar tools.
+
+## Installation (Self-hosted)
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/) (`docker compose` or `docker-compose`).
+- OpenAI API key (for text generation and embeddings). Get it from [here](https://platform.openai.com/api-keys).
+- Firecrawl API key (for website scraping). Get it from [here](https://www.firecrawl.dev/app/api-keys).
+
+### Quick Install
+
+Run this command to install Gurubase:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/selfhosted/gurubase.sh -o gurubase.sh
+bash gurubase.sh
+```
+
+The installer will:
+1. Create a `.gurubase` directory in your home folder
+2. Prompt for required API keys
+3. Download and start all necessary services
+4. Open the web interface at http://localhost:8029
+
+> [!IMPORTANT]
+> The installer will download the reranker model ([BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base), ~1.1GB) after installation. This model is essential for accurately ranking and retrieving answers when users ask questions to your Gurus. The download may take some time depending on your internet connection. In the meantime, you can continue to use Gurubase to create your Guru. You will see a warning message when you ask a question to your Guru.
+
+### Upgrade
+
+You can upgrade to the latest version by running the following command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/selfhosted/gurubase.sh -o gurubase.sh
+bash gurubase.sh upgrade
+```
+
+### Remove
+
+You can remove Gurubase by running the following command. This will remove the containers and networks but keep the data files.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/selfhosted/gurubase.sh -o gurubase.sh
+bash gurubase.sh rm
+```
+
+### System Requirements
+
+- **Operating System**
+  - macOS 10.15 Catalina or later
+  - Linux (Ubuntu 20.04 LTS, Debian 10, CentOS 8 or later)
+  - ⚠️ Windows is not supported
+
+- **Processor**
+  - Quad-core CPU (4 cores) at 2.5 GHz or higher
+  - ARM-based processors supported (e.g., Apple M1, M2, M3, etc.)
+
+- **Memory and Storage**
+  - 8GB RAM minimum recommended
+  - 10GB available disk space (SSD preferred for better performance)
+
+- **Network**
+  - Ports 8028 and 8029 must be available
+
+> [!NOTE]
+> Only Linux and MacOS are supported at the moment. Windows is not supported.
+
+### Services
+
+The following services are installed as part of Gurubase:
+
+| Service | Version | Description |
+|---------|---------|-------------|
+| Milvus | v2.4.17 | Vector database for storing and searching embeddings |
+| RabbitMQ | 3.13.7 | Message broker for task queue management |
+| PostgreSQL | 16.3 | Main database for storing application data |
+| Redis | 7.2.6 | In-memory data store for caching, rate limiting, and session management |
+| Text Embeddings Inference | 1.5.1 | [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base) model for text reranking |
+| Nginx | 1.23.3 | Web server for routing and serving static files |
+| Gurubase Backend | latest | [Django](https://www.djangoproject.com/) based backend application |
+| Gurubase Frontend | latest | [Next.js](https://nextjs.org/) based frontend application |
+| Celery Workers | latest | Background task processors (2 workers) |
+| Celery Beat | latest | Periodic task scheduler |
+
+### Data Storage
+
+All data is stored locally in `~/.gurubase/`:
+- PostgreSQL data: `~/.gurubase/postgres/`
+- Milvus data: `~/.gurubase/milvus/`
+- Redis data: `~/.gurubase/redis/`
+- Media files: `~/.gurubase/backend_media/`
+- Environment variables: `~/.gurubase/.env`
 
 ## How to Create a Guru
 
