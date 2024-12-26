@@ -48,6 +48,75 @@ wait_for_services() {
     docker run --rm --network gurubase-dc busybox:1.34.1 /bin/sh -c "until nc -z gurubase-backend 8008 && nc -z gurubase-nginx 8029 && nc -z gurubase-postgres 5432 && nc -z gurubase-milvus-standalone 19530 && nc -z gurubase-rabbitmq 5672 && nc -z gurubase-redis 6379; do sleep 5; done"
 }
 
+create_config_files() {
+    echo "📝 Creating configuration files..."
+    
+    # Create config directory if it doesn't exist
+    mkdir -p "$GURUBASE_DIR/config"
+    
+    # Create Milvus etcd config
+    cat > "$GURUBASE_DIR/config/embedEtcd.yaml" << 'EOF'
+listen-client-urls: http://0.0.0.0:2379
+advertise-client-urls: http://0.0.0.0:2379
+quota-backend-bytes: 4294967296
+auto-compaction-mode: revision
+auto-compaction-retention: '1000'
+EOF
+
+    # Create Nginx config
+    cat > "$GURUBASE_DIR/config/nginx.conf" << 'EOF'
+upstream frontend {
+    server gurubase-frontend:3000;
+}
+
+upstream backend {
+    server gurubase-backend:8008;
+}
+
+server {
+    listen 8029;
+    client_max_body_size 96M;
+    http2_max_field_size 64k;
+    http2_max_header_size 512k;
+
+    error_log /var/log/nginx/error.log error;
+    access_log off;
+
+    location / {
+        proxy_pass http://frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host:$server_port;
+    }
+
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host:$server_port;
+        
+        # Streaming support
+        proxy_http_version 1.1;
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+        chunked_transfer_encoding on;
+    }
+    
+    location /media/ {
+        alias /django_media_files/;
+    }
+}
+EOF
+
+    echo "✅ Configuration files created successfully"
+}
+
 upgrade_gurubase() {
     read -p "Are you sure you want to upgrade Gurubase? [Y/n] " response
     response=${response:-Y}  # Default to Y if empty
@@ -74,6 +143,9 @@ upgrade_gurubase() {
         fi
         exit 1
     fi
+
+    # Create new config files
+    create_config_files
 
     cd "$GURUBASE_DIR"
     
@@ -209,6 +281,9 @@ fi
 export $(cat $GURUBASE_DIR/.env | xargs)
 
 docker network inspect gurubase > /dev/null 2>&1 || docker network create gurubase
+
+# Create configuration files before starting services
+create_config_files
 
 echo "🚀 Deploying Gurubase Self Hosted..."
 # Start all services using docker compose
