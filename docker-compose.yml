@@ -79,9 +79,9 @@ services:
       - "8028:8008"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       milvus:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
         condition: service_started
       redis:
