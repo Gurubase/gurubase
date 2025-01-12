@@ -241,7 +241,6 @@ if [ ! -d "$GURUBASE_DIR" ]; then
     mkdir -p "$GURUBASE_DIR/postgres"
     mkdir -p "$GURUBASE_DIR/backend_media"
     mkdir -p "$GURUBASE_DIR/redis"
-    mkdir -p "$GURUBASE_DIR/reranker"
 fi
 
 echo "Environment variables location: $GURUBASE_DIR/.env"

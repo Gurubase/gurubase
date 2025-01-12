@@ -49,24 +49,6 @@ services:
       - ${HOME}/.gurubase/redis:/data
     restart: always
 
-  reranker:
-    image: ddosify/text-embeddings-inference:cpu-1.5.1
-    container_name: gurubase-reranker
-    command: --model-id BAAI/bge-reranker-base --hostname 0.0.0.0 --port 8057
-    environment:
-      LOG_LEVEL: WARN
-    volumes:
-      - ${HOME}/.gurubase/reranker:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "-X", "POST", "http://localhost:8057/rerank", 
-             "-H", "Content-Type: application/json",
-             "-d", "{\"query\":\"What is Deep Learning?\", \"texts\": [\"Deep Learning is not...\", \"Deep learning is...\"]}"]
-      interval: 10s
-      timeout: 20s
-      retries: 30
-      start_period: 30s
-    restart: always
-
   backend:
     image: ddosify/gurubase-backend:latest
     container_name: gurubase-backend
@@ -85,8 +67,6 @@ services:
       rabbitmq:
         condition: service_started
       redis:
-        condition: service_started
-      reranker:
         condition: service_started
     restart: always
 

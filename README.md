@@ -52,9 +52,6 @@ The installer will:
 3. Download and start all necessary services
 4. Open the web interface at http://localhost:8029
 
-> [!IMPORTANT]
-> The installer will download the reranker model ([BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base), ~1.1GB) after installation. This model is essential for accurately ranking and retrieving answers when users ask questions to your Gurus. The download may take some time depending on your internet connection. In the meantime, you can continue to use Gurubase to create your Guru. You will see a warning message when you ask a question to your Guru.
-
 ### Upgrade
 
 You can upgrade to the latest version by running the following command:
@@ -78,7 +75,7 @@ bash gurubase.sh rm
 - **Operating System**
   - macOS 10.15 Catalina or later
   - Linux (Ubuntu 20.04 LTS, Debian 10, CentOS 8 or later)
-  - ⚠️ Windows is not supported
+  - ⚠️ Native Windows is not supported, but you can use WSL2 to run Gurubase on Windows.
 
 - **Processor**
   - Quad-core CPU (4 cores) at 2.5 GHz or higher
@@ -92,7 +89,7 @@ bash gurubase.sh rm
   - Ports 8028 and 8029 must be available
 
 > [!NOTE]
-> Only Linux and MacOS are supported at the moment. Windows is not supported.
+> Only Linux and MacOS are supported at the moment. Native Windows is not supported, but you can use WSL2 to run Gurubase on Windows.
 
 ### Services
 
@@ -104,7 +101,6 @@ The following services are installed as part of Gurubase:
 | RabbitMQ | 3.13.7 | Message broker for task queue management |
 | PostgreSQL | 16.3 | Main database for storing application data |
 | Redis | 7.2.6 | In-memory data store for caching, rate limiting, and session management |
-| Text Embeddings Inference | 1.5.1 | [BAAI/bge-reranker-base](https://huggingface.co/BAAI/bge-reranker-base) model for text reranking |
 | Nginx | 1.23.3 | Web server for routing and serving static files |
 | Gurubase Backend | latest | [Django](https://www.djangoproject.com/) based backend application |
 | Gurubase Frontend | latest | [Next.js](https://nextjs.org/) based frontend application |
@@ -146,6 +142,23 @@ NEXT_PUBLIC_TELEMETRY_ENABLED=false
 ```bash
 cd ~/.gurubase && docker compose up -d --force-recreate frontend
 ```
+
+## Gurubase Cloud vs Self-hosted
+
+Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
+
+| Feature | Gurubase Cloud | Self-hosted |
+|---------|---------------|-------------|
+| Authentication | ✅ Google & GitHub via Auth0 | ❌ Local admin only |
+| Reranking | ✅ Advanced reranking for better results | ❌ Basic ranking via LLM (Custom reranker support coming soon) |
+| OG Image Generation | ✅ Automatic generation | ❌ Not available |
+| StackOverflow Integration | ✅ Tag-based Q&A scraping | ❌ Not available |
+| API Support | ✅ Full API access | ✅ Full API access |
+| Binge History | ✅ Follow-up questions & learning graph | ✅ Follow-up questions & learning graph |
+| Knowledge Base Sources | ✅ Websites, YouTube, PDFs | ✅ Websites, YouTube, PDFs |
+| GitHub Codebase Indexing | ✅ Available | ✅ Available |
+| Website Widget | ✅ Available | ✅ Available |
+| Base LLM | ✅ OpenAI GPT-4o | ✅ OpenAI GPT-4o |
 
 ## How to Create a Guru
 
