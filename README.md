@@ -149,7 +149,7 @@ Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
 
 | Feature | Gurubase Cloud | Self-hosted |
 |---------|---------------|-------------|
-| Authentication | ✅ Google & GitHub via Auth0 | ❌ Local admin only |
+| Authentication | ✅ Google & GitHub via Auth0 | ❌ Not available |
 | Reranking | ✅ Advanced reranking for better results | ❌ Basic ranking via LLM (Custom reranker support coming soon) |
 | OG Image Generation | ✅ Automatic generation | ❌ Not available |
 | StackOverflow Integration | ✅ Tag-based Q&A scraping | ❌ Not available |
