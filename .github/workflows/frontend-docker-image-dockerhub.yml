@@ -6,6 +6,7 @@ on:
       - '**'
     paths:
       - 'src/gurubase-frontend/**'
+      - .github/workflows/frontend-docker-image-dockerhub.yml
   workflow_dispatch:
 
 jobs:
