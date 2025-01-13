@@ -107,17 +107,17 @@ jobs:
         echo "image_tag=${branch}-${commit_sha}" >> $GITHUB_OUTPUT
         echo "branch_tag=${branch}" >> $GITHUB_OUTPUT
         if [ "${{ steps.branch-name.outputs.current_branch }}" = "master" ]; then
-          echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
+          echo "dockerfile=src/gurubase-frontend/Dockerfile" >> $GITHUB_OUTPUT
         else
-          echo "dockerfile=Dockerfile.staging" >> $GITHUB_OUTPUT
+          echo "dockerfile=src/gurubase-frontend/Dockerfile.staging" >> $GITHUB_OUTPUT
         fi
 
     - name: Build and push
       uses: docker/build-push-action@v4
       env:
-        REPOSITORY: ddosify/kubernetesguru_frontend
+        REPOSITORY: ${{ secrets.GURUBASE_FE_PROD_STAGING_DOCKER_REPOSITORY }}
       with:
-        context: .
+        context: src/gurubase-frontend
         push: true
         tags: |
           ${{ env.REPOSITORY }}:${{ steps.set-vars.outputs.image_tag }}
