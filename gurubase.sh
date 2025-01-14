@@ -137,7 +137,7 @@ upgrade_gurubase() {
 
     # Download the latest docker-compose.yml
     echo "📥 Downloading latest docker-compose.yml..."
-    if ! curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/selfhosted/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
+    if ! curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
         echo "❌ Failed to download new docker-compose.yml"
         # Restore backup if it exists
         if [ -f "${DOCKER_COMPOSE_FILE}.backup" ]; then
@@ -295,7 +295,7 @@ echo "🚀 Deploying Gurubase Self Hosted..."
 # Start all services using docker compose
 if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
     echo "📥 Downloading docker-compose.yml..."
-    curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/selfhosted/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
+    curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
 fi
 
 cd "$GURUBASE_DIR"
@@ -322,9 +322,7 @@ show_installation_summary() {
 📚 Documentation: https://github.com/Gurubase/gurubase
 🆘 Support: https://github.com/Gurubase/gurubase/issues
 
-Next Steps:
-1. Open http://localhost:8029 in your browser
-2. Follow the quick start guide: https://github.com/Gurubase/gurubase/blob/main/docs/quickstart.md
+Open http://localhost:8029 in your browser
 "
 }
 
