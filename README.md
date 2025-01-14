@@ -25,7 +25,7 @@
 
 ## What is Gurubase
 
-[Gurubase](https://gurubase.io) is a QA AI platform that can be customized for specific topics. Create a new Guru by uploading webpages, PDFs, videos, or GitHub repositories. Start asking questions directly on Gurubase.io, or embed it as an AI panel on your website to let your users ask questions about your product. It’s already being used by hundreds of open-source repositories.
+[Gurubase](https://gurubase.io) lets you create AI-powered Q&A assistants for any topic or need. Create a new Guru by uploading webpages, PDFs, videos, or GitHub repositories. Start asking questions directly on Gurubase.io, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product. It’s already being [used by](#used-by) hundreds of open-source repositories.
 
 ## How to Create a Guru
 
