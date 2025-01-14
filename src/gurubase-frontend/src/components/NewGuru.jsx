@@ -1714,8 +1714,6 @@ export default function NewGuru({
 
   // Only show GitHub-related UI and logic if index_repo is true
   const renderCodebaseIndexing = () => {
-    if (!index_repo) return null;
-
     // Find GitHub repository source and its error if it exists
     const githubSource = dataSources?.results?.find(
       (source) => source.url === customGuruData?.github_repo
@@ -1764,6 +1762,7 @@ export default function NewGuru({
                       (isOriginalUrl && githubError)) &&
                       "border-red-500"
                   )}
+                  type="url"
                   disabled={
                     isSourcesProcessing ||
                     isProcessing ||
@@ -1862,7 +1861,7 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Name</FormLabel>
+                      <FormLabel>Guru Name <span className="text-red-500">*</span></FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1910,7 +1909,7 @@ export default function NewGuru({
                 render={({ field: { value, onChange, ...rest } }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Logo</FormLabel>
+                      <FormLabel>Guru Logo <span className="text-red-500">*</span></FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -2006,7 +2005,7 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Topics</FormLabel>
+                      <FormLabel>Topics <span className="text-red-500">*</span></FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
