@@ -40,6 +40,12 @@ curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/
 bash gurubase.sh rm
 ```
 
+> [!CAUTION]
+> To remove everything including all data (volumes), you can run the following command:
+> ```bash
+> cd $HOME/.gurubase && docker compose down --volumes
+> ```
+
 ### System Requirements
 
 - **Operating System**
