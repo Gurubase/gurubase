@@ -12,7 +12,8 @@ import {
   MoreVertical,
   RotateCw,
   Unlock,
-  Upload
+  Upload,
+  Check
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -118,7 +119,13 @@ const formSchema = z.object({
     .string()
     .min(10, { message: "Guru context must be at least 10 characters." })
     .max(100, { message: "Guru context must not exceed 100 characters." }),
-  githubRepo: z.string().optional().or(z.literal("")),
+  githubRepo: z
+    .string()
+    .refine((value) => !value || value.startsWith("https://github.com"), {
+      message: "Must be a valid GitHub repository URL."
+    })
+    .optional()
+    .or(z.literal("")),
   uploadedFiles: z
     .array(
       z.object({
@@ -173,6 +180,9 @@ export default function NewGuru({
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
+  const [index_repo, setIndexRepo] = useState(
+    customGuruData?.index_repo || false
+  );
   const [sources, setSources] = useState([]);
   const fileInputRef = useRef(null);
   const [isSourcesProcessing, setIsSourcesProcessing] = useState(isProcessing);
@@ -192,6 +202,9 @@ export default function NewGuru({
   const [isYoutubeSidebarOpen, setIsYoutubeSidebarOpen] = useState(false);
   const [youtubeEditorContent, setYoutubeEditorContent] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // First, add a state to track the GitHub repository source status
+  const [githubRepoStatus, setGithubRepoStatus] = useState(null);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -345,6 +358,7 @@ export default function NewGuru({
     }
   }, [isSourcesProcessing, customGuru]);
 
+  // Update the useEffect where we process dataSources to find and set GitHub repo status
   useEffect(() => {
     if (customGuruData && dataSources?.results) {
       const newSources = dataSources.results.map((source) => ({
@@ -364,6 +378,21 @@ export default function NewGuru({
         error: source.error || "",
         private: source.type === "PDF" ? !!source.private : undefined
       }));
+
+      // Find GitHub repository source status
+      if (customGuruData.github_repo) {
+        const githubSource = dataSources.results.find(
+          (source) => source.url === customGuruData.github_repo
+        );
+        const status = githubSource?.status || null;
+        setGithubRepoStatus(status);
+
+        // Start polling if status is NOT_PROCESSED
+        if (status === "NOT_PROCESSED") {
+          setIsSourcesProcessing(true);
+          pollForGuruReadiness(customGuru);
+        }
+      }
 
       setSources(newSources);
       form.setValue(
@@ -385,7 +414,7 @@ export default function NewGuru({
           }))
       );
     }
-  }, [customGuruData, dataSources]);
+  }, [customGuruData, dataSources, customGuru]); // Added customGuru to dependencies
 
   // Watch all form fields
   // const formValues = form.watch();
@@ -615,12 +644,19 @@ export default function NewGuru({
         if (isReady) {
           // Fetch the latest sources data
           const latestSources = await getGuruDataSources(guruSlug);
-
           if (!latestSources) {
             redirect("/not-found");
           }
 
           if (latestSources?.results) {
+            // Check GitHub repository status if it exists
+            if (customGuruData?.github_repo) {
+              const githubSource = latestSources.results.find(
+                (source) => source.url === customGuruData.github_repo
+              );
+              setGithubRepoStatus(githubSource?.status || null);
+            }
+
             // Create a map of existing privacy settings
             const existingPrivacySettings = sources.reduce((acc, source) => {
               if (source.type?.toLowerCase() === "pdf") {
@@ -756,19 +792,28 @@ export default function NewGuru({
         setIsUpdating(true);
       }
 
-      // Check if at least one resource is added or if we're in edit mode
+      // Find the hasResources check and update it like this:
       const hasResources =
         (data.uploadedFiles && data.uploadedFiles.length > 0) ||
         (data.youtubeLinks && data.youtubeLinks.length > 0) ||
         (data.websiteUrls && data.websiteUrls.length > 0);
 
+      // Add check for GitHub repo changes
+      const hasGithubChanges =
+        index_repo && isEditMode
+          ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
+          : index_repo && !!data.githubRepo;
+
       if (
-        (!hasResources && !isEditMode) ||
-        (sources.length === 0 && isEditMode)
+        (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
+        (sources.length === 0 &&
+          (!index_repo || !hasGithubChanges) &&
+          isEditMode)
       ) {
         CustomToast({
-          message:
-            "At least one resource (PDF, YouTube link, or website URL) must be added.",
+          message: index_repo
+            ? "At least one resource (PDF, YouTube link, website URL) must be added, or GitHub repository settings must be changed."
+            : "At least one resource (PDF, YouTube link, website URL) must be added.",
           variant: "error"
         });
 
@@ -782,7 +827,11 @@ export default function NewGuru({
         formData.append("name", data.guruName);
       }
       formData.append("domain_knowledge", data.guruContext);
-      formData.append("github_repo", data.githubRepo || "");
+
+      // Only append github_repo if index_repo is true
+      if (index_repo) {
+        formData.append("github_repo", data.githubRepo || "");
+      }
 
       // Handle guruLogo
       if (data.guruLogo instanceof File) {
@@ -803,6 +852,11 @@ export default function NewGuru({
       }
 
       const guruSlug = isEditMode ? customGuru : guruResponse.slug;
+
+      // If there are GitHub-related changes, set processing state and start polling
+      if (index_repo && hasGithubChanges) {
+        setIsSourcesProcessing(true);
+      }
 
       // Handle privacy changes BEFORE other source updates
       const existingPdfPrivacyChanges = dirtyChanges.sources
@@ -1658,6 +1712,130 @@ export default function NewGuru({
     );
   }
 
+  // Only show GitHub-related UI and logic if index_repo is true
+  const renderCodebaseIndexing = () => {
+    if (!index_repo) return null;
+
+    // Find GitHub repository source and its error if it exists
+    const githubSource = dataSources?.results?.find(
+      (source) => source.url === customGuruData?.github_repo
+    );
+    const githubError = githubSource?.error;
+
+    // Check if the current value matches the original repo URL
+    const isOriginalUrl =
+      form.getValues("githubRepo") === customGuruData?.github_repo;
+
+    return (
+      <FormField
+        control={form.control}
+        name="githubRepo"
+        render={({ field }) => (
+          <FormItem className="flex-1">
+            <div className="flex items-center space-x-2">
+              <FormLabel>Codebase Indexing</FormLabel>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Provide a link to a GitHub repository to index its
+                      codebase. The Guru can then use this codebase to generate
+                      answers based on it.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="relative">
+              <FormControl>
+                <Input
+                  placeholder="https://github.com/username/repository"
+                  {...field}
+                  className={cn(
+                    "w-full pr-[110px]",
+                    githubRepoStatus === "NOT_PROCESSED" &&
+                      "bg-gray-100 cursor-not-allowed",
+                    (form.formState.errors.githubRepo ||
+                      (isOriginalUrl && githubError)) &&
+                      "border-red-500"
+                  )}
+                  disabled={
+                    isSourcesProcessing ||
+                    isProcessing ||
+                    form.formState.isSubmitting ||
+                    githubRepoStatus === "NOT_PROCESSED"
+                  }
+                  onChange={(e) => {
+                    field.onChange(e);
+                    form.trigger("githubRepo");
+                  }}
+                />
+              </FormControl>
+              {field.value &&
+                field.value === customGuruData?.github_repo &&
+                githubRepoStatus && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    {(() => {
+                      let badgeProps = {
+                        className:
+                          "flex items-center rounded-full gap-1 px-2 text-body4 font-medium pointer-events-none",
+                        icon: Clock,
+                        iconColor: "text-gray-500",
+                        text: "Not Indexed"
+                      };
+
+                      switch (githubRepoStatus) {
+                        case "SUCCESS":
+                          badgeProps.icon = Check;
+                          badgeProps.iconColor = "text-green-700";
+                          badgeProps.text = "Indexed";
+                          badgeProps.className += " bg-green-50 text-green-700";
+                          break;
+                        case "FAIL":
+                          badgeProps.icon = AlertTriangle;
+                          badgeProps.iconColor = "text-red-700";
+                          badgeProps.text = "Failed";
+                          badgeProps.className += " bg-red-50 text-red-700";
+                          break;
+                        case "NOT_PROCESSED":
+                          badgeProps.icon = Clock;
+                          badgeProps.iconColor = "text-yellow-700";
+                          badgeProps.text = "Processing";
+                          badgeProps.className +=
+                            " bg-yellow-50 text-yellow-700";
+                          break;
+                        default:
+                          badgeProps.className += " bg-gray-50 text-gray-700";
+                          break;
+                      }
+
+                      return (
+                        <Badge {...badgeProps}>
+                          <badgeProps.icon
+                            className={cn("h-3 w-3", badgeProps.iconColor)}
+                          />
+                          {badgeProps.text}
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                )}
+            </div>
+            <FormMessage>
+              {form.formState.errors.githubRepo?.message ||
+                (isOriginalUrl && githubRepoStatus === "FAIL" && githubError)}
+            </FormMessage>
+          </FormItem>
+        )}
+      />
+    );
+  };
+
   // Modify the form component
   return (
     <>
@@ -1865,42 +2043,9 @@ export default function NewGuru({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="githubRepo"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center space-x-2">
-                      <FormLabel>GitHub Repository (optional)</FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Link to the GitHub repository (optional).</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <FormControl>
-                      <Input
-                        placeholder="https://github.com/username/repository"
-                        {...field}
-                        className="w-full"
-                        disabled={
-                          isSourcesProcessing ||
-                          isProcessing ||
-                          form.formState.isSubmitting
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="flex items-center space-x-4">
+                {renderCodebaseIndexing()}
+              </div>
             </div>
             {/* Widget Id List */}
             {customGuru && (
