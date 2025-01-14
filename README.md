@@ -25,7 +25,7 @@
 
 ## What is Gurubase
 
-[Gurubase](https://gurubase.io) is a centralized RAG-based learning and troubleshooting assistant platform. Each "Guru" has its own custom knowledge base (such as the latest documentation, PDFs, YouTube videos, etc.) to generate answers for user queries. It is not a coding assistant like GitHub Copilot or similar tools.
+[Gurubase](https://gurubase.io) is a QA AI platform that can be customized for specific topics. Create a new Guru by uploading webpages, PDFs, videos, or GitHub repositories. Start asking questions directly on Gurubase.io, or embed it as an AI panel on your website to let your users ask questions about your product. It’s already being used by hundreds of open-source repositories.
 
 ## How to Create a Guru
 
