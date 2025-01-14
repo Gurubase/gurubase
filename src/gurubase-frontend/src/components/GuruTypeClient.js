@@ -1,4 +1,5 @@
 "use client";
+import mixpanel from "mixpanel-browser";
 import React, { useEffect, useState } from "react";
 
 import Content from "@/components/Content";
@@ -27,6 +28,12 @@ export default function Home({
 
   useEffect(() => {
     dispatch(setBingeInfo({ treeData: null, bingeOutdated: false }));
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
+      mixpanel.init(process.env.NEXT_PUBLIC_MIXPANEL_TOKEN, { debug: false });
+    }
   }, []);
 
   return (

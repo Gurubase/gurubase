@@ -2356,6 +2356,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@rrweb/types@npm:^2.0.0-alpha.13":
+  version: 2.0.0-alpha.18
+  resolution: "@rrweb/types@npm:2.0.0-alpha.18"
+  checksum: 10c0/a1adb842f59b782e04576a7e88ffc2e43b8b29460555922e6a15f8ffd4840e554e96c1331653b0a322a3a8f25e73a9ae38ff37d3e60f1da71b6f6c0d001a20e7
+  languageName: node
+  linkType: hard
+
 "@rtsao/scc@npm:^1.1.0":
   version: 1.1.0
   resolution: "@rtsao/scc@npm:1.1.0"
@@ -2725,6 +2732,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/css-font-loading-module@npm:0.0.7":
+  version: 0.0.7
+  resolution: "@types/css-font-loading-module@npm:0.0.7"
+  checksum: 10c0/a74759a14bcc7d60a1a1d863b53b7638d4aa7f88f1d97347426262cc6fe8f9335d8fa80c7e0608cd67e33ff0067608e9b5475a1227a684e1dfad3cac87df1405
+  languageName: node
+  linkType: hard
+
 "@types/debug@npm:^4.0.0":
   version: 4.1.12
   resolution: "@types/debug@npm:4.1.12"
@@ -3007,6 +3021,13 @@ __metadata:
   version: 1.2.1
   resolution: "@ungap/structured-clone@npm:1.2.1"
   checksum: 10c0/127afbcc75ff1532f7b1eb85ee992f9faa70e8d5bb2558da05355d423b966fc279d0a485bf19da2883280e7c299ae4170809a72e78eab086da71c6bcdda5d1e2
+  languageName: node
+  linkType: hard
+
+"@xstate/fsm@npm:^1.4.0":
+  version: 1.6.5
+  resolution: "@xstate/fsm@npm:1.6.5"
+  checksum: 10c0/472fe625b84b9e7102b8774e80c441b8b7dbc9585e700223d9c7a39c583d38ba50636909a5d749d44b361555daa841862f932a29c52b81c8829a74884e715bf4
   languageName: node
   linkType: hard
 
@@ -3359,6 +3380,13 @@ __metadata:
   version: 1.0.2
   resolution: "balanced-match@npm:1.0.2"
   checksum: 10c0/9308baf0a7e4838a82bbfd11e01b1cb0f0cf2893bc1676c27c2a8c0e70cbae1c59120c3268517a8ae7fb6376b4639ef81ca22582611dbee4ed28df945134aaee
+  languageName: node
+  linkType: hard
+
+"base64-arraybuffer@npm:^1.0.1":
+  version: 1.0.2
+  resolution: "base64-arraybuffer@npm:1.0.2"
+  checksum: 10c0/3acac95c70f9406e87a41073558ba85b6be9dbffb013a3d2a710e3f2d534d506c911847d5d9be4de458af6362c676de0a5c4c2d7bdf4def502d00b313368e72f
   languageName: node
   linkType: hard
 
@@ -4926,7 +4954,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fflate@npm:^0.4.8":
+"fflate@npm:^0.4.4, fflate@npm:^0.4.8":
   version: 0.4.8
   resolution: "fflate@npm:0.4.8"
   checksum: 10c0/29d1eddaaa5deab61b1c6b0d21282adacadbc4d2c01e94d8b1ee784398151673b9c563e53f97a801bc410a1ae55e8de5378114a743430e643e7a0644ba8e5a42
@@ -6358,6 +6386,7 @@ __metadata:
     isbot: "npm:^5.1.17"
     lint-staged: "npm:^15.3.0"
     lucide-react: "npm:^0.446.0"
+    mixpanel-browser: "npm:^2.58.0"
     monaco-editor: "npm:^0.52.0"
     monaco-editor-webpack-plugin: "npm:^7.1.0"
     next: "npm:14.2.23"
@@ -7347,6 +7376,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"mitt@npm:^3.0.0":
+  version: 3.0.1
+  resolution: "mitt@npm:3.0.1"
+  checksum: 10c0/3ab4fdecf3be8c5255536faa07064d05caa3dd332bd318ff02e04621f7b3069ca1de9106cfe8e7ced675abfc2bec2ce4c4ef321c4a1bb1fb29df8ae090741913
+  languageName: node
+  linkType: hard
+
+"mixpanel-browser@npm:^2.58.0":
+  version: 2.58.0
+  resolution: "mixpanel-browser@npm:2.58.0"
+  dependencies:
+    rrweb: "npm:2.0.0-alpha.13"
+  checksum: 10c0/b8f82ce421736997e35120e1d53000a7d9d9af86f4a7b143b9f71174225848a5253c3256ba18e59f4a3eaf74319853c515f13f2833e366262876c14d826199b2
+  languageName: node
+  linkType: hard
+
 "mkdirp@npm:^3.0.1":
   version: 3.0.1
   resolution: "mkdirp@npm:3.0.1"
@@ -7433,7 +7478,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^3.3.6, nanoid@npm:^3.3.7":
+"nanoid@npm:^3.3.6, nanoid@npm:^3.3.7, nanoid@npm:^3.3.8":
   version: 3.3.8
   resolution: "nanoid@npm:3.3.8"
   bin:
@@ -8208,6 +8253,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"postcss@npm:^8.4.38":
+  version: 8.5.1
+  resolution: "postcss@npm:8.5.1"
+  dependencies:
+    nanoid: "npm:^3.3.8"
+    picocolors: "npm:^1.1.1"
+    source-map-js: "npm:^1.2.1"
+  checksum: 10c0/c4d90c59c98e8a0c102b77d3f4cac190f883b42d63dc60e2f3ed840f16197c0c8e25a4327d2e9a847b45a985612317dc0534178feeebd0a1cf3eb0eecf75cae4
+  languageName: node
+  linkType: hard
+
 "postgres-array@npm:~2.0.0":
   version: 2.0.0
   resolution: "postgres-array@npm:2.0.0"
@@ -8902,6 +8958,40 @@ __metadata:
   bin:
     rollup: dist/bin/rollup
   checksum: 10c0/a1fa26f21f0d6cf93b6d05ea284ad5854905b585f28a14c27d439b0f9b859cba13ea25f376303d86770e59b4686bedc52b4706e57442514f0414c6fd3c5b8e71
+  languageName: node
+  linkType: hard
+
+"rrdom@npm:^2.0.0-alpha.13":
+  version: 2.0.0-alpha.18
+  resolution: "rrdom@npm:2.0.0-alpha.18"
+  dependencies:
+    rrweb-snapshot: "npm:^2.0.0-alpha.18"
+  checksum: 10c0/13770f81a475eff96d50bb74d313965a4e3d5b904b9a27dc43cb33fb92dac040fa5acd602db3a20de5366997a4cf3f55c635a5359e58bd26187ef074c0704fe5
+  languageName: node
+  linkType: hard
+
+"rrweb-snapshot@npm:^2.0.0-alpha.13, rrweb-snapshot@npm:^2.0.0-alpha.18":
+  version: 2.0.0-alpha.18
+  resolution: "rrweb-snapshot@npm:2.0.0-alpha.18"
+  dependencies:
+    postcss: "npm:^8.4.38"
+  checksum: 10c0/296996f50f8a9c5f5dad2f92cea8fcc670bf364e094db48592919cab8987cdc19ce2e7b9b20653c63160f924e733a213329e87ff092353d4a5364c0a3a66405c
+  languageName: node
+  linkType: hard
+
+"rrweb@npm:2.0.0-alpha.13":
+  version: 2.0.0-alpha.13
+  resolution: "rrweb@npm:2.0.0-alpha.13"
+  dependencies:
+    "@rrweb/types": "npm:^2.0.0-alpha.13"
+    "@types/css-font-loading-module": "npm:0.0.7"
+    "@xstate/fsm": "npm:^1.4.0"
+    base64-arraybuffer: "npm:^1.0.1"
+    fflate: "npm:^0.4.4"
+    mitt: "npm:^3.0.0"
+    rrdom: "npm:^2.0.0-alpha.13"
+    rrweb-snapshot: "npm:^2.0.0-alpha.13"
+  checksum: 10c0/03961aa37f9f0913a8e7a160677a46a57f53b981c0f027b12811154130e31eb3db04c50ac3404ebd2c2fe8b51762cd2dadcffa9ec3edfe4ca5157c3b8532e828
   languageName: node
   linkType: hard
 

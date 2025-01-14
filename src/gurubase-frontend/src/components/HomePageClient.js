@@ -16,6 +16,12 @@ export default function HomePageClient({ allGuruTypes }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
+      mixpanel.init(process.env.NEXT_PUBLIC_MIXPANEL_TOKEN, { debug: false });
+    }
+  }, []);
+
   return (
     <div
       className={`${
