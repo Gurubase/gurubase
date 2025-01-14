@@ -294,7 +294,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </td>
 
   <td  align="center">
-    <i>100+ more</i>
+    <b><i>100+ more</i></b>
   </td>
 </tr>
 </table>
