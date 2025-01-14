@@ -83,14 +83,67 @@ We prefer Discord for written communication. [Join our channel!](https://discord
 Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are some repositories that showcase their Gurus in their READMEs or documentation.
 
 <table>
+
 <tr>
+
+  <td align="center">
+    <a href="https://github.com/LizardByte/Sunshine/">
+      <img src="https://raw.githubusercontent.com/LizardByte/Sunshine/master/sunshine.png" width="40" height="40">
+      <br>
+      <b>Sunshine</b>
+      <br>
+      <b>21.7K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/teableio/teable">
+      <img src="https://avatars.githubusercontent.com/u/113977713?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Teable</b>
+      <br>
+      <b>15K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/albumentations-team/albumentations">
+      <img src="https://avatars.githubusercontent.com/u/57894582?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Albumentations</b>
+      <br>
+      <b>14.5K ★</b>
+    </a>
+  </td>
+
+
   <td align="center">
     <a href="https://github.com/openimsdk/open-im-server">
       <img src="https://avatars.githubusercontent.com/u/84842645?s=48&v=4" width="40" height="40">
       <br>
       <b>Open IM</b>
       <br>
-      14.1K ★
+      <b>14.3K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/sandboxie-plus/Sandboxie">
+      <img src="https://avatars.githubusercontent.com/u/63755826?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Sandboxie</b>
+      <br>
+      <b>14.2K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/quarkusio/quarkus">
+      <img src="https://avatars.githubusercontent.com/u/47638783?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Quarkus</b>
+      <br>
+      <b>14K ★</b>
     </a>
   </td>
 
@@ -100,9 +153,13 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Navidrome</b>
       <br>
-      12.3K ★
+      <b>12.9K ★</b>
     </a>
   </td>
+
+</tr>
+
+<tr>
 
   <td  align="center">
     <a href="https://github.com/vanna-ai/vanna">
@@ -110,7 +167,17 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Vanna</b>
       <br>
-      12K ★
+      <b>12.6K ★</b>
+    </a>
+  </td>
+
+  <td  align="center">
+    <a href="https://github.com/tamagui/tamagui">
+      <img src="https://avatars.githubusercontent.com/u/94025540?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Tamagui</b>
+      <br>
+      <b>11.9K ★</b>
     </a>
   </td>
 
@@ -120,18 +187,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Carla</b>
       <br>
-      11.6K ★
-    </a>
-  </td>
-
-
-  <td align="center">
-    <a href="https://github.com/cesanta/mongoose">
-      <img src="https://avatars.githubusercontent.com/u/5111322?s=48&v=4" width="40" height="40">
-      <br>
-      <b>Mongoose</b>
-      <br>
-      11.2K ★
+      <b>11.9K ★</b>
     </a>
   </td>
 
@@ -141,7 +197,27 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Duplicati</b>
       <br>
-      11.2K ★
+      <b>11.5K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/cesanta/mongoose">
+      <img src="https://avatars.githubusercontent.com/u/5111322?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Mongoose</b>
+      <br>
+      <b>11.3K ★</b>
+    </a>
+  </td>
+
+  <td  align="center">
+    <a href="https://github.com/assimp/assimp">
+      <img src="https://avatars.githubusercontent.com/u/265533?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Assimp</b>
+      <br>
+      <b>11.2K ★</b>
     </a>
   </td>
 
@@ -151,7 +227,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>WatermelonDB</b>
       <br>
-      10.6K ★
+      <b>10.7K ★</b>
     </a>
   </td>
 </tr>
@@ -163,17 +239,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Gorse</b>
       <br>
-      8.6K ★
-    </a>
-  </td>
-
-  <td align="center">
-    <a href="https://github.com/nhost/nhost">
-      <img src="https://avatars.githubusercontent.com/u/48448799?s=48&v=4" width="40" height="40">
-      <br>
-      <b>Nhost</b>
-      <br>
-      8K ★
+      <b>8.7K ★</b>
     </a>
   </td>
 
@@ -183,7 +249,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>SQLFluff</b>
       <br>
-      8K ★
+      <b>8.4K ★</b>
     </a>
   </td>
 
@@ -193,7 +259,17 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>Databend</b>
       <br>
-      7.6K ★
+      <b>8.1K ★</b>
+    </a>
+  </td>
+
+  <td align="center">
+    <a href="https://github.com/nhost/nhost">
+      <img src="https://avatars.githubusercontent.com/u/48448799?s=48&v=4" width="40" height="40">
+      <br>
+      <b>Nhost</b>
+      <br>
+      <b>8K ★</b>
     </a>
   </td>
 
@@ -203,7 +279,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>ast-grep(sg)</b>
       <br>
-      7.6K ★
+      <b>7.9K ★</b>
     </a>
   </td>
 
@@ -213,7 +289,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
       <br>
       <b>DoWhy</b>
       <br>
-      7.2K ★
+      <b>7.2K ★</b>
     </a>
   </td>
 
