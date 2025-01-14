@@ -12,7 +12,7 @@
 Run this command to install Gurubase:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
+curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
 bash gurubase.sh
 ```
 
@@ -27,7 +27,7 @@ The installer will:
 You can upgrade to the latest version by running the following command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
 bash gurubase.sh upgrade
 ```
 
@@ -36,14 +36,14 @@ bash gurubase.sh upgrade
 You can remove Gurubase by running the following command. This will remove the containers and networks but keep the data files.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
 bash gurubase.sh rm
 ```
 
 > [!CAUTION]
 > To remove everything including all data (volumes), you can run the following command:
 > ```bash
-> cd $HOME/.gurubase && docker compose down --volumes
+> cd ~/.gurubase && docker compose down --volumes
 > ```
 
 ### System Requirements
