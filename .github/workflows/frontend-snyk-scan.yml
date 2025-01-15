@@ -1,4 +1,4 @@
-name: Snyk Security Scan
+name: Frontend Snyk Security Scan
 
 on:
   push:
