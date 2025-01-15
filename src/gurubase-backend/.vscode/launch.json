@@ -1,0 +1,79 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+        },
+        {
+            "name": "Django Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/manage.py",
+            "args": [
+                "runserver",
+                "0:8018"
+            ],
+            "django": true,
+            "justMyCode": false,
+        },
+        {
+            "name": "Django Test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/manage.py",
+            "args": [
+                "test",
+                "core.tests" // app name
+            ],
+            "django": true,
+            "justMyCode": false,
+        },
+        {
+            "name": "Celery",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/backend",
+            "module": "celery",
+            "console": "integratedTerminal",
+            "args": [
+                "-A",
+                "backend",
+                "worker",
+                "--concurrency", 
+                "1",
+                "-l",
+                "info",
+                "--purge",
+                "-P",
+                "solo",
+            ],
+            "justMyCode": false,
+        },
+        {
+            "name": "Celery Beat",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/backend",
+            "module": "celery",
+            "console": "integratedTerminal",
+            "args": [
+                "--app",
+                "backend",
+                "beat",
+                "--pidfile=",
+                "--loglevel=info",
+                "--scheduler",
+                "django_celery_beat.schedulers:DatabaseScheduler",
+            ],
+            "justMyCode": false,
+        }
+    ]
+}

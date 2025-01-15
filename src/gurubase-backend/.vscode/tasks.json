@@ -1,0 +1,323 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "shell_plus",
+            "type": "shell",
+            "command": "python manage.py shell_plus --print-sql",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {}
+        },
+        {
+            "label": "unittest",
+            "type": "shell",
+            "command": "python manage.py test",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {}
+        },
+        {
+            "label": "coverage",
+            "type": "shell",
+            "command": "coverage run --source='.' manage.py test && coverage report && coverage html",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {}
+        },
+        {
+            "label": "migrate_runserver",
+            "type": "shell",
+            "command": "./migrate_runserver.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {}
+        },
+        {
+            "label": "celery_worker_1",
+            "type": "shell",
+            "command": "celery --app backend worker --purge --loglevel=info --hostname worker1@%h",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "group": "celery_workers"
+            }
+        },
+        {
+            "label": "celery_worker_2",
+            "type": "shell",
+            "command": "celery --app backend worker --purge --loglevel=info --hostname worker2@%h",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "group": "celery_workers"
+            }
+        },
+        {
+            "label": "celery_beat",
+            "type": "shell",
+            "command": "celery --app backend beat --pidfile= --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery_Workers",
+            "dependsOn": [
+                "celery_worker_1",
+                "celery_worker_2"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery_Beat_2_Workers",
+            "dependsOn": [
+                "celery_worker_1",
+                "celery_worker_2",
+                "celery_beat"
+            ],
+            "dependsOrder": "parallel",
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery_Beat_1_Worker",
+            "dependsOn": [
+                "celery_worker_1",
+                "celery_beat"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Populate alaz requests",
+            "type": "shell",
+            "command": "python manage.py populate_alaz_requests ${input:edges} ${input:req_per_edge} ${input:monitoring_id}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Populate alaz resources",
+            "type": "shell",
+            "command": "python manage.py populate_mock_resources ${input:count} ${input:monitoring_id}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Clear alaz requests",
+            "type": "shell",
+            "command": "python manage.py clear_alaz_requests ${input:monitoring_id}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Create dummy containers",
+            "type": "shell",
+            "command": "python manage.py create_dummy_containers ${input:name} ${input:pod} ${input:cluster_uid} ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Get asked resources",
+            "type": "shell",
+            "command": "python manage.py get_asked_resources ${input:type} ${input:cluster_uid} ${input:update_count} ${input:create_count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate request payload in line protocol for influxdb",
+            "type": "shell",
+            "command": "python manage.py generate_alaz_request_payload_for_influxdb ${input:start_timestamp_ms} ${input:end_timestamp_ms} ${input:monitoring_id} ${input:file_name}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate dist_tracing resources",
+            "type": "shell",
+            "command": "python manage.py populate_dist_tracing ${input:traffic_count} ${input:span_count} ${input:trace_count} ${input:monitoring_id}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate random users",
+            "type": "shell",
+            "command": "python manage.py generate_random_users ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate random clusters",
+            "type": "shell",
+            "command": "python manage.py generate_random_clusters ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate cluster created events",
+            "type": "shell",
+            "command": "python manage.py generate_cluster_created ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate test created events",
+            "type": "shell",
+            "command": "python manage.py generate_test_created ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        },
+        {
+            "label": "Generate user logged in events",
+            "type": "shell",
+            "command": "python manage.py generate_user_logged_in ${input:count}",
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "problemMatcher": [
+                "$eslint-compact"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "count",
+            "type": "promptString",
+            "description": "Number of resources",
+            "default": "50"
+        },
+        {
+            "id": "update_count",
+            "type": "promptString",
+            "description": "Number of resources to update",
+            "default": "50"
+        },
+        {
+            "id": "create_count",
+            "type": "promptString",
+            "description": "Number of resources to create",
+            "default": "50"
+        },
+        {
+            "id": "edges",
+            "type": "promptString",
+            "description": "Number of edges to populate",
+            "default": "50"
+        },
+        {
+            "id": "req_per_edge",
+            "type": "promptString",
+            "description": "Number of requests per edge",
+            "default": "20"
+        },
+        {
+            "id": "monitoring_id",
+            "type": "promptString",
+            "description": "Monitoring id"
+        },
+        {
+            "id": "cluster_uid",
+            "type": "promptString",
+            "description": "Cluster uid"
+        },
+        {
+            "id": "name",
+            "type": "promptString",
+            "description": "Name of the resource",
+        },
+        {
+            "id": "pod",
+            "type": "promptString",
+            "description": "Pod uid",
+        },
+        {
+            "id": "type",
+            "type": "promptString",
+            "description": "Type of the resource",
+        },
+        {
+            "id": "start_timestamp_ms",
+            "type": "promptString",
+            "description": "Start timestamp in milliseconds",
+        },
+        {
+            "id": "end_timestamp_ms",
+            "type": "promptString",
+            "description": "End timestamp in milliseconds",
+        },
+        {
+            "id": "file_name",
+            "type": "promptString",
+            "description": "File name",
+        },
+        {
+            "id": "traffic_count",
+            "type": "promptString",
+            "description": "Traffic count",
+        },
+        {
+            "id": "span_count",
+            "type": "promptString",
+            "description": "Span count",
+        },
+        {
+            "id": "trace_count",
+            "type": "promptString",
+            "description": "Trace count",
+        }
+    ]
+}

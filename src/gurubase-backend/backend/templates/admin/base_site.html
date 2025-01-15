@@ -1,0 +1,33 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% if is_production %}
+<style>
+    #header {
+        background-color: #ff4136;
+        color: white;
+    }
+    #header a:link, #header a:visited {
+        color: white;
+    }
+    #user-tools {
+        color: white;
+    }
+    /* Add more custom styles as needed */
+</style>
+{% endif %}
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        {% if is_production %}
+        PRODUCTION ⚠️ ⚠️ ⚠️ - {{ site_header|default:_('Django administration') }}
+        {% else %}
+        {{ site_header|default:_('Django administration') }}
+        {% endif %}
+    </a>
+</h1>
+{% endblock %}
