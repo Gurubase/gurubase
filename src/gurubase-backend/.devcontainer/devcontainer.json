@@ -4,7 +4,7 @@
 	"dockerFile": "../Dockerfile.dev",
 	"runArgs": [
 		"--name",
-		"kubernetesguru-backend",
+		"gurubase-backend-dev",
 		"-v",
 		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
 		"--ipc",
@@ -13,7 +13,7 @@
 		// "gurubase-dc",
 		"anteon",
 		"--hostname",
-		"kubernetesguru-backend",
+		"gurubase-backend-dev",
 		"--env-file",
 		"envs/dev.env",
 		"-p",

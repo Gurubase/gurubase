@@ -3,7 +3,7 @@ import os
 import sys
 
 import django
-sys.path.append('/workspaces/kubernetesguru-backend/backend')
+sys.path.append('/workspaces/gurubase/src/gurubase-backend/backend')
 sys.path.append('/workspaces/gurubase-backend/backend')
 sys.path.append('/workspace/backend')
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")

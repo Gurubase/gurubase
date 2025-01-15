@@ -15,7 +15,6 @@ from core.requester import GuruRequester, OpenAIRequester
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
 from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, generate_similar_questions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache
-from core.stackoverflow_utils import get_most_popular_questions
 from django.conf import settings
 import time
 import re
@@ -203,71 +202,6 @@ def find_duplicate_question_titles():
         if questions_with_same_title.exists():
             logger.fatal(f"Question has duplicate title: {question.question}. ID: {question.id}")
     logger.info('Found duplicate question titles')
-
-@shared_task
-def generate_raw_questions(guru_type, sort, page_num, page_size, generate_count, model):
-    logger.info(f'Generating raw questions for {guru_type} with {model}')
-    try:
-        validate_guru_type(guru_type)
-    except Exception:
-        logger.error(f"Invalid guru type: {guru_type}")
-        return
-
-    valid_sorts = ['activity', 'votes', 'creation', 'hot', 'week', 'month']
-
-    if sort not in valid_sorts:
-        logger.error(f"Invalid sort: {sort}. Valid values are: {valid_sorts}")
-        return
-    
-    if page_num <= 0:
-        logger.error(f"Invalid page number: {page_num}")
-        return
-
-    valid_models = ['claude', 'chatgpt', 'gemini']
-    if model not in valid_models:
-        logger.error(f"Invalid model: {model}. Valid values are: {valid_models}")
-        return
-    
-    guru_type_object = get_guru_type_object(guru_type)
-
-    # last week
-    from_date = int((datetime.now() - relativedelta(weeks=1)).timestamp())
-    to_date = int((datetime.now()).timestamp())
-    popular_questions = get_most_popular_questions(guru_type, sort, page_num, page_size, from_date, to_date)
-
-    raw_question_generation = RawQuestionGeneration.objects.create(guru_type=guru_type_object, sort=sort, page_num=page_num, page_size=page_size, generate_count=0, model=model)
-    total_completion_tokens = 0
-    total_prompt_tokens = 0
-    total_cached_prompt_tokens = 0
-    while generate_count > 0:
-        try:
-            similar_questions, completion_tokens, prompt_tokens, cached_prompt_tokens, prompts = generate_similar_questions(model, guru_type, popular_questions, generate_count)
-            total_completion_tokens += completion_tokens
-            total_prompt_tokens += prompt_tokens
-            total_cached_prompt_tokens += cached_prompt_tokens
-            raw_question_generation.prompts.extend(prompts)
-        except Exception as e:
-            logger.error(f"Error while generating similar questions: {traceback.format_exc()}")
-            return
-        
-        c = 0
-        for category, questions in similar_questions.items():
-            for q in questions:
-                RawQuestion.objects.create(
-                    question=q,
-                    category=category,
-                    guru_type=guru_type_object,
-                    raw_question_generation=raw_question_generation,
-                )
-                c += 1 
-
-        raw_question_generation.generate_count += c 
-        generate_count -= c
-
-    cost_dollars = get_llm_usage(model, total_prompt_tokens, total_completion_tokens, total_cached_prompt_tokens)
-    raw_question_generation.cost_dollars = cost_dollars
-    raw_question_generation.save()
-    logger.info(f'generate_raw_questions for {guru_type} with {model} successfully completed, RawQuestionGeneration id:{raw_question_generation.id}')
 
 
 @shared_task
