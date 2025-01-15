@@ -9,8 +9,34 @@ from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoE
 logger = logging.getLogger(__name__)
 
 non_code_extensions = {
-    # Documentation
-    '.md', '.rst', '.txt', '.pdf', '.doc', '.docx',
+    # Documentation and Text Files
+    '.md', '.mdx', '.rst', '.txt', '.pdf', '.doc', '.docx',
+    '.rtf', '.odt', '.pages', '.epub', '.mobi', '.chm',
+    '.tex', '.aux', '.log', '.bib', '.pptx', '.xlsx', '.xls',
+    '.numbers', '.key', '.odp', '.ods',
+
+    # Media Files
+    '.jpg', '.jpeg', '.png', '.gif', '.svg', '.ico', '.bmp', 
+    '.tiff', '.webp', '.heic', '.raw', '.psd', '.ai', '.sketch',
+    '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac',
+    '.mp4', '.mov', '.avi', '.wmv', '.flv', '.webm', '.mkv',
+    '.m4v', '.3gp',
+
+    # Archive and Compressed Files
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
+    '.iso', '.dmg',
+
+    # Database Files
+    '.db', '.sqlite', '.sqlite3', '.mdb', '.accdb', '.sql',
+    '.bak', '.dump',
+
+    # Font Files
+    '.ttf', '.woff', '.woff2', '.eot', '.otf',
+
+    # Cache and Temporary Files
+    '.cache', '.tmp', '.temp', '.swp', '.DS_Store',
+    '.Thumbs.db', '.desktop.ini',
+
     # Data files
     '.json', '.yaml', '.yml', '.xml', '.csv', '.tsv',
     # Config files
@@ -19,13 +45,28 @@ non_code_extensions = {
     '.lock', '.sum',
     # Images
     '.jpg', '.jpeg', '.png', '.gif', '.svg', '.ico',
-    # Other assets
-    '.ttf', '.woff', '.woff2', '.eot',
-    # Package files
-    'package.json', 'package-lock.json', 'composer.json',
-    'requirements.txt', 'Pipfile', 'Pipfile.lock',
+
     # Git files
     '.gitignore', '.gitattributes',
+
+    # Package lock files (excluding manifest files)
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'Pipfile.lock',
+    'poetry.lock',
+    'Gemfile.lock',
+    'cargo.lock',
+    'gradle.lock',
+    'mix.lock',
+    'go.sum',
+    'paket.lock',
+    'composer.lock',
+    'sbt.lock',
+    'pubspec.lock',
+    'Package.resolved',
+    'renv.lock',
+    'deno.lock',
 }
 
 def extract_repo_name(repo_url):
