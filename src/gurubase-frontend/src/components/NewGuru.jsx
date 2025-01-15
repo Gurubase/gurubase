@@ -1714,6 +1714,7 @@ export default function NewGuru({
 
   // Only show GitHub-related UI and logic if index_repo is true
   const renderCodebaseIndexing = () => {
+    if (!index_repo && isEditMode) return null;
     // Find GitHub repository source and its error if it exists
     const githubSource = dataSources?.results?.find(
       (source) => source.url === customGuruData?.github_repo
@@ -1777,7 +1778,7 @@ export default function NewGuru({
               </FormControl>
               {field.value &&
                 field.value === customGuruData?.github_repo &&
-                githubRepoStatus && (
+                githubRepoStatus && index_repo && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
                     {(() => {
                       let badgeProps = {
