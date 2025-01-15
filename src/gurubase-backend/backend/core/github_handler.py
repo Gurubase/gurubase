@@ -8,65 +8,106 @@ from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoE
 
 logger = logging.getLogger(__name__)
 
-non_code_extensions = {
-    # Documentation and Text Files
-    '.md', '.mdx', '.rst', '.txt', '.pdf', '.doc', '.docx',
-    '.rtf', '.odt', '.pages', '.epub', '.mobi', '.chm',
-    '.tex', '.aux', '.log', '.bib', '.pptx', '.xlsx', '.xls',
-    '.numbers', '.key', '.odp', '.ods',
+code_file_extensions = {
+    # General purpose languages
+    '.py', '.pyi', '.pyx',  # Python
+    '.js', '.jsx', '.mjs',  # JavaScript
+    '.ts', '.tsx',          # TypeScript
+    '.rb', '.rake', '.erb', # Ruby
+    '.php',                 # PHP
+    '.java',                # Java
+    '.scala',               # Scala
+    '.kt', '.kts',          # Kotlin
+    '.go', '.mod',          # Go
+    '.rs',                  # Rust
+    '.cpp', '.cc', '.cxx',  # C++
+    '.hpp', '.hh', '.hxx',  
+    '.c', '.h',            # C
+    '.cs',                  # C#
+    '.fs', '.fsx',         # F#
+    '.swift',              # Swift
+    '.m', '.mm',           # Objective-C
+    
+    # Web technologies
+    '.html', '.htm',       # HTML
+    '.css', '.scss', '.sass', '.less',  # Stylesheets
+    '.vue', '.svelte',     # Web frameworks
+    
+    # Shell and scripting
+    '.sh', '.bash', '.zsh',  # Shell scripts
+    '.ps1', '.psm1', '.psd1',  # PowerShell
+    '.pl', '.pm',          # Perl
+    '.lua',                # Lua
+    
+    # Functional languages
+    '.hs', '.lhs',         # Haskell
+    '.ex', '.exs',         # Elixir
+    '.erl', '.hrl',        # Erlang
+    '.clj', '.cljs',       # Clojure
+    
+    # Other languages
+    '.r', '.R',            # R
+    '.dart',               # Dart
+    '.groovy',             # Groovy
+    '.ml', '.mli',         # OCaml
+    '.sol',                # Solidity
+    '.cob', '.cbl',        # COBOL
+    '.proto',              # Protocol Buffers
+}
 
-    # Media Files
-    '.jpg', '.jpeg', '.png', '.gif', '.svg', '.ico', '.bmp', 
-    '.tiff', '.webp', '.heic', '.raw', '.psd', '.ai', '.sketch',
-    '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac',
-    '.mp4', '.mov', '.avi', '.wmv', '.flv', '.webm', '.mkv',
-    '.m4v', '.3gp',
-
-    # Archive and Compressed Files
-    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
-    '.iso', '.dmg',
-
-    # Database Files
-    '.db', '.sqlite', '.sqlite3', '.mdb', '.accdb', '.sql',
-    '.bak', '.dump',
-
-    # Font Files
-    '.ttf', '.woff', '.woff2', '.eot', '.otf',
-
-    # Cache and Temporary Files
-    '.cache', '.tmp', '.temp', '.swp', '.DS_Store',
-    '.Thumbs.db', '.desktop.ini',
-
-    # Data files
-    '.json', '.yaml', '.yml', '.xml', '.csv', '.tsv',
-    # Config files
-    '.env', '.ini', '.cfg', '.conf', '.config',
-    # Lock files
-    '.lock', '.sum',
-    # Images
-    '.jpg', '.jpeg', '.png', '.gif', '.svg', '.ico',
-
-    # Git files
-    '.gitignore', '.gitattributes',
-
-    # Package lock files (excluding manifest files)
-    'package-lock.json',
-    'yarn.lock',
-    'pnpm-lock.yaml',
-    'Pipfile.lock',
-    'poetry.lock',
-    'Gemfile.lock',
-    'cargo.lock',
-    'gradle.lock',
-    'mix.lock',
-    'go.sum',
-    'paket.lock',
-    'composer.lock',
-    'sbt.lock',
-    'pubspec.lock',
-    'Package.resolved',
-    'renv.lock',
-    'deno.lock',
+package_manifest_files = {
+    # Python
+    'requirements.txt',
+    'setup.py',
+    'pyproject.toml',
+    'Pipfile',
+    'poetry.toml',
+    
+    # JavaScript/TypeScript
+    'package.json',
+    'bower.json',
+    
+    # Ruby
+    'Gemfile',
+    
+    # Java/Kotlin
+    'pom.xml',
+    'build.gradle',
+    'build.gradle.kts',
+    
+    # Go
+    'go.mod',
+    
+    # Rust
+    'Cargo.toml',
+    
+    # PHP
+    'composer.json',
+    
+    # .NET/C#
+    '*.csproj',
+    '*.fsproj',
+    'packages.config',
+    
+    # Swift
+    'Package.swift',
+    
+    # Scala
+    'build.sbt',
+    
+    # Haskell
+    'package.yaml',
+    'cabal.project',
+    
+    # Elixir
+    'mix.exs',
+    
+    # R
+    'DESCRIPTION',
+    
+    # Perl
+    'cpanfile',
+    'Makefile.PL',
 }
 
 def extract_repo_name(repo_url):
@@ -142,24 +183,22 @@ def read_repository(repo_path):
         
         # Add files at current level
         for file in sorted(files):
-            # Skip non-code files and common file types that aren't code
-            
-            if file.lower().endswith(tuple(non_code_extensions)):
-                continue
-                
             file_path = os.path.join(root, file)
             relative_path = os.path.relpath(file_path, repo_path)
             
-            # Skip files larger than 10MB
-            if os.path.getsize(file_path) > 1024 * 1024 * 10:
-                continue
-            
-            content = get_file_content(file_path)
-            structure.append({
-                'path': relative_path,
-                'content': content,
-                'size': os.path.getsize(file_path)
-            })
+            # Process only if it's a code file or package manifest
+            _, ext = os.path.splitext(file.lower())
+            if ext in code_file_extensions or file in package_manifest_files:
+                # Skip files larger than 10MB
+                if os.path.getsize(file_path) > 1024 * 1024 * 10:
+                    continue
+                
+                content = get_file_content(file_path)
+                structure.append({
+                    'path': relative_path,
+                    'content': content,
+                    'size': os.path.getsize(file_path)
+                })
 
     logger.info(f"Repository structure and contents read")
     return structure
