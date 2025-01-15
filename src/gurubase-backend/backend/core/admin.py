@@ -24,8 +24,28 @@ from core.models import (APIKey,
                          )
 from django.utils.html import format_html
 import logging
+from django.contrib.admin import SimpleListFilter
 
 logger = logging.getLogger(__name__)
+
+class RepositoryFilter(SimpleListFilter):
+    title = 'Repository'  # Display name of the filter
+    parameter_name = 'repository'  # URL parameter name
+
+    def lookups(self, request, model_admin):
+        # Get unique repositories from all GithubFile objects
+        repositories = set()
+        for obj in model_admin.model.objects.all():
+            if obj.link:
+                parts = obj.link.split('/')
+                if len(parts) >= 5:
+                    repositories.add((f"{parts[3]}/{parts[4]}", f"{parts[3]}/{parts[4]}"))
+        return sorted(repositories)
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(link__contains=self.value())
+        return queryset
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
@@ -392,8 +412,8 @@ class WidgetIdAdmin(admin.ModelAdmin):
 
 @admin.register(GithubFile)
 class GitHubFileAdmin(admin.ModelAdmin):
-    list_display = ['id', 'repository_link', 'link_to_file', 'size', 'in_milvus', 'doc_ids', ]
-    list_filter = ('in_milvus', )
+    list_display = ['id', 'repository_link', 'link_to_file', 'size', 'in_milvus', 'doc_ids']
+    list_filter = ('in_milvus', RepositoryFilter)
     search_fields = ['id', 'path']
     ordering = ('-id',)
 

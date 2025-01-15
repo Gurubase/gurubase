@@ -7,9 +7,17 @@ from django.conf.urls import include
 
 from django.conf.urls.static import static
 
+urlpatterns = []
+if settings.ENV == 'production':
+    urlpatterns += [
+        path('admin_vbaujyrk9p8ysb07/', admin.site.urls),
+    ]
+else:
+    urlpatterns += [
+        path('admin/', admin.site.urls),
+    ]
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
+urlpatterns += [
     path('accounts/', include('accounts.urls')),
     re_path(r'(?P<guru_type>[\w-]+)/question/(?P<slug>[\w-]+)/?$', core_views.question_detail, name="question_detail"),
     
