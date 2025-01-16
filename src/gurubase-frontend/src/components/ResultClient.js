@@ -41,8 +41,6 @@ export const ResultClient = ({
   references,
   similarQuestions,
   allGuruTypes,
-  onExampleQuestionsUpdate,
-  exampleQuestions,
   dirty,
   dateUpdated,
   trustScore
@@ -412,7 +410,6 @@ export const ResultClient = ({
         dateUpdated={dateUpdated}
         description={description}
         guruType={guruType}
-        initialExampleQuestions={exampleQuestions}
         isHelpful={isHelpful}
         passedBingeId={passedBingeId}
         question={question}
@@ -425,7 +422,6 @@ export const ResultClient = ({
         slug={finalSlug}
         triggerStreamUpdate={triggerStreamUpdate}
         trustScore={trustScore}
-        onExampleQuestionsUpdate={onExampleQuestionsUpdate}
       />
       <Footer guruType={guruType} slug={finalSlug} />
       <LoginModal

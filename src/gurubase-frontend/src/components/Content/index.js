@@ -53,7 +53,6 @@ const Content = (props) => {
     setQuestion,
     setDescription,
     passedBingeId,
-    initialExampleQuestions,
     setShowLoginModal
   } = props;
 
@@ -61,9 +60,7 @@ const Content = (props) => {
     (state) => state.mainForm.currentQuestionSlug
   );
 
-  const [exampleQuestions, setExampleQuestions] = useState(
-    initialExampleQuestions
-  );
+  const [exampleQuestions, setExampleQuestions] = useState([]);
 
   const reduxFollowUpQuestions = useAppSelector(
     (state) => state.mainForm.followUpQuestions
