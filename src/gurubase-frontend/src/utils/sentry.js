@@ -11,6 +11,6 @@ export const reportErrorToSentry = async (error, context) => {
       }
     });
   } catch (error) {
-    console.error("[Sentry] Failed to report error:", error);
+    // console.error("[Sentry] Failed to report error:", error);
   }
 };
