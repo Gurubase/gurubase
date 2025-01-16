@@ -9,7 +9,30 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      working-directory: src/gurubase-backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Django tests
+      working-directory: src/gurubase-backend
+      run: |
+        python manage.py test core.tests
+
   build:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
