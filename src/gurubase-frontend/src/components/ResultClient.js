@@ -3,7 +3,7 @@
 import { notFound, redirect, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { getDataForSlugDetails } from "@/app/actions";
+import { getDataForSlugDetails, getExampleQuestions } from "@/app/actions";
 import Content from "@/components/Content";
 import { handleSubmitQuestion } from "@/components/Content/MainForm";
 import Footer from "@/components/Footer";
@@ -16,6 +16,7 @@ import {
   setBingeId,
   setContextError,
   setCurrentQuestionSlug,
+  setFollowUpQuestions,
   setHasFetched,
   setInputQuery,
   setIsLoading,
@@ -301,8 +302,14 @@ export const ResultClient = ({
               followUpQuestions
             });
 
-            // const generatedFollowUpQuestions = await getExampleQuestions(guruType, passedBingeId || bingeId, currentQuestionSlug, question);
-            // dispatch(setFollowUpQuestions(generatedFollowUpQuestions));
+            const generatedFollowUpQuestions = await getExampleQuestions(
+              guruType,
+              passedBingeId || bingeId,
+              currentQuestionSlug,
+              question
+            );
+
+            dispatch(setFollowUpQuestions(generatedFollowUpQuestions));
 
             break;
           }

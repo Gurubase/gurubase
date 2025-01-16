@@ -23,11 +23,14 @@ import {
   setInputQuery,
   setInputValue,
   setIsBingeMapOpen,
-  setResetMainForm
+  setResetMainForm,
+  setFollowUpQuestions
 } from "@/redux/slices/mainFormSlice";
 
 import OtherGurus from "../OtherGurus";
 import SimilarQuestions from "../SimilarQuestions";
+import ExampleQuestions from "../FollowUpQuestions";
+import { getExampleQuestions } from "@/app/actions";
 
 const MainForm = dynamic(() => import("@/components/Content/MainForm"));
 
@@ -81,18 +84,18 @@ const Content = (props) => {
       ? reduxBingeId || passedBingeId // JavaScript açıkken Redux veya props
       : passedBingeId; // JavaScript kapalıyken direkt props
 
-  // useEffect(() => {
-  //   const fetchExampleQuestions = async () => {
-  //     const followUpQuestions = await getExampleQuestions(
-  //       guruType,
-  //       finalBingeId,
-  //       currentQuestionSlug,
-  //       questionText
-  //     );
-  //     dispatch(setFollowUpQuestions(followUpQuestions));
-  //   };
-  //   fetchExampleQuestions();
-  // }, [currentQuestionSlug, finalBingeId, guruType, questionText]);
+  useEffect(() => {
+    const fetchExampleQuestions = async () => {
+      const followUpQuestions = await getExampleQuestions(
+        guruType,
+        finalBingeId,
+        currentQuestionSlug,
+        questionText
+      );
+      dispatch(setFollowUpQuestions(followUpQuestions));
+    };
+    fetchExampleQuestions();
+  }, [currentQuestionSlug, finalBingeId, guruType, questionText]);
 
   const [typesenseLoading, setTypesenseLoading] = useState(false);
   const [contentWrapperWidth, setContentWrapperWidth] = useState("1180px");
@@ -572,10 +575,10 @@ const Content = (props) => {
                   id="bottom-search-container">
                   <div className="w-full p-6 pb-8">
                     {/* Example Questions */}
-                    {/* <ExampleQuestions 
+                    <ExampleQuestions 
                       questions={exampleQuestions} 
                       onQuestionClick={handleExampleQuestionClick} 
-                      /> */}
+                      />
 
                     {/* Search Bar */}
 
