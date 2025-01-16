@@ -1,14 +1,31 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { useEffect } from "react";
 import { SolarHomeBold } from "@/components/Icons";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { setNotFoundContext } from "@/redux/slices/mainFormSlice";
+import { reportErrorToSentry } from "@/utils/sentry";
 
 export default function NotFound() {
-  // if (
-  //   process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN &&
-  //   process.env.NEXT_PUBLIC_NODE_ENV === "production"
-  // ) {
-  //   Sentry.captureException(new Error("404 - Page Not Found (Root)"));
-  // }
+  const dispatch = useAppDispatch();
+  const notFoundContext = useAppSelector(
+    (state) => state.mainForm.notFoundContext
+  );
+
+  useEffect(() => {
+    const reportError = async () => {
+      if (
+        process.env.NEXT_PUBLIC_NODE_ENV === "production" &&
+        notFoundContext
+      ) {
+        await reportErrorToSentry("404 - Page Not Found", notFoundContext);
+        dispatch(setNotFoundContext(null));
+      }
+    };
+
+    reportError();
+  }, [notFoundContext, dispatch]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 guru-sm:px-4">

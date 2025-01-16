@@ -37,7 +37,8 @@ const initialState = {
   dateUpdated: null,
   followUpQuestions: [],
   treeData: null,
-  bingeOutdated: false
+  bingeOutdated: false,
+  notFoundContext: null
 };
 
 const mainFormSlice = createSlice({
@@ -178,6 +179,9 @@ const mainFormSlice = createSlice({
     },
     setBingeMapRefreshTrigger: (state, action) => {
       state.bingeMapRefreshTrigger = action.payload;
+    },
+    setNotFoundContext: (state, action) => {
+      state.notFoundContext = action.payload;
     }
   }
 });
@@ -217,6 +221,7 @@ export const {
   resetErrors,
   setQuestionUpdate,
   setFollowUpQuestions,
-  setBingeInfo
+  setBingeInfo,
+  setNotFoundContext
 } = mainFormSlice.actions;
 export default mainFormSlice.reducer;
