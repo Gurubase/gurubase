@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { notFound, redirect, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -24,7 +25,8 @@ import {
   setSlugPageRendered,
   setStreamError,
   setStreamingStatus,
-  setWaitingForFirstChunk
+  setWaitingForFirstChunk,
+  setNotFoundContext
 } from "@/redux/slices/mainFormSlice";
 import { bingeRedirection } from "@/utils/bingeRedirection";
 import { getStream } from "@/utils/clientActions";
@@ -348,6 +350,24 @@ export const ResultClient = ({
       //console.log("set has fetched to true");
     } else {
       if (!isInitializing) {
+        // Set not found context before calling notFound
+        dispatch(
+          setNotFoundContext({
+            errorType: "404",
+            component: "ResultClient",
+            reason: `Will try to stream but it is not suitable.`,
+            question,
+            description,
+            prompt_tokens,
+            completion_tokens,
+            answer_length,
+            user_intent,
+            slug,
+            dirty,
+            isInitializing,
+            hasFetched
+          })
+        );
         notFound();
       }
     }
@@ -369,7 +389,25 @@ export const ResultClient = ({
 
   // if window is undefined it mean it is server side rendering and instantContent is not available so redirect to not found page
   if (typeof window === "undefined" && !instantContent && !dirty) {
-    return redirect("/not-found");
+    // Set not found context for server-side case
+    dispatch(
+      setNotFoundContext({
+        errorType: "404",
+        component: "ResultClient",
+        reason: `No content exists while js is disabled.`,
+        dirty,
+        instantContent,
+        slug,
+        question,
+        description,
+        prompt_tokens,
+        completion_tokens,
+        answer_length,
+        user_intent,
+        user_question
+      })
+    );
+    notFound();
   }
 
   const triggerStreamUpdate = (summaryData) => {
