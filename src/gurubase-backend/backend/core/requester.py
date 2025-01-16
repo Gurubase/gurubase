@@ -15,6 +15,7 @@ logging.getLogger("httpx").setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
+from core.models import GuruType
 from core.guru_types import get_guru_type_prompt_map
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -24,7 +25,7 @@ GURU_ENDPOINTS = {
 }
 
 class FollowUpQuestions(BaseModel):
-    follow_up_questions: List[str] = Field(..., description="List of follow up questions")
+    questions: List[str] = Field(..., description="List of follow up questions")
 
 class ContextDetails(BaseModel):
     context_num: int = Field(..., description="Context number")
@@ -255,10 +256,38 @@ class OpenAIRequester():
         except json.JSONDecodeError:
             raise ValueError("Invalid JSON response from OpenAI")
 
-    def generate_follow_up_questions(self, questions, last_content, guru_type, model_name=settings.GPT_MODEL):
+    def generate_follow_up_questions(
+            self, 
+            questions: list, 
+            last_content: str, 
+            guru_type: GuruType, 
+            contexts: list, 
+            model_name: str = settings.GPT_MODEL):
+        """
+        Generate follow-up questions based on question history and available contexts.
+        
+        Args:
+            questions (list): List of previous questions in the conversation
+            last_content (str): Content of the last answer
+            guru_type (GuruType): The guru type object
+            contexts (list): List of relevant contexts from the last question
+            model_name (str): The model to use for generation
+        
+        Returns:
+            list: List of generated follow-up questions
+        """
         from .prompts import generate_follow_up_questions_prompt
+        
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
-        prompt = generate_follow_up_questions_prompt.format(**prompt_map, questions=questions, last_content=last_content, follow_up_example_count=settings.FOLLOW_UP_EXAMPLE_COUNT)
+        prompt = generate_follow_up_questions_prompt.format(
+            guru_type=guru_type.name,
+            domain_knowledge=prompt_map['domain_knowledge'],
+            questions=json.dumps(questions, indent=2),
+            answer=last_content,
+            contexts=json.dumps(contexts, indent=2),
+            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT
+        )
+        
         try:
             response = self.client.beta.chat.completions.parse(
                 model=model_name,
@@ -266,9 +295,13 @@ class OpenAIRequester():
                 response_format=FollowUpQuestions,
                 temperature=0,
             )
-            return json.loads(response.choices[0].message.content)['follow_up_questions']
+            return json.loads(response.choices[0].message.content)['questions']
         except json.JSONDecodeError:
-            raise ValueError("Invalid JSON response from OpenAI")
+            logger.error("Invalid JSON response from OpenAI while generating follow-up questions")
+            return []
+        except Exception as e:
+            logger.error(f"Error generating follow-up questions: {str(e)}")
+            return []
 
             
 class GeminiRequester():
@@ -417,22 +450,6 @@ class GitHubRequester():
         if response.json().get('status') == '403':
             raise ValueError(f"GitHub API rate limit exceeded for {github_url}")
         return response.json()
-
-        
-    def generate_follow_up_questions(self, questions, last_content, guru_type, model_name=settings.GPT_MODEL):
-        from .prompts import generate_follow_up_questions_prompt
-        prompt_map = get_guru_type_prompt_map(guru_type.slug)
-        prompt = generate_follow_up_questions_prompt.format(**prompt_map, questions=questions, last_content=last_content, follow_up_example_count=settings.FOLLOW_UP_EXAMPLE_COUNT)
-        try:
-            response = self.client.beta.chat.completions.parse(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}],
-                response_format=FollowUpQuestions,
-                temperature=0,
-            )
-            return json.loads(response.choices[0].message.content)['follow_up_questions']
-        except json.JSONDecodeError:
-            raise ValueError("Invalid JSON response from OpenAI")
         
 
 class CloudflareRequester():

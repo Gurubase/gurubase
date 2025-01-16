@@ -15,7 +15,7 @@ from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, Git
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
 from core.auth import auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, WidgetId, Binge, DataSource, GuruType
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -1100,25 +1100,38 @@ def follow_up_examples(request, guru_type):
     if last_question.follow_up_questions:
         return Response(last_question.follow_up_questions, status=status.HTTP_200_OK)
     
-    questions = [last_question]
+    # Get question history
+    questions = [last_question.question]
     ptr = last_question
     while ptr.parent:
-        questions.append(ptr.parent)
+        questions.append(ptr.parent.question)
         ptr = ptr.parent
-    questions.reverse()
+    questions.reverse()  # Put in chronological order
     
-    last_content = last_question.content
-        
+    # Get relevant contexts from the last question
+    contexts = []
+    if last_question.processed_ctx_relevances and 'kept' in last_question.processed_ctx_relevances:
+        contexts = [x['context'] for x in last_question.processed_ctx_relevances['kept']]
+    
+    if not contexts:
+        return Response([], status=status.HTTP_200_OK)
+    
+    # Generate follow-up questions using OpenAI
     openai_requester = OpenAIRequester()
-    follow_up_examples = openai_requester.generate_follow_up_questions(questions, last_content, guru_type_object)
-
+    follow_up_examples = openai_requester.generate_follow_up_questions(
+        questions=questions,
+        last_content=last_question.content,
+        guru_type=guru_type_object,
+        contexts=contexts
+    )
+    
+    # Save and return the generated questions
     last_question.follow_up_questions = follow_up_examples
     last_question.save()
     
     return Response(follow_up_examples, status=status.HTTP_200_OK)
-    
 
-    
+
 @api_view(['GET'])
 @jwt_auth
 def follow_up_graph(request, guru_type):
