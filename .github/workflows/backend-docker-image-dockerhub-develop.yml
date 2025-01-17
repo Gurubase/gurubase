@@ -27,7 +27,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Django tests
-      working-directory: src/gurubase-backend
+      working-directory: src/gurubase-backend/backend
       run: |
         python manage.py test core.tests
 
