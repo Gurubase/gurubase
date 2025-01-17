@@ -1111,7 +1111,19 @@ def follow_up_examples(request, guru_type):
     # Get relevant contexts from the last question
     contexts = []
     if last_question.processed_ctx_relevances and 'kept' in last_question.processed_ctx_relevances:
-        contexts = [x['context'] for x in last_question.processed_ctx_relevances['kept']]
+        for ctx in last_question.processed_ctx_relevances['kept']:
+            # Skip GitHub repo contexts
+            try:
+                # Extract metadata using regex pattern that matches any context number
+                context_parts = ctx['context'].split('\nContext ')
+                metadata_text = context_parts[1].split(' Text:')[0]
+                metadata_json = metadata_text.split('Metadata:\n')[1].replace("'", '"')
+                metadata = json.loads(metadata_json)
+                if metadata.get('type') == 'GITHUB_REPO':
+                    continue
+            except (json.JSONDecodeError, IndexError, KeyError):
+                pass  # If we can't parse metadata, include the context
+            contexts.append(ctx['context'])
     
     if not contexts:
         return Response([], status=status.HTTP_200_OK)
