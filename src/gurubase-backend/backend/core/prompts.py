@@ -487,6 +487,8 @@ Generate up to {num_questions} new follow-up questions that:
 
 Important:
 - Only generate questions that can be fully answered using the given contexts
+- Generate questions that have thorough explanations in the contexts. Simple mentions are not enough.
+- Do NOT mention the context in the generated questions.
 - Do not generate questions that would require additional information
 - Focus on unexplored aspects from the contexts that are relevant to the topic
 - If you cannot generate good questions from the contexts, return fewer questions or an empty list

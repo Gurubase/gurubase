@@ -428,6 +428,69 @@ class GeminiRequester():
             raise ValueError("Invalid JSON response from Gemini")
         return response_json
 
+    def generate_follow_up_questions(
+            self, 
+            questions: list, 
+            last_content: str, 
+            guru_type: GuruType, 
+            contexts: list, 
+            model_name: str = None):
+        """
+        Generate follow-up questions based on question history and available contexts using Gemini.
+        
+        Args:
+            questions (list): List of previous questions in the conversation
+            last_content (str): Content of the last answer
+            guru_type (GuruType): The guru type object
+            contexts (list): List of relevant contexts from the last question
+            model_name (str): Optional model override (unused, kept for compatibility)
+        
+        Returns:
+            list: List of generated follow-up questions
+        """
+        from .prompts import generate_follow_up_questions_prompt
+        
+        self.client = genai.GenerativeModel(
+            model_name=self.model_name,
+            generation_config={
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 8192,
+                "response_schema": {
+                    "type": "object",
+                    "properties": {
+                        "questions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": ["questions"]
+                },
+                "response_mime_type": "application/json",
+            }
+        )
+        
+        prompt_map = get_guru_type_prompt_map(guru_type.slug)
+        prompt = generate_follow_up_questions_prompt.format(
+            guru_type=guru_type.name,
+            domain_knowledge=prompt_map['domain_knowledge'],
+            questions=json.dumps(questions, indent=2),
+            answer=last_content,
+            contexts=json.dumps(contexts, indent=2),
+            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT
+        )
+        
+        try:
+            response = self.client.generate_content(prompt, safety_settings=self.safety_settings)
+            response_json = json.loads(response.text)
+            return response_json.get('questions', [])
+        except Exception as e:
+            logger.error(f"Error generating follow-up questions with Gemini: {str(e)}", exc_info=True)
+            return []
+
 
 class GitHubRequester():
     def __init__(self):

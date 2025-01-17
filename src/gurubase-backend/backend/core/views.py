@@ -10,7 +10,7 @@ from django.db.models import Q
 from typing import Generator
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
-from core.requester import OpenAIRequester, RerankerRequester
+from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
 from core.auth import auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
@@ -1116,9 +1116,9 @@ def follow_up_examples(request, guru_type):
     if not contexts:
         return Response([], status=status.HTTP_200_OK)
     
-    # Generate follow-up questions using OpenAI
-    openai_requester = OpenAIRequester()
-    follow_up_examples = openai_requester.generate_follow_up_questions(
+    # Generate follow-up questions using Gemini
+    gemini_requester = GeminiRequester(settings.GEMINI_MODEL)
+    follow_up_examples = gemini_requester.generate_follow_up_questions(
         questions=questions,
         last_content=last_question.content,
         guru_type=guru_type_object,
