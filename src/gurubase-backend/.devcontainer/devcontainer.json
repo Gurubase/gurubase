@@ -1,0 +1,62 @@
+{
+	"name": "Gurubase Backend",
+	"context": "..",
+	"dockerFile": "../Dockerfile.dev",
+	"runArgs": [
+		"--name",
+		"gurubase-backend-dev",
+		"-v",
+		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
+		"--ipc",
+		"host",
+		"--network",
+		// "gurubase-dc",
+		"anteon",
+		"--hostname",
+		"gurubase-backend-dev",
+		"--env-file",
+		"envs/dev.env",
+		"-p",
+		"8018:8018"
+	],
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"python.pythonPath": "/usr/local/bin/python",
+				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"python.formatting.provider": "autopep8",
+				"pylint.args": [
+					"--load-plugins=pylint_django",
+					"--django-settings-module=backend.settings",
+					"--disable=E0110,C0115,C0114,C0116,W1203,C0103,C0413,E1102" // sentry E0110 (abstract-class-instantiated)
+				],
+				"autopep8.args": [
+					"--max-line-length=120",
+					"--ignore","E402"	// do not sort imports
+				],
+				"python.testing.unittestEnabled": true,
+				"python.testing.nosetestsEnabled": true,
+				"python.analysis.autoImportCompletions": true,
+				"python.analysis.autoSearchPaths": true,
+				"files.watcherExclude": {
+					"**/.git/objects/**": true,
+					"**/.git/subtree-cache/**": true,
+					"**/data/*/**": true,
+					"**/output/*/**": true
+				},
+				"files.eol": "\n"
+			},
+			"extensions": [
+				"ms-python.python",
+				"ms-python.pylint",
+				"ms-python.autopep8",
+				"eamodio.gitlens",
+				"ritwickdey.liveserver",
+				"GitHub.copilot",
+				"GitHub.copilot-labs",
+				"GitHub.copilot-chat",
+				"ms-python.debugpy"
+			]
+		}
+	},
+	"postCreateCommand": "mkdir -p ~/.ssh && cp -r ~/.ssh-localhost/* ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/* && echo 'alias g=\"git\"' >> ~/.bashrc && echo 'alias gps=\"git push\"' >> ~/.bashrc && echo 'alias gp=\"git pull\"' >> ~/.bashrc && echo 'alias gf=\"git fetch\"' >> ~/.bashrc && echo 'alias gm=\"git merge\"' >> ~/.bashrc" }

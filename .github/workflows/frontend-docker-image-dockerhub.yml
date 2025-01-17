@@ -1,0 +1,144 @@
+name: Frontend Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'src/gurubase-frontend/**'
+      - .github/workflows/frontend-docker-image-dockerhub.yml
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/gurubase-frontend
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create environment files
+      run: |
+        # Create .env.prod
+        cat << EOF > .env.prod
+        NEXT_PUBLIC_NODE_ENV=${{ secrets.NEXT_PUBLIC_NODE_ENV_PROD_FE }}
+        NEXT_PUBLIC_PROJECT_URL=${{ secrets.NEXT_PUBLIC_PROJECT_URL_PROD_FE }}
+        NEXT_PUBLIC_RUNTIME=${{ secrets.NEXT_PUBLIC_RUNTIME_PROD_FE }}
+        NEXT_PUBLIC_INSTRUMENTATION_HOOK=${{ secrets.NEXT_PUBLIC_INSTRUMENTATION_HOOK_PROD_FE }}
+        NEXT_PUBLIC_BACKEND_AUTH_TOKEN=${{ secrets.NEXT_PUBLIC_BACKEND_AUTH_TOKEN_PROD_FE }}
+        NEXT_PUBLIC_MOBILE_DEBUG_CONSOLE=${{ secrets.NEXT_PUBLIC_MOBILE_DEBUG_CONSOLE_PROD_FE }}
+        NEXT_PUBLIC_BACKEND_FETCH_URL=${{ secrets.NEXT_PUBLIC_BACKEND_FETCH_URL_PROD_FE }}
+        NEXT_PUBLIC_BACKEND_FETCH_URL_CLIENT=${{ secrets.NEXT_PUBLIC_BACKEND_FETCH_URL_CLIENT_PROD_FE }}
+        NEXT_PUBLIC_PAGE_VISIT_MODULE=${{ secrets.NEXT_PUBLIC_PAGE_VISIT_MODULE_PROD_FE }}
+        NEXT_PUBLIC_MIXPANEL_TOKEN=${{ secrets.NEXT_PUBLIC_MIXPANEL_TOKEN_PROD_FE }}
+        NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD_FE }}
+        NEXT_PUBLIC_SENTRY_ORG=${{ secrets.NEXT_PUBLIC_SENTRY_ORG_PROD_FE }}
+        NEXT_PUBLIC_SENTRY_PROJECT=${{ secrets.NEXT_PUBLIC_SENTRY_PROJECT_PROD_FE }}
+        NEXT_TELEMETRY_DEBUG=${{ secrets.NEXT_TELEMETRY_DEBUG_PROD_FE }}
+        AUTH0_SECRET=${{ secrets.AUTH0_SECRET_PROD_FE }}
+        AUTH0_BASE_URL=${{ secrets.AUTH0_BASE_URL_PROD_FE }}
+        AUTH0_ISSUER_BASE_URL=${{ secrets.AUTH0_ISSUER_BASE_URL_PROD_FE }}
+        AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID_PROD_FE }}
+        AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET_PROD_FE }}
+        AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE_PROD_FE }}
+        AUTH0_ALGORITHMS=${{ secrets.AUTH0_ALGORITHMS_PROD_FE }}
+        EOF
+
+        # Create .env.staging
+        cat << EOF > .env.staging
+        NEXT_PUBLIC_NODE_ENV=${{ secrets.NEXT_PUBLIC_NODE_ENV_STAGING_FE }}
+        NEXT_PUBLIC_PROJECT_URL=${{ secrets.NEXT_PUBLIC_PROJECT_URL_STAGING_FE }}
+        NEXT_PUBLIC_RUNTIME=${{ secrets.NEXT_PUBLIC_RUNTIME_STAGING_FE }}
+        NEXT_PUBLIC_INSTRUMENTATION_HOOK=${{ secrets.NEXT_PUBLIC_INSTRUMENTATION_HOOK_STAGING_FE }}
+        NEXT_PUBLIC_BACKEND_AUTH_TOKEN=${{ secrets.NEXT_PUBLIC_BACKEND_AUTH_TOKEN_STAGING_FE }}
+        NEXT_PUBLIC_MOBILE_DEBUG_CONSOLE=${{ secrets.NEXT_PUBLIC_MOBILE_DEBUG_CONSOLE_STAGING_FE }}
+        NEXT_PUBLIC_BACKEND_FETCH_URL=${{ secrets.NEXT_PUBLIC_BACKEND_FETCH_URL_STAGING_FE }}
+        NEXT_PUBLIC_BACKEND_FETCH_URL_CLIENT=${{ secrets.NEXT_PUBLIC_BACKEND_FETCH_URL_CLIENT_STAGING_FE }}
+        NEXT_PUBLIC_PAGE_VISIT_MODULE=${{ secrets.NEXT_PUBLIC_PAGE_VISIT_MODULE_STAGING_FE }}
+        NEXT_TELEMETRY_DEBUG=${{ secrets.NEXT_TELEMETRY_DEBUG_STAGING_FE }}
+        AUTH0_SECRET=${{ secrets.AUTH0_SECRET_STAGING_FE }}
+        AUTH0_BASE_URL=${{ secrets.AUTH0_BASE_URL_STAGING_FE }}
+        AUTH0_ISSUER_BASE_URL=${{ secrets.AUTH0_ISSUER_BASE_URL_STAGING_FE }}
+        AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID_STAGING_FE }}
+        AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET_STAGING_FE }}
+        AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE_STAGING_FE }}
+        AUTH0_ALGORITHMS=${{ secrets.AUTH0_ALGORITHMS_STAGING_FE }}
+        EOF
+    
+    - name: Check for console statements
+      run: |
+        files_with_console=$(grep -rL "use server" --include="*.js" --exclude-dir={node_modules,public,.next} . | xargs grep -nE "^[^/]*console\.(log|error|warn|info|debug|trace|dir|dirxml|table|time|timeEnd|group|groupEnd|count|countReset|assert|profile|profileEnd)" | cut -d: -f1 | sort -u || true)
+        if [ -n "$files_with_console" ]; then
+          echo "Console statements found in the following files:"
+          echo "$files_with_console"
+          echo "Failing the build."
+          exit 1
+        else
+          echo "No uncommented console statements found in files without 'use server'."
+        fi
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+  
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Configure Dockerhub credentials
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Get branch name
+      id: branch-name
+      uses: tj-actions/branch-names@v8
+
+    - name: Set image tag and Dockerfile
+      id: set-vars
+      run: |
+        branch=$(echo ${{ steps.branch-name.outputs.current_branch }} | tr '/' '-')
+        commit_sha=${GITHUB_SHA::7}
+        echo "image_tag=${branch}-${commit_sha}" >> $GITHUB_OUTPUT
+        echo "branch_tag=${branch}" >> $GITHUB_OUTPUT
+        if [ "${{ steps.branch-name.outputs.current_branch }}" = "master" ]; then
+          echo "dockerfile=src/gurubase-frontend/Dockerfile" >> $GITHUB_OUTPUT
+        else
+          echo "dockerfile=src/gurubase-frontend/Dockerfile.staging" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      env:
+        REPOSITORY: ${{ secrets.GURUBASE_FE_PROD_STAGING_DOCKER_REPOSITORY }}
+      with:
+        context: src/gurubase-frontend
+        push: true
+        tags: |
+          ${{ env.REPOSITORY }}:${{ steps.set-vars.outputs.image_tag }}
+          ${{ env.REPOSITORY }}:${{ steps.set-vars.outputs.branch_tag }}
+        platforms: linux/amd64
+        file: ${{ steps.set-vars.outputs.dockerfile }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+    - name: Image Tags and Dockerfile
+      run: |
+        echo "Commit Tag: ${{ steps.set-vars.outputs.image_tag }}"
+        echo "Branch Tag: ${{ steps.set-vars.outputs.branch_tag }}"
+        echo "Dockerfile: ${{ steps.set-vars.outputs.dockerfile }}"
+        echo "Commit Tag: ${{ steps.set-vars.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "Branch Tag: ${{ steps.set-vars.outputs.branch_tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "Dockerfile: ${{ steps.set-vars.outputs.dockerfile }}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Cleanup environment files
+      if: always()
+      run: |
+        rm -f .env.prod .env.staging
+        echo "Environment files cleaned up"

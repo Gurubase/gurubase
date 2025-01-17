@@ -1,0 +1,18 @@
+FROM python:3.11.8-slim
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+RUN apt update -y && \
+    apt install -y --no-install-recommends \
+        gcc python3-dev wget vim unzip zip curl tzdata iputils-ping telnet git openssh-client libcairo2 libcairo2 git && \ 
+    rm -rf /var/lib/apt/lists/*
+
+COPY ./requirements.txt .
+RUN pip --no-cache-dir install -r requirements.txt
+
+WORKDIR /workspace
+
+CMD ["bash"]

@@ -1,0 +1,81 @@
+name: Backend Develop Build and Push Docker Image
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'src/gurubase-backend/**'
+      - .github/workflows/backend-docker-image-dockerhub-develop.yml
+  workflow_dispatch:
+
+jobs:
+  # test:
+  #   runs-on: ubuntu-latest
+    
+  #   steps:
+  #   - uses: actions/checkout@v2
+
+  #   - name: Set up Python
+  #     uses: actions/setup-python@v2
+  #     with:
+  #       python-version: '3.x'
+
+  #   - name: Install dependencies
+  #     working-directory: src/gurubase-backend
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       pip install -r requirements.txt
+
+  #   - name: Run Django tests
+  #     working-directory: src/gurubase-backend/backend
+  #     run: |
+  #       python manage.py test core.tests
+
+  build:
+    # needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+  
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+      
+    - uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/src/gurubase-backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Configure Dockerhub credentials
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Build and push
+      env:
+        REPOSITORY: ${{ secrets.GURUBASE_BE_PROD_STAGING_DOCKER_REPOSITORY }}
+        REPOSITORY_SELFHOSTED: ${{ secrets.GURUBASE_BE_SELFHOSTED_DOCKER_REPOSITORY }}
+        # IMAGE_TAG: ${{ github.sha }}
+        IMAGE_TAG: latest
+      uses: docker/build-push-action@v5
+      with:
+        context: src/gurubase-backend
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: |
+          ${{ env.REPOSITORY }}:${{ env.IMAGE_TAG }}
+          ${{ env.REPOSITORY_SELFHOSTED }}:${{ env.IMAGE_TAG }}
+        platforms: linux/amd64,linux/arm64
+        file: src/gurubase-backend/Dockerfile
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Image Tag
+      env:
+        # IMAGE_TAG: ${{ github.sha }}
+        IMAGE_TAG: latest
+      run: |
+        echo "$IMAGE_TAG"
+        echo "Image Tag: $IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
