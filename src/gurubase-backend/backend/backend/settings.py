@@ -379,7 +379,7 @@ SITEMAP_ADD_CONTEXT_RELEVANCE_THRESHOLD = config('SITEMAP_ADD_CONTEXT_RELEVANCE_
 
 FOLLOW_UP_QUESTION_LIMIT = config('FOLLOW_UP_QUESTION_LIMIT', default=100, cast=int)
 FOLLOW_UP_QUESTION_TIME_LIMIT_SECONDS = config('FOLLOW_UP_QUESTION_TIME_LIMIT_SECONDS', default=7200, cast=int) # 2 hours
-GENERATE_FOLLOW_UP_EXAMPLES = config('GENERATE_FOLLOW_UP_EXAMPLES', default=False, cast=bool)
+GENERATE_FOLLOW_UP_EXAMPLES = config('GENERATE_FOLLOW_UP_EXAMPLES', default=True, cast=bool)
 FOLLOW_UP_EXAMPLE_COUNT = config('FOLLOW_UP_EXAMPLE_COUNT', default=3, cast=int)
 
 BINGE_HISTORY_PAGE_SIZE = config('BINGE_HISTORY_PAGE_SIZE', default=30, cast=int)
@@ -397,6 +397,8 @@ GITHUB_REPO_CODE_COLLECTION_NAME = config('GITHUB_REPO_CODE_COLLECTION_NAME', de
 CLOUDFLARE_BASE_URL = config('CLOUDFLARE_BASE_URL', default='https://api.cloudflare.com/client/v4')
 CLOUDFLARE_ZONE_ID = config('CLOUDFLARE_ZONE_ID', default='xxx')
 CLOUDFLARE_AUTH_TOKEN = config('CLOUDFLARE_AUTH_TOKEN', default='xxx')
+
+LARGE_GEMINI_MODEL = config('LARGE_GEMINI_MODEL', default='gemini-1.5-pro')
 
 if ENV == "selfhosted":
     NGINX_BASE_URL = config('NGINX_BASE_URL', default='http://gurubase-nginx:8029')

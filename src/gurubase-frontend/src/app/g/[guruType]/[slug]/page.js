@@ -188,14 +188,12 @@ const Result = async ({ params, searchParams }) => {
 
   const reload = dirty && !isBot;
   const isInstantContentExist = !(response && msg?.toLowerCase() === "question not found") && !reload;
-  const exampleQuestions = [];
 
   return (
     <ResultClient
       allGuruTypes={allGuruTypes || []}
       dateUpdated={isInstantContentExist ? date_updated : null}
       dirty={reload}
-      exampleQuestions={exampleQuestions}
       guruType={params.guruType}
       instantContent={isInstantContentExist ? content : null}
       instantDescription={description}

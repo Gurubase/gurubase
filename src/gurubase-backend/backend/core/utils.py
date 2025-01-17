@@ -1370,11 +1370,17 @@ def with_redis_lock(redis_client, lock_key_func, timeout):
             logger.debug(f'Args: {args}. Kwargs: {kwargs}')
             try:
                 # Handle both guru_type_slug and is_github parameters
-                is_github = kwargs.get('is_github', False)
+                is_github = kwargs.get('is_github')
                 if 'guru_type_slug' in kwargs:
-                    lock_key = lock_key_func(kwargs['guru_type_slug'], is_github)
+                    if is_github is not None:
+                        lock_key = lock_key_func(kwargs['guru_type_slug'], is_github)
+                    else:
+                        lock_key = lock_key_func(kwargs['guru_type_slug'])
                 elif 'guru_type' in kwargs:
-                    lock_key = lock_key_func(kwargs['guru_type'].slug, is_github)
+                    if is_github is not None:
+                        lock_key = lock_key_func(kwargs['guru_type'].slug, is_github)
+                    else:
+                        lock_key = lock_key_func(kwargs['guru_type'].slug)
                 elif type(lock_key_func) == str:
                     lock_key = lock_key_func
                 else:

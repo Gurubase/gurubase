@@ -182,20 +182,10 @@ const Result = async ({ params, searchParams }) => {
     return redirect(`/not-found`);
   }
 
-  // const exampleQuestions = await getExampleQuestions(
-  //   params.guruType,
-  //   params.bingeId,
-  //   searchParams.question_slug,
-  //   question
-  // );
-
-  const exampleQuestions = [];
-
   return (
     <ResultClient
       allGuruTypes={allGuruTypes || []}
       dateUpdated={date_updated}
-      exampleQuestions={isInstantContentExist ? exampleQuestions : []}
       guruType={params.guruType}
       instantContent={isInstantContentExist ? content : null}
       instantDescription={description}

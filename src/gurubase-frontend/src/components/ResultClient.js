@@ -4,7 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { notFound, redirect, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { getDataForSlugDetails } from "@/app/actions";
+import { getDataForSlugDetails, getExampleQuestions } from "@/app/actions";
 import Content from "@/components/Content";
 import { handleSubmitQuestion } from "@/components/Content/MainForm";
 import Footer from "@/components/Footer";
@@ -17,6 +17,7 @@ import {
   setBingeId,
   setContextError,
   setCurrentQuestionSlug,
+  setFollowUpQuestions,
   setHasFetched,
   setInputQuery,
   setIsLoading,
@@ -42,8 +43,6 @@ export const ResultClient = ({
   references,
   similarQuestions,
   allGuruTypes,
-  onExampleQuestionsUpdate,
-  exampleQuestions,
   dirty,
   dateUpdated,
   trustScore
@@ -303,8 +302,14 @@ export const ResultClient = ({
               followUpQuestions
             });
 
-            // const generatedFollowUpQuestions = await getExampleQuestions(guruType, passedBingeId || bingeId, currentQuestionSlug, question);
-            // dispatch(setFollowUpQuestions(generatedFollowUpQuestions));
+            const generatedFollowUpQuestions = await getExampleQuestions(
+              guruType,
+              passedBingeId || bingeId,
+              currentQuestionSlug,
+              question
+            );
+
+            dispatch(setFollowUpQuestions(generatedFollowUpQuestions));
 
             break;
           }
@@ -443,7 +448,6 @@ export const ResultClient = ({
         dateUpdated={dateUpdated}
         description={description}
         guruType={guruType}
-        initialExampleQuestions={exampleQuestions}
         isHelpful={isHelpful}
         passedBingeId={passedBingeId}
         question={question}
@@ -456,7 +460,6 @@ export const ResultClient = ({
         slug={finalSlug}
         triggerStreamUpdate={triggerStreamUpdate}
         trustScore={trustScore}
-        onExampleQuestionsUpdate={onExampleQuestionsUpdate}
       />
       <Footer guruType={guruType} slug={finalSlug} />
       <LoginModal

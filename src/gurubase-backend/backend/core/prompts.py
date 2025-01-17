@@ -1,4 +1,3 @@
-
 summary_prompt_widget_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
@@ -462,17 +461,48 @@ Here is the summary:
 
 generate_follow_up_questions_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
-The user already asked the following questions:
-'''
+You are an expert at generating engaging follow-up questions that help users explore a topic more deeply.
+
+The user has asked these questions in sequence:
+<question_history>
 {questions}
-'''
+</question_history>
 
-This is the answer to the last question:
-'''
-{last_content}
-'''
+And received this answer to their last question:
+<last_answer>
+{answer}
+</last_answer>
 
-Your task is to generate {follow_up_example_count} follow up questions that may be asked in this conversation. Return a json list. Each question should be a text. Make sure that the generated questions are related to {guru_type} individually.
+Here are the relevant contexts that were used to answer the last question:
+<contexts>
+{contexts}
+</contexts>
+
+Generate up to {num_questions} new follow-up questions that:
+1. Can be confidently answered using ONLY the provided contexts
+2. Are natural extensions of the conversation
+3. Help explore different aspects covered in the contexts
+4. Maintain appropriate technical depth based on the contexts
+5. Are specific and focused on information present in the contexts
+
+Important:
+- Only generate questions that can be fully answered using the given contexts
+- Generate questions that have thorough explanations in the contexts. Simple mentions are not enough.
+- Do NOT mention the context in the generated questions.
+- Do not generate questions that would require additional information
+- Focus on unexplored aspects from the contexts that are relevant to the topic
+- If you cannot generate good questions from the contexts, return fewer questions or an empty list
+
+Return only the questions as a JSON array of strings. Each question should end with a question mark.
+
+Example format:
+{{
+    "questions": [
+        "How does X impact Y in the context of Z?", 
+        "What are the key considerations when implementing X for Y?",
+        "Can you explain the relationship between X and Y in Z scenarios?"
+    ]
+}}
 """
 
 

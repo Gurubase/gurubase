@@ -557,7 +557,7 @@ export async function getExampleQuestions(
     // Ensure we return a valid array of strings
     return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error("Error fetching example questions:", error);
+    // console.error("Error fetching example questions:", error);
 
     return [];
   }
