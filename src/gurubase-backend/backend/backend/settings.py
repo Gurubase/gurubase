@@ -398,7 +398,7 @@ CLOUDFLARE_BASE_URL = config('CLOUDFLARE_BASE_URL', default='https://api.cloudfl
 CLOUDFLARE_ZONE_ID = config('CLOUDFLARE_ZONE_ID', default='xxx')
 CLOUDFLARE_AUTH_TOKEN = config('CLOUDFLARE_AUTH_TOKEN', default='xxx')
 
-GEMINI_MODEL = config('GEMINI_MODEL', default='gemini-2.0-flash-exp')
+LARGE_GEMINI_MODEL = config('LARGE_GEMINI_MODEL', default='gemini-1.5-pro')
 
 if ENV == "selfhosted":
     NGINX_BASE_URL = config('NGINX_BASE_URL', default='http://gurubase-nginx:8029')
