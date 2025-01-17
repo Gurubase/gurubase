@@ -1058,7 +1058,7 @@ def export_questions(request):
 
 
 @api_view(['POST'])
-@combined_auth
+@follow_up_examples_auth
 def follow_up_examples(request, guru_type):
     user = request.user
     
@@ -1070,6 +1070,7 @@ def follow_up_examples(request, guru_type):
     binge_id = request.data.get('binge_id')
     question_slug = request.data.get('question_slug')
     question_text = request.data.get('question')
+    widget = request.widget if hasattr(request, 'widget') else False
     
     if not question_slug and not question_text:
         return Response({'msg': 'Question slug is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1082,7 +1083,7 @@ def follow_up_examples(request, guru_type):
     else:
         binge = None
 
-    if binge and not check_binge_auth(binge, user):
+    if binge and not widget and not check_binge_auth(binge, user):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
 
     guru_type_object = get_guru_type_object(guru_type, only_active=True)
@@ -1092,7 +1093,9 @@ def follow_up_examples(request, guru_type):
         guru_type_object, 
         binge, 
         question_slug, 
-        question_text
+        question_text,
+        only_widget=widget,
+        will_check_binge_auth=not widget
     )
     if not last_question:
         return Response({'msg': 'Question does not exist'}, status=status.HTTP_400_BAD_REQUEST)
