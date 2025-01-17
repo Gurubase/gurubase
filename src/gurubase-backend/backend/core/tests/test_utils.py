@@ -88,7 +88,7 @@ class SearchQuestionTests(TestCase):
             guru_type_object=self.guru_type,
             binge=None,
             slug="widget-question",
-            include_widget=True
+            only_widget=True
         )
         self.assertEqual(result, self.widget_question)
         
@@ -98,7 +98,7 @@ class SearchQuestionTests(TestCase):
             guru_type_object=self.guru_type,
             binge=None,
             slug="regular-question",
-            include_widget=True
+            only_widget=True
         )
         self.assertIsNone(result)
 

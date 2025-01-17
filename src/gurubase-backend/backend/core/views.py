@@ -1336,7 +1336,7 @@ def ask_widget(request):
                 binge, 
                 parent_slug, 
                 will_check_binge_auth=False,
-                include_widget=True
+                only_widget=True
             )
         except Exception as e:
             return response_handler.handle_error_response("Parent question does not exist")

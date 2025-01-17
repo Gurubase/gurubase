@@ -2553,14 +2553,14 @@ def check_binge_auth(binge, user):
         return True
     return binge.owner == user
 
-def search_question(user, guru_type_object, binge, slug=None, question=None, will_check_binge_auth=True, include_api=False, include_widget=False):
+def search_question(user, guru_type_object, binge, slug=None, question=None, will_check_binge_auth=True, include_api=False, only_widget=False):
     def get_source_conditions(user):
         """Helper function to get source conditions based on user"""
         if user is None:
             # For anonymous users
             # API requests are not allowed
             # Widget requests are allowed
-            if include_widget:
+            if only_widget:
                 return Q(source__in=[Question.Source.WIDGET_QUESTION.value])
             else:
                 return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])
@@ -2866,7 +2866,7 @@ def api_ask(question: str,
     is_widget = api_type == APIType.WIDGET
 
     include_api = api_type == APIType.API
-    include_widget = api_type == APIType.WIDGET
+    only_widget = api_type == APIType.WIDGET
 
     question_source = {
         APIType.WIDGET: Question.Source.WIDGET_QUESTION.value,
@@ -2884,7 +2884,7 @@ def api_ask(question: str,
             question,
             will_check_binge_auth=False,
             include_api=include_api,
-            include_widget=include_widget
+            only_widget=only_widget
         )
         if existing_question and not is_question_dirty(existing_question):
             logger.info(f"Found existing question {question} for guru type {guru_type.slug}")
@@ -2902,7 +2902,7 @@ def api_ask(question: str,
             question,
             will_check_binge_auth=False,
             include_api=include_api,
-            include_widget=include_widget
+            only_widget=only_widget
         )
         if existing_question and not is_question_dirty(existing_question):
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
