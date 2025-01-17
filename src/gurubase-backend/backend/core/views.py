@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
-from core.auth import auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
+from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
 from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType
 from accounts.models import User
