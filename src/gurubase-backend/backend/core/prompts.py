@@ -484,6 +484,7 @@ Generate up to {num_questions} new follow-up questions that:
 3. Help explore different aspects covered in the contexts
 4. Maintain appropriate technical depth based on the contexts
 5. Are specific and focused on information present in the contexts
+6. Are different than all of the questions in the question history
 
 Important:
 - Only generate questions that can be fully answered using the given contexts
