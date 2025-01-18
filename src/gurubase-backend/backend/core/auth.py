@@ -212,3 +212,49 @@ def api_key_auth(view_func):
         request.auth0_id = api_key_obj.user.auth0_id
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+def follow_up_examples_auth(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # First try JWT auth
+        auth_header = request.headers.get('Authorization', '')
+        
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            try:
+                # Fetch Auth0 public keys
+                jwks_url = f'{settings.AUTH0_DOMAIN}.well-known/jwks.json'
+                jwks_client = PyJWKClient(jwks_url)
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                
+                # Decode and validate the token
+                payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=['RS256'],
+                    audience=settings.AUTH0_AUDIENCE,
+                    issuer=settings.AUTH0_DOMAIN
+                )
+                
+                auth0_id = payload['sub']
+                if auth0_id:
+                    user = User.objects.filter(auth0_id=auth0_id).first()
+                    if user:
+                        request.auth0_id = auth0_id
+                        request.user = user
+            except Exception as e:
+                logger.debug(f"JWT validation failed: {str(e)}")
+                # Continue even if JWT auth fails
+                pass
+        
+        # Check for widget ID
+        widget_id = request.headers.get('Authorization')
+        if widget_id:
+            widget_id_obj = WidgetId.validate_key(widget_id)
+            if widget_id_obj:
+                request.widget = True
+        
+        # Allow the request to proceed regardless of auth status
+        return view_func(request, *args, **kwargs)
+    return wrapper
