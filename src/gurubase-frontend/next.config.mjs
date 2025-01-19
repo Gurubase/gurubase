@@ -79,7 +79,7 @@ const nextConfig = {
               "frame-src 'self' *.auth0.com *.hotjar.com",
               process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted"
                 ? "connect-src 'self' *"
-                : "connect-src 'self' localhost:* 127.0.0.1:* gurubase-backend:* *.getanteon.com *.amazonaws.com *.jsdelivr.net *.auth0.com *.iconify.design *.unisvg.com *.simplesvg.com *.hotjar.com *.hotjar.io wss://*.hotjar.com *.mixpanel.com *.google-analytics.com *.analytics.google.com",
+                : "connect-src 'self' localhost:* 127.0.0.1:* gurubase-backend:* *.getanteon.com *.amazonaws.com *.jsdelivr.net *.auth0.com *.iconify.design *.unisvg.com *.simplesvg.com *.hotjar.com *.hotjar.io wss://*.hotjar.com *.mixpanel.com *.google-analytics.com *.analytics.google.com *.sentry.io *.ingest.sentry.io",
               "form-action 'self' *.auth0.com",
               "object-src 'none'",
               "base-uri 'self'",
