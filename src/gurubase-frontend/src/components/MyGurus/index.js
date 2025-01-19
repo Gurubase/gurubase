@@ -58,7 +58,7 @@ export const MyGurusClient = () => {
         </div>
       ) : myGurus?.length === 0 && !isSelfHosted ? (
         <div className="text-gray-500 text-center flex flex-col items-center justify-center w-full max-w-4xl mx-auto px-4 h-[100vh]">
-          You haven&apos;t been granted access to any gurus yet.
+          You haven&apos;t been granted access to any gurus yet. Please check out the <a href="https://github.com/Gurubase/gurubase?tab=readme-ov-file#how-to-claim-a-guru" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">How to Claim a Guru</a>
         </div>
       ) : (
         <GuruList allGuruTypes={myGurus} title="My Gurus" />
