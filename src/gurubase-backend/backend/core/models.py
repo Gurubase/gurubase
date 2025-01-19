@@ -287,7 +287,7 @@ class GuruType(models.Model):
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
-    index_repo = models.BooleanField(default=False)
+    index_repo = models.BooleanField(default=True)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1165,8 +1165,6 @@ class GithubFile(models.Model):
 
         if self.in_milvus:
             return
-
-        logger.info(f"Writing GitHub file {self.path} to Milvus")
 
         # Split the content into chunks
         extension = self.path.split('/')[-1].split('.')[-1]
