@@ -47,7 +47,7 @@ const MobileOtherGurus = ({ allGuruTypes, isLongGuruName }) => {
         }}
         onClick={() => setIsPanelOpen(true)}>
         <div className="self-stretch my-auto">
-          {getGuruPromptMap(guruType, allGuruTypes)} Guru
+          {getGuruPromptMap(guruType, allGuruTypes)}
         </div>
         <Icon icon="tabler:chevron-down" />
       </div>
