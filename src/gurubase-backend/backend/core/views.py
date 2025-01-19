@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
-from core.auth import auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
+from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
 from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType
 from accounts.models import User
@@ -1058,7 +1058,7 @@ def export_questions(request):
 
 
 @api_view(['POST'])
-@combined_auth
+@follow_up_examples_auth
 def follow_up_examples(request, guru_type):
     user = request.user
     
@@ -1070,6 +1070,7 @@ def follow_up_examples(request, guru_type):
     binge_id = request.data.get('binge_id')
     question_slug = request.data.get('question_slug')
     question_text = request.data.get('question')
+    widget = request.widget if hasattr(request, 'widget') else False
     
     if not question_slug and not question_text:
         return Response({'msg': 'Question slug is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1082,7 +1083,7 @@ def follow_up_examples(request, guru_type):
     else:
         binge = None
 
-    if binge and not check_binge_auth(binge, user):
+    if binge and not widget and not check_binge_auth(binge, user):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
 
     guru_type_object = get_guru_type_object(guru_type, only_active=True)
@@ -1092,7 +1093,9 @@ def follow_up_examples(request, guru_type):
         guru_type_object, 
         binge, 
         question_slug, 
-        question_text
+        question_text,
+        only_widget=widget,
+        will_check_binge_auth=not widget
     )
     if not last_question:
         return Response({'msg': 'Question does not exist'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1111,7 +1114,19 @@ def follow_up_examples(request, guru_type):
     # Get relevant contexts from the last question
     contexts = []
     if last_question.processed_ctx_relevances and 'kept' in last_question.processed_ctx_relevances:
-        contexts = [x['context'] for x in last_question.processed_ctx_relevances['kept']]
+        for ctx in last_question.processed_ctx_relevances['kept']:
+            # Skip GitHub repo contexts
+            try:
+                # Extract metadata using regex pattern that matches any context number
+                context_parts = ctx['context'].split('\nContext ')
+                metadata_text = context_parts[1].split(' Text:')[0]
+                metadata_json = metadata_text.split('Metadata:\n')[1].replace("'", '"')
+                metadata = json.loads(metadata_json)
+                if metadata.get('type') == 'GITHUB_REPO':
+                    continue
+            except (json.JSONDecodeError, IndexError, KeyError):
+                pass  # If we can't parse metadata, include the context
+            contexts.append(ctx['context'])
     
     if not contexts:
         return Response([], status=status.HTTP_200_OK)
@@ -1324,7 +1339,7 @@ def ask_widget(request):
                 binge, 
                 parent_slug, 
                 will_check_binge_auth=False,
-                include_widget=True
+                only_widget=True
             )
         except Exception as e:
             return response_handler.handle_error_response("Parent question does not exist")
