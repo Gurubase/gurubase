@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
-
 import Footer from "@/components/Footer";
 import GuruList from "@/components/GuruList";
 import Header from "@/components/Header/index";
+import mixpanel from "mixpanel-browser";
 
 export default function HomePageClient({ allGuruTypes }) {
   // check the environment development or production

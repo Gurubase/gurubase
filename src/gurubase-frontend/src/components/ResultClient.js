@@ -31,6 +31,7 @@ import {
 } from "@/redux/slices/mainFormSlice";
 import { bingeRedirection } from "@/utils/bingeRedirection";
 import { getStream } from "@/utils/clientActions";
+import mixpanel from "mixpanel-browser";
 
 export const ResultClient = ({
   isHelpful,
@@ -143,18 +144,18 @@ export const ResultClient = ({
   //   // );
   // }, [fingerprint]);
 
-  // useEffect(() => {
-  //   if (!slug || typeof window === "undefined" || fingerprint) {
-  //     return;
-  //   }
-  //   if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
-  //     mixpanel.init(process.env.NEXT_PUBLIC_MIXPANEL_TOKEN, { debug: false });
-  //     mixpanel.track("Slug Visited", {
-  //       slug: slug,
-  //       guruType: guruType
-  //     });
-  //   }
-  // }, []);
+  useEffect(() => {
+    if (!slug || typeof window === "undefined" || fingerprint) {
+      return;
+    }
+    if (process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
+      mixpanel.init(process.env.NEXT_PUBLIC_MIXPANEL_TOKEN, { debug: false });
+      mixpanel.track("Slug Visited", {
+        slug: slug,
+        guruType: guruType
+      });
+    }
+  }, []);
 
   const [question, setQuestion] = useState(instantQuestion || reduxQuestion);
   const [description, setDescription] = useState(
