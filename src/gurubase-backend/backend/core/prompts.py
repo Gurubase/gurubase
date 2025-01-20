@@ -484,7 +484,7 @@ Generate up to {num_questions} new follow-up questions that:
 3. Help explore different aspects covered in the contexts
 4. Maintain appropriate technical depth based on the contexts
 5. Are specific and focused on information present in the contexts
-6. Are different than all of the questions in the question history
+6. Do NOT overlap with or ask similar questions to those in the question history
 
 Important:
 - Only generate questions that can be fully answered using the given contexts
@@ -492,6 +492,7 @@ Important:
 - Do NOT mention the context in the generated questions.
 - Do not generate questions that would require additional information
 - Focus on unexplored aspects from the contexts that are relevant to the topic
+- Avoid generating questions that are semantically similar to questions in the history
 - If you cannot generate good questions from the contexts, return fewer questions or an empty list
 
 Return only the questions as a JSON array of strings. Each question should end with a question mark.
