@@ -290,7 +290,7 @@ Here is the grade criteria to follow:
 (6) The answer is grounded if all the claims are grounded.
 Here are some examples:
 
-Claim 1: "The Eiffel Tower was built in 1850 and is located in London, England. It was designed to symbolize the United Kingdom’s engineering prowess."
+Claim 1: "The Eiffel Tower was built in 1850 and is located in London, England. It was designed to symbolize the United Kingdom's engineering prowess."
 Context 1: "The Eiffel Tower is located in Paris, France, and was constructed in 1889."
 Context 2: "The Statue of Liberty was a gift from France to the United States in 1886."
 Explanation: This answer completely strays from the provided contexts. It gives incorrect information about the construction date and location of the Eiffel Tower, and even attributes its creation to the wrong country. No claims in the answer are grounded in the retrieved context.
@@ -299,19 +299,19 @@ Score: 0
 Claim 2: "The Eiffel Tower, located in Paris, France, was built in 1889, and it was a gift from the French government to the people of the United States."
 Context 1: "The Eiffel Tower is located in Paris, France, and was constructed in 1889."
 Context 2: "The Statue of Liberty was a gift from France to the United States in 1886."
-Explanation: While the answer correctly identifies the Eiffel Tower’s location and construction date, it falsely claims the tower was a gift from France to the United States, which is inaccurate. Only a small portion of the answer is supported by the context, and the rest is fabricated.
+Explanation: While the answer correctly identifies the Eiffel Tower's location and construction date, it falsely claims the tower was a gift from France to the United States, which is inaccurate. Only a small portion of the answer is supported by the context, and the rest is fabricated.
 Score: 0.2
 
 Claim 3: "The Eiffel Tower, built in 1889, is one of the most iconic structures in Paris, France. Similarly, the Statue of Liberty, a gift from France, was constructed in 1886."
 Context 1: "The Eiffel Tower is located in Paris, France, and was constructed in 1889."
 Context 2: "The Statue of Liberty was a gift from France to the United States in 1886."
-Explanation: This answer mixes factual information from both contexts but doesn’t stray beyond them. However, there’s some generalization with “iconic structure” that is implied but not explicitly stated in the context. Half the answer is well-grounded in the retrieved information, while the rest is valid but interpretative.
+Explanation: This answer mixes factual information from both contexts but doesn't stray beyond them. However, there's some generalization with "iconic structure" that is implied but not explicitly stated in the context. Half the answer is well-grounded in the retrieved information, while the rest is valid but interpretative.
 Score: 0.5
 
 Claim 4: "The Eiffel Tower, located in Paris, France, was constructed in 1889. Additionally, the Statue of Liberty was gifted by France to the United States in 1886 to celebrate American independence."
 Context 1: "The Eiffel Tower is located in Paris, France, and was constructed in 1889."
 Context 2: "The Statue of Liberty was a gift from France to the United States in 1886."
-Explanation: This answer is mostly accurate and grounded in the provided context, but it slightly expands the information by mentioning that the Statue of Liberty was a celebration of American independence, which was not stated in the context. Although reasonable, the expansion wasn’t part of the retrieved facts.
+Explanation: This answer is mostly accurate and grounded in the provided context, but it slightly expands the information by mentioning that the Statue of Liberty was a celebration of American independence, which was not stated in the context. Although reasonable, the expansion wasn't part of the retrieved facts.
 Score: 0.7
 
 Claim 5: "The Eiffel Tower is located in Paris, France, and was constructed in 1889. The Statue of Liberty was a gift from France to the United States in 1886."
@@ -349,23 +349,23 @@ Here is the grade criteria to follow:
 Here are some examples:
 
 
-Question 1: “What is the capital of France?”
-Answer 1: "“The earth revolves around the sun.”
+Question 1: "What is the capital of France?"
+Answer 1: ""The earth revolves around the sun.""
 Score: 0
-Explanation: The response is completely irrelevant and doesn’t address the question at all.
+Explanation: The response is completely irrelevant and doesn't address the question at all.
 
 Question 2: "How do I reset my password?"
 Answer 2: "You can contact support for any issues you have."
 Score: 0.2
-Explanation: There is a slight connection, as contacting support might help reset the password, but the response doesn’t directly answer the question or give any steps for resetting a password.
+Explanation: There is a slight connection, as contacting support might help reset the password, but the response doesn't directly answer the question or give any steps for resetting a password.
 
 Question 3: "What is the best way to learn Python?"
 Answer 3: "There are many online resources, and you should practice coding every day"
 Score: 0.5
-Explanation: The response is somewhat relevant but vague. It suggests learning methods but doesn’t give specific recommendations, courses, or structured guidance.
+Explanation: The response is somewhat relevant but vague. It suggests learning methods but doesn't give specific recommendations, courses, or structured guidance.
 
 Question 4: "What are the health benefits of meditation?"
-Answer 4: "Meditation can help reduce stress and improve focus, but it’s important to do it regularly."
+Answer 4: "Meditation can help reduce stress and improve focus, but it's important to do it regularly."
 Score: 0.7
 Explanation: The response is mostly relevant and lists benefits like stress reduction and focus improvement but could be more detailed, covering additional benefits such as emotional well-being or physical health improvements.
 
@@ -484,6 +484,7 @@ Generate up to {num_questions} new follow-up questions that:
 3. Help explore different aspects covered in the contexts
 4. Maintain appropriate technical depth based on the contexts
 5. Are specific and focused on information present in the contexts
+6. Do NOT overlap with or ask similar questions to those in the question history
 
 Important:
 - Only generate questions that can be fully answered using the given contexts
@@ -491,6 +492,7 @@ Important:
 - Do NOT mention the context in the generated questions.
 - Do not generate questions that would require additional information
 - Focus on unexplored aspects from the contexts that are relevant to the topic
+- Avoid generating questions that are semantically similar to questions in the history
 - If you cannot generate good questions from the contexts, return fewer questions or an empty list
 
 Return only the questions as a JSON array of strings. Each question should end with a question mark.
