@@ -19,7 +19,7 @@ bash gurubase.sh
 The installer will:
 1. Create a `.gurubase` directory in your home folder
 2. Prompt for required API keys
-3. Download and start all necessary services
+3. Download and start all necessary [services](#services)
 4. Open the web interface at http://localhost:8029
 
 ### Upgrade
@@ -43,7 +43,7 @@ bash gurubase.sh rm
 > [!CAUTION]
 > To remove everything including all data (volumes), you can run the following command:
 > ```bash
-> cd ~/.gurubase && docker compose down --volumes
+> rm -rf ~/.gurubase
 > ```
 
 ### System Requirements
@@ -62,7 +62,7 @@ bash gurubase.sh rm
   - 10GB available disk space (SSD preferred for better performance)
 
 - **Network**
-  - Ports 8028 and 8029 must be available
+  - Ports `8028` and `8029` must be available
 
 > [!NOTE]
 > Only Linux and MacOS are supported at the moment. Native Windows is not supported, but you can use WSL2 to run Gurubase on Windows.
