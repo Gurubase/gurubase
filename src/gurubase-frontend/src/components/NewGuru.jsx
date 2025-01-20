@@ -146,6 +146,7 @@ export default function NewGuru({
   isProcessing
 }) {
   const router = useRouter();
+  const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user, isLoading: authLoading } = isSelfHosted
@@ -1040,7 +1041,8 @@ export default function NewGuru({
 
         if (pollingSuccessful) {
           if (!isEditMode) {
-            router.push(`/guru/${guruSlug}`);
+            redirectingRef.current = true;
+            window.location.href = `/guru/${guruSlug}`;
           } else {
             CustomToast({
               message: "Guru updated successfully!",
@@ -1155,6 +1157,7 @@ export default function NewGuru({
   // Modify hasFormChanged to be a pure function
   const hasFormChanged = useCallback(() => {
     // Check for changes in sources
+    if (redirectingRef.current) return false;
     if (dirtyChanges.sources.length > 0) return true;
     if (dirtyChanges.guruUpdated) return true;
 
