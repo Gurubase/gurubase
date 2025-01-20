@@ -2963,22 +2963,7 @@ def api_ask(question: str,
         APIType.API: Question.Source.API.value,
     }
 
-    if fetch_existing:
-        # Only check for existing questions if not in a binge
-        # Check if question exists without slug
-        existing_question = search_question(
-            user, 
-            guru_type, 
-            binge, 
-            None, 
-            question,
-            will_check_binge_auth=False,
-            include_api=include_api,
-            only_widget=only_widget
-        )
-        if existing_question and not is_question_dirty(existing_question):
-            logger.info(f"Found existing question {question} for guru type {guru_type.slug}")
-            return APIAskResponse.from_existing(existing_question)
+
 
     # Get question summary and check with slug
     summary_data = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
@@ -2994,7 +2979,8 @@ def api_ask(question: str,
             include_api=include_api,
             only_widget=only_widget
         )
-        if existing_question and not is_question_dirty(existing_question):
+        # if existing_question and not is_question_dirty(existing_question):
+        if existing_question:
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
     
