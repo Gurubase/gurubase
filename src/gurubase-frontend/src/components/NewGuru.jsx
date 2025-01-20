@@ -800,9 +800,9 @@ export default function NewGuru({
 
       // Add check for GitHub repo changes
       const hasGithubChanges =
-        index_repo && isEditMode
+        isEditMode
           ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
-          : index_repo && !!data.githubRepo;
+          : !!data.githubRepo;
 
       if (
         (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
@@ -828,10 +828,7 @@ export default function NewGuru({
       }
       formData.append("domain_knowledge", data.guruContext);
 
-      // Only append github_repo if index_repo is true
-      if (index_repo || !isEditMode) {
-        formData.append("github_repo", data.githubRepo || "");
-      }
+      formData.append("github_repo", data.githubRepo || "");
 
       // Handle guruLogo
       if (data.guruLogo instanceof File) {
