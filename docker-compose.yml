@@ -90,6 +90,16 @@ services:
       - backend
     restart: always
 
+  celery-worker-3:
+    image: ddosify/gurubase-backend:latest
+    container_name: gurubase-backend-celery-worker-3
+    command: /workspace/start_scripts/start_celery_worker.sh
+    env_file:
+      - ${HOME}/.gurubase/.env
+    depends_on:
+      - backend
+    restart: always
+
   celery-beat:
     image: ddosify/gurubase-backend:latest
     container_name: gurubase-backend-celery-beat
