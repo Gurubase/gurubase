@@ -486,6 +486,57 @@ Generate up to {num_questions} new follow-up questions that:
 5. Are specific and focused on information present in the contexts
 6. Do NOT overlap with or ask similar questions to those in the question history (neither question nor user_question)
 
+Here are some examples of question overlaps:
+
+ORIGINAL QUESTION: "What are the key features of Python?"
+
+BAD EXAMPLES (Don't do these):
+1. "What are Python's main features?" 
+   (❌ This is just rewording the same question)
+
+2. "Could you explain the primary characteristics of Python?"
+   (❌ Still asking the same thing with different words)
+
+3. "What makes Python special as a programming language?"
+   (❌ Another variation of the same question)
+
+ORIGINAL QUESTION: "Besides Helm Charts and Docker Compose, is there another way to manually install Anteon Self-Hosted?"
+
+BAD EXAMPLES (Don't do these):
+1. "What are the other ways to manually install Anteon Self-Hosted?"
+   (❌ This is just rewording the same question)
+
+2. "Could you explain the other ways to manually install Anteon Self-Hosted?"
+   (❌ Still asking the same thing with different words)
+
+3. "Besides Docker Compose and Kubernetes, is there another way to manually install Anteon Self-Hosted?"
+   (❌ The question is asking something somewhat different, but it is still asking the same thing)
+
+EXAMPLE HISTORY:
+    ORIGINAL QUESTION 1: "Deploy Alaz with Helm on Anteon Self-Hosted"
+    ORIGINAL QUESTION 2: "Methods to install Alaz on Kubernetes"
+
+BAD EXAMPLES (Don't do these):
+1. "Besides Helm, what other method can I use to install Alaz on my Kubernetes cluster?"
+   (❌ This is just rewording question 2)
+
+2. "Could you explain the other methods to install Alaz on my Kubernetes cluster?"
+   (❌ Still asking the same thing with different words)
+
+ORIGINAL QUESTION: "Supported protocols for Alaz in Anteon"
+
+BAD EXAMPLES (Don't do these):
+1. "Besides HTTP and HTTPS, what other protocols are currently supported by Alaz for monitoring?"
+   (❌ This is just rewording the same question)
+
+INSTEAD, generate questions that:
+- Explore new aspects of the topic
+- Build upon the previous answer
+- Dive deeper into specific points
+- Ask about practical applications
+- Challenge assumptions
+- Connect to related concepts
+
 Important:
 - Only generate questions that can be fully answered using the given contexts
 - Generate questions that have thorough explanations in the contexts. Simple mentions are not enough.
