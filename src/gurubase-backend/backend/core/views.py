@@ -1104,10 +1104,10 @@ def follow_up_examples(request, guru_type):
         return Response(last_question.follow_up_questions, status=status.HTTP_200_OK)
     
     # Get question history
-    questions = [last_question.question]
+    questions = [{'question': last_question.question, 'user_question': last_question.user_question}]
     ptr = last_question
     while ptr.parent:
-        questions.append(ptr.parent.question)
+        questions.append({'question': ptr.parent.question, 'user_question': ptr.parent.user_question})
         ptr = ptr.parent
     questions.reverse()  # Put in chronological order
     
