@@ -1116,13 +1116,8 @@ def get_summary(question, guru_type, widget=False):
 def get_question_summary(question: str, guru_type: str, binge: Binge, widget: bool = False):
     response = get_summary(question, guru_type, widget)
     parsed_response = parse_summary_response(question, response)
-    guru_type_object = get_guru_type_object(guru_type)
     if binge:
-        parsed_response['question_slug'] = validate_slug_existence(
-            parsed_response['question_slug'], 
-            guru_type_object, 
-            binge
-        )
+        parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
     return parsed_response
 
 
@@ -3169,40 +3164,6 @@ def create_binge_helper(guru_type: GuruType, user: User | None, root_question: Q
     binge.save()
 
     return binge
-
-def validate_slug_existence(slug: str, guru_type_object: GuruType, binge: Binge):
-    """
-    For binge questions, we always create a new question with enumerated slug if needed
-
-    Args:
-        slug: Slug to validate
-        guru_type_object: Guru type object
-        binge: Binge object
-
-    Returns:
-        Validated slug
-    """
-
-    # For binge questions, we always create a new question with enumerated slug if needed
-    base_slug = slug
-    if Question.objects.filter(slug=base_slug, guru_type=guru_type_object, binge=binge).exists():
-        # Find the largest enumeration for this slug
-        similar_questions = Question.objects.filter(
-            slug__regex=f"^{base_slug}(-\d+)?$",
-            guru_type=guru_type_object,
-            binge=binge
-        ).values_list('slug', flat=True)
-        
-        max_enum = 0
-        for slug in similar_questions:
-            match = re.search(r'-(\d+)$', slug)
-            if match:
-                enum = int(match.group(1))
-                max_enum = max(max_enum, enum)
-        
-        return f"{base_slug}-{max_enum + 1}"
-    else:
-        return base_slug
 
 def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str:
     from core.prompts import (context_relevance_prompt, 
