@@ -307,7 +307,7 @@ def answer(request, guru_type):
     payload_time = time.time() - payload_start    
     stream_obj_start = time.time()
     try:
-        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = stream_question_answer(
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
             question, 
             guru_type, 
             user_intent, 
@@ -323,15 +323,6 @@ def answer(request, guru_type):
     except Exception as e:
         logger.error(f'Error while getting answer: {e}', exc_info=True)
         return Response({'msg': "An error occurred while getting the answer"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    stream_obj_time = time.time() - stream_obj_start
-    
-    times = {
-        # 'jwt_time': jwt_time,
-        'payload_time': payload_time,
-        'stream_obj_time': stream_obj_time,
-        'endpoint_start': endpoint_start,
-    }
 
     return StreamingHttpResponse(stream_and_save(
         user_question, 
