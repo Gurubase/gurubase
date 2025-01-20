@@ -829,7 +829,7 @@ export default function NewGuru({
       formData.append("domain_knowledge", data.guruContext);
 
       // Only append github_repo if index_repo is true
-      if (index_repo) {
+      if (index_repo || !isEditMode) {
         formData.append("github_repo", data.githubRepo || "");
       }
 
