@@ -59,7 +59,7 @@ def stream_and_save(
         summary_cached_tokens, 
         context_vals, 
         context_distances, 
-        times, 
+        times, # Includes before_stream and summary
         reranked_scores, 
         trust_score, 
         processed_ctx_relevances, 
@@ -70,14 +70,11 @@ def stream_and_save(
         source=Question.Source.USER.value):
     
     start_total = time.perf_counter()
-    times = {
-        'total': 0,
-        'before_stream': times,
-        'stream_and_save': {
-            'time_to_stream': 0,
-            'processing_before_save': 0,
-            'total': 0
-        }
+    times['total'] = 0
+    times['stream_and_save'] = {
+        'time_to_stream': 0,
+        'processing_before_save': 0,
+        'total': 0
     }
     
     start_stream = time.perf_counter()
@@ -136,7 +133,7 @@ def stream_and_save(
     ).first()
     times['stream_and_save']['processing_before_save'] = time.perf_counter() - start_processing
     times['stream_and_save']['total'] = time.perf_counter() - start_total
-    times['total'] = times['before_stream']['total'] + times['stream_and_save']['total']
+    times['total'] = sum(time_dict.get('total', 0) for time_dict in times.values() if isinstance(time_dict, dict))
 
     try:
         if existing_question:
@@ -1069,6 +1066,13 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 def get_summary(question, guru_type, widget=False):
+    times = {
+        'total': 0,
+        'prompt_prep': 0,
+        'response_await': 0
+    }
+    start_total = time.perf_counter()
+    start_prompt_prep = time.perf_counter()
     from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
@@ -1090,6 +1094,9 @@ def get_summary(question, guru_type, widget=False):
         guru_type_obj = get_guru_type_object(guru_type)
         question = f"{guru_type_obj.name} - {question}"
 
+    times['prompt_prep'] = time.perf_counter() - start_prompt_prep
+
+    start_response_await = time.perf_counter()
     try:
         response = chatgpt_client.beta.chat.completions.parse(
             model=settings.GPT_MODEL,
@@ -1106,19 +1113,34 @@ def get_summary(question, guru_type, widget=False):
             ],
             response_format=GptSummary
         )
+        times['response_await'] = time.perf_counter() - start_response_await
     except Exception as e:
         logger.error(f'Error while getting summary: {question}. Exception: {e}', exc_info=True)
-        return None
+        times['total'] = time.perf_counter() - start_total
+        return None, times
 
-    return response
+    times['total'] = time.perf_counter() - start_total
+    return response, times
 
 
 def get_question_summary(question: str, guru_type: str, binge: Binge, widget: bool = False):
-    response = get_summary(question, guru_type, widget)
+    times = {
+        'total': 0,
+    }
+    start_total = time.perf_counter()
+
+    response, get_summary_times = get_summary(question, guru_type, widget)
+    times['get_summary'] = get_summary_times
+
+    start_parse_summary_response = time.perf_counter()
     parsed_response = parse_summary_response(question, response)
+    times['parse_summary_response'] = time.perf_counter() - start_parse_summary_response
+
     if binge:
         parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
-    return parsed_response
+    times['total'] = time.perf_counter() - start_total
+
+    return parsed_response, times
 
 
 def ask_if_english(question):
@@ -2197,7 +2219,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             logger.warning(f"Question {question} already exists for guru type {guru_type.slug}")
             return existing_question.content, None, usages, None
 
-    summary_data = get_question_summary(question, guru_type.slug, None, widget=False)
+    summary_data, _ = get_question_summary(question, guru_type.slug, None, widget=False)
     # Then with slug
     if check_existence:
         existing_question = search_question(
@@ -2966,7 +2988,7 @@ def api_ask(question: str,
 
 
     # Get question summary and check with slug
-    summary_data = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
     if fetch_existing:
         # Only check for existing questions if not in a binge
         existing_question = search_question(
@@ -3008,7 +3030,7 @@ def api_ask(question: str,
 
     try:
         # Get streaming response
-        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
             guru_type.slug, 
             user_intent, 
@@ -3021,6 +3043,10 @@ def api_ask(question: str,
         if not response:
             logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
             return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
+
+        times = {}
+        times['before_stream'] = before_stream_times
+        times['summary'] = summary_times
 
         stream_generator = stream_and_save(
             user_question=user_question,

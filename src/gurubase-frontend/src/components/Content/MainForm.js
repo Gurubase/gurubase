@@ -79,7 +79,8 @@ export const handleSubmitQuestion = async ({
       error,
       status,
       valid_question: answerValid,
-      jwt
+      jwt,
+      times
     } = await getAnswerFromMyBackend(inputValue, guruType, null);
 
     if (signal?.aborted) {
@@ -146,7 +147,8 @@ export const handleSubmitQuestion = async ({
         user_intent,
         prompt_tokens,
         jwt,
-        user_question: inputValue
+        user_question: inputValue,
+        times
       })
     );
 
@@ -161,7 +163,8 @@ export const handleSubmitQuestion = async ({
       retry_count,
       jwt,
       user_question: inputValue,
-      answerValid
+      answerValid,
+      times
     });
 
     dispatch(setSlugPageRendered(false));
