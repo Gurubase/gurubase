@@ -1,0 +1,51 @@
+name: Backend Tag Build and Push Docker Image
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+  
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+      
+    - uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/src/gurubase-backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Configure Dockerhub credentials
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+    - name: Build and push
+      env:
+        REPOSITORY_SELFHOSTED: ${{ secrets.GURUBASE_BE_SELFHOSTED_DOCKER_REPOSITORY }}
+        IMAGE_TAG: ${{ github.ref_name }}
+      uses: docker/build-push-action@v5
+      with:
+        context: src/gurubase-backend
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ env.REPOSITORY_SELFHOSTED }}:${{ env.IMAGE_TAG }}
+        platforms: linux/amd64,linux/arm64
+        file: src/gurubase-backend/Dockerfile
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Image Tag
+      env:
+        IMAGE_TAG: ${{ github.ref_name }}
+      run: |
+        echo "$IMAGE_TAG"
+        echo "Image Tag: $IMAGE_TAG" >> $GITHUB_STEP_SUMMARY 
