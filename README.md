@@ -79,7 +79,7 @@ Like hundreds of GitHub repositories, add a badge to your README to guide your u
 [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20OpenCost%20Guru-006BFF)](https://gurubase.io/g/opencost)
 ```
 
-<img src="imgs/badge_sample.png" alt="Gurubase Image" width="500"/><br/>
+<img src="imgs/badge_sample.png" alt="Gurubase Badge" width="500"/><br/>
 
 ## How to Update Datasources
 
@@ -87,15 +87,15 @@ Datasources can include your tool's documentation webpages, YouTube videos, or P
 
 Once you claim your Guru, you will see your Gurus in the "My Gurus" section.
 
-<img src="imgs/image.png" alt="Gurubase Image" width="300"/><br/>
+<img src="imgs/image.png" alt="Gurubase My Gurus" width="300"/><br/>
 
 Click the Guru you want to update. On the edit page, click "Reindex" for the datasource you want to reindex.
 
-<img src="imgs/image-1.png" alt="Gurubase Image" width="720"/><br/>
+<img src="imgs/image-1.png" alt="Gurubase Reindex" width="720"/><br/>
 
 You can also see the "Last Index Date" on the URL pages.
 
-<img src="imgs/image-2.png" alt="Gurubase Image" width="720"/><br/>
+<img src="imgs/image-2.png" alt="Gurubase Last Index Date" width="720"/><br/>
 
 ## License
 
@@ -340,7 +340,7 @@ Gurubase uses a modern RAG architecture:
 3. **Storage**: Stores vectors in Milvus for efficient similarity search
 4. **Retrieval**: Finds relevant context when questions are asked
 5. **Generation**: Uses LLMs to generate accurate answers based on retrieved context
-6. **Evaluation**: Evaluates the answers to prevent hallucinations
+6. **Evaluation**: Evaluates the contexts to prevent hallucinations
 
 Check the [ARCHITECTURE.md](src/gurubase-backend/ARCHITECTURE.md) file for more details.
 
