@@ -1,20 +1,21 @@
 <div align="center">
-    <img src="https://pbs.twimg.com/profile_banners/1828170456110682112/1725545674/1500x500" alt="Gurubase Image" /><br/>
+    <img src="https://imagedelivery.net/jnIqn6NB1gbMLXIvlYKo5A/3baaeb60-5e39-417e-80b2-0cb2335a7e00/public" alt="Gurubase Logo" width="300px" /><br/><br />
 </div>
-
 
 <div align="center">
 
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/9CMRSQPqx6)
-[![Twitter](https://img.shields.io/badge/Twitter-%231DA1F2.svg?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/gurubaseio)
-[![Mastodon](https://img.shields.io/badge/Mastodon-%236364FF.svg?style=for-the-badge&logo=mastodon&logoColor=white)](https://mastodon.social/@gurubaseio)
-[![Bluesky](https://img.shields.io/badge/Bluesky-%230285FF.svg?style=for-the-badge&logo=bluesky&logoColor=white)](https://bsky.app/profile/gurubase.bsky.social)
-
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/9CMRSQPqx6)
+[![Twitter](https://img.shields.io/badge/Twitter-%231DA1F2.svg?logo=x&logoColor=white)](https://twitter.com/gurubaseio)
+[![Mastodon](https://img.shields.io/badge/Mastodon-%236364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@gurubaseio)
+[![Bluesky](https://img.shields.io/badge/Bluesky-%230285FF.svg?logo=bluesky&logoColor=white)](https://bsky.app/profile/gurubase.bsky.social)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Gurubase/gurubase/blob/main/LICENSE)
 </div>
 
-# Gurubase
+# Gurubase - AI-powered Q&A assistants for any topic
 
 - [What is Gurubase](#what-is-gurubase)
+- [Features](#features)
+- [Quick Install](#quick-install)
 - [How to Create a Guru](#how-to-create-a-guru)
 - [How to Claim a Guru](#how-to-claim-a-guru)
 - [Showcase Your Guru](#showcase-your-guru)
@@ -22,18 +23,44 @@
 - [License](#license)
 - [Help](#help)
 - [Used By](#used-by)
+- [Frequently Asked Questions](#frequently-asked-questions)
 
 ## What is Gurubase
 
-[Gurubase](https://gurubase.io) lets you create AI-powered Q&A assistants for any topic or need. Create a new Guru by uploading webpages, PDFs, videos, or GitHub repositories. Start asking questions directly on Gurubase.io, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product. It’s already being [used by](#used-by) hundreds of open-source repositories. 
+[Gurubase](https://gurubase.io) is an open-source RAG (Retrieval Augmented Generation) system that lets you create AI-powered Q&A assistants for any topic or need. Create a new Guru by adding:
+- 📄 Webpages
+- 📑 PDFs
+- 🎥 YouTube videos
+- 💻 GitHub repositories
+
+Start asking questions directly on Gurubase.io, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product.
+
+## Features
+
+- 🤖 **AI-Powered Q&A**: Advanced LLM-based question answering
+- 🔄 **RAG System**: Retrieval Augmented Generation for accurate, context-aware responses
+- 📚 **Multiple Data Sources**: Support for web pages, PDFs, videos, and GitHub repos
+- 🔌 **Easy Integration**: Embeddable widget for your website. Discord and Slack integrations coming soon
+- 🎯 **Custom Gurus**: Create specialized AI assistants for specific topics
+- 🔄 **Real-time Updates**: Keep your knowledge base current with reindexing
+- 🛠 **Self-hosted Option**: Full control over your deployment
+
+## Quick Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
+bash gurubase.sh
+```
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions and prerequisites.
 
 ## How to Create a Guru
 
-Currently, only the Gurubase team can create a Guru. Please [open an issue](https://github.com/Gurubase/gurubase/issues/new?template=guru_creation_request.md) on this repository with the title "Guru Creation Request" and include the GitHub repository link in the issue content. We prioritize Guru creation requests from the maintainers of the tools. Please mention whether you are the maintainer of the tool. If you are not the maintainer, it would be helpful to obtain the maintainer's permission before opening a creation request for the tool.
+Currently, only the Gurubase team can create a Guru on [Gurubase Cloud](https://gurubase.io/). Please [open an issue](https://github.com/Gurubase/gurubase/issues/new?template=guru_creation_request.md) on this repository with the title "Guru Creation Request" and include the GitHub repository link in the issue content. We prioritize Guru creation requests from the maintainers of the tools. Please mention whether you are the maintainer of the tool. If you are not the maintainer, it would be helpful to obtain the maintainer's permission before opening a creation request for the tool.
 
 ## How to Claim a Guru
 
-Although you can't create a Guru, you can manage it on Gurubase. For example, you can add, remove, or reindex the datasources. To claim a Guru, you must have a Gurubase account and be one of the tool's maintainers. Please [open an issue](https://github.com/Gurubase/gurubase/issues/new?template=guru_claim_request.md) with the title "Guru Claim Request". Include the link to the Guru (e.g., `https://gurubase.io/g/anteon`), your Gurubase username, and a link proving you are one of the maintainers of the tool, such as a PR merged by you.
+Although you can't create a Guru on [Gurubase Cloud](https://gurubase.io/), you can manage it on Gurubase. For example, you can add, remove, or reindex the datasources. To claim a Guru, you must have a Gurubase account and be one of the tool's maintainers. Please [open an issue](https://github.com/Gurubase/gurubase/issues/new?template=guru_claim_request.md) with the title "Guru Claim Request". Include the link to the Guru (e.g., `https://gurubase.io/g/anteon`), your Gurubase username, and a link proving you are one of the maintainers of the tool, such as a PR merged by you.
 
 ## Showcase Your Guru
 
@@ -72,7 +99,9 @@ You can also see the "Last Index Date" on the URL pages.
 
 ## License
 
-All the content generated by Gurubase aligns with the license of the datasources used to generate answers. More details can be found on the [Terms of Usage](https://gurubase.io/terms-of-use) page, Section 2.
+Licensed under the [Apache 2.0 License](LICENSE).
+
+All the content generated by [gurubase.io](https://gurubase.io) aligns with the license of the datasources used to generate answers. More details can be found on the [Terms of Usage](https://gurubase.io/terms-of-use) page, Section 2.
 
 ## Help
 
@@ -298,3 +327,85 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
   </td>
 </tr>
 </table>
+
+## Frequently Asked Questions
+
+### What is Gurubase?
+Gurubase is an open-source RAG (Retrieval Augmented Generation) system that creates AI-powered Q&A assistants. It processes various data sources like documentation, videos, and code repositories to provide context-aware answers.
+
+### How does Gurubase work?
+Gurubase uses a modern RAG architecture:
+1. **Indexing**: Processes and chunks data sources
+2. **Embedding**: Converts text into vector representations
+3. **Storage**: Stores vectors in Milvus for efficient similarity search
+4. **Retrieval**: Finds relevant context when questions are asked
+5. **Generation**: Uses LLMs to generate accurate answers based on retrieved context
+6. **Evaluation**: Evaluates the answers to prevent hallucinations
+
+Check the [ARCHITECTURE.md](src/gurubase-backend/ARCHITECTURE.md) file for more details.
+
+### What types of data sources can I use?
+Gurubase supports multiple data source types:
+- 📄 Web pages that scraped with [Firecrawl](https://www.firecrawl.dev/)
+- 📑 PDF documents
+- 🎥 YouTube videos transcription
+- 💻 GitHub repositories for codebase indexing
+- More formats coming soon! Open an issue if you want a new data source type.
+
+### What's the system architecture?
+Gurubase follows a microservices architecture, deployed as Docker compose.
+- Frontend: Next.js 14 with TailwindCSS
+- Backend: Django REST framework
+- Vector Store: Milvus
+- Message Queue: RabbitMQ
+- Cache: Redis
+- Database: PostgreSQL
+See [ARCHITECTURE.md](src/gurubase-backend/ARCHITECTURE.md) for details.
+
+### What are the system requirements?
+Minimum requirements:
+- CPU: 4 cores
+- RAM: 8GB
+- Storage: 10GB SSD
+- OS: Linux or macOS (Windows via WSL2)
+See [INSTALL.md](INSTALL.md) for detailed requirements.
+
+
+### How can I add Gurubase to my website?
+Three ways to integrate:
+1. **Widget**: Add our [JavaScript widget](https://github.com/gurubase/gurubase-widget)
+2. **Badge**: Add a [Gurubase badge](#2-badge) to your README
+3. **API**: (Coming soon) Direct API integration
+
+### Are there Discord/Slack integrations?
+Discord and Slack integrations are currently in development. Join our [Discord](https://discord.gg/9CMRSQPqx6) for updates.
+
+
+### What is Binge History?
+Binge History provides:
+- Complete interaction history with your Guru
+- Visual learning path in graph format
+- Follow-up questions
+
+### How often is data reindexed?
+- Manual reindexing available anytime
+- Automatic reindexing on source updates (coming soon)
+- Configurable reindexing schedules (coming soon)
+
+### Is there an API available?
+A public API is in development. Features will include:
+- Question answering
+- Data source management
+- Analytics and usage stats
+Join our [Discord](https://discord.gg/9CMRSQPqx6) for API release updates.
+
+### What's the license for self-hosted Gurubase?
+- Code is licensed under [Apache 2.0](LICENSE)
+
+### How is data handled and secured?
+- All data is stored locally in self-hosted deployments including the API keys
+- No data is sent to external servers except LLM API calls
+- Optional telemetry can be disabled
+
+### What is Gurubase Cloud?
+[Gurubase Cloud](https://gurubase.io/) is a hosted version of Gurubase. It's a great way to get started with Gurubase without the hassle of self-hosting.
