@@ -69,6 +69,7 @@ services:
       redis:
         condition: service_started
     restart: always
+    pull_policy: always
 
   celery-worker-1:
     image: ddosify/gurubase-backend:latest
@@ -79,6 +80,7 @@ services:
     depends_on:
       - backend
     restart: always
+    pull_policy: always
 
   celery-worker-2:
     image: ddosify/gurubase-backend:latest
@@ -89,6 +91,7 @@ services:
     depends_on:
       - backend
     restart: always
+    pull_policy: always
 
   celery-worker-3:
     image: ddosify/gurubase-backend:latest
@@ -99,6 +102,7 @@ services:
     depends_on:
       - backend
     restart: always
+    pull_policy: always
 
   celery-beat:
     image: ddosify/gurubase-backend:latest
@@ -109,6 +113,7 @@ services:
     depends_on:
       - backend
     restart: always
+    pull_policy: always
 
   frontend:
     image: ddosify/gurubase-frontend:latest-selfhosted
@@ -118,6 +123,7 @@ services:
     depends_on:
       - backend
     restart: always
+    pull_policy: always
 
   nginx:
     image: nginx:1.23.3-alpine
