@@ -1,6 +1,6 @@
 <div align="center">
-    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/imgs/gurubase-light-logo.svg#gh-light-mode-only" alt="Gurubase Light Logo" width="300px" />
-    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/imgs/gurubase-dark-logo.svg#gh-dark-mode-only" alt="Gurubase Dark Logo" width="300px" /><br/><br />
+    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/imgs/gurubase-light-logo.svg#gh-light-mode-only" alt="Gurubase Light Logo" width="300px" />
+    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/imgs/gurubase-dark-logo.svg#gh-dark-mode-only" alt="Gurubase Dark Logo" width="300px" /><br/><br />
 </div>
 
 
@@ -56,7 +56,7 @@ Start asking questions directly on Gurubase, or [embed it on your website](https
 If you prefer not to use [Gurubase.io](https://gurubase.io), you can install the entire system on your own servers.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
+curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
 bash gurubase.sh
 ```
 
