@@ -371,7 +371,7 @@ export function BingeMap({
 
   // Use useMemo to calculate scaled positions
   const { nodes, links, nodeSize } = useMemo(() => {
-    if (!treeData) return { nodes: [], links: [], nodeSize: 12 };
+    if (!treeData || !containerWidth) return { nodes: [], links: [], nodeSize: 12 };
 
     // Create a modified tree data that includes the streaming node
     let modifiedTreeData = treeData;
@@ -596,13 +596,28 @@ export function BingeMap({
   useEffect(() => {
     const updateContainerWidth = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
+        const width = containerRef.current.offsetWidth;
+        if (width > 0) {
+          setContainerWidth(width);
+        }
       }
     };
 
+    // Use ResizeObserver for more reliable width updates
+    const resizeObserver = new ResizeObserver(updateContainerWidth);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    // Initial update
     updateContainerWidth();
-    window.addEventListener("resize", updateContainerWidth);
-    return () => window.removeEventListener("resize", updateContainerWidth);
+
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+      resizeObserver.disconnect();
+    };
   }, [isBingeMapOpen]);
 
   useEffect(() => {
