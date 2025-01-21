@@ -34,7 +34,9 @@
 - 🎥 YouTube videos
 - 💻 GitHub repositories
 
-Start asking questions directly on Gurubase.io, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product.
+Start asking questions directly on Gurubase, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product.
+
+![Gurubase Intro](imgs/gurubase-intro.jpg)
 
 ## Features
 
