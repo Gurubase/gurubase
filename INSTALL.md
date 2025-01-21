@@ -12,7 +12,7 @@
 Run this command to install Gurubase:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
+curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
 bash gurubase.sh
 ```
 
@@ -27,7 +27,7 @@ The installer will:
 You can upgrade to the latest version by running the following command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
 bash gurubase.sh upgrade
 ```
 
@@ -36,7 +36,7 @@ bash gurubase.sh upgrade
 You can remove Gurubase by running the following command. This will remove the containers and networks but keep the data files.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/gurubase.sh -o gurubase.sh
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
 bash gurubase.sh rm
 ```
 
@@ -132,3 +132,7 @@ Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
 | GitHub Codebase Indexing | ✅ Available | ✅ Available |
 | Website Widget | ✅ Available | ✅ Available |
 | Base LLM | ✅ OpenAI GPT-4o | ✅ OpenAI GPT-4o |
+
+## Additional Information
+
+For frequently asked questions about Gurubase, including system architecture, use cases, data handling, and more, please check the [FAQ section in README.md](README.md#frequently-asked-questions).

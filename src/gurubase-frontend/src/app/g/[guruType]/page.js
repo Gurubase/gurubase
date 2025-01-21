@@ -32,10 +32,10 @@ export async function generateMetadata({ params, searchParams }) {
     const canonicalUrl = `${process.env.NEXT_PUBLIC_PROJECT_URL}g/${guruType}`;
 
     return {
-      title: `Your Shortcut Search for ${guruName} | Gurubase`,
+      title: `AI-powered Q&A assistant for ${guruName} | Gurubase`,
       description: `Search for anything related to ${guruName} and receive instant answers.`,
       openGraph: {
-        title: `Your Shortcut Search for ${guruName} | Gurubase`,
+        title: `AI-powered Q&A assistant for ${guruName} | Gurubase`,
         description: `Search for anything related to ${guruName} and receive instant answers.`,
         images: guruTypeOgImage || mainOgImage,
         url: canonicalUrl
