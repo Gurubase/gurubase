@@ -39,7 +39,7 @@ export default function Footer({ guruType, slug }) {
             <SocialMediaHeader isMobile={true} />
 
             <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
-              &quot;The Tech World&apos;s Shortcut Search&quot;
+              AI-powered Q&A assistants for any topic
             </p>
             <div className="flex justify-end items-center guru-sm:gap-2 gap-4">
               <Link href="/privacy-policy" prefetch={false}>
