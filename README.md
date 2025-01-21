@@ -1,6 +1,6 @@
 <div align="center">
-    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/readme-update/imgs/gurubase-light-logo.svg#gh-light-mode-only" alt="Gurubase Light Logo" width="300px" />
-    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/readme-update/imgs/gurubase-dark-logo.svg#gh-dark-mode-only" alt="Gurubase Dark Logo" width="300px" /><br/><br />
+    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/imgs/gurubase-light-logo.svg#gh-light-mode-only" alt="Gurubase Light Logo" width="300px" />
+    <img src="https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/imgs/gurubase-dark-logo.svg#gh-dark-mode-only" alt="Gurubase Dark Logo" width="300px" /><br/><br />
 </div>
 
 
