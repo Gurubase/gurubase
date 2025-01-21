@@ -132,3 +132,7 @@ Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
 | GitHub Codebase Indexing | ✅ Available | ✅ Available |
 | Website Widget | ✅ Available | ✅ Available |
 | Base LLM | ✅ OpenAI GPT-4o | ✅ OpenAI GPT-4o |
+
+## Additional Information
+
+For frequently asked questions about Gurubase, including system architecture, use cases, data handling, and more, please check the [FAQ section in README.md](README.md#frequently-asked-questions).
