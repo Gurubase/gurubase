@@ -47,11 +47,11 @@ export async function generateMetadata() {
 
   return {
     metadataBase: process.env.NEXT_PUBLIC_PROJECT_URL,
-    title: "The Tech World's Shortcut Search",
+    title: "AI-powered Q&A assistants for any topic",
     description: `Search for comprehensive resources on technical topics and receive instant answers.`,
     openGraph: {
       url: process.env.NEXT_PUBLIC_PROJECT_URL,
-      title: "The Tech World's Shortcut Search",
+      title: "AI-powered Q&A assistants for any topic",
       description: `Search for comprehensive resources on technical topics and receive instant answers.`,
       images: mainOgImage
     },
