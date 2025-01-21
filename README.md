@@ -36,7 +36,7 @@
 
 Start asking questions directly on Gurubase, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product.
 
-![Gurubase Intro](imgs/gurubase-intro.jpg)
+![Gurubase Intro](imgs/gurubase-intro.png)
 
 ## Features
 
