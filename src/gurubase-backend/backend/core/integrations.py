@@ -30,13 +30,17 @@ class IntegrationStrategy(ABC):
         if Integration.objects.filter(type=self.get_type(), external_id=external_id).exists():
             raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
         
+        # Fetch available channels
+        channels = self.list_channels(external_id)
+        
         return Integration.objects.create(
             type=self.get_type(),
             external_id=external_id,
             guru_type=guru_type,
             access_token=access_token,
             refresh_token=refresh_token,
-            code=code
+            code=code,
+            channels=channels
         )
 
     @abstractmethod
@@ -66,14 +70,31 @@ class DiscordStrategy(IntegrationStrategy):
             raise ValueError("No guild ID found in the OAuth response")
         return guild_id
 
-    def list_channels(self, access_token: str) -> list:
-        response = requests.get(
-            'https://discord.com/api/users/@me/guilds',
-            headers={'Authorization': f"Bearer {access_token}"}
+    def list_channels(self, external_id: str) -> list:
+        # First get the guild ID from the token response
+        guild_id = external_id
+        # For each guild, get its channels
+        all_channels = []
+        channels_response = requests.get(
+            f'https://discord.com/api/guilds/{guild_id}/channels',
+            headers={'Authorization': f"Bot {settings.DISCORD_BOT_TOKEN}"}
         )
-        response.raise_for_status()
-        guilds = response.json()
-        return [{'id': g['id'], 'name': g['name']} for g in guilds]
+        channels_response.raise_for_status()
+        channels = channels_response.json()
+        
+        # Only include text channels
+        text_channels = [
+            {
+                'id': c['id'],
+                'name': c['name'],
+                'allowed': False
+            }
+            for c in channels
+            if c['type'] == 0  # 0 is text channel
+        ]
+        all_channels.extend(text_channels)
+            
+        return all_channels
 
     def get_type(self) -> str:
         return 'DISCORD'
@@ -97,13 +118,40 @@ class SlackStrategy(IntegrationStrategy):
         return access_token.split(':')[0]  # team_id is the first part
 
     def list_channels(self, access_token: str) -> list:
-        response = requests.get(
-            'https://slack.com/api/conversations.list',
-            headers={'Authorization': f"Bearer {access_token}"}
-        )
-        response.raise_for_status()
-        data = response.json()
-        return [{'id': c['id'], 'name': c['name']} for c in data['channels']]
+        channels = []
+        cursor = None
+        
+        while True:
+            params = {'limit': 100}
+            if cursor:
+                params['cursor'] = cursor
+                
+            response = requests.get(
+                'https://slack.com/api/conversations.list',
+                headers={'Authorization': f"Bearer {access_token}"},
+                params=params
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get('ok', False):
+                raise ValueError(f"Slack API error: {data.get('error')}")
+                
+            channels.extend([
+                {
+                    'id': c['id'],
+                    'name': c['name'],
+                    'is_private': c['is_private'],
+                    'is_archived': c['is_archived']
+                }
+                for c in data.get('channels', [])
+            ])
+            
+            cursor = data.get('response_metadata', {}).get('next_cursor')
+            if not cursor:
+                break
+                
+        return channels
 
     def get_type(self) -> str:
         return 'SLACK'
