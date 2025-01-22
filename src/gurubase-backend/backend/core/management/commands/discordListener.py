@@ -5,10 +5,10 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.models import Integration, GuruType
-from django.core.cache import cache
+from core.models import Integration, Thread
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
+from core.utils import create_fresh_binge
 import time
 
 class Command(BaseCommand):
@@ -114,7 +114,24 @@ class Command(BaseCommand):
             }
             return None
 
-    async def stream_answer(self, guru_type, question, api_key):
+    async def get_or_create_thread_binge(self, thread_id, integration, guru_type_object):
+        try:
+            # Try to get existing thread
+            thread = await sync_to_async(Thread.objects.get)(thread_id=thread_id, integration=integration)
+            # Get binge asynchronously
+            binge = await sync_to_async(lambda: thread.binge)()
+            return binge
+        except Thread.DoesNotExist:
+            # Create new binge and thread without needing a question
+            binge = await sync_to_async(create_fresh_binge)(guru_type_object, None)
+            await sync_to_async(Thread.objects.create)(
+                thread_id=thread_id,
+                binge=binge,
+                integration=integration
+            )
+            return binge
+
+    async def stream_answer(self, guru_type, question, api_key, binge_id=None):
         url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
         headers = {
             'X-API-KEY': f'{api_key}',
@@ -125,6 +142,8 @@ class Command(BaseCommand):
             'stream': True,
             'short_answer': True
         }
+        if binge_id:
+            payload['session_id'] = str(binge_id)
         
         buffer = ""
         async with aiohttp.ClientSession() as session:
@@ -136,7 +155,7 @@ class Command(BaseCommand):
                         if buffer.strip():
                             yield buffer
 
-    async def get_finalized_answer(self, guru_type, question, api_key):
+    async def get_finalized_answer(self, guru_type, question, api_key, binge_id=None):
         url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
         headers = {
             'X-API-KEY': f'{api_key}',
@@ -148,6 +167,8 @@ class Command(BaseCommand):
             'short_answer': True,
             'fetch_existing': True
         }
+        if binge_id:
+            payload['session_id'] = str(binge_id)
         
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, headers=headers) as response:
@@ -191,48 +212,81 @@ class Command(BaseCommand):
                         # Get guru type slug safely
                         guru_type_slug = await self.get_guru_type_slug(integration)
                         api_key = await self.get_api_key(integration)
+                        guru_type_object = await sync_to_async(lambda: integration.guru_type)()
 
                         # Check if message is in a thread
-                        if message.channel.type == discord.ChannelType.public_thread:
-                            # If in thread, send thinking message directly to thread
-                            thinking_msg = await message.channel.send("Thinking... 🤔")
-                        else:
-                            # If not in thread, create a thread and send thinking message there
-                            thread = await message.create_thread(
-                                name=f"Q: {question[:50]}...",  # Use first 50 chars of question as thread name
-                                auto_archive_duration=60  # Archive after 1 hour of inactivity
-                            )
-                            thinking_msg = await thread.send("Thinking... 🤔")
-                        
-                        last_update = time.time()
-                        update_interval = 0.5  # Update every 0.5 seconds
-                        
-                        # First, stream the response
-                        async for streamed_content in self.stream_answer(
-                            guru_type_slug,
-                            question,
-                            api_key
-                        ):
-                            current_time = time.time()
-                            if current_time - last_update >= update_interval:
-                                await thinking_msg.edit(content=streamed_content)
-                                last_update = current_time
-                        
-                        # After streaming is done, fetch the formatted response
-                        response, success = await self.get_finalized_answer(
-                            guru_type_slug,
-                            question,
-                            api_key
-                        )
-                        
-                        if success:
-                            formatted_response = self.format_response(response)
-                            await thinking_msg.edit(content=formatted_response)
-                        else:
-                            if response:
-                                await thinking_msg.edit(content=response)
+                        binge_id = None
+                        try:
+                            if message.channel.type == discord.ChannelType.public_thread:
+                                # If in thread, send thinking message directly to thread
+                                thinking_msg = await message.channel.send("Thinking... 🤔")
+                                
+                                raise Exception("Not implemented")
+                                # Get or create thread and binge
+                                binge = await self.get_or_create_thread_binge(
+                                    str(message.channel.id),
+                                    integration,
+                                    guru_type_object
+                                )
+                                binge_id = binge.id
                             else:
-                                await thinking_msg.edit(content="Sorry, I couldn't process your request. 😕")
+                                # If not in thread, create a thread and send thinking message there
+                                thread = await message.create_thread(
+                                    name=f"Q: {question[:50]}...",  # Use first 50 chars of question as thread name
+                                    auto_archive_duration=60  # Archive after 1 hour of inactivity
+                                )
+                                thinking_msg = await thread.send("Thinking... 🤔")
+                                
+                                # Create new thread and binge
+                                binge = await self.get_or_create_thread_binge(
+                                    str(thread.id),
+                                    integration,
+                                    guru_type_object
+                                )
+                                binge_id = binge.id
+                            
+                            last_update = time.time()
+                            update_interval = 0.5  # Update every 0.5 seconds
+                            
+                            # First, stream the response
+                            async for streamed_content in self.stream_answer(
+                                guru_type_slug,
+                                question,
+                                api_key,
+                                binge_id
+                            ):
+                                current_time = time.time()
+                                if current_time - last_update >= update_interval:
+                                    await thinking_msg.edit(content=streamed_content)
+                                    last_update = current_time
+                            
+                            # After streaming is done, fetch the formatted response
+                            response, success = await self.get_finalized_answer(
+                                guru_type_slug,
+                                question,
+                                api_key,
+                                binge_id
+                            )
+                            
+                            if success:
+                                formatted_response = self.format_response(response)
+                                await thinking_msg.edit(content=formatted_response)
+                            else:
+                                error_msg = response if response else "Sorry, I couldn't process your request. 😕"
+                                await thinking_msg.edit(content=error_msg)
+                                
+                        except discord.Forbidden:
+                            logging.error(f"Discord forbidden error occurred: {str(e)}")
+                            await thinking_msg.edit(content="❌ I don't have permission to perform this action. Please check my permissions.")
+                        except discord.HTTPException as e:
+                            logging.error(f"Discord API error occurred: {str(e)}")
+                            await thinking_msg.edit(content=f"❌ Discord API error occurred")
+                        except aiohttp.ClientError:
+                            logging.error(f"Network error occurred while processing your request. {str(e)}")
+                            await thinking_msg.edit(content="❌ Network error occurred while processing your request.")
+                        except Exception as e:
+                            logging.error(f"An unexpected error occurred: {str(e)}")
+                            await thinking_msg.edit(content=f"❌ An unexpected error occurred.")
 
         return client, handler
 

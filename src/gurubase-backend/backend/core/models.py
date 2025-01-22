@@ -1075,6 +1075,20 @@ class Binge(models.Model):
     last_used = models.DateTimeField(auto_now=True)
 
 
+class Thread(models.Model):
+    thread_id = models.CharField(max_length=100)  # Discord thread ID
+    binge = models.ForeignKey(Binge, on_delete=models.CASCADE)
+    integration = models.ForeignKey('Integration', on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['thread_id', 'integration']
+
+    def __str__(self):
+        return f"{self.thread_id} - {self.integration.guru_type.slug}"
+
+
 class WidgetId(models.Model):
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, related_name='widget_ids')
     key = models.CharField(max_length=100, unique=True)

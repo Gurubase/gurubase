@@ -1510,6 +1510,9 @@ def api_answer(request, guru_type):
         if not binge and not parent:
             binge = create_binge_helper(guru_type_object, user, api_response.question_obj)
             response_data['session_id'] = str(binge.id)
+        elif binge and not binge.root_question:
+            binge.root_question = api_response.question_obj
+            binge.save()
         return Response(response_data)
     
     # Handle streaming case

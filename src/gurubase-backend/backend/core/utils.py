@@ -3080,6 +3080,21 @@ def create_binge_helper(guru_type: GuruType, user: User | None, root_question: Q
 
     return binge
 
+def create_fresh_binge(guru_type: GuruType, user: User | None):
+    """
+    Creates a new binge without requiring a root question.
+    Args:
+        guru_type: GuruType instance
+        user: User instance or None
+    Returns:
+        Binge instance
+    """
+    binge = Binge.objects.create(
+        guru_type=guru_type,
+        owner=user
+    )
+    return binge
+
 def validate_slug_existence(slug: str, guru_type_object: GuruType, binge: Binge):
     """
     For binge questions, we always create a new question with enumerated slug if needed
