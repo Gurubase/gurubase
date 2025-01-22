@@ -1274,6 +1274,7 @@ class Integration(models.Model):
     code = models.TextField(null=True, blank=True)
     api_key = models.OneToOneField(APIKey, on_delete=models.SET_NULL, null=True, blank=True, related_name='integration_owner')
     access_token = models.TextField()
+    refresh_token = models.TextField(null=True, blank=True)
     channels = models.JSONField(default=list, blank=True, null=False)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)

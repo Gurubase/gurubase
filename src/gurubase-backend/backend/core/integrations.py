@@ -22,14 +22,20 @@ class IntegrationStrategy(ABC):
     def create_integration(self, code: str, guru_type: GuruType) -> Integration:
         """Create integration with the platform"""
         token_data = self.exchange_token(code)
-        access_token = token_data['access_token']
-        external_id = self.get_external_id(access_token)
+        access_token = token_data.get('access_token')
+        refresh_token = token_data.get('refresh_token')
+        external_id = self.get_external_id(token_data)
+        
+        # Check if integration already exists for this type and external_id
+        if Integration.objects.filter(type=self.get_type(), external_id=external_id).exists():
+            raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
         
         return Integration.objects.create(
             type=self.get_type(),
             external_id=external_id,
             guru_type=guru_type,
             access_token=access_token,
+            refresh_token=refresh_token,
             code=code
         )
 
@@ -54,13 +60,11 @@ class DiscordStrategy(IntegrationStrategy):
             raise ValueError(f"Discord API error: {response.text}")
         return response.json()
 
-    def get_external_id(self, access_token: str) -> str:
-        response = requests.get(
-            'https://discord.com/api/users/@me',
-            headers={'Authorization': f"Bearer {access_token}"}
-        )
-        response.raise_for_status()
-        return response.json()['id']
+    def get_external_id(self, token_response: str) -> str:
+        guild_id = token_response.get('guild', {}).get('id')
+        if not guild_id:
+            raise ValueError("No guild ID found in the OAuth response")
+        return guild_id
 
     def list_channels(self, access_token: str) -> list:
         response = requests.get(
