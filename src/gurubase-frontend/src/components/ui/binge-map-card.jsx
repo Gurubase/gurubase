@@ -15,6 +15,7 @@ const Card = React.forwardRef(({ className, ...props }, ref) => {
         "rounded-xl",
         "bg-transparent",
         "overflow-visible",
+        "flex flex-col",
         isBingeMapOpen ? "" : "border bg-card text-card-foreground shadow",
         className
       )}
@@ -29,7 +30,7 @@ const CardHeader = React.forwardRef(
     <div
       ref={ref}
       className={cn(
-        "flex flex-col space-y-1.5",
+        "flex flex-col space-y-1.5 flex-none",
         isBingeMapOpen ? "p-2" : "p-4",
         className
       )}
@@ -60,7 +61,7 @@ CardDescription.displayName = "CardDescription";
 const CardContent = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("pt-0 overflow-visible", className)}
+    className={cn("pt-0 relative flex-1 min-h-0", className)}
     {...props}
   />
 ));
@@ -69,7 +70,7 @@ CardContent.displayName = "CardContent";
 const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center pt-0", className)}
+    className={cn("flex items-center pt-0 flex-none", className)}
     {...props}
   />
 ));
