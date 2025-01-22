@@ -57,9 +57,7 @@ urlpatterns += [
     
     # API v1 Endpoints
     path('api/v1/<str:guru_type>/answer/', core_views.api_answer, name='api-answer'),
-    path('api/v1/<str:guru_type>/data-sources/', core_views.api_create_data_sources, name='api-create-data-sources'),
-    path('api/v1/<str:guru_type>/data-sources/retrieve/', core_views.api_retrieve_data_sources, name='api-retrieve-data-sources'),
-    path('api/v1/<str:guru_type>/data-sources/delete/', core_views.api_delete_data_sources, name='api-delete-data-sources'),
+    path('api/v1/<str:guru_type>/data-sources/', core_views.api_data_sources, name='api-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/reindex/', core_views.api_reindex_data_sources, name='api-reindex-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
 ]
