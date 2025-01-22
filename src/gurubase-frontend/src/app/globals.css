@@ -965,3 +965,23 @@ input[data-follow-up-input] {
 .anteon-prose li {
   line-height: 1.75rem !important;
 }
+
+.guru-toast {
+  @apply bg-white border border-gray-200 shadow-lg;
+}
+
+.guru-toast-success {
+  @apply bg-green-50 border-green-200 text-green-800;
+}
+
+.guru-toast-error {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.guru-toast-warning {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+}
+
+.guru-toast-info {
+  @apply bg-blue-50 border-blue-200 text-blue-800;
+}
