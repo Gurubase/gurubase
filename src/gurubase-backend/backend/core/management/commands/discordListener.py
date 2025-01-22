@@ -9,6 +9,7 @@ from core.models import Integration, GuruType
 from django.core.cache import cache
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
+import time
 
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
@@ -113,7 +114,29 @@ class Command(BaseCommand):
             }
             return None
 
-    async def send_question_to_backend(self, guru_type, question, api_key):
+    async def stream_answer(self, guru_type, question, api_key):
+        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
+        headers = {
+            'X-API-KEY': f'{api_key}',
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'question': question,
+            'stream': True,
+            'short_answer': True
+        }
+        
+        buffer = ""
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as response:
+                async for chunk in response.content:
+                    if chunk:
+                        text = chunk.decode('utf-8')
+                        buffer += text
+                        if buffer.strip():
+                            yield buffer
+
+    async def get_finalized_answer(self, guru_type, question, api_key):
         url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
         headers = {
             'X-API-KEY': f'{api_key}',
@@ -122,7 +145,8 @@ class Command(BaseCommand):
         payload = {
             'question': question,
             'stream': False,
-            'short_answer': True
+            'short_answer': True,
+            'fetch_existing': True
         }
         
         async with aiohttp.ClientSession() as session:
@@ -168,10 +192,34 @@ class Command(BaseCommand):
                         guru_type_slug = await self.get_guru_type_slug(integration)
                         api_key = await self.get_api_key(integration)
 
-                        thinking_msg = await message.channel.send("Thinking... 🤔")
+                        # Check if message is in a thread
+                        if message.channel.type == discord.ChannelType.public_thread:
+                            # If in thread, send thinking message directly to thread
+                            thinking_msg = await message.channel.send("Thinking... 🤔")
+                        else:
+                            # If not in thread, create a thread and send thinking message there
+                            thread = await message.create_thread(
+                                name=f"Q: {question[:50]}...",  # Use first 50 chars of question as thread name
+                                auto_archive_duration=60  # Archive after 1 hour of inactivity
+                            )
+                            thinking_msg = await thread.send("Thinking... 🤔")
                         
-                        # Send request to backend
-                        response, success = await self.send_question_to_backend(
+                        last_update = time.time()
+                        update_interval = 0.5  # Update every 0.5 seconds
+                        
+                        # First, stream the response
+                        async for streamed_content in self.stream_answer(
+                            guru_type_slug,
+                            question,
+                            api_key
+                        ):
+                            current_time = time.time()
+                            if current_time - last_update >= update_interval:
+                                await thinking_msg.edit(content=streamed_content)
+                                last_update = current_time
+                        
+                        # After streaming is done, fetch the formatted response
+                        response, success = await self.get_finalized_answer(
                             guru_type_slug,
                             question,
                             api_key
