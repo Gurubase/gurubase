@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 import json
 import logging
 import time
+import random
+import string
 from django.http import StreamingHttpResponse
 from django.conf import settings
 from django.core.cache import caches
@@ -12,10 +14,10 @@ from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, APIKey
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -1293,6 +1295,30 @@ def get_binges(request):
     }
 
     return Response(response, status=status.HTTP_200_OK)
+
+@api_view(['GET','POST', 'DELETE'])
+@jwt_auth
+def api_keys(request):
+    user = request.user
+    if request.method == 'GET':
+        api_keys = APIKey.objects.filter(user=user)
+        return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        # Check if user has reached the limit
+        existing_keys_count = APIKey.objects.filter(user=user).count()
+        if existing_keys_count >= 5:
+            return Response({'msg': 'You have reached the maximum limit of 5 API keys'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        key = "gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30))
+        api_key = APIKey.objects.create(user=user, name=request.data.get('name'), key=key)
+        return Response({'msg': 'API key created successfully', 'key': key}, status=status.HTTP_200_OK)
+    elif request.method == 'DELETE':
+        try:
+            api_key = APIKey.objects.get(key=request.data.get('api_key'), user=user)
+            api_key.delete()
+            return Response({'msg': 'API key deleted successfully'}, status=status.HTTP_200_OK)
+        except APIKey.DoesNotExist:
+            return Response({'msg': 'API key does not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def health_check(request):

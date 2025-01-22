@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource
+from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey
 from core.gcp import replace_media_root_with_nginx_base_url
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -105,3 +105,8 @@ class BingeSerializer(serializers.ModelSerializer):
         # Filter out binges with null root_question
         valid_binges = [binge for binge in binges if binge.root_question]
         return cls(valid_binges, many=many).data
+
+class APIKeySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = APIKey
+        fields = ['id', 'key', 'name', 'date_created']
