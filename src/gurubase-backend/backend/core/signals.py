@@ -13,6 +13,8 @@ from PIL import ImageColor
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
+import secrets
+from .models import Integration, APIKey
 
 logger = logging.getLogger(__name__)
 
@@ -802,3 +804,18 @@ def data_source_retrieval_on_creation(sender, instance: DataSource, created, **k
 
     if created and instance.status == DataSource.Status.NOT_PROCESSED:
         data_source_retrieval.delay(guru_type_slug=instance.guru_type.slug)
+
+@receiver(pre_save, sender=Integration)
+def create_api_key_for_integration(sender, instance, **kwargs):
+    if not instance.api_key_id:
+        api_key = APIKey.objects.create(
+            user=instance.guru_type.maintainers.first(),
+            key=secrets.token_urlsafe(32),
+            integration=True
+        )
+        instance.api_key = api_key
+
+@receiver(pre_delete, sender=Integration)
+def delete_api_key_for_integration(sender, instance, **kwargs):
+    if instance.api_key:
+        instance.api_key.delete()

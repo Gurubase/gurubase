@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from core.models import (APIKey,
-                         Binge, 
+                         Binge, Integration, 
                          LLMEval, 
                          LinkReference, 
                          LinkValidity, 
@@ -428,8 +428,17 @@ class GitHubFileAdmin(admin.ModelAdmin):
 
 @admin.register(APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'key', 'date_created', 'date_updated']
+    list_display = ['id', 'user', 'integration', 'key', 'date_created', 'date_updated']
     search_fields = ['id', 'user__email', 'key']
-    list_filter = ('user__email',)
+    list_filter = ('user__email', 'integration')
     ordering = ('-id',)
     raw_id_fields = ('user',)
+
+
+@admin.register(Integration)
+class IntegrationAdmin(admin.ModelAdmin):
+    list_display = ['id', 'guru_type', 'type', 'date_created', 'date_updated']
+    list_filter = ('guru_type__slug', 'type')
+    search_fields = ['id', 'guru_type__slug', 'type']
+    ordering = ('-id',)
+    raw_id_fields = ('guru_type',)

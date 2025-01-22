@@ -1247,6 +1247,7 @@ class GithubFile(models.Model):
 class APIKey(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     key = models.CharField(max_length=100, unique=True)
+    integration = models.BooleanField(default=False)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1256,3 +1257,29 @@ class APIKey(models.Model):
             return cls.objects.get(key=api_key)
         except cls.DoesNotExist:
             return None
+
+
+class Integration(models.Model):
+    class Type(models.TextChoices):
+        DISCORD = "DISCORD"
+        SLACK = "SLACK"
+
+    type = models.CharField(
+        max_length=50,
+        choices=[(tag.value, tag.value) for tag in Type],
+        default=Type.DISCORD.value,
+    )
+    external_id = models.TextField()
+    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
+    code = models.TextField(null=True, blank=True)
+    api_key = models.OneToOneField(APIKey, on_delete=models.SET_NULL, null=True, blank=True, related_name='integration_owner')
+    access_token = models.TextField()
+    channels = models.JSONField(default=list, blank=True, null=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.type} - {self.guru_type.name}"
+
+    class Meta:
+        unique_together = ['type', 'external_id']

@@ -19,6 +19,8 @@ else:
 
 urlpatterns += [
     path('accounts/', include('accounts.urls')),
+    path('integrations/create/', core_views.create_integration, name='create_integration'),
+    path('integrations/<int:integration_id>/channels/', core_views.list_channels, name='list_channels'),
     re_path(r'(?P<guru_type>[\w-]+)/question/(?P<slug>[\w-]+)/?$', core_views.question_detail, name="question_detail"),
     
     path('guru_types/', core_views.guru_types, name="guru_types"),
