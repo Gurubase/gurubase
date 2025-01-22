@@ -410,4 +410,5 @@ DISCORD_BOT_TOKEN = config('DISCORD_BOT_TOKEN', default='')
 
 SLACK_CLIENT_ID = config('SLACK_CLIENT_ID', default='')
 SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
+PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://kubernetesguru-backend-api.getanteon.com')
 

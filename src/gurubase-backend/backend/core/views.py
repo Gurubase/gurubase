@@ -191,7 +191,7 @@ def summary(request, guru_type):
     existence_check_time = time.time() - existence_check_start
 
     summary_start = time.time()
-    answer = get_question_summary(question, guru_type, binge, widget=False)
+    answer = get_question_summary(question, guru_type, binge, short_answer=False)
     summary_time = time.time() - summary_start
 
     endpoint_time = time.time() - endpoint_start
@@ -1465,6 +1465,7 @@ def api_answer(request, guru_type):
     stream = request.data.get('stream', False)
     binge_id = request.data.get('session_id')
     fetch_existing = request.data.get('fetch_existing', False)
+    short_answer = request.data.get('short_answer', False)
     user = request.user
 
     # Initialize with default values
@@ -1492,7 +1493,8 @@ def api_answer(request, guru_type):
         parent=parent,
         fetch_existing=fetch_existing,
         api_type=APIType.API,
-        user=user
+        user=user,
+        short_answer=short_answer
     )
     
     # Handle error case

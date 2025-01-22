@@ -975,12 +975,12 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
 
-def get_summary(question, guru_type, widget=False):
+def get_summary(question, guru_type, short_answer=False):
     from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
-    if widget:
+    if short_answer:
         summary_prompt_widget_addition = summary_prompt_widget_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
         summary_prompt_non_widget_addition = ""
     else:
@@ -1020,8 +1020,8 @@ def get_summary(question, guru_type, widget=False):
     return response
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, widget: bool = False):
-    response = get_summary(question, guru_type, widget)
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False):
+    response = get_summary(question, guru_type, short_answer)
     parsed_response = parse_summary_response(question, response)
     guru_type_object = get_guru_type_object(guru_type)
     if binge:
@@ -2109,7 +2109,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             logger.warning(f"Question {question} already exists for guru type {guru_type.slug}")
             return existing_question.content, None, usages, None
 
-    summary_data = get_question_summary(question, guru_type.slug, None, widget=False)
+    summary_data = get_question_summary(question, guru_type.slug, None, short_answer=False)
     # Then with slug
     if check_existence:
         existing_question = search_question(
@@ -2845,7 +2845,8 @@ def api_ask(question: str,
             parent: Question | None, 
             fetch_existing: bool, 
             api_type: APIType, 
-            user: User | None) -> APIAskResponse:
+            user: User | None,
+            short_answer: bool = False) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -2864,6 +2865,9 @@ def api_ask(question: str,
     """
 
     is_widget = api_type == APIType.WIDGET
+
+    if is_widget:
+        short_answer = True
 
     include_api = api_type == APIType.API
     only_widget = api_type == APIType.WIDGET
@@ -2891,7 +2895,7 @@ def api_ask(question: str,
             return APIAskResponse.from_existing(existing_question)
 
     # Get question summary and check with slug
-    summary_data = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
+    summary_data = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer)
     if fetch_existing:
         # Only check for existing questions if not in a binge
         existing_question = search_question(
@@ -2919,7 +2923,7 @@ def api_ask(question: str,
     answer_length = summary_data.get('answer_length', '')
     default_settings = get_default_settings()
 
-    if is_widget and answer_length > default_settings.widget_answer_max_length:
+    if short_answer and answer_length > default_settings.widget_answer_max_length:
         # Double check just in case
         answer_length = default_settings.widget_answer_max_length
     
