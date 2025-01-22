@@ -406,6 +406,8 @@ if ENV == "selfhosted":
 DISCORD_CLIENT_ID = config('DISCORD_CLIENT_ID', default='')
 DISCORD_CLIENT_SECRET = config('DISCORD_CLIENT_SECRET', default='')
 DISCORD_REDIRECT_URI = config('DISCORD_REDIRECT_URI', default='')
+DISCORD_BOT_TOKEN = config('DISCORD_BOT_TOKEN', default='')
+
 SLACK_CLIENT_ID = config('SLACK_CLIENT_ID', default='')
 SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
 
