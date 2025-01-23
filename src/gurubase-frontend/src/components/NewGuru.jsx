@@ -80,7 +80,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Toaster } from "@/components/ui/Sonner";
 import {
   Table,
   TableBody,
@@ -2473,7 +2472,6 @@ export default function NewGuru({
           </form>
         </Form>
       </div>
-      <Toaster />
       <input
         ref={fileInputRef}
         multiple

@@ -116,7 +116,7 @@ services:
     pull_policy: always
 
   frontend:
-    image: ddosify/gurubase-frontend:0.1.0
+    image: ddosify/gurubase-frontend:0.1.1
     container_name: gurubase-frontend
     env_file:
       - ${HOME}/.gurubase/.env.frontend

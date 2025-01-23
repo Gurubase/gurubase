@@ -1262,6 +1262,7 @@ class APIKey(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     key = models.CharField(max_length=100, unique=True)
     integration = models.BooleanField(default=False)
+    name = models.CharField(max_length=100, null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 

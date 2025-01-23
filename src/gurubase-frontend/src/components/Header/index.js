@@ -164,6 +164,20 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                   </span>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild className="p-0.5">
+                <Link
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                  href="/api-keys"
+                  prefetch={false}>
+                  <Icon
+                    className="w-4 h-4 text-[#6D6D6D]"
+                    icon="solar:key-linear"
+                  />
+                  <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                    API Keys
+                  </span>
+                </Link>
+              </DropdownMenuItem>
               {!isSelfHosted && (
                 <DropdownMenuItem asChild className="p-0.5 mb-0.5">
                   <a

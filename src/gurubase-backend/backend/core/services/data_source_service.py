@@ -117,18 +117,24 @@ class DataSourceService:
 
         # Perform bulk updates
         if private_ids:
-            DataSource.objects.filter(
+            data_sources = DataSource.objects.filter(
                 id__in=private_ids,
                 guru_type=self.guru_type_object,
                 type=DataSource.Type.PDF
-            ).update(private=True)
+            )
+            if len(data_sources) == 0:
+                raise ValueError('No PDF data sources found to update')
+            data_sources.update(private=True)
 
         if non_private_ids:
-            DataSource.objects.filter(
+            data_sources = DataSource.objects.filter(
                 id__in=non_private_ids,
                 guru_type=self.guru_type_object,
                 type=DataSource.Type.PDF
-            ).update(private=False)
+            )
+            if len(data_sources) == 0:
+                raise ValueError('No PDF data sources found to update')
+            data_sources.update(private=False)
 
     def reindex_data_sources(self, datasource_ids: List[str]) -> None:
         """

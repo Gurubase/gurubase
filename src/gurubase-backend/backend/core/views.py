@@ -5,6 +5,8 @@ import json
 import logging
 import time
 import aiohttp
+import random
+import string
 from django.http import StreamingHttpResponse
 from django.conf import settings
 from django.core.cache import caches
@@ -16,10 +18,10 @@ from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -835,7 +837,11 @@ def delete_data_sources(request, guru_type):
 
     logger.info(f'Deleting {guru_type} data sources: {ids}')
 
-    DataSource.objects.filter(guru_type=guru_type_object, id__in=ids).delete()
+    data_sources = DataSource.objects.filter(guru_type=guru_type_object, id__in=ids)
+    if len(data_sources) == 0:
+        return Response({'msg': 'No data sources found to delete'}, status=status.HTTP_404_NOT_FOUND)
+    
+    data_sources.delete()
 
     return Response({
         'msg': 'Data sources deleted successfully'
@@ -1300,6 +1306,30 @@ def get_binges(request):
 
     return Response(response, status=status.HTTP_200_OK)
 
+@api_view(['GET','POST', 'DELETE'])
+@jwt_auth
+def api_keys(request):
+    user = request.user
+    if request.method == 'GET':
+        api_keys = APIKey.objects.filter(user=user)
+        return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        # Check if user has reached the limit
+        existing_keys_count = APIKey.objects.filter(user=user).count()
+        if existing_keys_count >= 5:
+            return Response({'msg': 'You have reached the maximum limit of 5 API keys'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        key = "gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30))
+        api_key = APIKey.objects.create(user=user, name=request.data.get('name'), key=key)
+        return Response({'msg': 'API key created successfully', 'key': key}, status=status.HTTP_200_OK)
+    elif request.method == 'DELETE':
+        try:
+            api_key = APIKey.objects.get(key=request.data.get('api_key'), user=user)
+            api_key.delete()
+            return Response({'msg': 'API key deleted successfully'}, status=status.HTTP_200_OK)
+        except APIKey.DoesNotExist:
+            return Response({'msg': 'API key does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 def health_check(request):
     return Response({'status': 'healthy'}, status=status.HTTP_200_OK)
@@ -1447,6 +1477,69 @@ def get_guru_visuals(request):
     return Response(response, status=status.HTTP_200_OK)
 
 
+@parser_classes([MultiPartParser, FormParser])
+@api_view(['GET', 'POST', 'DELETE'])
+@api_key_auth
+def api_data_sources(request, guru_type):
+    """
+    Unified endpoint for managing data sources.
+    GET: Retrieve data sources with pagination
+    POST: Create new data sources (PDFs, YouTube URLs, website URLs)
+    DELETE: Delete specified data sources
+    """
+    response_handler = DataSourceResponseHandler()
+    
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return response_handler.handle_error_response('Forbidden', status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return response_handler.handle_error_response(f'Guru type {guru_type} not found', status.HTTP_404_NOT_FOUND)
+
+    validate_guru_type(guru_type, only_active=False)
+
+    if request.method == 'GET':
+        class DataSourcePagination(PageNumberPagination):
+            page_size = 10_000
+            page_size_query_param = 'page_size'
+            max_page_size = 10_000
+            
+        data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('-date_created')
+        paginator = DataSourcePagination()
+        paginated_data_sources = paginator.paginate_queryset(data_sources_queryset, request)
+        serializer = DataSourceAPISerializer(paginated_data_sources, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    elif request.method == 'POST':
+        try:
+            service = DataSourceService(guru_type_object, request.user)
+            
+            # Get and validate inputs
+            pdf_files = request.FILES.getlist('pdf_files', [])
+            pdf_privacies = json.loads(request.data.get('pdf_privacies', '[]'))
+            youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
+            website_urls = json.loads(request.data.get('website_urls', '[]'))
+
+            # Validate all inputs
+            service.validate_pdf_files(pdf_files, pdf_privacies)
+            service.validate_url_limits(youtube_urls, 'youtube')
+            service.validate_url_limits(website_urls, 'website')
+
+            # Create data sources
+            results = service.create_data_sources(pdf_files, pdf_privacies, youtube_urls, website_urls)
+
+            return response_handler.handle_success_response(
+                'Data sources processing completed',
+                {'results': results}
+            )
+        except ValueError as e:
+            return response_handler.handle_error_response(str(e))
+        except Exception as e:
+            return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+
+    elif request.method == 'DELETE':
+        return delete_data_sources(request, guru_type) 
+
 @api_view(['POST'])
 @api_key_auth
 def api_answer(request, guru_type):
@@ -1550,47 +1643,7 @@ def api_answer(request, guru_type):
             return response_handler.handle_error_response(e)
     
     # Handle any other cases
-    return response_handler.handle_non_stream_response(api_response.content)
-
-
-@parser_classes([MultiPartParser, FormParser])
-@api_view(['POST'])
-@api_key_auth
-def api_create_data_sources(request, guru_type):
-    """Create new data sources. Supports PDFs, YouTube URLs, and website URLs."""
-    response_handler = DataSourceResponseHandler()
-    
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
-
-    try:
-        service = DataSourceService(guru_type_object, request.user)
-        
-        # Get and validate inputs
-        pdf_files = request.FILES.getlist('pdf_files', [])
-        pdf_privacies = json.loads(request.data.get('pdf_privacies', '[]'))
-        youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
-        website_urls = json.loads(request.data.get('website_urls', '[]'))
-
-        # Validate all inputs
-        service.validate_pdf_files(pdf_files, pdf_privacies)
-        service.validate_url_limits(youtube_urls, 'youtube')
-        service.validate_url_limits(website_urls, 'website')
-
-        # Create data sources
-        results = service.create_data_sources(pdf_files, pdf_privacies, youtube_urls, website_urls)
-
-        return response_handler.handle_success_response(
-            'Data sources processing completed',
-            {'results': results}
-        )
-    except ValueError as e:
-        return response_handler.handle_error_response(str(e))
-    except Exception as e:
-        return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
-
+    return response_handler.handle_non_stream_response(api_response.content) 
 
 @api_view(['PUT'])
 @api_key_auth
@@ -1605,7 +1658,9 @@ def api_update_data_source_privacy(request, guru_type):
 
     try:
         service = DataSourceService(guru_type_object, request.user)
-        data_sources = request.data.get('data_sources', [])
+        data_sources = request.data.get('pdf_data_sources', [])
+        if len(data_sources) == 0:
+            return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
         service.update_privacy_settings(data_sources)
         return response_handler.handle_success_response('Data sources updated successfully')
@@ -1629,6 +1684,8 @@ def api_reindex_data_sources(request, guru_type):
     try:
         service = DataSourceService(guru_type_object, request.user)
         datasource_ids = request.data.get('ids', [])
+        if len(datasource_ids) == 0:
+            return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
         service.reindex_data_sources(datasource_ids)
         return response_handler.handle_success_response('Data sources reindexed successfully')

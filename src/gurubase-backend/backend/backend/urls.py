@@ -49,6 +49,7 @@ urlpatterns += [
     path('<str:guru_type>/follow_up/graph/', core_views.follow_up_graph, name='follow_up_graph'),
     path('<str:guru_type>/follow_up/binge/', core_views.create_binge, name='create_binge'),
     path('binge-history/', core_views.get_binges, name='get_binges'),
+    path('api_keys/', core_views.api_keys, name='api_keys'),
     path('guru_types/create_frontend/', core_views.create_guru_type_frontend, name='create_guru_type_frontend'),
     path('health/', core_views.health_check, name='health_check'),
     path('widget/ask/', core_views.ask_widget, name='ask_widget'),
@@ -58,9 +59,7 @@ urlpatterns += [
     
     # API v1 Endpoints
     path('api/v1/<str:guru_type>/answer/', core_views.api_answer, name='api-answer'),
-    path('api/v1/<str:guru_type>/data-sources/', core_views.api_create_data_sources, name='api-create-data-sources'),
-    path('api/v1/<str:guru_type>/data-sources/retrieve/', core_views.api_retrieve_data_sources, name='api-retrieve-data-sources'),
-    path('api/v1/<str:guru_type>/data-sources/delete/', core_views.api_delete_data_sources, name='api-delete-data-sources'),
+    path('api/v1/<str:guru_type>/data-sources/', core_views.api_data_sources, name='api-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/reindex/', core_views.api_reindex_data_sources, name='api-reindex-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
 
