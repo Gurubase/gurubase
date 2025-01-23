@@ -1695,47 +1695,6 @@ def api_reindex_data_sources(request, guru_type):
         return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
 
 
-@api_view(['DELETE'])
-@api_key_auth
-def api_delete_data_sources(request, guru_type):
-    """Delete specified data sources."""
-    response_handler = DataSourceResponseHandler()
-    
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
-
-    return delete_data_sources(request, guru_type) 
-
-
-@api_view(['GET'])
-@api_key_auth
-def api_retrieve_data_sources(request, guru_type):
-    """Retrieve data sources for a guru type with pagination."""
-    response_handler = DataSourceResponseHandler()
-    
-    class DataSourcePagination(PageNumberPagination):
-        page_size = 10_000
-        page_size_query_param = 'page_size'
-        max_page_size = 10_000
-
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except PermissionError:
-        return response_handler.handle_error_response('Forbidden', status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return response_handler.handle_error_response(f'Guru type {guru_type} not found', status.HTTP_404_NOT_FOUND)
-
-    validate_guru_type(guru_type, only_active=False)
-    data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('type', 'url')
-    
-    paginator = DataSourcePagination()
-    paginated_data_sources = paginator.paginate_queryset(data_sources_queryset, request)
-    serializer = DataSourceSerializer(paginated_data_sources, many=True)
-    
-    return paginator.get_paginated_response(serializer.data) 
-
 @api_view(['GET'])
 # GET for Discord
 def create_integration(request):
