@@ -12,7 +12,7 @@ export const IntegrationPayeLayout = ({ customGuru, type }) => {
       <Header textPageHeader={true} />
       <CommonContentLayout
         sidebar={<GuruEditPageSidebar guruSlug={customGuru} />}>
-        <div className="flex gap-6 p-6">
+        <div className="flex gap-6">
           <div className="flex-1">
             <SetupIntegration type={type} />
           </div>
