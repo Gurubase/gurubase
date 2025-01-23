@@ -19,7 +19,7 @@ export default function Loading() {
   // You can add any UI inside Loading, including a Skeleton.
   return (
     // Keep same UI while getting data from the server for instant questions
-    <main className="flex flex-col bg-white  h-screen">
+    <main className="flex flex-col bg-white h-screen">
       <Header guruType={guruType} />
       <main className="z-10 flex justify-center items-center px-16 xs:px-0 w-full flex-grow xs:max-w-full polygon-fill">
         <section className="container mx-auto max-w-[1180px] shadow-md bg-white h-full xs:border-none border-l border-r border-solid border-neutral-200">

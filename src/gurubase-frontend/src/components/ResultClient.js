@@ -442,7 +442,7 @@ export const ResultClient = ({
   const finalSlug = typeof window !== "undefined" ? currentQuestionSlug : slug;
 
   return (
-    <main className="flex flex-col bg-white h-full">
+    <main className="flex flex-col bg-white h-screen">
       <Header allGuruTypes={allGuruTypes} guruType={guruType} />
       <Content
         allGuruTypes={allGuruTypes}

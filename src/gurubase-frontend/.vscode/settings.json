@@ -1,0 +1,14 @@
+{
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "cSpell.enabled": false,
+  "workbench.colorCustomizations": {
+    "editor.selectionBackground": "#ffe100",
+    "editor.selectionHighlightBackground": "#ffe100",
+    "editor.findMatchBackground": "#ffe100",
+    "editorOverviewRuler.findMatchForeground": "#ffe100"
+  }
+}

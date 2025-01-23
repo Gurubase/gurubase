@@ -164,6 +164,20 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                   </span>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild className="p-0.5">
+                <Link
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                  href="/api-keys"
+                  prefetch={false}>
+                  <Icon
+                    className="w-4 h-4 text-[#6D6D6D]"
+                    icon="solar:key-linear"
+                  />
+                  <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                    API Keys
+                  </span>
+                </Link>
+              </DropdownMenuItem>
               {!isSelfHosted && (
                 <DropdownMenuItem asChild className="p-0.5 mb-0.5">
                   <a
@@ -217,92 +231,96 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
   };
 
   return (
-    <header
-      className={clsx(
-        "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:max-w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 sticky top-0 z-50 bg-white",
-        guruType || !guruType || postContentExist || isLoading
-          ? !textPageHeader && "guru-sm:mt-0"
-          : !textPageHeader && "guru-sm:mt-[10rem] ",
-        guruType || !guruType || postContentExist || isLoading
-          ? !textPageHeader && "guru-sm:mb-0"
-          : !textPageHeader && "guru-sm:mb-8"
-      )}
-      style={{ backgroundColor: getBackgroundColor() }}>
-      <div
+    <div className="relative">
+      <div className={clsx("h-[72px]", isMobileSidebarOpen && "guru-sm:hidden")} />
+      <header
         className={clsx(
-          "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
-          guruType && !textPageHeader
-            ? "guru-sm:justify-between guru-sm:items-center max-w-[1440px]"
-            : "guru-sm:justify-start guru-md:max-w-[870px] guru-lg:max-w-[1180px]",
-          guruType
-            ? "py-3"
-            : textPageHeader
-              ? "py-5"
-              : "guru-sm:pt-5 guru-sm:pb-0 py-5"
-        )}>
-        {/* Mobile Header Row */}
-        <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
-          <div className="flex items-center gap-4">
-            <button
-              aria-label="Open menu"
-              className="flex items-center justify-center w-8 h-8 text-gray-700"
-              onClick={() => setIsMobileSidebarOpen(true)}>
-              <Icon className="w-6 h-6" icon="solar:hamburger-menu-outline" />
-            </button>
-            <Link
-              className="cursor-pointer"
-              href="/"
-              prefetch={false}
-              onClick={handleRedirectToHome}>
-              <div className={clsx(isLongGuruName && "scale-75 -ml-4")}>
-                <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
-              </div>
-            </Link>
-          </div>
-          <MobileOtherGurus
-            allGuruTypes={allGuruTypes}
-            isLongGuruName={isLongGuruName}
-          />
-        </div>
-
-        {/* Desktop Logo */}
+          "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 z-50 bg-white",
+          isMobileSidebarOpen && "guru-sm:hidden",
+          guruType || !guruType || postContentExist || isLoading
+            ? !textPageHeader && "guru-sm:mt-0"
+            : !textPageHeader && "guru-sm:mt-[10rem] ",
+          guruType || !guruType || postContentExist || isLoading
+            ? !textPageHeader && "guru-sm:mb-0"
+            : !textPageHeader && "guru-sm:mb-8"
+        )}
+        style={{ backgroundColor: getBackgroundColor() }}>
         <div
           className={clsx(
-            "flex gap-2 my-auto text-xs font-bold guru-sm:hidden"
-          )}
-          style={{ color: getGuruTypeTextColor(guruType, allGuruTypes) }}>
-          <div className="flex flex-col">
-            <Link
-              className="cursor-pointer"
-              href="/"
-              prefetch={false}
-              onClick={handleRedirectToHome}>
-              <div className="mt-0 ml-1">
-                {guruType && activeGuruName
-                  ? activeGuruName
-                  : guruType
-                    ? getGuruPromptMap(guruType, allGuruTypes)
-                    : ""}
-              </div>
-              <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
-            </Link>
+            "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
+            guruType && !textPageHeader
+              ? "guru-sm:justify-between guru-sm:items-center max-w-[1440px]"
+              : "guru-sm:justify-start guru-md:max-w-[870px] guru-lg:max-w-[1180px]",
+            guruType
+              ? "py-3"
+              : textPageHeader
+                ? "py-5"
+                : "guru-sm:pt-5 guru-sm:pb-0 py-5"
+          )}>
+          {/* Mobile Header Row */}
+          <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
+            <div className="flex items-center gap-4">
+              <button
+                aria-label="Open menu"
+                className="flex items-center justify-center w-8 h-8 text-gray-700"
+                onClick={() => setIsMobileSidebarOpen(true)}>
+                <Icon className="w-6 h-6" icon="solar:hamburger-menu-outline" />
+              </button>
+              <Link
+                className="cursor-pointer"
+                href="/"
+                prefetch={false}
+                onClick={handleRedirectToHome}>
+                <div className={clsx(isLongGuruName && "scale-75 -ml-4")}>
+                  <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
+                </div>
+              </Link>
+            </div>
+            <MobileOtherGurus
+              allGuruTypes={allGuruTypes}
+              isLongGuruName={isLongGuruName}
+            />
           </div>
-        </div>
 
-        <div className="flex items-center gap-4 guru-sm:hidden">
-          <SocialMediaHeader />
-          {renderAuthButtons()}
-        </div>
+          {/* Desktop Logo */}
+          <div
+            className={clsx(
+              "flex gap-2 my-auto text-xs font-bold guru-sm:hidden"
+            )}
+            style={{ color: getGuruTypeTextColor(guruType, allGuruTypes) }}>
+            <div className="flex flex-col">
+              <Link
+                className="cursor-pointer"
+                href="/"
+                prefetch={false}
+                onClick={handleRedirectToHome}>
+                <div className="mt-0 ml-1">
+                  {guruType && activeGuruName
+                    ? activeGuruName
+                    : guruType
+                      ? getGuruPromptMap(guruType, allGuruTypes)
+                      : ""}
+                </div>
+                <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
+              </Link>
+            </div>
+          </div>
 
-        {isMobile && (
-          <MobileSidebar
-            isOpen={isMobileSidebarOpen}
-            user={user}
-            onClose={() => setIsMobileSidebarOpen(false)}
-          />
-        )}
-      </div>
-    </header>
+          <div className="flex items-center gap-4 guru-sm:hidden">
+            <SocialMediaHeader />
+            {renderAuthButtons()}
+          </div>
+
+          {isMobile && (
+            <MobileSidebar
+              isOpen={isMobileSidebarOpen}
+              user={user}
+              onClose={() => setIsMobileSidebarOpen(false)}
+            />
+          )}
+        </div>
+      </header>
+    </div>
   );
 });
 

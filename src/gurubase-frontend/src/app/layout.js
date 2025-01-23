@@ -9,6 +9,7 @@ import Script from "next/script";
 import { PublicEnvScript } from "next-runtime-env";
 
 import StoreProvider from "@/app/StoreProvider";
+import { Toaster } from "@/components/ui/Sonner";
 
 import { CSPostHogProvider } from "./providers";
 
@@ -47,11 +48,11 @@ export async function generateMetadata() {
 
   return {
     metadataBase: process.env.NEXT_PUBLIC_PROJECT_URL,
-    title: "The Tech World's Shortcut Search",
+    title: "AI-powered Q&A assistants for any topic",
     description: `Search for comprehensive resources on technical topics and receive instant answers.`,
     openGraph: {
       url: process.env.NEXT_PUBLIC_PROJECT_URL,
-      title: "The Tech World's Shortcut Search",
+      title: "AI-powered Q&A assistants for any topic",
       description: `Search for comprehensive resources on technical topics and receive instant answers.`,
       images: mainOgImage
     },
@@ -76,6 +77,7 @@ export default function RootLayout({ children }) {
         <div className="flex min-h-screen flex-col">
           <PageTransition />
           {children}
+          <Toaster />
           {process.env.NEXT_PUBLIC_NODE_ENV === "production" && (
             <>
               <GoogleAnalytics gaId="G-SF3K4F9EQ6" strategy="lazyOnload" />

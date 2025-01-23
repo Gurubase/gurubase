@@ -668,3 +668,65 @@ export const updateGuruDataSourcesPrivacy = async (guruSlug, payload) => {
   }
 };
 
+export async function getApiKeys() {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/api_keys/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: 'getApiKeys'
+    });
+  }
+}
+
+export async function createApiKey(formData) {
+  try {
+    const name = formData.get("name");
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/api_keys/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      }
+    );
+
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: 'createApiKey',
+      name: formData.get("name")
+    });
+  }
+}
+
+export async function deleteApiKey(formData) {
+  try {
+    const id = formData.get("id");
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/api_keys/`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: id })
+      }
+    );
+
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: 'deleteApiKey',
+      id: formData.get("id")
+    });
+  }
+}

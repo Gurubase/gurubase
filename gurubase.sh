@@ -9,8 +9,6 @@ cd "${SCRIPT_DIR}" 2>/dev/null || cd "$(pwd)"
 GURUBASE_DIR="$HOME/.gurubase"
 DOCKER_COMPOSE_FILE="$GURUBASE_DIR/docker-compose.yml"
 
-[ ! -f "$GURUBASE_DIR/.env.frontend" ] && touch "$GURUBASE_DIR/.env.frontend"
-
 remove_gurubase() {
     read -p "Are you sure you want to remove Gurubase? [Y/n] " response
     response=${response:-Y}
@@ -55,6 +53,8 @@ create_config_files() {
     
     # Create config directory if it doesn't exist
     mkdir -p "$GURUBASE_DIR/config"
+
+    [ ! -f "$GURUBASE_DIR/.env.frontend" ] && touch "$GURUBASE_DIR/.env.frontend"
     
     # Create Milvus etcd config
     cat > "$GURUBASE_DIR/config/embedEtcd.yaml" << 'EOF'
@@ -137,7 +137,7 @@ upgrade_gurubase() {
 
     # Download the latest docker-compose.yml
     echo "📥 Downloading latest docker-compose.yml..."
-    if ! curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
+    if ! curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
         echo "❌ Failed to download new docker-compose.yml"
         # Restore backup if it exists
         if [ -f "${DOCKER_COMPOSE_FILE}.backup" ]; then
@@ -295,7 +295,7 @@ echo "🚀 Deploying Gurubase Self Hosted..."
 # Start all services using docker compose
 if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
     echo "📥 Downloading docker-compose.yml..."
-    curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/develop/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
+    curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
 fi
 
 cd "$GURUBASE_DIR"

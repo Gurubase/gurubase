@@ -404,7 +404,7 @@ const MainForm = ({
         (!bingeId || (!streamError && !contextError && isAnswerValid)) && (
           <div
             className={clsx(
-              "flex flex-col guru-sm:px-4 px-5 guru-sm:max-w-full  guru-sm:border-solid guru-sm:border-b guru-sm:border-b-neutral-200 mt-6 guru-sm:mt-0 guru-sm:pb-4 ",
+              "flex flex-col guru-sm:px-4 px-5 guru-sm:max-w-full  guru-sm:border-solid guru-sm:border-b guru-sm:border-b-neutral-200 mt-10 guru-sm:mt-0 guru-sm:pb-4 ",
               guruType || postContentExist || isLoading
                 ? "guru-sm:border-b"
                 : "guru-sm:border-none",
