@@ -1,63 +1,68 @@
-from datetime import UTC, datetime, timedelta
 import json
 import logging
-import time
 import random
 import string
-from django.http import StreamingHttpResponse
+import time
+from datetime import UTC, datetime, timedelta
+from typing import Generator
+
+from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
-from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q
-from typing import Generator
 from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
-from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
-from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, APIKey
-from accounts.models import User
-from core.utils import (
-    # Authentication & validation
-    check_binge_auth, generate_jwt, validate_binge_follow_up,
-    validate_guru_type, validate_image, 
-    
-    # Question & answer handling
-    get_question_summary, 
-    handle_failed_root_reanswer, is_question_dirty, search_question,
-    stream_question_answer, stream_and_save,
-    
-    # Content formatting & generation
-    format_references, format_trust_score, format_date_updated,
-    generate_og_image, 
-    
-    # Data management
-    clean_data_source_urls, create_binge_helper, create_custom_guru_type_slug,
-    create_guru_type_object, upload_image_to_storage,
-    
-)
-from core.tasks import data_source_retrieval
-from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import PermissionError, NotFoundError
-from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view, parser_classes, throttle_classes
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
 
-from core.tasks import data_source_retrieval
-from core.auth import api_key_auth, auth, jwt_auth, combined_auth, stream_combined_auth, widget_id_auth
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.exceptions import PermissionError, NotFoundError
+from core.auth import (
+    api_key_auth,
+    auth,
+    combined_auth,
+    follow_up_examples_auth,
+    jwt_auth,
+    stream_combined_auth,
+    widget_id_auth,
+)
+from core.data_sources import (
+    GitHubRepoStrategy,
+    PDFStrategy,
+    WebsiteStrategy,
+    YouTubeStrategy,
+)
+from core.exceptions import NotFoundError, PermissionError
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.handlers.response_handlers import APIResponseHandler, DataSourceResponseHandler, WidgetResponseHandler
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType
-from core.requester import OpenAIRequester, RerankerRequester
+from core.guru_types import (
+    get_auth0_user,
+    get_guru_type_object,
+    get_guru_type_object_by_maintainer,
+    get_guru_types,
+)
+from core.handlers.response_handlers import (
+    APIResponseHandler,
+    DataSourceResponseHandler,
+    WidgetResponseHandler,
+)
+from core.models import (
+    APIKey,
+    Binge,
+    ContentPageStatistics,
+    DataSource,
+    FeaturedDataSource,
+    GuruType,
+    Question,
+    WidgetId,
+)
+from core.requester import GeminiRequester
 from core.serializers import (
+    APIKeySerializer,
     BingeSerializer,
-    DataSourceSerializer, 
+    DataSourceAPISerializer,
+    DataSourceSerializer,
     FeaturedDataSourceSerializer,
     GuruTypeInternalSerializer,
     GuruTypeSerializer,
@@ -65,47 +70,33 @@ from core.serializers import (
     WidgetIdSerializer,
 )
 from core.services.data_source_service import DataSourceService
+from core.tasks import data_source_retrieval
+from core.throttling import ConcurrencyThrottleApiKey
 from core.utils import (
-    # Auth/validation
     APIAskResponse,
     APIType,
     api_ask,
     check_binge_auth,
+    clean_data_source_urls,
+    create_binge_helper,
+    create_custom_guru_type_slug,
+    create_guru_type_object,
+    format_date_updated,
+    format_references,
+    format_trust_score,
     generate_jwt,
-    validate_guru_type,
-    validate_image,
-    validate_binge_follow_up,
-
-    # Question handling
+    generate_og_image,
+    get_question_summary,
     handle_failed_root_reanswer,
     is_question_dirty,
     search_question,
-    get_question_summary,
-    stream_question_answer,
     stream_and_save,
-
-    # Guru type
-    create_guru_type_object,
-    create_custom_guru_type_slug,
-
-    # Formatting/display
-    format_references,
-    format_trust_score,
-    format_date_updated,
-
-    # Storage/media
+    stream_question_answer,
     upload_image_to_storage,
-    generate_og_image,
-
-    # Data sources
-    clean_data_source_urls,
-
-    # Binge
-    create_binge_helper,
+    validate_binge_follow_up,
+    validate_guru_type,
+    validate_image,
 )
-
-from accounts.models import User
-
 
 logger = logging.getLogger(__name__)
 
@@ -1469,6 +1460,7 @@ def get_guru_visuals(request):
 @parser_classes([MultiPartParser, FormParser])
 @api_view(['GET', 'POST', 'DELETE'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_data_sources(request, guru_type):
     """
     Unified endpoint for managing data sources.
@@ -1531,6 +1523,7 @@ def api_data_sources(request, guru_type):
 
 @api_view(['POST'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_answer(request, guru_type):
     """
     API endpoint for answering questions.
@@ -1631,6 +1624,7 @@ def api_answer(request, guru_type):
 
 @api_view(['PUT'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_update_data_source_privacy(request, guru_type):
     """Update privacy settings for data sources."""
     response_handler = DataSourceResponseHandler()
@@ -1656,6 +1650,7 @@ def api_update_data_source_privacy(request, guru_type):
 
 @api_view(['POST'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_reindex_data_sources(request, guru_type):
     """Reindex specified data sources."""
     response_handler = DataSourceResponseHandler()

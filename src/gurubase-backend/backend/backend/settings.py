@@ -402,3 +402,5 @@ LARGE_GEMINI_MODEL = config('LARGE_GEMINI_MODEL', default='gemini-1.5-pro')
 
 if ENV == "selfhosted":
     NGINX_BASE_URL = config('NGINX_BASE_URL', default='http://gurubase-nginx:8029')
+
+API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')
