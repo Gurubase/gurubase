@@ -130,7 +130,6 @@ const IntegrationContent = ({ type, customGuru }) => {
       </div>
     );
   }
-  console.log("channels", channels);
 
   if (integrationData) {
     return (
