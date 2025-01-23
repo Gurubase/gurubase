@@ -221,7 +221,6 @@ class Command(BaseCommand):
                                 # If in thread, send thinking message directly to thread
                                 thinking_msg = await message.channel.send("Thinking... 🤔")
                                 
-                                raise Exception("Not implemented")
                                 # Get or create thread and binge
                                 binge = await self.get_or_create_thread_binge(
                                     str(message.channel.id),
