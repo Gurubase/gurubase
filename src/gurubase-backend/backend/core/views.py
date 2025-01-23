@@ -1,7 +1,10 @@
 from datetime import UTC, datetime, timedelta
+from asgiref.sync import sync_to_async
+from slack_sdk.errors import SlackApiError
 import json
 import logging
 import time
+import aiohttp
 from django.http import StreamingHttpResponse
 from django.conf import settings
 from django.core.cache import caches
@@ -10,16 +13,17 @@ from django.db.models import Q
 from typing import Generator
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
+from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    check_binge_auth, generate_jwt, validate_binge_follow_up,
+    check_binge_auth, create_fresh_binge, generate_jwt, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -1757,13 +1761,269 @@ def list_channels(request, integration_id):
         'channels': channels
     }) 
 
+def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tuple[Thread, Binge]:
+    """Get or create a thread and its associated binge."""
+    try:
+        thread = Thread.objects.get(thread_id=thread_id, integration=integration)
+        return thread, thread.binge
+    except Thread.DoesNotExist:
+        # Create new binge without a root question
+        binge = create_fresh_binge(integration.guru_type, None)
+        thread = Thread.objects.create(
+            thread_id=thread_id,
+            binge=binge,
+            integration=integration
+        )
+        return thread, binge
+
+def format_slack_response(content: str, trust_score: int, references: list) -> str:
+    """Format the response with trust score and references for Slack."""
+    formatted_msg = [content]
+    
+    # Add trust score with emoji
+    trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
+    formatted_msg.append(f"\n\n*Trust Score*: {trust_emoji} {trust_score}%")
+    
+    # Add references if they exist
+    if references:
+        formatted_msg.append("\n*References*:")
+        for ref in references:
+            formatted_msg.append(f"\n• <{ref['link']}|{ref['title']}>")
+    
+    return "\n".join(formatted_msg)
+
+async def stream_and_update_message(
+    session: aiohttp.ClientSession,
+    url: str,
+    headers: dict,
+    payload: dict,
+    client: WebClient,
+    channel_id: str,
+    message_ts: str,
+    update_interval: float = 0.5
+) -> None:
+    """Stream the response and update the Slack message periodically."""
+    last_update = time.time()
+    current_content = ""
+    
+    try:
+        async with session.post(url, json=payload, headers=headers) as response:
+            if response.status != 200:
+                error_response = await response.json()
+                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
+                client.chat_update(
+                    channel=channel_id,
+                    ts=message_ts,
+                    text=f"❌ {error_msg}"
+                )
+                return
+                
+            async for chunk in response.content:
+                if chunk:
+                    text = chunk.decode('utf-8')
+                    current_content += text
+                    current_time = time.time()
+                    if current_time - last_update >= update_interval:
+                        try:
+                            client.chat_update(
+                                channel=channel_id,
+                                ts=message_ts,
+                                text=current_content
+                            )
+                            last_update = current_time
+                        except SlackApiError as e:
+                            logger.error(f"Error updating message: {e.response}", exc_info=True)
+                            client.chat_update(
+                                channel=channel_id,
+                                ts=message_ts,
+                                text="❌ Failed to update message"
+                            )
+                            return
+    except Exception as e:
+        logger.error(f"Error in stream_and_update_message: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text="❌ An error occurred while processing your request"
+        )
+        return
+
+async def get_final_response(
+    session: aiohttp.ClientSession,
+    url: str,
+    headers: dict,
+    payload: dict,
+    client: WebClient,
+    channel_id: str,
+    message_ts: str
+) -> None:
+    """Get and send the final formatted response."""
+    try:
+        async with session.post(url, json=payload, headers=headers) as response:
+            if response.status == 200:
+                final_response = await response.json()
+                trust_score = final_response.get('trust_score', 0)
+                references = final_response.get('references', [])
+                content = final_response.get('content', '')
+                
+                final_text = format_slack_response(content, trust_score, references)
+                
+                client.chat_update(
+                    channel=channel_id,
+                    ts=message_ts,
+                    text=final_text
+                )
+            else:
+                error_response = await response.json()
+                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
+                client.chat_update(
+                    channel=channel_id,
+                    ts=message_ts,
+                    text=f"❌ {error_msg}"
+                )
+    except Exception as e:
+        logger.error(f"Error in get_final_response: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text="❌ An error occurred while processing your request"
+        )
+
+async def handle_slack_message(
+    client: WebClient,
+    integration: Integration,
+    channel_id: str,
+    thread_ts: str,
+    clean_message: str
+) -> None:
+    """Handle a single Slack message."""
+
+    try:
+        # First send a thinking message
+        thinking_response = client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text="Thinking... 🤔"
+        )
+        
+        try:
+            # Get or create thread and binge
+            thread, binge = await sync_to_async(get_or_create_thread_binge)(thread_ts, integration)
+        except Exception as e:
+            logger.error(f"Error creating thread/binge: {str(e)}", exc_info=True)
+            client.chat_update(
+                channel=channel_id,
+                ts=thinking_response["ts"],
+                text="❌ Failed to create conversation thread"
+            )
+            return
+        
+        guru_type_slug = await sync_to_async(lambda integration: integration.guru_type.slug)(integration)
+        api_key = await sync_to_async(lambda integration: integration.api_key.key)(integration)
+        # Setup API endpoint
+        url = f"{settings.PROD_BACKEND_URL.rstrip('/')}/api/v1/{guru_type_slug}/answer/"
+        headers = {
+            'X-API-KEY': f'{api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            # Stream the response
+            async with aiohttp.ClientSession() as session:
+                # First get streaming response
+                stream_payload = {
+                    'question': clean_message,
+                    'stream': True,
+                    'short_answer': True,
+                    'session_id': str(binge.id)
+                }
+                
+                await stream_and_update_message(
+                    session=session,
+                    url=url,
+                    headers=headers,
+                    payload=stream_payload,
+                    client=client,
+                    channel_id=channel_id,
+                    message_ts=thinking_response["ts"]
+                )
+                
+                # Then get final formatted response
+                final_payload = {
+                    'question': clean_message,
+                    'stream': False,
+                    'short_answer': True,
+                    'fetch_existing': True,
+                    'session_id': str(binge.id)
+                }
+                
+                await get_final_response(
+                    session=session,
+                    url=url,
+                    headers=headers,
+                    payload=final_payload,
+                    client=client,
+                    channel_id=channel_id,
+                    message_ts=thinking_response["ts"]
+                )
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error: {str(e)}", exc_info=True)
+            client.chat_update(
+                channel=channel_id,
+                ts=thinking_response["ts"],
+                text="❌ Network error occurred while processing your request"
+            )
+        except Exception as e:
+            logger.error(f"Error in API communication: {str(e)}", exc_info=True)
+            client.chat_update(
+                channel=channel_id,
+                ts=thinking_response["ts"],
+                text="❌ An error occurred while processing your request"
+            )
+    except SlackApiError as e:
+        logger.error(f"Slack API error: {str(e)}", exc_info=True)
+        # If we can't even send the thinking message, we can't update it later
+        try:
+            if thinking_response:
+                client.chat_update(
+                    channel=channel_id,
+                    ts=thinking_response["ts"],
+                    text="❌ Failed to process your request due to a Slack API error"
+                )
+            else:
+                client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=thread_ts,
+                    text="❌ Failed to process your request due to a Slack API error"
+                )
+        except:
+            pass  # If this fails too, we can't do much
+    except Exception as e:
+        logger.error(f"Unexpected error in handle_slack_message: {str(e)}", exc_info=True)
+        try:
+            if thinking_response:
+                client.chat_update(
+                    channel=channel_id,
+                    ts=thinking_response["ts"],
+                    text="❌ An unexpected error occurred"
+                )
+            else:
+                client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=thread_ts,
+                    text="❌ An unexpected error occurred"
+                )
+        except:
+            pass  # If this fails too, we can't do much
+
 @api_view(['GET', 'POST'])
 def slack_events(request):
+    """Handle Slack events including verification and message processing."""
     from slack_sdk import WebClient
     from slack_sdk.errors import SlackApiError
-
+    import asyncio
+    
     data = request.data
-    print(f'Event callback data: {data}')
     
     # If this is a verification request, respond with the challenge parameter
     if "challenge" in data:
@@ -1795,16 +2055,27 @@ def slack_events(request):
                         # Remove the bot mention from the message
                         clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
                         
-                        response = client.chat_postMessage(
-                            channel=channel_id,
-                            text=f"You said: {clean_message}"
-                        )
+                        # Get thread_ts if it exists (means we're in a thread)
+                        thread_ts = event.get("thread_ts") or event.get("ts")
+                        
+                        # Run the async handler in a new event loop
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(handle_slack_message(
+                            client=client,
+                            integration=integration,
+                            channel_id=channel_id,
+                            thread_ts=thread_ts,
+                            clean_message=clean_message
+                        ))
+                        loop.close()
+                            
                     except SlackApiError as e:
-                        print(f"Error sending message: {e.response}")
+                        logger.error(f"Error sending message: {e.response}", exc_info=True)
                     
             except Integration.DoesNotExist:
-                print(f"No integration found for team {team_id}")
+                logger.error(f"No integration found for team {team_id}", exc_info=True)
             except Exception as e:
-                print(f"Error processing Slack event: {e}")
+                logger.error(f"Error processing Slack event: {e}", exc_info=True)
     
     return Response(status=200)
