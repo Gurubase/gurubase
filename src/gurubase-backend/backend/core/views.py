@@ -1756,3 +1756,55 @@ def list_channels(request, integration_id):
     return Response({
         'channels': channels
     }) 
+
+@api_view(['GET', 'POST'])
+def slack_events(request):
+    from slack_sdk import WebClient
+    from slack_sdk.errors import SlackApiError
+
+    data = request.data
+    print(f'Event callback data: {data}')
+    
+    # If this is a verification request, respond with the challenge parameter
+    if "challenge" in data:
+        return Response(data["challenge"], status=status.HTTP_200_OK)
+    
+    # Otherwise, handle the event
+    if "event" in data:
+        team_id = data.get('team_id')
+        event = data["event"]
+
+        # Only proceed if it's a message event and not from a bot
+        if event["type"] == "message" and "subtype" not in event and event.get("user") != event.get("bot_id"):
+            try:
+                # Find the integration for this team
+                integration = Integration.objects.get(type=Integration.Type.SLACK, external_id=team_id)
+                
+                # Get the Slack client for this team
+                client = WebClient(token=integration.access_token)
+                
+                channel_id = event["channel"]
+                user_message = event["text"]
+                
+                # Get bot user ID from authorizations
+                bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
+                
+                # Only respond if the bot is mentioned
+                if bot_user_id and f"<@{bot_user_id}>" in user_message:
+                    try:
+                        # Remove the bot mention from the message
+                        clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
+                        
+                        response = client.chat_postMessage(
+                            channel=channel_id,
+                            text=f"You said: {clean_message}"
+                        )
+                    except SlackApiError as e:
+                        print(f"Error sending message: {e.response}")
+                    
+            except Integration.DoesNotExist:
+                print(f"No integration found for team {team_id}")
+            except Exception as e:
+                print(f"Error processing Slack event: {e}")
+    
+    return Response(status=200)
