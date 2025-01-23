@@ -438,7 +438,7 @@ class APIKeyAdmin(admin.ModelAdmin):
 
 @admin.register(Integration)
 class IntegrationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'guru_type', 'type', 'date_created', 'date_updated']
+    list_display = ['id', 'guru_type', 'type', 'workspace_name', 'date_created', 'date_updated']
     list_filter = ('guru_type__slug', 'type')
     search_fields = ['id', 'guru_type__slug', 'type']
     ordering = ('-id',)

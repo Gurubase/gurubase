@@ -19,6 +19,11 @@ class IntegrationStrategy(ABC):
         """List available channels"""
         pass
 
+    @abstractmethod
+    def get_workspace_name(self, token_response: dict) -> str:
+        """Get workspace name from the platform"""
+        pass
+
     def create_integration(self, code: str, guru_type: GuruType) -> Integration:
         """Create integration with the platform"""
         token_data = self.exchange_token(code)
@@ -31,7 +36,8 @@ class IntegrationStrategy(ABC):
             raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
         
         # Fetch available channels
-        channels = self.list_channels(external_id)
+        channels = self.list_channels(access_token, external_id)
+        workspace_name = self.get_workspace_name(token_data)
         
         return Integration.objects.create(
             type=self.get_type(),
@@ -40,7 +46,8 @@ class IntegrationStrategy(ABC):
             access_token=access_token,
             refresh_token=refresh_token,
             code=code,
-            channels=channels
+            channels=channels,
+            workspace_name=workspace_name
         )
 
     @abstractmethod
@@ -69,8 +76,11 @@ class DiscordStrategy(IntegrationStrategy):
         if not guild_id:
             raise ValueError("No guild ID found in the OAuth response")
         return guild_id
+    
+    def get_workspace_name(self, token_response: dict) -> str:
+        return token_response.get('guild', {}).get('name')
 
-    def list_channels(self, external_id: str) -> list:
+    def list_channels(self, access_token: str, external_id: str) -> list:
         # First get the guild ID from the token response
         guild_id = external_id
         # For each guild, get its channels
@@ -112,12 +122,15 @@ class SlackStrategy(IntegrationStrategy):
         response.raise_for_status()
         return response.json()
 
-    def get_external_id(self, access_token: str) -> str:
+    def get_external_id(self, token_response: dict) -> str:
         # For Slack, we get the team ID from the token exchange response
         # So we'll pass it through the access_token parameter
-        return access_token.split(':')[0]  # team_id is the first part
+        return token_response.get('team', {}).get('id')
 
-    def list_channels(self, access_token: str) -> list:
+    def get_workspace_name(self, token_response: dict) -> str:
+        return token_response.get('team', {}).get('name')
+
+    def list_channels(self, access_token: str, external_id: str) -> list:
         channels = []
         cursor = None
         
@@ -141,8 +154,9 @@ class SlackStrategy(IntegrationStrategy):
                 {
                     'id': c['id'],
                     'name': c['name'],
-                    'is_private': c['is_private'],
-                    'is_archived': c['is_archived']
+                    'allowed': False
+                    # 'is_private': c['is_private'],
+                    # 'is_archived': c['is_archived']
                 }
                 for c in data.get('channels', [])
             ])

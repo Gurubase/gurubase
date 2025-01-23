@@ -1283,6 +1283,8 @@ class Integration(models.Model):
         choices=[(tag.value, tag.value) for tag in Type],
         default=Type.DISCORD.value,
     )
+
+    workspace_name = models.TextField(null=True, blank=True)
     external_id = models.TextField()
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
     code = models.TextField(null=True, blank=True)
