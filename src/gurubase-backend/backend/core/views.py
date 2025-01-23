@@ -1311,7 +1311,7 @@ def get_binges(request):
 def api_keys(request):
     user = request.user
     if request.method == 'GET':
-        api_keys = APIKey.objects.filter(user=user)
+        api_keys = APIKey.objects.filter(user=user, integration_owner__isnull=True)
         return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
     elif request.method == 'POST':
         # Check if user has reached the limit
