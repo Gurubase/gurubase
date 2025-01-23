@@ -35,16 +35,20 @@ const IntegrationContent = ({ type, customGuru }) => {
       name: "Slack",
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
-      iconSize: "w-5 h-5"
+      iconSize: "w-5 h-5",
+      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`
     },
     Discord: {
       name: "Discord",
       description:
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
-      iconSize: "w-5 h-5"
+      iconSize: "w-5 h-5",
+      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2Fe306-34-32-48-186.ngrok-free.app%2FOAuth&integration_type=0&scope=identify+bot`
     }
   };
+
+  const integrationUrl = integrationConfig[type].url;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -286,7 +290,13 @@ const IntegrationContent = ({ type, customGuru }) => {
         </div>
         <Button
           variant="default"
-          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]">
+          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]"
+          onClick={() =>
+            window.open(
+              `${integrationUrl}&state={"type": "${type}", "guru_type": "${customGuru}"}`,
+              "_blank"
+            )
+          }>
           Connect
         </Button>
       </div>

@@ -835,3 +835,34 @@ export async function saveIntegrationChannels(
     });
   }
 }
+
+export async function createIntegration(code, state) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/create/?code=${code}&state=${state}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to create integration",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "createIntegration",
+      code,
+      state
+    });
+  }
+}

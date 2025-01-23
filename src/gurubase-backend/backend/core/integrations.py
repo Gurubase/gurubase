@@ -174,6 +174,7 @@ class SlackStrategy(IntegrationStrategy):
 class IntegrationFactory:
     @staticmethod
     def get_strategy(integration_type: str) -> IntegrationStrategy:
+        integration_type = integration_type.upper()
         if integration_type == 'DISCORD':
             return DiscordStrategy()
         elif integration_type == 'SLACK':
