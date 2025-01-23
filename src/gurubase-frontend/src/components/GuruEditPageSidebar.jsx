@@ -21,8 +21,6 @@ export default function GuruEditPageSidebar({ guruSlug }) {
   const isDiscordActive = pathname.includes("/integrations/discord");
 
   const handleNavigation = (path) => {
-    console.log("path", path);
-    console.log("guruSlug", guruSlug);
     if (!guruSlug) return;
     router.push(path);
   };
