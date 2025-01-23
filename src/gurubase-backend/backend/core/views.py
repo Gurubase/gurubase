@@ -1802,20 +1802,8 @@ def strip_first_header(content: str) -> str:
             return content[newline_index + 1:].lstrip()
     return content
 
-def format_slack_response(content: str, trust_score: int, references: list) -> str:
-    """Format the response with trust score and references for Slack.
-    Using Slack's formatting syntax:
-    *bold*
-    _italic_
-    ~strikethrough~
-    `code`
-    ```preformatted```
-    >blockquote
-    <url|text> for links
-    """
-    # Strip header from content
-    content = strip_first_header(content)
-    
+def convert_markdown_to_slack(content: str) -> str:
+    """Convert Markdown formatting to Slack formatting."""
     # Convert markdown code blocks to Slack code blocks
     content = content.replace("```python", "```")
     content = content.replace("```bash", "```")
@@ -1843,6 +1831,25 @@ def format_slack_response(content: str, trust_score: int, references: list) -> s
     
     # Then handle double asterisks for bold
     content = content.replace("**", "*")
+    
+    return content
+
+def format_slack_response(content: str, trust_score: int, references: list) -> str:
+    """Format the response with trust score and references for Slack.
+    Using Slack's formatting syntax:
+    *bold*
+    _italic_
+    ~strikethrough~
+    `code`
+    ```preformatted```
+    >blockquote
+    <url|text> for links
+    """
+    # Strip header from content
+    content = strip_first_header(content)
+    
+    # Convert markdown to slack formatting
+    content = convert_markdown_to_slack(content)
     
     formatted_msg = [content]
     
@@ -1888,25 +1895,27 @@ async def stream_and_update_message(
                 if chunk:
                     text = chunk.decode('utf-8')
                     current_content += text
-                    # Strip header from current content
+                    # Strip header and convert markdown
                     cleaned_content = strip_first_header(current_content)
-                    current_time = time.time()
-                    if current_time - last_update >= update_interval and cleaned_content.strip():
-                        try:
-                            client.chat_update(
-                                channel=channel_id,
-                                ts=message_ts,
-                                text=cleaned_content
-                            )
-                            last_update = current_time
-                        except SlackApiError as e:
-                            logger.error(f"Error updating message: {e.response}", exc_info=True)
-                            client.chat_update(
-                                channel=channel_id,
-                                ts=message_ts,
-                                text="❌ Failed to update message"
-                            )
-                            return
+                    if cleaned_content.strip():
+                        formatted_content = convert_markdown_to_slack(cleaned_content)
+                        current_time = time.time()
+                        if current_time - last_update >= update_interval:
+                            try:
+                                client.chat_update(
+                                    channel=channel_id,
+                                    ts=message_ts,
+                                    text=formatted_content
+                                )
+                                last_update = current_time
+                            except SlackApiError as e:
+                                logger.error(f"Error updating message: {e.response}", exc_info=True)
+                                client.chat_update(
+                                    channel=channel_id,
+                                    ts=message_ts,
+                                    text="❌ Failed to update message"
+                                )
+                                return
     except Exception as e:
         logger.error(f"Error in stream_and_update_message: {str(e)}", exc_info=True)
         client.chat_update(
