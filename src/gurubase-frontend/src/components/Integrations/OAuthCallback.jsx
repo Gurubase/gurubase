@@ -4,9 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createIntegration } from "@/app/actions";
 
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-gray-800 border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+  </div>
+);
+
 const OAuthCallback = () => {
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -20,9 +25,6 @@ const OAuthCallback = () => {
       }
 
       try {
-        // Parse state to get integration type and guru type
-        const stateData = JSON.parse(state);
-
         const response = await createIntegration(code, state);
 
         if (response.error) {
@@ -30,7 +32,10 @@ const OAuthCallback = () => {
           return;
         }
 
-        setSuccess(true);
+        // Redirect to integrations page
+        router.push(
+          `/guru/${guru_type}/integrations/${type.toLowerCase()}?success=`
+        );
       } catch (err) {
         setError(err.message || "Failed to create integration");
       }
@@ -50,30 +55,7 @@ const OAuthCallback = () => {
     );
   }
 
-  if (success) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-        <div className="p-8 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-green-600 mb-4">Success!</h1>
-          <p className="text-gray-700">
-            Integration successful, you can now close this page and refresh your
-            integration configuration
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="p-8 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">
-          Setting up your integration...
-        </h1>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      </div>
-    </div>
-  );
+  return <LoadingSpinner />;
 };
 
 export default OAuthCallback;
