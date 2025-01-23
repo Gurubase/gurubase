@@ -1733,6 +1733,7 @@ def create_integration(request):
         strategy = IntegrationFactory.get_strategy(integration_type)
         integration = strategy.create_integration(code, guru_type)
     except Exception as e:
+        logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({
             'error': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
