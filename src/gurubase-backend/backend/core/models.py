@@ -1302,4 +1302,4 @@ class Integration(models.Model):
         return f"{self.type} - {self.guru_type.name}"
 
     class Meta:
-        unique_together = ['type', 'external_id']
+        unique_together = ['type', 'guru_type']
