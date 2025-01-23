@@ -86,6 +86,7 @@ class Question(models.Model):
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
     llm_usages = models.JSONField(default=dict, blank=True, null=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    times = models.JSONField(default=dict, blank=True, null=False)
 
     def __str__(self):
         return f"{self.id} - {self.slug}"

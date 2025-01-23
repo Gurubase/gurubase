@@ -103,7 +103,8 @@ export const useHandleSubmit = (
         error,
         status,
         valid_question: answerValid,
-        jwt
+        jwt,
+        times
       } = await getAnswerFromMyBackend(inputValue, guruType, bingeId);
 
       if (signal && signal.aborted) {
@@ -221,7 +222,8 @@ export const useHandleSubmit = (
         prompt_tokens,
         retry_count,
         jwt,
-        user_question: inputValue
+        user_question: inputValue,
+        times
       };
 
       dispatch(setQuestionSummary(summaryData));

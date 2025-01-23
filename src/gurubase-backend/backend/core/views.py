@@ -119,20 +119,22 @@ def conditional_csrf_exempt(view_func):
 @api_view(['POST'])
 @combined_auth
 def summary(request, guru_type):
-    endpoint_start = time.time()
+    times = {
+        'payload_processing': 0,
+        'existence_check': 0,
+        'dirtiness_check': 0,
+        'total': 0
+    }
     
+    endpoint_start = time.time()
     validate_guru_type(guru_type)
-
-    # reranker_requester = RerankerRequester()
-    # if not reranker_requester.rerank_health_check():
-    #     return Response({'msg': "Reranker is not healthy"}, status=status.HTTP_425_TOO_EARLY)
 
     payload_start = time.time()
     try:
         data = request.data
         question = data.get('question')
         binge_id = data.get('binge_id')
-    except Exception as e:  # This broad exception is for demonstration; specify your exceptions.
+    except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
         question = None
         
@@ -148,12 +150,11 @@ def summary(request, guru_type):
             return Response({'msg': 'Binge not found'}, status=status.HTTP_404_NOT_FOUND)
     else:
         binge = None
+    times['payload_processing'] = time.time() - payload_start
 
-    payload_time = time.time() - payload_start
-
-    existence_check_start = time.time()
+    existence_start = time.time()
     guru_type_object = get_guru_type_object(guru_type)
-
+    
     if not binge:
         # Only check existence for non-binge. We want to re-answer the binge questions again, and save them as separate questions.
         existing_question = search_question(
@@ -165,49 +166,46 @@ def summary(request, guru_type):
         )
     else:
         existing_question = None
+    times['existence_check'] = time.time() - existence_start
 
-    if existing_question and not is_question_dirty(existing_question):
-        response = {
-            'question': existing_question.question,
-            'question_slug': existing_question.slug,
-            'description': existing_question.description,
-            'user_question': existing_question.user_question,
-            'valid_question': True,
-            'completion_tokens': 0,
-            'prompt_tokens': 0,
-            'cached_prompt_tokens': 0,
-            "jwt" : generate_jwt(),
-        }
-        existence_check_time = time.time() - existence_check_start
-        times = {
-            'payload_time': payload_time,
-            'existence_check_time': existence_check_time,
-            'endpoint_start': endpoint_start,
-        }
-        if settings.LOG_STREAM_TIMES:
-            logger.info(f'Summary times: {times}')
-        return Response(response, status=status.HTTP_200_OK)
-    
-    existence_check_time = time.time() - existence_check_start
+    if existing_question:
+        dirtiness_start = time.time()
+        is_dirty = is_question_dirty(existing_question)
+        times['dirtiness_check'] = time.time() - dirtiness_start
+        
+        if not is_dirty:
+            response = {
+                'question': existing_question.question,
+                'question_slug': existing_question.slug,
+                'description': existing_question.description,
+                'user_question': existing_question.user_question,
+                'valid_question': True,
+                'completion_tokens': 0,
+                'prompt_tokens': 0,
+                'cached_prompt_tokens': 0,
+                "jwt": generate_jwt(),
+            }
+            times['total'] = time.time() - endpoint_start
+            return Response(response, status=status.HTTP_200_OK)
 
-    summary_start = time.time()
-    answer = get_question_summary(question, guru_type, binge, widget=False)
-    summary_time = time.time() - summary_start
+    answer, get_question_summary_times = get_question_summary(
+        question, 
+        guru_type, 
+        binge, 
+        widget=False
+    )
 
-    endpoint_time = time.time() - endpoint_start
-
-    times = {
-        'payload_time': payload_time,
-        'existence_check_time': existence_check_time,
-        'summary_time': summary_time,
-        'endpoint_time': endpoint_time,
-    }
+    times['get_question_summary'] = get_question_summary_times
 
     if existing_question:
         answer['question_slug'] = existing_question.slug
+
+    times['total'] = time.time() - endpoint_start
     
     if settings.LOG_STREAM_TIMES:
         logger.info(f'Summary times: {times}')
+
+    answer['times'] = times
 
     return Response(answer, status=status.HTTP_200_OK)
 
@@ -255,6 +253,7 @@ def answer(request, guru_type):
         parent_question_slug = data.get('parent_question_slug')
         binge_id = data.get('binge_id')
         source = data.get('source', Question.Source.USER.value)   # RAW_QUESTION, USER, REDDIT, SUMMARY_QUESTION
+        summary_times = data.get('times')
     except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
         question = None
@@ -309,7 +308,7 @@ def answer(request, guru_type):
     payload_time = time.time() - payload_start    
     stream_obj_start = time.time()
     try:
-        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = stream_question_answer(
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
             guru_type, 
             user_intent, 
@@ -326,14 +325,10 @@ def answer(request, guru_type):
         logger.error(f'Error while getting answer: {e}', exc_info=True)
         return Response({'msg': "An error occurred while getting the answer"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    stream_obj_time = time.time() - stream_obj_start
-    
-    times = {
-        # 'jwt_time': jwt_time,
-        'payload_time': payload_time,
-        'stream_obj_time': stream_obj_time,
-        'endpoint_start': endpoint_start,
-    }
+    times = {}
+    times['before_stream'] = before_stream_times
+    if summary_times:
+        times['summary'] = summary_times
 
     return StreamingHttpResponse(stream_and_save(
         user_question, 
