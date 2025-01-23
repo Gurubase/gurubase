@@ -1564,6 +1564,7 @@ def api_answer(request, guru_type):
     fetch_existing = request.data.get('fetch_existing', False)
     short_answer = request.data.get('short_answer', False)
     user = request.user
+    api_type = request.api_type  # This is now set by the api_key_auth decorator
 
     # Initialize with default values
     binge = None
@@ -1589,9 +1590,8 @@ def api_answer(request, guru_type):
         binge=binge,
         parent=parent,
         fetch_existing=fetch_existing,
-        api_type=APIType.API,
-        user=user,
-        short_answer=short_answer
+        api_type=api_type,
+        user=user
     )
     
     # Handle error case
@@ -1643,7 +1643,7 @@ def api_answer(request, guru_type):
             return response_handler.handle_error_response(e)
     
     # Handle any other cases
-    return response_handler.handle_non_stream_response(api_response.content) 
+    return response_handler.handle_non_stream_response(api_response.content)
 
 @api_view(['PUT'])
 @api_key_auth

@@ -2833,11 +2833,24 @@ class APIAskResponse:
             is_existing=False
         )
 
+class APIType:
+    API = 'API'
+    WIDGET = 'WIDGET'
+    DISCORD = 'DISCORD'
+    SLACK = 'SLACK'
 
-class APIType(Enum):
-    WIDGET = 'widget'
-    API = 'api'
+    @classmethod
+    def is_api_type(cls, api_type: str) -> bool:
+        return api_type in [cls.API, cls.DISCORD, cls.SLACK]
 
+    @classmethod
+    def get_question_source(cls, api_type: str) -> str:
+        return {
+            cls.WIDGET: Question.Source.WIDGET_QUESTION.value,
+            cls.API: Question.Source.API.value,
+            cls.DISCORD: Question.Source.DISCORD.value,
+            cls.SLACK: Question.Source.SLACK.value,
+        }[api_type]
 
 def api_ask(question: str, 
             guru_type: GuruType, 
@@ -2845,8 +2858,7 @@ def api_ask(question: str,
             parent: Question | None, 
             fetch_existing: bool, 
             api_type: APIType, 
-            user: User | None,
-            short_answer: bool = False) -> APIAskResponse:
+            user: User | None) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -2857,7 +2869,7 @@ def api_ask(question: str,
         binge (Binge): The binge to simulate the summary and answer for.
         parent (Question): The parent question.
         fetch_existing (bool): Whether to fetch the existing question data.
-        api_type (APIType): The type of API call (WIDGET or API).
+        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK).
         user (User): The user making the request.
     
     Returns:
@@ -2865,17 +2877,15 @@ def api_ask(question: str,
     """
 
     is_widget = api_type == APIType.WIDGET
+    is_api = APIType.is_api_type(api_type)
 
-    if is_widget:
+    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK]:
         short_answer = True
 
-    include_api = api_type == APIType.API
+    include_api = is_api
     only_widget = api_type == APIType.WIDGET
 
-    question_source = {
-        APIType.WIDGET: Question.Source.WIDGET_QUESTION.value,
-        APIType.API: Question.Source.API.value,
-    }
+    question_source = APIType.get_question_source(api_type)
 
     if fetch_existing:
         # Only check for existing questions if not in a binge
@@ -2970,7 +2980,7 @@ def api_ask(question: str,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
             times=times,
-            source=question_source[api_type],
+            source=question_source,
             parent=parent,
             binge=binge,
             user=user

@@ -33,6 +33,8 @@ class Question(models.Model):
         SUMMARY_QUESTION = "SUMMARY QUESTION"
         WIDGET_QUESTION = "WIDGET QUESTION"
         API = "API"
+        DISCORD = "DISCORD"
+        SLACK = "SLACK"
 
     slug = models.SlugField(max_length=1500)
     question = models.TextField()
