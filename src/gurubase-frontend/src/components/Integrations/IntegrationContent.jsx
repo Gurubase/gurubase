@@ -19,6 +19,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
+import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 
 const IntegrationContent = ({ type, customGuru }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -109,7 +110,9 @@ const IntegrationContent = ({ type, customGuru }) => {
       <div className="w-full">
         <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
         <div className="h-[1px] bg-neutral-200" />
-        <div className="p-6">Loading...</div>
+        <div className="p-6">
+          <LoadingSkeleton count={2} width={400} />
+        </div>
       </div>
     );
   }
@@ -187,8 +190,8 @@ const IntegrationContent = ({ type, customGuru }) => {
             </div>
             {/* Allowed Channels */}
             {channelsLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="w-6 h-6 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+              <div className="space-y-4">
+                <LoadingSkeleton count={3} width={400} />
               </div>
             ) : (
               <>
