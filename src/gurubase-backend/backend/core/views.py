@@ -2181,6 +2181,17 @@ def slack_events(request):
                         
                         channel_id = event["channel"]
                         
+                        # Check if the current channel is allowed
+                        channels = integration.channels
+                        channel_allowed = False
+                        for channel in channels:
+                            if str(channel.get('id')) == channel_id and channel.get('allowed', False):
+                                channel_allowed = True
+                                break
+                        
+                        if not channel_allowed:
+                            return
+                        
                         # Remove the bot mention from the message
                         clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
                         

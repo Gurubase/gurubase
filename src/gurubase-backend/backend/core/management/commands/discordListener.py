@@ -212,6 +212,18 @@ class Command(BaseCommand):
                 return
 
             try:
+                # Check if the current channel is allowed
+                channel_id = str(message.channel.id)
+                channels = await sync_to_async(lambda: integration.channels)()
+                channel_allowed = False
+                for channel in channels:
+                    if str(channel.get('id')) == channel_id and channel.get('allowed', False):
+                        channel_allowed = True
+                        break
+                
+                if not channel_allowed:
+                    return
+
                 # Remove the bot mention from the message
                 question = message.content.replace(f'<@{client.user.id}>', '').strip()
                 
