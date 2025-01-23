@@ -216,7 +216,7 @@ export async function getDataForSlugDetails(
   try {
     const session = await getUserSession();
     let url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/question/${slug}`;
-    
+
     // Only add question parameter if it's not empty
     if (question) {
       url += `?question=${question}`;
@@ -224,7 +224,7 @@ export async function getDataForSlugDetails(
 
     // Add bingeId as a query parameter, considering if question was already added
     if (bingeId) {
-      url += `${question ? '&' : '?'}binge_id=${bingeId}`;
+      url += `${question ? "&" : "?"}binge_id=${bingeId}`;
     }
 
     if (session?.user) {
@@ -682,7 +682,45 @@ export async function getApiKeys() {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'getApiKeys'
+      context: "getApiKeys"
+    });
+  }
+}
+
+export async function getIntegrationDetails(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    // Case 1: 204 No Content - Integration doesn't exist
+    if (response.status === 204) {
+      return { status: 204 };
+    }
+
+    // Case 2: 200 Success - Integration exists
+    if (response.ok) {
+      return await response.json();
+    }
+
+    // Case 3: Any other status - Error
+    const errorData = await response.json();
+    return {
+      error: true,
+      message: errorData.msg || "Failed to fetch integration data",
+      status: response.status
+    };
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getIntegrationDetails",
+      guruType,
+      integrationType
     });
   }
 }
@@ -703,7 +741,7 @@ export async function createApiKey(formData) {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'createApiKey',
+      context: "createApiKey",
       name: formData.get("name")
     });
   }
@@ -725,7 +763,7 @@ export async function deleteApiKey(formData) {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'deleteApiKey',
+      context: "deleteApiKey",
       id: formData.get("id")
     });
   }
