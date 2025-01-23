@@ -1792,8 +1792,20 @@ def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tupl
         )
         return thread, binge
 
+def strip_first_header(content: str) -> str:
+    """Remove the first header (starting with # and ending with newline) from content."""
+    if content.startswith('#'):
+        # Find the first newline
+        newline_index = content.find('\n')
+        if newline_index != -1:
+            # Return content after the newline
+            return content[newline_index + 1:].lstrip()
+    return content
+
 def format_slack_response(content: str, trust_score: int, references: list) -> str:
     """Format the response with trust score and references for Slack."""
+    # Strip header from content
+    content = strip_first_header(content)
     formatted_msg = [content]
     
     # Add trust score with emoji
@@ -1838,13 +1850,15 @@ async def stream_and_update_message(
                 if chunk:
                     text = chunk.decode('utf-8')
                     current_content += text
+                    # Strip header from current content
+                    cleaned_content = strip_first_header(current_content)
                     current_time = time.time()
-                    if current_time - last_update >= update_interval:
+                    if current_time - last_update >= update_interval and cleaned_content.strip():
                         try:
                             client.chat_update(
                                 channel=channel_id,
                                 ts=message_ts,
-                                text=current_content
+                                text=cleaned_content
                             )
                             last_update = current_time
                         except SlackApiError as e:
@@ -1883,12 +1897,12 @@ async def get_final_response(
                 content = final_response.get('content', '')
                 
                 final_text = format_slack_response(content, trust_score, references)
-                
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    text=final_text
-                )
+                if final_text.strip():  # Only update if there's content after stripping header
+                    client.chat_update(
+                        channel=channel_id,
+                        ts=message_ts,
+                        text=final_text
+                    )
             else:
                 error_response = await response.json()
                 error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")

@@ -34,6 +34,16 @@ class Command(BaseCommand):
         else:
             return "🔴"  # Red
 
+    def strip_first_header(self, content):
+        """Remove the first header (starting with # and ending with newline) from content."""
+        if content.startswith('#'):
+            # Find the first newline
+            newline_index = content.find('\n')
+            if newline_index != -1:
+                # Return content after the newline
+                return content[newline_index + 1:].lstrip()
+        return content
+
     def format_response(self, response):
         formatted_msg = []
         
@@ -51,8 +61,10 @@ class Command(BaseCommand):
         # Calculate max length for content to stay within Discord's 2000 char limit
         max_content_length = 1900 - metadata_length  # Leave some buffer
         
+        # Get content and strip first header
+        content = self.strip_first_header(response['content'])
+        
         # Truncate content if necessary
-        content = response['content']
         if len(content) > max_content_length:
             content = content[:max_content_length-3] + "..."
         
@@ -249,8 +261,11 @@ class Command(BaseCommand):
                     ):
                         current_time = time.time()
                         if current_time - last_update >= update_interval:
-                            await thinking_msg.edit(content=streamed_content)
-                            last_update = current_time
+                            # Strip header from streamed content
+                            cleaned_content = self.strip_first_header(streamed_content)
+                            if cleaned_content:
+                                await thinking_msg.edit(content=cleaned_content)
+                                last_update = current_time
                     
                     # After streaming is done, fetch the formatted response
                     response, success = await self.get_finalized_answer(
