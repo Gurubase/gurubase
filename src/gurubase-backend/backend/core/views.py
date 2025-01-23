@@ -1803,9 +1803,47 @@ def strip_first_header(content: str) -> str:
     return content
 
 def format_slack_response(content: str, trust_score: int, references: list) -> str:
-    """Format the response with trust score and references for Slack."""
+    """Format the response with trust score and references for Slack.
+    Using Slack's formatting syntax:
+    *bold*
+    _italic_
+    ~strikethrough~
+    `code`
+    ```preformatted```
+    >blockquote
+    <url|text> for links
+    """
     # Strip header from content
     content = strip_first_header(content)
+    
+    # Convert markdown code blocks to Slack code blocks
+    content = content.replace("```python", "```")
+    content = content.replace("```bash", "```")
+    content = content.replace("```javascript", "```")
+    
+    # Convert markdown links [text](url) to Slack format <url|text>
+    import re
+    def replace_link(match):
+        text = match.group(1)
+        url = match.group(2)
+        return f"<{url}|{text}>"
+    
+    content = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', replace_link, content)
+    
+    # Convert markdown bold/italic to Slack format
+    # First handle single asterisks for italics (but not if they're part of double asterisks)
+    i = 0
+    while i < len(content):
+        if content[i:i+2] == "**":
+            i += 2
+        elif content[i] == "*":
+            # Replace single asterisk with underscore for italics
+            content = content[:i] + "_" + content[i+1:]
+        i += 1
+    
+    # Then handle double asterisks for bold
+    content = content.replace("**", "*")
+    
     formatted_msg = [content]
     
     # Add trust score with emoji
