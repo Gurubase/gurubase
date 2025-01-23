@@ -2039,6 +2039,7 @@ def slack_events(request):
     from slack_sdk.errors import SlackApiError
     import asyncio
     import threading
+    from django.core.cache import caches
     
     data = request.data
     
@@ -2050,46 +2051,61 @@ def slack_events(request):
     if "event" in data:
         def process_event():
             try:
-                team_id = data.get('team_id')
                 event = data["event"]
-
+                
                 # Only proceed if it's a message event and not from a bot
                 if event["type"] == "message" and "subtype" not in event and event.get("user") != event.get("bot_id"):
-                    try:
-                        # Find the integration for this team
-                        integration = Integration.objects.get(type=Integration.Type.SLACK, external_id=team_id)
+                    # Get bot user ID from authorizations
+                    bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
+                    user_message = event["text"]
+                    
+                    # First check if the bot is mentioned
+                    if not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                        return
                         
+                    team_id = data.get('team_id')
+                    if not team_id:
+                        return
+                        
+                    # Try to get integration from cache first
+                    cache = caches['alternate']
+                    cache_key = f"slack_integration:{team_id}"
+                    integration = cache.get(cache_key)
+                    
+                    if not integration:
+                        try:
+                            # If not in cache, get from database
+                            integration = Integration.objects.get(type=Integration.Type.SLACK, external_id=team_id)
+                            # Cache for 5 minutes
+                            cache.set(cache_key, integration, timeout=300)
+                        except Integration.DoesNotExist:
+                            logger.error(f"No integration found for team {team_id}", exc_info=True)
+                            return
+                    
+                    try:
                         # Get the Slack client for this team
                         client = WebClient(token=integration.access_token)
                         
                         channel_id = event["channel"]
-                        user_message = event["text"]
                         
-                        # Get bot user ID from authorizations
-                        bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
+                        # Remove the bot mention from the message
+                        clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
                         
-                        # Only respond if the bot is mentioned
-                        if bot_user_id and f"<@{bot_user_id}>" in user_message:
-                            # Remove the bot mention from the message
-                            clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
+                        # Get thread_ts if it exists (means we're in a thread)
+                        thread_ts = event.get("thread_ts") or event.get("ts")
+                        
+                        # Run the async handler in a new event loop
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(handle_slack_message(
+                            client=client,
+                            integration=integration,
+                            channel_id=channel_id,
+                            thread_ts=thread_ts,
+                            clean_message=clean_message
+                        ))
+                        loop.close()
                             
-                            # Get thread_ts if it exists (means we're in a thread)
-                            thread_ts = event.get("thread_ts") or event.get("ts")
-                            
-                            # Run the async handler in a new event loop
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            loop.run_until_complete(handle_slack_message(
-                                client=client,
-                                integration=integration,
-                                channel_id=channel_id,
-                                thread_ts=thread_ts,
-                                clean_message=clean_message
-                            ))
-                            loop.close()
-                                
-                    except Integration.DoesNotExist:
-                        logger.error(f"No integration found for team {team_id}", exc_info=True)
                     except Exception as e:
                         logger.error(f"Error processing Slack event: {e}", exc_info=True)
             except Exception as e:
