@@ -5,14 +5,29 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { DiscordIcon, SlackIcon } from "@/components/Icons";
 import { cn } from "@/lib/utils";
-import { getIntegrationDetails, getIntegrationChannels } from "@/app/actions";
+import {
+  getIntegrationDetails,
+  getIntegrationChannels,
+  saveIntegrationChannels
+} from "@/app/actions";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 
 const IntegrationContent = ({ type, customGuru }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [channels, setChannels] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const integrationConfig = {
     Slack: {
@@ -39,8 +54,6 @@ const IntegrationContent = ({ type, customGuru }) => {
           type.toUpperCase()
         );
 
-        console.log("data", data);
-
         // Case 1: 204 No Content - Show create content
         if (data?.status === 204) {
           setIntegrationData(null);
@@ -48,37 +61,40 @@ const IntegrationContent = ({ type, customGuru }) => {
           return;
         }
 
-        console.log("no 204");
-
         // Case 2: Error response
         if (data?.error) {
           throw new Error(data.message || "Failed to fetch integration data");
         }
 
-        console.log("no data");
-
         // Case 3: Successful response with integration data
         setIntegrationData(data);
         setError(null);
 
-        console.log("fetching channels");
-
-        // If integration exists, fetch channels
-        const channelsData = await getIntegrationChannels(
-          customGuru,
-          type.toUpperCase()
-        );
-        console.log("channelsData", channelsData);
-        if (channelsData?.error) {
-          console.error("Failed to fetch channels:", channelsData.message);
-        } else {
-          setChannels(channelsData || []);
-        }
+        // Fetch channels separately
+        fetchChannels();
       } catch (err) {
         setError(err.message);
         setIntegrationData(null);
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchChannels = async () => {
+      try {
+        const channelsData = await getIntegrationChannels(
+          customGuru,
+          type.toUpperCase()
+        );
+        if (channelsData?.error) {
+          console.error("Failed to fetch channels:", channelsData.message);
+        } else {
+          setChannels(channelsData?.channels || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch channels:", err);
+      } finally {
+        setChannelsLoading(false);
       }
     };
 
@@ -107,6 +123,7 @@ const IntegrationContent = ({ type, customGuru }) => {
       </div>
     );
   }
+  console.log("channels", channels);
 
   if (integrationData) {
     return (
@@ -136,22 +153,109 @@ const IntegrationContent = ({ type, customGuru }) => {
             </div>
             <Button variant="destructive">Disconnect</Button>
           </div>
-
-          {channels.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-lg font-medium mb-4">Available Channels</h3>
-              <div className="space-y-4">
-                {channels.map((channel) => (
-                  <div key={channel.id} className="flex items-center gap-2">
-                    <Checkbox id={channel.id} checked={channel.allowed} />
-                    <label htmlFor={channel.id} className="text-sm font-medium">
-                      {channel.name}
-                    </label>
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium">Channels</h3>
+              <Button
+                disabled={!hasChanges || isSaving}
+                onClick={async () => {
+                  setIsSaving(true);
+                  try {
+                    const response = await saveIntegrationChannels(
+                      customGuru,
+                      type.toUpperCase(),
+                      channels
+                    );
+                    if (!response?.error) {
+                      setHasChanges(false);
+                    }
+                  } catch (error) {
+                    console.error("Failed to save channels:", error);
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}>
+                {isSaving ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
                   </div>
-                ))}
-              </div>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </div>
-          )}
+            {/* Allowed Channels */}
+            {channelsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4 mb-6">
+                  {channels
+                    .filter((c) => c.allowed)
+                    .map((channel) => (
+                      <div key={channel.id} className="flex items-center gap-4">
+                        <Select disabled value={channel.id}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue>{channel.name}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={channel.id}>
+                              {channel.name}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm">
+                          Send Test Message
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setChannels(
+                              channels.map((c) =>
+                                c.id === channel.id
+                                  ? { ...c, allowed: false }
+                                  : c
+                              )
+                            );
+                            setHasChanges(true);
+                          }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+                {/* Add New Channel */}
+                <div className="mt-4">
+                  <Select
+                    onValueChange={(value) => {
+                      setChannels(
+                        channels.map((c) =>
+                          c.id === value ? { ...c, allowed: true } : c
+                        )
+                      );
+                      setHasChanges(true);
+                    }}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Add channel..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {channels
+                        .filter((c) => !c.allowed)
+                        .map((channel) => (
+                          <SelectItem key={channel.id} value={channel.id}>
+                            {channel.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );

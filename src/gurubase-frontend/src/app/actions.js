@@ -799,3 +799,39 @@ export async function getIntegrationChannels(guruType, integrationType) {
     });
   }
 }
+
+export async function saveIntegrationChannels(
+  guruType,
+  integrationType,
+  channels
+) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to save channels",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "saveIntegrationChannels",
+      guruType,
+      integrationType
+    });
+  }
+}

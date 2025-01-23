@@ -1784,11 +1784,26 @@ def list_channels(request, guru_type, integration_type):
             return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     try:
+        # Get channels from API
         strategy = IntegrationFactory.get_strategy(integration_type)
-        channels = strategy.list_channels(integration.access_token, integration.external_id)
+        api_channels = strategy.list_channels(integration.access_token, integration.external_id)
+        
+        # Create a map of channel IDs to their allowed status from DB
+        db_channels_map = {
+            channel['id']: channel['allowed']
+            for channel in integration.channels
+        }
+        
+        # Process each API channel
+        processed_channels = []
+        for channel in api_channels:
+            # If channel exists in DB, use its allowed status
+            # Otherwise, default to False for new channels
+            channel['allowed'] = db_channels_map.get(channel['id'], False)
+            processed_channels.append(channel)
         
         return Response({
-            'channels': channels
+            'channels': processed_channels
         })
     except Exception as e:
         logger.error(f"Error listing channels: {e}", exc_info=True)
