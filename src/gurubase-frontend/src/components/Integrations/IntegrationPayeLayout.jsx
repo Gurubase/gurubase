@@ -1,30 +1,26 @@
 "use client";
+
+import CommonContentLayout from "@/components/CommonContentLayout";
 import Footer from "@/components/Footer";
 import GuruEditPageSidebar from "@/components/GuruEditPageSidebar";
 import Header from "@/components/Header";
+import SetupIntegration from "@/components/Integrations/SetupIntegration";
 
-import CommonContentLayout from "../CommonContentLayout";
-import NewGuruContent from "./NewGuruContent";
-
-export const NewGuruClient = ({
-  customGuru,
-  dataSources,
-  guruTypes,
-  isProcessing
-}) => {
+export const IntegrationPayeLayout = ({ customGuru, type }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
       <Header textPageHeader={true} />
       <CommonContentLayout
         sidebar={<GuruEditPageSidebar guruSlug={customGuru} />}>
-        <NewGuruContent
-          customGuru={customGuru}
-          dataSources={dataSources}
-          guruTypes={guruTypes}
-          isProcessing={isProcessing}
-        />
+        <div className="flex gap-6 p-6">
+          <div className="flex-1">
+            <SetupIntegration type={type} />
+          </div>
+        </div>
       </CommonContentLayout>
       <Footer />
     </div>
   );
 };
+
+export default IntegrationPayeLayout;
