@@ -1745,37 +1745,54 @@ def create_integration(request):
     })
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def list_channels(request, integration_id):
+@jwt_auth
+def list_channels(request, guru_type, integration_type):
+    """Get or update channels for a specific integration type of a guru type."""
     try:
-        integration = Integration.objects.get(id=integration_id)
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    # Validate integration type
+    if integration_type not in [choice.value for choice in Integration.Type]:
+        return Response({'msg': f'Invalid integration type: {integration_type}'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        integration = Integration.objects.get(
+            guru_type=guru_type_object,
+            type=integration_type
+        )
     except Integration.DoesNotExist:
-        return Response({
-            'error': 'Integration not found'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method == 'POST':
-        channels = request.data.get('channels', [])
-        integration.channels = channels
-        integration.save()
-        return Response({
-            'id': integration.id,
-            'type': integration.type,
-            'guru_type': integration.guru_type.slug,
-            'channels': integration.channels
-        })
+        try:
+            channels = request.data.get('channels', [])
+            integration.channels = channels
+            integration.save()
+            
+            return Response({
+                'id': integration.id,
+                'type': integration.type,
+                'guru_type': integration.guru_type.slug,
+                'channels': integration.channels
+            })
+        except Exception as e:
+            logger.error(f"Error updating channels: {e}", exc_info=True)
+            return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     try:
-        strategy = IntegrationFactory.get_strategy(integration.type)
-        channels = strategy.list_channels(integration.access_token)
-    except Exception as e:
+        strategy = IntegrationFactory.get_strategy(integration_type)
+        channels = strategy.list_channels(integration.access_token, integration.external_id)
+        
         return Response({
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    return Response({
-        'channels': channels
-    }) 
+            'channels': channels
+        })
+    except Exception as e:
+        logger.error(f"Error listing channels: {e}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tuple[Thread, Binge]:
     """Get or create a thread and its associated binge."""

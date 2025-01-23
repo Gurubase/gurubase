@@ -768,3 +768,34 @@ export async function deleteApiKey(formData) {
     });
   }
 }
+
+export async function getIntegrationChannels(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to fetch channels",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getIntegrationChannels",
+      guruType,
+      integrationType
+    });
+  }
+}
