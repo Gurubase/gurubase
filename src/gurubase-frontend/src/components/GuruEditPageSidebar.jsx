@@ -13,7 +13,7 @@ const SidebarOption = ({ icon, label, isActive, onClick }) => (
     className={cn(
       "w-full justify-start gap-2 p-3 font-inter text-[14px] font-medium leading-[20px] transition-colors",
       isActive
-        ? "bg-[#EFF6FF] text-[#2563EB] "
+        ? "bg-[#EFF6FF] text-[#2563EB] hover:text-[#2563EB]"
         : "text-[#6D6D6D] hover:bg-[#FAFAFA]"
     )}
     onClick={onClick}>
