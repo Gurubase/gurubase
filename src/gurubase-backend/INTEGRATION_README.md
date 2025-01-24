@@ -56,9 +56,11 @@
 - `DISCORD_BOT_TOKEN`: Found in Bot
 
 ## Usage
-1. Set it up from frontend
-2. Add the channels
-3. Mention the bot and ask a question in that channel
+1. Run `discordListener`
+    - `python manage.py discordListener`
+2. Set it up from frontend
+3. Add the channels
+4. Mention the bot and ask a question in that channel
 
 # Slack
 
@@ -112,6 +114,7 @@
 
 
 ## Usage
-1. Set it up from frontend
-2. Add the channels
-3. Mention the bot and ask a question in that channel
+1. Run the backend
+2. Set it up from frontend
+3. Add the channels
+4. Mention the bot and ask a question in that channel
