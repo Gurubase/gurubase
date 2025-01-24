@@ -1548,11 +1548,11 @@ def api_answer(request, guru_type):
     if binge_id:
         try:
             binge = Binge.objects.get(id=binge_id)
-        except Binge.DoesNotExist:
-            return response_handler.handle_error_response("Binge not found")
+        except Exception:
+            return response_handler.handle_error_response("Session not found")
         
         if not check_binge_auth(binge, user):
-            return response_handler.handle_error_response("Binge not found")
+            return response_handler.handle_error_response("Session not found")
         
         # Find the last question in the binge as the parent
         parent = Question.objects.filter(binge=binge).order_by('-date_updated').first()
