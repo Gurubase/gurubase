@@ -198,14 +198,16 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                   }
                 }}
                 className="bg-white hover:bg-white text-red-500 hover:text-red-600 border border-neutral-200 rounded-full gap-2">
-                <Trash2 className="h-4 w-4" />
                 {isDisconnecting ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
                     Disconnecting...
                   </div>
                 ) : (
-                  "Disconnect"
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Disconnect
+                  </>
                 )}
               </Button>
               <Button
@@ -219,34 +221,6 @@ const IntegrationContent = ({ type, customGuru, error }) => {
           <div className="">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Channels</h3>
-              <Button
-                disabled={!hasChanges || isSaving}
-                onClick={async () => {
-                  setIsSaving(true);
-                  try {
-                    const response = await saveIntegrationChannels(
-                      customGuru,
-                      type.toUpperCase(),
-                      channels
-                    );
-                    if (!response?.error) {
-                      setHasChanges(false);
-                    }
-                  } catch (error) {
-                    console.error("Failed to save channels:", error);
-                  } finally {
-                    setIsSaving(false);
-                  }
-                }}>
-                {isSaving ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Saving...
-                  </div>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
             </div>
             <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-4">
               Select the channels you want, click <strong>Save</strong>, then
@@ -376,6 +350,37 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                     </div>
                   </div>
                 )}
+                <div className="mt-6">
+                  <Button
+                    disabled={!hasChanges || isSaving}
+                    className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white"
+                    onClick={async () => {
+                      setIsSaving(true);
+                      try {
+                        const response = await saveIntegrationChannels(
+                          customGuru,
+                          type.toUpperCase(),
+                          channels
+                        );
+                        if (!response?.error) {
+                          setHasChanges(false);
+                        }
+                      } catch (error) {
+                        console.error("Failed to save channels:", error);
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}>
+                    {isSaving ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Saving...
+                      </div>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
               </>
             )}
           </div>
