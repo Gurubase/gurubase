@@ -208,7 +208,8 @@ class Command(BaseCommand):
 
             # Get integration from cache/database
             integration = await self.get_guild_integration(guild_id)
-            if not integration or not integration.access_token:
+            await sync_to_async(lambda: print(f'integration: {integration}'))()
+            if not integration or not await sync_to_async(lambda: integration.access_token)():
                 return
 
             try:
@@ -294,13 +295,13 @@ class Command(BaseCommand):
                         error_msg = response if response else "Sorry, I couldn't process your request. 😕"
                         await thinking_msg.edit(content=error_msg)
                         
-                except discord.Forbidden:
+                except discord.Forbidden as e:
                     logging.error(f"Discord forbidden error occurred: {str(e)}")
                     await thinking_msg.edit(content="❌ I don't have permission to perform this action. Please check my permissions.")
                 except discord.HTTPException as e:
                     logging.error(f"Discord API error occurred: {str(e)}")
                     await thinking_msg.edit(content=f"❌ Discord API error occurred")
-                except aiohttp.ClientError:
+                except aiohttp.ClientError as e:
                     logging.error(f"Network error occurred while processing your request. {str(e)}")
                     await thinking_msg.edit(content="❌ Network error occurred while processing your request.")
                 except Exception as e:
