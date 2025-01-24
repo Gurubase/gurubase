@@ -7,7 +7,8 @@ import {
   DiscordIcon,
   SlackIcon,
   SendTestMessageIcon,
-  SolarTrashBinTrashBold
+  SolarTrashBinTrashBold,
+  ConnectedIntegrationIcon
 } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import {
@@ -25,10 +26,16 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Trash2, Check } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import { Input } from "@/components/ui/input";
-import { ConnectedIntegrationIcon } from "@/components/Icons";
+import {
+  IntegrationHeader,
+  IntegrationDivider,
+  IntegrationIconContainer,
+  IntegrationInfo,
+  IntegrationError
+} from "./IntegrationShared";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -125,10 +132,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (loading) {
     return (
       <div className="w-full">
-        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
-          {name} Bot
-        </h2>
-        <div className="h-[1px] bg-neutral-200" />
+        <IntegrationHeader name={name} />
+        <IntegrationDivider />
         <div className="p-6">
           <LoadingSkeleton count={2} width={400} />
         </div>
@@ -139,10 +144,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (internalError) {
     return (
       <div className="w-full">
-        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
-          {name} Bot
-        </h2>
-        <div className="h-[1px] bg-neutral-200" />
+        <IntegrationHeader name={name} />
+        <IntegrationDivider />
         <div className="p-6 text-red-500">{internalError}</div>
       </div>
     );
@@ -151,27 +154,16 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
-        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
-          {name} Bot
-        </h2>
-        <div className="h-[1px] bg-neutral-200" />
+        <IntegrationHeader name={name} />
+        <IntegrationDivider />
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
-                )}>
-                <Icon className={cn(config.iconSize, "text-white")} />
-              </div>
-              <div>
-                <h3 className="font-medium">{name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  By connecting your account, you can easily share all your
-                  posts and invite your friends.
-                </p>
-              </div>
-            </div>
+            <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
+              <IntegrationInfo
+                name={name}
+                description="By connecting your account, you can easily share all your posts and invite your friends."
+              />
+            </IntegrationIconContainer>
             <div className="flex items-center gap-3">
               <Button
                 variant="destructive"
@@ -235,7 +227,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
               </div>
             ) : (
               <>
-                <div className="space-y-4 mb-6">
+                <div className="space-y-4">
                   {channels
                     .filter((c) => c.allowed)
                     .map((channel) => (
@@ -296,7 +288,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 </div>
                 {/* Add New Channel */}
                 {channels.filter((c) => !c.allowed).length > 0 && (
-                  <div className="mt-6">
+                  <div className="mt-4">
                     <div className="flex items-center gap-3">
                       <div className="relative w-full md:w-[300px]">
                         <Select
@@ -350,7 +342,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                     </div>
                   </div>
                 )}
-                <div className="mt-6">
+                <div className="mt-4">
                   <Button
                     disabled={!hasChanges || isSaving}
                     className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white"
@@ -392,25 +384,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   // Default case: Show create content (204 or no integration)
   return (
     <div className="w-full">
-      <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
-        {name} Bot
-      </h2>
-      <div className="h-[1px] bg-neutral-200" />
+      <IntegrationHeader name={name} />
+      <IntegrationDivider />
       <div className="flex items-center justify-between p-6">
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
-            )}>
-            <Icon className={cn(config.iconSize, "text-white")} />
-          </div>
-          <div>
-            <h3 className="font-medium">{config.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              {config.description}
-            </p>
-          </div>
-        </div>
+        <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
+          <IntegrationInfo
+            name={config.name}
+            description={config.description}
+          />
+        </IntegrationIconContainer>
         <Button
           variant="default"
           className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]"
@@ -427,12 +409,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
           Connect
         </Button>
       </div>
-      {error && (
-        <div className="text-red-500 bg-red-50 p-4 rounded-md">
-          There was an error during the integration process. Please try again or
-          contact support if the issue persists.
-        </div>
-      )}
+      {error && <IntegrationError />}
     </div>
   );
 };
