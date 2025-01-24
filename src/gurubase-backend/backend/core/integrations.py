@@ -32,6 +32,11 @@ class IntegrationStrategy(ABC):
         """Send a test message to the specified channel"""
         pass
 
+    @abstractmethod
+    def revoke_access_token(self, access_token: str) -> None:
+        """Revoke the OAuth access token"""
+        pass
+
     def create_integration(self, code: str, guru_type: GuruType) -> Integration:
         """Create integration with the platform"""
         token_data = self.exchange_token(code)
@@ -131,6 +136,24 @@ class DiscordStrategy(IntegrationStrategy):
             logger.error(f"Error sending Discord test message: {e}", exc_info=True)
             return False
 
+    def revoke_access_token(self, access_token: str) -> None:
+        """Revoke Discord OAuth token."""
+        try:
+            token_url = 'https://discord.com/api/oauth2/token/revoke'
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            data = {
+                'client_id': settings.DISCORD_CLIENT_ID,
+                'client_secret': settings.DISCORD_CLIENT_SECRET,
+                'token': access_token
+            }
+            response = requests.post(token_url, headers=headers, data=data)
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Error revoking Discord token: {e}", exc_info=True)
+            raise
+
 
 class SlackStrategy(IntegrationStrategy):
     def exchange_token(self, code: str) -> dict:
@@ -204,6 +227,22 @@ class SlackStrategy(IntegrationStrategy):
         except Exception as e:
             logger.error(f"Error sending Slack test message: {e}", exc_info=True)
             return False
+
+    def revoke_access_token(self, access_token: str) -> None:
+        """Revoke Slack OAuth token."""
+        try:
+            revoke_url = 'https://slack.com/api/auth.revoke'
+            headers = {
+                'Authorization': f'Bearer {access_token}'
+            }
+            response = requests.get(revoke_url, headers=headers)
+            response_data = response.json()
+            
+            if not response_data.get('ok', False):
+                raise ValueError(f"Slack API error: {response_data.get('error')}")
+        except Exception as e:
+            logger.error(f"Error revoking Slack token: {e}", exc_info=True)
+            raise
 
 
 class IntegrationFactory:

@@ -9,7 +9,8 @@ import {
   getIntegrationDetails,
   getIntegrationChannels,
   saveIntegrationChannels,
-  sendIntegrationTestMessage
+  sendIntegrationTestMessage,
+  deleteIntegration
 } from "@/app/actions";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -30,6 +31,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const integrationConfig = {
     slack: {
@@ -37,7 +39,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
-      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`
+      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`,
+      icon: SlackIcon
     },
     discord: {
       name: "Discord",
@@ -45,11 +48,13 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
-      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2Fe306-34-32-48-186.ngrok-free.app%2FOAuth&integration_type=0&scope=identify+bot`
+      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2Fe306-34-32-48-186.ngrok-free.app%2FOAuth&integration_type=0&scope=identify+bot`,
+      icon: DiscordIcon
     }
   };
+  const config = integrationConfig[type];
 
-  const integrationUrl = integrationConfig[type].url;
+  const integrationUrl = config.url;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,9 +112,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     fetchData();
   }, [customGuru, type]);
 
-  const config = integrationConfig[type];
-  const Icon = type === "Discord" ? DiscordIcon : SlackIcon;
-  const name = integrationConfig[type].name;
+  const Icon = config.icon;
+  const name = config.name;
 
   if (loading) {
     return (
@@ -159,7 +163,39 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 </p>
               </div>
             </div>
-            <Button variant="destructive">Disconnect</Button>
+            <Button
+              variant="destructive"
+              disabled={isDisconnecting}
+              onClick={async () => {
+                setIsDisconnecting(true);
+                try {
+                  const response = await deleteIntegration(
+                    customGuru,
+                    type.toUpperCase()
+                  );
+                  if (!response?.error) {
+                    setIntegrationData(null);
+                    setChannels([]);
+                  } else {
+                    setInternalError(
+                      response.message || "Failed to disconnect integration"
+                    );
+                  }
+                } catch (error) {
+                  setInternalError(error.message);
+                } finally {
+                  setIsDisconnecting(false);
+                }
+              }}>
+              {isDisconnecting ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Disconnecting...
+                </div>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
           </div>
           <div className="mt-6">
             <div className="flex items-center justify-between mb-4">

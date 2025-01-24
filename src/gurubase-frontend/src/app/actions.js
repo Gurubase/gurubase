@@ -901,3 +901,34 @@ export async function sendIntegrationTestMessage(integrationId, channelId) {
     });
   }
 }
+
+export async function deleteIntegration(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to delete integration",
+        status: response.status
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "deleteIntegration",
+      guruType,
+      integrationType
+    });
+  }
+}

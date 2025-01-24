@@ -1696,7 +1696,6 @@ def api_reindex_data_sources(request, guru_type):
 
 
 @api_view(['GET'])
-# GET for Discord
 def create_integration(request):
     code = request.query_params.get('code')
     state = request.query_params.get('state')
@@ -1744,6 +1743,67 @@ def create_integration(request):
         'guru_type': guru_type.slug,
         'channels': integration.channels
     })
+
+
+
+@api_view(['GET', 'DELETE'])
+@jwt_auth
+def manage_integration(request, guru_type, integration_type):
+    """
+    GET: Get integration details for a specific guru type and integration type.
+    DELETE: Delete an integration and invalidate its OAuth token.
+    """
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    # Validate integration type
+    if integration_type not in [choice.value for choice in Integration.Type]:
+        return Response({'msg': f'Invalid integration type: {integration_type}'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        integration = Integration.objects.get(
+            guru_type=guru_type_object,
+            type=integration_type
+        )
+        
+        if request.method == 'GET':
+            return Response({
+                'id': integration.id,
+                'type': integration.type,
+                'workspace_name': integration.workspace_name,
+                'external_id': integration.external_id,
+                'channels': integration.channels,
+                'date_created': integration.date_created,
+                'date_updated': integration.date_updated
+            })
+        elif request.method == 'DELETE':
+            # Get the appropriate strategy for the integration type
+            strategy = IntegrationFactory.get_strategy(integration.type)
+            
+            # Invalidate the OAuth token
+            try:
+                strategy.revoke_access_token(integration.access_token)
+            except Exception as e:
+                logger.warning(f"Failed to revoke access token: {e}", exc_info=True)
+                # Continue with deletion even if token revocation fails
+            
+            # Delete the integration
+            integration.delete()
+            
+            return Response({'msg': 'Integration deleted successfully'}, status=status.HTTP_200_OK)
+            
+    except Integration.DoesNotExist:
+        if request.method == 'GET':
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error in manage_integration: {e}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET', 'POST'])
 @jwt_auth
@@ -2223,42 +2283,6 @@ def slack_events(request):
     
     # Return 200 immediately
     return Response(status=200)
-
-@api_view(['GET'])
-@jwt_auth
-def get_integration(request, guru_type, integration_type):
-    """Get integration details for a specific guru type and integration type."""
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-    # Validate integration type
-    if integration_type not in [choice.value for choice in Integration.Type]:
-        return Response({'msg': f'Invalid integration type: {integration_type}'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        integration = Integration.objects.get(
-            guru_type=guru_type_object,
-            type=integration_type
-        )
-        
-        return Response({
-            'id': integration.id,
-            'type': integration.type,
-            'workspace_name': integration.workspace_name,
-            'external_id': integration.external_id,
-            'channels': integration.channels,
-            'date_created': integration.date_created,
-            'date_updated': integration.date_updated
-        })
-    except Integration.DoesNotExist:
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    except Exception as e:
-        logger.error(f"Error in get_integration: {e}", exc_info=True)
-        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @jwt_auth
