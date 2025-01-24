@@ -36,10 +36,9 @@ const OAuthCallback = () => {
         if (response.error) {
           setError(response.message);
           router.push(`${url}?error=true`);
+        } else {
+          router.push(url);
         }
-
-        // Redirect to integrations page
-        router.push(url);
       } catch (err) {
         setError(err.message || "Failed to create integration");
       }
