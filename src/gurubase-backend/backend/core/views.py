@@ -2259,3 +2259,31 @@ def get_integration(request, guru_type, integration_type):
     except Exception as e:
         logger.error(f"Error in get_integration: {e}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@jwt_auth
+def send_test_message(request):
+    """Send a test message to a specific channel using the specified integration."""
+    integration_id = request.data.get('integration_id')
+    channel_id = request.data.get('channel_id')
+
+    if not integration_id or not channel_id:
+        return Response({'msg': 'Integration ID and channel ID are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        # Get the appropriate strategy for the integration type
+        strategy = IntegrationFactory.get_strategy(integration.type)
+        success = strategy.send_test_message(integration.access_token, channel_id)
+        
+        if success:
+            return Response({'msg': 'Test message sent successfully'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'msg': 'Failed to send test message'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Error sending test message: {e}", exc_info=True)
+        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

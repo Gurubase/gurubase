@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 import requests
 from django.conf import settings
 from .models import Integration, GuruType
+import logging
+
+logger = logging.getLogger(__name__)
 
 class IntegrationStrategy(ABC):
     @abstractmethod
@@ -22,6 +25,11 @@ class IntegrationStrategy(ABC):
     @abstractmethod
     def get_workspace_name(self, token_response: dict) -> str:
         """Get workspace name from the platform"""
+        pass
+
+    @abstractmethod
+    def send_test_message(self, access_token: str, channel_id: str) -> bool:
+        """Send a test message to the specified channel"""
         pass
 
     def create_integration(self, code: str, guru_type: GuruType) -> Integration:
@@ -109,6 +117,20 @@ class DiscordStrategy(IntegrationStrategy):
     def get_type(self) -> str:
         return 'DISCORD'
 
+    def send_test_message(self, access_token: str, channel_id: str) -> bool:
+        try:
+            url = f'https://discord.com/api/channels/{channel_id}/messages'
+            headers = {'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'}
+            data = {
+                'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
+            }
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            logger.error(f"Error sending Discord test message: {e}", exc_info=True)
+            return False
+
 
 class SlackStrategy(IntegrationStrategy):
     def exchange_token(self, code: str) -> dict:
@@ -169,6 +191,19 @@ class SlackStrategy(IntegrationStrategy):
 
     def get_type(self) -> str:
         return 'SLACK'
+
+    def send_test_message(self, access_token: str, channel_id: str) -> bool:
+        try:
+            from slack_sdk import WebClient
+            client = WebClient(token=access_token)
+            response = client.chat_postMessage(
+                channel=channel_id,
+                text="👋 Hello! This is a test message from your Guru. I am working correctly!"
+            )
+            return response["ok"]
+        except Exception as e:
+            logger.error(f"Error sending Slack test message: {e}", exc_info=True)
+            return False
 
 
 class IntegrationFactory:

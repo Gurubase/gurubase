@@ -866,3 +866,38 @@ export async function createIntegration(code, state) {
     });
   }
 }
+
+export async function sendIntegrationTestMessage(integrationId, channelId) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/test_message/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integration_id: integrationId,
+          channel_id: channelId
+        })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to send test message",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "sendIntegrationTestMessage",
+      integrationId,
+      channelId
+    });
+  }
+}

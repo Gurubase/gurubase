@@ -19,8 +19,6 @@ else:
 
 urlpatterns += [
     path('accounts/', include('accounts.urls')),
-    path('integrations/create/', core_views.create_integration, name='create_integration'),
-    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
     re_path(r'(?P<guru_type>[\w-]+)/question/(?P<slug>[\w-]+)/?$', core_views.question_detail, name="question_detail"),
     
     path('guru_types/', core_views.guru_types, name="guru_types"),
@@ -48,7 +46,6 @@ urlpatterns += [
     path('<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples'),
     path('<str:guru_type>/follow_up/graph/', core_views.follow_up_graph, name='follow_up_graph'),
     path('<str:guru_type>/follow_up/binge/', core_views.create_binge, name='create_binge'),
-    path('<str:guru_type>/integrations/<str:integration_type>/', core_views.get_integration, name='get_integration'),
     path('binge-history/', core_views.get_binges, name='get_binges'),
     path('api_keys/', core_views.api_keys, name='api_keys'),
     path('guru_types/create_frontend/', core_views.create_guru_type_frontend, name='create_guru_type_frontend'),
@@ -65,6 +62,10 @@ urlpatterns += [
     path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
+    path('<str:guru_type>/integrations/<str:integration_type>/', core_views.get_integration, name='get_integration'),
+    path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
+    path('integrations/create/', core_views.create_integration, name='create_integration'),
+    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
 ]
 
 if settings.STREAM_ENABLED:

@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import {
   getIntegrationDetails,
   getIntegrationChannels,
-  saveIntegrationChannels
+  saveIntegrationChannels,
+  sendIntegrationTestMessage
 } from "@/app/actions";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -213,7 +214,28 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const response = await sendIntegrationTestMessage(
+                                integrationData.id,
+                                channel.id
+                              );
+                              if (response?.error) {
+                                console.error(
+                                  "Failed to send test message:",
+                                  response.message
+                                );
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Error sending test message:",
+                                error
+                              );
+                            }
+                          }}>
                           Send Test Message
                         </Button>
                         <Button
