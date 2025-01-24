@@ -1789,11 +1789,11 @@ def manage_integration(request, guru_type, integration_type):
             })
         elif request.method == 'DELETE':
             # Get the appropriate strategy for the integration type
-            strategy = IntegrationFactory.get_strategy(integration.type)
+            strategy = IntegrationFactory.get_strategy(integration.type, integration)
             
             # Invalidate the OAuth token
             try:
-                strategy.revoke_access_token(integration.access_token)
+                strategy.revoke_access_token()
             except Exception as e:
                 logger.warning(f"Failed to revoke access token: {e}", exc_info=True)
                 # Continue with deletion even if token revocation fails
@@ -1853,8 +1853,8 @@ def list_channels(request, guru_type, integration_type):
 
     try:
         # Get channels from API
-        strategy = IntegrationFactory.get_strategy(integration_type)
-        api_channels = strategy.list_channels(integration.access_token, integration.external_id)
+        strategy = IntegrationFactory.get_strategy(integration_type, integration)
+        api_channels = strategy.list_channels()
         
         # Create a map of channel IDs to their allowed status from DB
         db_channels_map = {
@@ -2283,8 +2283,8 @@ def slack_events(request):
                                     # Get fresh integration data from DB
                                     integration = Integration.objects.get(id=integration.id)
                                     # Try to refresh the token
-                                    strategy = IntegrationFactory.get_strategy(integration.type)
-                                    new_token = strategy.handle_token_refresh(integration)
+                                    strategy = IntegrationFactory.get_strategy(integration.type, integration)
+                                    new_token = strategy.handle_token_refresh()
                                     
                                     # Update cache with new integration data
                                     cache.set(cache_key, integration, timeout=300)
@@ -2335,8 +2335,8 @@ def send_test_message(request):
 
     try:
         # Get the appropriate strategy for the integration type
-        strategy = IntegrationFactory.get_strategy(integration.type)
-        success = strategy.send_test_message(integration.access_token, channel_id)
+        strategy = IntegrationFactory.get_strategy(integration.type, integration)
+        success = strategy.send_test_message(channel_id)
         
         if success:
             return Response({'msg': 'Test message sent successfully'}, status=status.HTTP_200_OK)

@@ -7,18 +7,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 class IntegrationStrategy(ABC):
+    def __init__(self, integration: 'Integration' = None):
+        self.integration = integration
+
+    def get_integration(self) -> 'Integration':
+        """Helper method to get an integration instance"""
+        if self.integration:
+            return self.integration
+        else:
+            raise ValueError("No integration found")
+
     @abstractmethod
     def exchange_token(self, code: str) -> dict:
         """Exchange authorization code for access token"""
         pass
 
     @abstractmethod
-    def get_external_id(self, access_token: str) -> str:
+    def get_external_id(self, token_response: dict) -> str:
         """Get external user/team ID from the platform"""
         pass
 
     @abstractmethod
-    def list_channels(self, access_token: str) -> list:
+    def list_channels(self) -> list:
         """List available channels"""
         pass
 
@@ -28,12 +38,12 @@ class IntegrationStrategy(ABC):
         pass
 
     @abstractmethod
-    def send_test_message(self, access_token: str, channel_id: str) -> bool:
+    def send_test_message(self, channel_id: str) -> bool:
         """Send a test message to the specified channel"""
         pass
 
     @abstractmethod
-    def revoke_access_token(self, access_token: str) -> None:
+    def revoke_access_token(self) -> None:
         """Revoke the OAuth access token"""
         pass
 
@@ -43,8 +53,9 @@ class IntegrationStrategy(ABC):
         Returns a dict with new access_token and optionally new refresh_token."""
         pass
 
-    def handle_token_refresh(self, integration: 'Integration') -> str:
+    def handle_token_refresh(self) -> str:
         """Handle token refresh for an integration. Returns the new access token."""
+        integration = self.get_integration()
         try:
             if not integration.refresh_token:
                 raise ValueError("No refresh token available")
@@ -72,7 +83,6 @@ class IntegrationStrategy(ABC):
             raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
         
         # Fetch available channels
-        channels = self.list_channels(access_token, external_id)
         workspace_name = self.get_workspace_name(token_data)
         
         return Integration.objects.create(
@@ -82,7 +92,6 @@ class IntegrationStrategy(ABC):
             access_token=access_token,
             refresh_token=refresh_token,
             code=code,
-            channels=channels,
             workspace_name=workspace_name
         )
 
@@ -91,25 +100,20 @@ class IntegrationStrategy(ABC):
         """Get integration type"""
         pass
 
-    def handle_api_call(self, integration: 'Integration', api_func: callable, *args, **kwargs):
-        """Helper method to handle API calls with token refresh logic.
-        
-        Args:
-            integration: The Integration model instance
-            api_func: The function to call that makes the actual API request
-            *args, **kwargs: Arguments to pass to the api_func
-        """
+    def handle_api_call(self, api_func: callable, *args, **kwargs):
+        """Helper method to handle API calls with token refresh logic."""
+        integration = self.get_integration()
         try:
-            return api_func(integration.access_token, *args, **kwargs)
+            return api_func(*args, **kwargs)
         except Exception as e:
             # Check if it's a token-related error
             error_msg = str(e).lower()
             if any(err in error_msg for err in ['token_expired', 'invalid_auth', 'unauthorized', 'not_authed', '401']):
                 try:
                     # Try to refresh the token
-                    new_token = self.handle_token_refresh(integration)
+                    self.handle_token_refresh()
                     # Retry with new token
-                    return api_func(new_token, *args, **kwargs)
+                    return api_func(*args, **kwargs)
                 except Exception as refresh_error:
                     logger.error(f"Error refreshing token: {refresh_error}", exc_info=True)
                     raise
@@ -131,7 +135,7 @@ class DiscordStrategy(IntegrationStrategy):
             raise ValueError(f"Discord API error: {response.text}")
         return response.json()
 
-    def get_external_id(self, token_response: str) -> str:
+    def get_external_id(self, token_response: dict) -> str:
         guild_id = token_response.get('guild', {}).get('id')
         if not guild_id:
             raise ValueError("No guild ID found in the OAuth response")
@@ -140,10 +144,11 @@ class DiscordStrategy(IntegrationStrategy):
     def get_workspace_name(self, token_response: dict) -> str:
         return token_response.get('guild', {}).get('name')
 
-    def list_channels(self, access_token: str, external_id: str) -> list:
-        def _list_channels(token: str, guild_id: str) -> list:
+    def list_channels(self) -> list:
+        def _list_channels() -> list:
+            integration = self.get_integration()
             channels_response = requests.get(
-                f'https://discord.com/api/guilds/{guild_id}/channels',
+                f'https://discord.com/api/guilds/{integration.external_id}/channels',
                 headers={'Authorization': f"Bot {settings.DISCORD_BOT_TOKEN}"}
             )
             channels_response.raise_for_status()
@@ -161,14 +166,14 @@ class DiscordStrategy(IntegrationStrategy):
             ]
             return text_channels
 
-        return self.handle_api_call(None, _list_channels, external_id)  # Using None since we use bot token
+        return self.handle_api_call(_list_channels)
 
     def get_type(self) -> str:
         return 'DISCORD'
 
-    def send_test_message(self, access_token: str, channel_id: str) -> bool:
-        def _send_test_message(token: str, ch_id: str) -> bool:
-            url = f'https://discord.com/api/channels/{ch_id}/messages'
+    def send_test_message(self, channel_id: str) -> bool:
+        def _send_test_message() -> bool:
+            url = f'https://discord.com/api/channels/{channel_id}/messages'
             headers = {'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'}
             data = {
                 'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
@@ -178,14 +183,15 @@ class DiscordStrategy(IntegrationStrategy):
             return True
 
         try:
-            return self.handle_api_call(None, _send_test_message, channel_id)  # Using None since we use bot token
+            return self.handle_api_call(_send_test_message)
         except Exception as e:
             logger.error(f"Error sending Discord test message: {e}", exc_info=True)
             return False
 
-    def revoke_access_token(self, access_token: str) -> None:
+    def revoke_access_token(self) -> None:
         """Revoke Discord OAuth token."""
-        try:
+        def _revoke_token() -> None:
+            integration = self.get_integration()
             token_url = 'https://discord.com/api/oauth2/token/revoke'
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -193,13 +199,12 @@ class DiscordStrategy(IntegrationStrategy):
             data = {
                 'client_id': settings.DISCORD_CLIENT_ID,
                 'client_secret': settings.DISCORD_CLIENT_SECRET,
-                'token': access_token
+                'token': integration.access_token
             }
             response = requests.post(token_url, headers=headers, data=data)
             response.raise_for_status()
-        except Exception as e:
-            logger.error(f"Error revoking Discord token: {e}", exc_info=True)
-            raise
+
+        return self.handle_api_call(_revoke_token)
 
     def refresh_access_token(self, refresh_token: str) -> dict:
         """Refresh Discord OAuth token."""
@@ -232,15 +237,14 @@ class SlackStrategy(IntegrationStrategy):
         return response.json()
 
     def get_external_id(self, token_response: dict) -> str:
-        # For Slack, we get the team ID from the token exchange response
-        # So we'll pass it through the access_token parameter
         return token_response.get('team', {}).get('id')
 
     def get_workspace_name(self, token_response: dict) -> str:
         return token_response.get('team', {}).get('name')
 
-    def list_channels(self, access_token: str, external_id: str) -> list:
-        def _list_channels(token: str, _: str) -> list:
+    def list_channels(self) -> list:
+        def _list_channels() -> list:
+            integration = self.get_integration()
             channels = []
             cursor = None
             
@@ -251,7 +255,7 @@ class SlackStrategy(IntegrationStrategy):
                     
                 response = requests.get(
                     'https://slack.com/api/conversations.list',
-                    headers={'Authorization': f"Bearer {token}"},
+                    headers={'Authorization': f"Bearer {integration.access_token}"},
                     params=params
                 )
                 response.raise_for_status()
@@ -275,32 +279,34 @@ class SlackStrategy(IntegrationStrategy):
                     
             return channels
 
-        return self.handle_api_call(self, _list_channels, access_token, external_id)
+        return self.handle_api_call(_list_channels)
 
     def get_type(self) -> str:
         return 'SLACK'
 
-    def send_test_message(self, access_token: str, channel_id: str) -> bool:
-        def _send_test_message(token: str, ch_id: str) -> bool:
+    def send_test_message(self, channel_id: str) -> bool:
+        def _send_test_message() -> bool:
+            integration = self.get_integration()
             from slack_sdk import WebClient
-            client = WebClient(token=token)
+            client = WebClient(token=integration.access_token)
             response = client.chat_postMessage(
-                channel=ch_id,
+                channel=channel_id,
                 text="👋 Hello! This is a test message from your Guru. I am working correctly!"
             )
             return response["ok"]
 
         try:
-            return self.handle_api_call(self, _send_test_message, access_token, channel_id)
+            return self.handle_api_call(_send_test_message)
         except Exception as e:
             logger.error(f"Error sending Slack test message: {e}", exc_info=True)
             return False
 
-    def revoke_access_token(self, access_token: str) -> None:
-        def _revoke_token(token: str) -> None:
+    def revoke_access_token(self) -> None:
+        def _revoke_token() -> None:
+            integration = self.get_integration()
             revoke_url = 'https://slack.com/api/auth.revoke'
             headers = {
-                'Authorization': f'Bearer {token}'
+                'Authorization': f'Bearer {integration.access_token}'
             }
             response = requests.get(revoke_url, headers=headers)
             response_data = response.json()
@@ -308,7 +314,7 @@ class SlackStrategy(IntegrationStrategy):
             if not response_data.get('ok', False):
                 raise ValueError(f"Slack API error: {response_data.get('error')}")
 
-        return self.handle_api_call(self, _revoke_token)
+        return self.handle_api_call(_revoke_token)
 
     def refresh_access_token(self, refresh_token: str) -> dict:
         """Refresh Slack OAuth token.
@@ -319,11 +325,11 @@ class SlackStrategy(IntegrationStrategy):
 
 class IntegrationFactory:
     @staticmethod
-    def get_strategy(integration_type: str) -> IntegrationStrategy:
+    def get_strategy(integration_type: str, integration: 'Integration' = None) -> IntegrationStrategy:
         integration_type = integration_type.upper()
         if integration_type == 'DISCORD':
-            return DiscordStrategy()
+            return DiscordStrategy(integration)
         elif integration_type == 'SLACK':
-            return SlackStrategy()
+            return SlackStrategy(integration)
         else:
             raise ValueError(f'Invalid integration type: {integration_type}') 
