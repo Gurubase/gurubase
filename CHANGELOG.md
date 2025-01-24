@@ -45,4 +45,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redis for caching and rate limiting
 - RabbitMQ for message queue
 
-[0.1.0]: https://github.com/Gurubase/gurubase/releases/tag/v0.1.0 
+[0.1.0]: https://github.com/Gurubase/gurubase/releases/tag/0.1.0 
+[0.1.1]: https://github.com/Gurubase/gurubase/releases/tag/0.1.1 
