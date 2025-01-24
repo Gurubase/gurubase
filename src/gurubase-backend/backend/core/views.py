@@ -2262,14 +2262,41 @@ def slack_events(request):
                         # Run the async handler in a new event loop
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
-                        loop.run_until_complete(handle_slack_message(
-                            client=client,
-                            integration=integration,
-                            channel_id=channel_id,
-                            thread_ts=thread_ts,
-                            clean_message=clean_message
-                        ))
-                        loop.close()
+                        try:
+                            loop.run_until_complete(handle_slack_message(
+                                client=client,
+                                integration=integration,
+                                channel_id=channel_id,
+                                thread_ts=thread_ts,
+                                clean_message=clean_message
+                            ))
+                        except SlackApiError as e:
+                            if e.response.data.get('error') in ['token_expired', 'invalid_auth', 'not_authed']:
+                                try:
+                                    # Get fresh integration data from DB
+                                    integration = Integration.objects.get(id=integration.id)
+                                    # Try to refresh the token
+                                    strategy = IntegrationFactory.get_strategy(integration.type)
+                                    new_token = strategy.handle_token_refresh(integration)
+                                    
+                                    # Update cache with new integration data
+                                    cache.set(cache_key, integration, timeout=300)
+                                    
+                                    # Retry with new token
+                                    client = WebClient(token=new_token)
+                                    loop.run_until_complete(handle_slack_message(
+                                        client=client,
+                                        integration=integration,
+                                        channel_id=channel_id,
+                                        thread_ts=thread_ts,
+                                        clean_message=clean_message
+                                    ))
+                                except Exception as refresh_error:
+                                    logger.error(f"Error refreshing token: {refresh_error}", exc_info=True)
+                            else:
+                                logger.error(f"Slack API error: {e}", exc_info=True)
+                        finally:
+                            loop.close()
                             
                     except Exception as e:
                         logger.error(f"Error processing Slack event: {e}", exc_info=True)
