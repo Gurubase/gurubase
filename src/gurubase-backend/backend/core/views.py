@@ -1465,7 +1465,7 @@ def api_data_sources(request, guru_type):
     """
     Unified endpoint for managing data sources.
     GET: Retrieve data sources with pagination
-    POST: Create new data sources (PDFs, YouTube URLs, website URLs)
+    POST: Create new data sources (YouTube URLs, website URLs)
     DELETE: Delete specified data sources
     """
     response_handler = DataSourceResponseHandler()
@@ -1495,24 +1495,18 @@ def api_data_sources(request, guru_type):
         try:
             service = DataSourceService(guru_type_object, request.user)
             
-            # Get and validate inputs
-            pdf_files = request.FILES.getlist('pdf_files', [])
-            pdf_privacies = json.loads(request.data.get('pdf_privacies', '[]'))
-            youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
-            website_urls = json.loads(request.data.get('website_urls', '[]'))
+            # Get URLs directly from request body
+            youtube_urls = request.data.get('youtube_urls', [])
+            website_urls = request.data.get('website_urls', [])
 
-            # Validate all inputs
-            service.validate_pdf_files(pdf_files, pdf_privacies)
+            # Validate URL limits
             service.validate_url_limits(youtube_urls, 'youtube')
             service.validate_url_limits(website_urls, 'website')
 
-            # Create data sources
-            results = service.create_data_sources(pdf_files, pdf_privacies, youtube_urls, website_urls)
+            # Create data sources (empty lists for PDF files and privacies)
+            results = service.create_data_sources([], [], youtube_urls, website_urls)
+            return Response(results, status=status.HTTP_200_OK)
 
-            return response_handler.handle_success_response(
-                'Data sources processing completed',
-                {'results': results}
-            )
         except ValueError as e:
             return response_handler.handle_error_response(str(e))
         except Exception as e:
