@@ -32,14 +32,14 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const [isSaving, setIsSaving] = useState(false);
 
   const integrationConfig = {
-    Slack: {
+    slack: {
       name: "Slack",
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
       url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`
     },
-    Discord: {
+    discord: {
       name: "Discord",
       description:
         "Connect your Discord account to share content and interact with your community.",
@@ -109,11 +109,12 @@ const IntegrationContent = ({ type, customGuru, error }) => {
 
   const config = integrationConfig[type];
   const Icon = type === "Discord" ? DiscordIcon : SlackIcon;
+  const name = integrationConfig[type].name;
 
   if (loading) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
+        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="p-6">
           <LoadingSkeleton count={2} width={400} />
@@ -125,7 +126,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (internalError) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
+        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="p-6 text-red-500">{internalError}</div>
       </div>
@@ -135,7 +136,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (integrationData) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
+        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center justify-between">
@@ -292,7 +293,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   // Default case: Show create content (204 or no integration)
   return (
     <div className="w-full">
-      <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
+      <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
       <div className="h-[1px] bg-neutral-200" />
       <div className="flex items-center justify-between p-6">
         <div className="flex items-center gap-4">

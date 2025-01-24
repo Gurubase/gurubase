@@ -15,7 +15,7 @@ export const IntegrationPayeLayout = ({ customGuru, type, error }) => {
         <div className="flex gap-6">
           <div className="flex-1">
             <IntegrationContent
-              type={type}
+              type={type.toLowerCase()}
               customGuru={customGuru}
               error={error}
             />
