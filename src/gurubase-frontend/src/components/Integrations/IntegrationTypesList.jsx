@@ -70,7 +70,9 @@ const IntegrationTypesList = ({ customGuru }) => {
     <main className="flex justify-center items-center w-full flex-grow">
       <section className="container mx-auto guru-md:max-w-[870px] guru-lg:max-w-[1180px] bg-white h-full">
         <section className="flex flex-col flex-grow w-full p-6 pt-7 border-b border-[#E5E7EB]">
-          <h1 className="text-2xl font-semibold">Integrations</h1>
+          <h1 className="font-inter text-[20px] font-medium text-[#191919]">
+            Integrations
+          </h1>
         </section>
         <section className="flex flex-col flex-grow w-full px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
