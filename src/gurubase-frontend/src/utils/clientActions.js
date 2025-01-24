@@ -116,6 +116,12 @@ export async function getStream(payload, guruType, jwtToken = null) {
   const authenticated = token ? token.trim().length > 0 : false;
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
+  // Include times in the payload if it exists
+  const requestPayload = {
+    ...payload,
+    times: payload.times || undefined  // Only include times if it exists
+  };
+
   let response;
 
   if (isSelfHosted) {
@@ -133,7 +139,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
     response = await fetch(streamURL, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(requestPayload)  // Use the modified payload
     });
   } else if (authenticated) {
     response = await fetch(streamURL, {
@@ -142,7 +148,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),  // Use the modified payload
       cache: "no-store"
     });
   } else {
@@ -152,7 +158,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${jwtToken}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(requestPayload)  // Use the modified payload
     });
   }
 

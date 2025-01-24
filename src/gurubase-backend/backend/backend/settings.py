@@ -198,6 +198,7 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
+    'EXCEPTION_HANDLER': 'core.utils.custom_exception_handler_throttled',
 }
 
 LOGGING = {
@@ -412,3 +413,5 @@ SLACK_CLIENT_ID = config('SLACK_CLIENT_ID', default='')
 SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
 PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://kubernetesguru-backend-api.getanteon.com')
 
+
+API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')

@@ -59,7 +59,7 @@ urlpatterns += [
     path('api/v1/<str:guru_type>/answer/', core_views.api_answer, name='api-answer'),
     path('api/v1/<str:guru_type>/data-sources/', core_views.api_data_sources, name='api-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/reindex/', core_views.api_reindex_data_sources, name='api-reindex-data-sources'),
-    path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
+    # path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
     path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
