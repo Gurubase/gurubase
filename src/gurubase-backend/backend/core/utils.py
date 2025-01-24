@@ -1,3 +1,4 @@
+from django.core.signing import Signer, BadSignature
 from enum import Enum
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from urllib.parse import urlparse
@@ -3166,3 +3167,16 @@ def format_github_repo_error(error: str) -> str:
         return error
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'
+
+def encode_guru_slug(guru_slug: str) -> str:
+    return Signer(key=settings.SECRET_KEY).sign(guru_slug)
+
+def decode_guru_slug(encoded_guru_slug: str) -> str:
+    try:
+        signer = Signer(key=settings.SECRET_KEY)
+        decoded_slug = signer.unsign(encoded_guru_slug)
+        return decoded_slug
+    except BadSignature:
+        # Handle invalid signature
+        logger.error(f"Invalid signature for encoded guru slug: {encoded_guru_slug}")
+        return None
