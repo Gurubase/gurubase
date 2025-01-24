@@ -2880,7 +2880,7 @@ def api_ask(question: str,
     is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
-    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK]:
+    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
         short_answer = True
 
     include_api = is_api
