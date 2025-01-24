@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { DiscordIcon, SlackIcon } from "@/components/Icons";
+import {
+  DiscordIcon,
+  SlackIcon,
+  SendTestMessageIcon,
+  SolarTrashBinTrashBold
+} from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import {
   getIntegrationDetails,
@@ -20,8 +25,10 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Trash2, Check } from "lucide-react";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
+import { Input } from "@/components/ui/input";
+import { ConnectedIntegrationIcon } from "@/components/Icons";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -118,7 +125,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (loading) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
+        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
+          {name} Bot
+        </h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="p-6">
           <LoadingSkeleton count={2} width={400} />
@@ -130,7 +139,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (internalError) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
+        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
+          {name} Bot
+        </h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="p-6 text-red-500">{internalError}</div>
       </div>
@@ -140,7 +151,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
-        <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
+        <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
+          {name} Bot
+        </h2>
         <div className="h-[1px] bg-neutral-200" />
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center justify-between">
@@ -152,53 +165,59 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 <Icon className={cn(config.iconSize, "text-white")} />
               </div>
               <div>
-                <h3 className="font-medium">
-                  Connected to {integrationData.workspace_name}
-                </h3>
+                <h3 className="font-medium">{name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Integration ID: {integrationData.id}
-                  <br />
-                  Last Updated:{" "}
-                  {new Date(integrationData.date_updated).toLocaleDateString()}
+                  By connecting your account, you can easily share all your
+                  posts and invite your friends.
                 </p>
               </div>
             </div>
-            <Button
-              variant="destructive"
-              disabled={isDisconnecting}
-              onClick={async () => {
-                setIsDisconnecting(true);
-                try {
-                  const response = await deleteIntegration(
-                    customGuru,
-                    type.toUpperCase()
-                  );
-                  if (!response?.error) {
-                    setIntegrationData(response);
-                    setInternalError(null);
-                  } else {
-                    setInternalError(
-                      response.message || "Failed to disconnect integration"
+            <div className="flex items-center gap-3">
+              <Button
+                variant="destructive"
+                disabled={isDisconnecting}
+                onClick={async () => {
+                  setIsDisconnecting(true);
+                  try {
+                    const response = await deleteIntegration(
+                      customGuru,
+                      type.toUpperCase()
                     );
+                    if (!response?.error) {
+                      setIntegrationData(response);
+                      setInternalError(null);
+                    } else {
+                      setInternalError(
+                        response.message || "Failed to disconnect integration"
+                      );
+                    }
+                  } catch (error) {
+                    setInternalError(error.message);
+                  } finally {
+                    setIsDisconnecting(false);
                   }
-                } catch (error) {
-                  setInternalError(error.message);
-                } finally {
-                  setIsDisconnecting(false);
-                }
-              }}>
-              {isDisconnecting ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Disconnecting...
-                </div>
-              ) : (
-                "Disconnect"
-              )}
-            </Button>
+                }}
+                className="bg-white hover:bg-white text-red-500 hover:text-red-600 border border-neutral-200 rounded-full gap-2">
+                <Trash2 className="h-4 w-4" />
+                {isDisconnecting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                    Disconnecting...
+                  </div>
+                ) : (
+                  "Disconnect"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2">
+                <ConnectedIntegrationIcon />
+                Connected to {integrationData.workspace_name}
+              </Button>
+            </div>
           </div>
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-4">
+          <div className="">
+            <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Channels</h3>
               <Button
                 disabled={!hasChanges || isSaving}
@@ -229,6 +248,12 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 )}
               </Button>
             </div>
+            <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-4">
+              Select the channels you want, click <strong>Save</strong>, then
+              test the connection for each channel using{" "}
+              <strong>Send test message</strong>, and call the bot with{" "}
+              <strong>@gurubase</strong>.
+            </p>
             {/* Allowed Channels */}
             {channelsLoading ? (
               <div className="space-y-4">
@@ -241,19 +266,19 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                     .filter((c) => c.allowed)
                     .map((channel) => (
                       <div key={channel.id} className="flex items-center gap-4">
-                        <Select disabled value={channel.id}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue>{channel.name}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={channel.id}>
-                              {channel.name}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="relative w-full md:w-[300px]">
+                          <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                            Channel
+                          </span>
+                          <Input
+                            readOnly
+                            className="bg-gray-50 pt-8 pb-2"
+                            value={channel.name}
+                          />
+                        </div>
                         <Button
                           variant="outline"
-                          size="sm"
+                          className="flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium"
                           onClick={async () => {
                             try {
                               const response = await sendIntegrationTestMessage(
@@ -273,51 +298,84 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                               );
                             }
                           }}>
+                          <SendTestMessageIcon />
                           Send Test Message
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setChannels(
-                              channels.map((c) =>
-                                c.id === channel.id
-                                  ? { ...c, allowed: false }
-                                  : c
-                              )
-                            );
-                            setHasChanges(true);
-                          }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center">
+                          <Button
+                            variant="trashIcon"
+                            onClick={() => {
+                              setChannels(
+                                channels.map((c) =>
+                                  c.id === channel.id
+                                    ? { ...c, allowed: false }
+                                    : c
+                                )
+                              );
+                              setHasChanges(true);
+                            }}>
+                            <SolarTrashBinTrashBold className="h-6 w-6" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                 </div>
                 {/* Add New Channel */}
-                <div className="mt-4">
-                  <Select
-                    onValueChange={(value) => {
-                      setChannels(
-                        channels.map((c) =>
-                          c.id === value ? { ...c, allowed: true } : c
-                        )
-                      );
-                      setHasChanges(true);
-                    }}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Add channel..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {channels
-                        .filter((c) => !c.allowed)
-                        .map((channel) => (
-                          <SelectItem key={channel.id} value={channel.id}>
-                            {channel.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {channels.filter((c) => !c.allowed).length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-full md:w-[300px]">
+                        <Select
+                          key={channels.filter((c) => !c.allowed).length}
+                          value=""
+                          onValueChange={(value) => {
+                            setChannels(
+                              channels.map((c) =>
+                                c.id === value ? { ...c, allowed: true } : c
+                              )
+                            );
+                            setHasChanges(true);
+                          }}>
+                          <SelectTrigger
+                            className="bg-white border border-[#E2E2E2] text-[14px] rounded-lg h-[48px] px-3 flex items-center gap-2 self-stretch"
+                            arrow={false}>
+                            <div className="flex flex-col items-start">
+                              <span className="text-[12px] text-gray-500">
+                                Channel
+                              </span>
+                              <SelectValue placeholder="Select a channel..." />
+                            </div>
+                            <svg
+                              className="h-4 w-4 opacity-50 ml-auto"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg">
+                              <path
+                                d="M7 10L12 15L17 10"
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border border-[#E5E7EB] text-[14px] rounded-lg shadow-lg">
+                            {channels
+                              .filter((c) => !c.allowed)
+                              .map((channel) => (
+                                <SelectItem
+                                  key={channel.id}
+                                  value={channel.id}
+                                  className="px-4 py-2 hover:bg-[#F3F4F6] cursor-pointer">
+                                  {channel.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -329,7 +387,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   // Default case: Show create content (204 or no integration)
   return (
     <div className="w-full">
-      <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
+      <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
+        {name} Bot
+      </h2>
       <div className="h-[1px] bg-neutral-200" />
       <div className="flex items-center justify-between p-6">
         <div className="flex items-center gap-4">
