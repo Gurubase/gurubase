@@ -302,9 +302,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                           Send Test Message
                         </Button>
                         <div className="flex items-center">
-                          <Button
-                            variant="trashIcon"
-                            size="noSpace"
+                          <button
+                            className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group"
                             onClick={() => {
                               setChannels(
                                 channels.map((c) =>
@@ -315,8 +314,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                               );
                               setHasChanges(true);
                             }}>
-                            <SolarTrashBinTrashBold className="h-6 w-6" />
-                          </Button>
+                            <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -347,16 +346,16 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                               <SelectValue placeholder="Select a channel..." />
                             </div>
                             <svg
-                              className="h-4 w-4 opacity-50 ml-auto"
+                              width="20"
+                              height="20"
+                              viewBox="0 0 20 20"
                               fill="none"
-                              viewBox="0 0 24 24"
                               xmlns="http://www.w3.org/2000/svg">
                               <path
-                                d="M7 10L12 15L17 10"
-                                stroke="currentColor"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
+                                fill-rule="evenodd"
+                                clip-rule="evenodd"
+                                d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
+                                fill="#6D6D6D"
                               />
                             </svg>
                           </SelectTrigger>
