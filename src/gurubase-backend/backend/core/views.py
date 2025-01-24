@@ -2345,3 +2345,37 @@ def send_test_message(request):
     except Exception as e:
         logger.error(f"Error sending test message: {e}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def list_integrations(request, guru_type):
+    """
+    GET: List all integrations for a specific guru type.
+    """
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        integrations = Integration.objects.filter(guru_type=guru_type_object)
+        
+        response_data = []
+        for integration in integrations:
+            response_data.append({
+                'id': integration.id,
+                'type': integration.type,
+                'workspace_name': integration.workspace_name,
+                'external_id': integration.external_id,
+                'channels': integration.channels,
+                'date_created': integration.date_created,
+                'date_updated': integration.date_updated,
+            })
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+            
+    except Exception as e:
+        logger.error(f"Error in list_integrations: {e}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

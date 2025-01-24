@@ -62,6 +62,7 @@ urlpatterns += [
     path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
+    path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
     path('<str:guru_type>/integrations/<str:integration_type>/', core_views.manage_integration, name='get_integration'),
     path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
     path('integrations/create/', core_views.create_integration, name='create_integration'),

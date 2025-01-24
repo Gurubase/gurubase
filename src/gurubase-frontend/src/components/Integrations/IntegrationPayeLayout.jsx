@@ -10,7 +10,8 @@ export const IntegrationPayeLayout = ({
   customGuru,
   type,
   error,
-  guruTypes
+  guruTypes,
+  content
 }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
@@ -21,11 +22,15 @@ export const IntegrationPayeLayout = ({
         }>
         <div className="flex gap-6">
           <div className="flex-1">
-            <IntegrationContent
-              type={type.toLowerCase()}
-              customGuru={customGuru}
-              error={error}
-            />
+            {content ? (
+              content
+            ) : (
+              <IntegrationContent
+                type={type.toLowerCase()}
+                customGuru={customGuru}
+                error={error}
+              />
+            )}
           </div>
         </div>
       </CommonContentLayout>

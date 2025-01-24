@@ -1,21 +1,16 @@
 import { getGuruTypes } from "@/app/actions";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
+import IntegrationTypesList from "@/components/Integrations/IntegrationTypesList";
 
-export default async function IntegrationsPage({ params, searchParams }) {
+export default async function IntegrationsPage({ params }) {
   const { customGuru } = params;
-  const integrationType = "slack";
-  const type =
-    integrationType.charAt(0).toUpperCase() + integrationType.slice(1);
-  const hasError = searchParams && searchParams.error === "true";
-
   const guruTypes = await getGuruTypes();
 
   return (
     <IntegrationPayeLayout
+      content={<IntegrationTypesList customGuru={customGuru} />}
       customGuru={customGuru}
-      error={hasError}
       guruTypes={guruTypes}
-      type={type}
     />
   );
 }
