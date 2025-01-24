@@ -132,7 +132,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (loading) {
     return (
       <div className="w-full">
-        <IntegrationHeader name={name} />
+        <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
         <div className="p-6">
           <LoadingSkeleton count={2} width={400} />
@@ -144,7 +144,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (internalError) {
     return (
       <div className="w-full">
-        <IntegrationHeader name={name} />
+        <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
         <div className="p-6 text-red-500">{internalError}</div>
       </div>
@@ -154,7 +154,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
-        <IntegrationHeader name={name} />
+        <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center justify-between">
@@ -384,7 +384,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   // Default case: Show create content (204 or no integration)
   return (
     <div className="w-full">
-      <IntegrationHeader name={name} />
+      <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
       <div className="flex items-center justify-between p-6">
         <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>

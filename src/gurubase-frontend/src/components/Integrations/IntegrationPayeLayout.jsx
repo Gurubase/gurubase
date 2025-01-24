@@ -22,9 +22,7 @@ export const IntegrationPayeLayout = ({
         }>
         <div className="flex gap-6">
           <div className="flex-1">
-            {content ? (
-              content
-            ) : (
+            {content || (
               <IntegrationContent
                 type={type.toLowerCase()}
                 customGuru={customGuru}

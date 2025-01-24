@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-export const IntegrationHeader = ({ name }) => (
+export const IntegrationHeader = ({ text }) => (
   <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6 pt-7">
-    {name} Bot
+    {text}
   </h2>
 );
 
