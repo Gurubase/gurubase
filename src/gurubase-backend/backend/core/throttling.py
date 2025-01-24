@@ -19,8 +19,7 @@ class ConcurrencyThrottleApiKey(SimpleRateThrottle):
             return "9999"   # anonym
 
         try:
-            APIKey.objects.get(key=api_key)
+            api_key_obj = APIKey.objects.get(key=api_key)
+            return f"api_key:{api_key_obj.user.id}"
         except Exception:
             return "9999"
-
-        return f"api_key:{api_key}"

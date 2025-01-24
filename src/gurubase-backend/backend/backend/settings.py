@@ -198,6 +198,7 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
+    'EXCEPTION_HANDLER': 'core.utils.custom_exception_handler_throttled',
 }
 
 LOGGING = {

@@ -38,6 +38,8 @@ from django.db.models import Model, Q
 from django.core.cache import caches
 import hashlib
 import pickle
+from rest_framework.views import exception_handler
+from rest_framework.exceptions import Throttled
 
 logger = logging.getLogger(__name__)
 
@@ -3204,3 +3206,14 @@ def format_github_repo_error(error: str) -> str:
         return error
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'
+
+def custom_exception_handler_throttled(exc, context):
+    response = exception_handler(exc, context)
+    
+    if isinstance(exc, Throttled):
+        custom_response_data = {
+            'msg': 'Request was throttled. Expected available in %d seconds.' % exc.wait
+        }
+        response.data = custom_response_data
+        
+    return response

@@ -1636,7 +1636,7 @@ def api_update_data_source_privacy(request, guru_type):
 
     try:
         service = DataSourceService(guru_type_object, request.user)
-        data_sources = request.data.get('pdf_data_sources', [])
+        data_sources = request.data
         if len(data_sources) == 0:
             return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
