@@ -1481,9 +1481,9 @@ def api_data_sources(request, guru_type):
 
     if request.method == 'GET':
         class DataSourcePagination(PageNumberPagination):
-            page_size = 10_000
+            page_size = 1000
             page_size_query_param = 'page_size'
-            max_page_size = 10_000
+            max_page_size = 1000
             
         data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('-date_created')
         paginator = DataSourcePagination()
@@ -1616,30 +1616,30 @@ def api_answer(request, guru_type):
     # Handle any other cases
     return response_handler.handle_non_stream_response(api_response.content) 
 
-@api_view(['PUT'])
-@api_key_auth
-@throttle_classes([ConcurrencyThrottleApiKey])
-def api_update_data_source_privacy(request, guru_type):
-    """Update privacy settings for data sources."""
-    response_handler = DataSourceResponseHandler()
+# @api_view(['PUT'])
+# @api_key_auth
+# @throttle_classes([ConcurrencyThrottleApiKey])
+# def api_update_data_source_privacy(request, guru_type):
+#     """Update privacy settings for data sources."""
+#     response_handler = DataSourceResponseHandler()
     
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
+#     try:
+#         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+#     except (PermissionError, NotFoundError) as e:
+#         return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
 
-    try:
-        service = DataSourceService(guru_type_object, request.user)
-        data_sources = request.data
-        if len(data_sources) == 0:
-            return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
+#     try:
+#         service = DataSourceService(guru_type_object, request.user)
+#         data_sources = request.data
+#         if len(data_sources) == 0:
+#             return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
-        service.update_privacy_settings(data_sources)
-        return response_handler.handle_success_response('Data sources updated successfully')
-    except ValueError as e:
-        return response_handler.handle_error_response(str(e))
-    except Exception as e:
-        return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+#         service.update_privacy_settings(data_sources)
+#         return response_handler.handle_success_response('Data sources updated successfully')
+#     except ValueError as e:
+#         return response_handler.handle_error_response(str(e))
+#     except Exception as e:
+#         return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
 
 
 @api_view(['POST'])
