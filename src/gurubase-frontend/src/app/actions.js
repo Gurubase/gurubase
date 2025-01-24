@@ -699,9 +699,10 @@ export async function getIntegrationDetails(guruType, integrationType) {
 
     if (!response) return { error: true, message: "No response from server" };
 
-    // Case 1: 204 No Content - Integration doesn't exist
-    if (response.status === 204) {
-      return { status: 204 };
+    // Case 1: 202 Accepted - Integration doesn't exist but encoded guru slug is provided
+    if (response.status === 202) {
+      const data = await response.json();
+      return { status: 202, encoded_guru_slug: data.encoded_guru_slug };
     }
 
     // Case 2: 200 Success - Integration exists

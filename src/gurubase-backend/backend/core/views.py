@@ -25,7 +25,7 @@ from core.models import FeaturedDataSource, Question, ContentPageStatistics, Que
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    check_binge_auth, create_fresh_binge, generate_jwt, validate_binge_follow_up,
+    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -1707,15 +1707,22 @@ def create_integration(request):
 
     try:
         # Decode the state parameter
-        # TODO: Add state decoding
         state_json = json.loads(state)
         integration_type = state_json.get('type')
         guru_type_slug = state_json.get('guru_type')
+        encoded_guru_slug = state_json.get('encoded_guru_slug')
 
-        if not all([integration_type, guru_type_slug]):
+        if not all([integration_type, guru_type_slug, encoded_guru_slug]):
             return Response({
                 'error': 'Invalid state parameter'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        decoded_guru_slug = decode_guru_slug(encoded_guru_slug)
+        if not decoded_guru_slug or decoded_guru_slug != guru_type_slug:
+            return Response({
+                'error': 'Invalid state parameter'
+            }, status=status.HTTP_400_BAD_REQUEST)                    
+
     except Exception as e:
         return Response({
             'error': str(e)
@@ -1778,7 +1785,7 @@ def manage_integration(request, guru_type, integration_type):
                 'external_id': integration.external_id,
                 'channels': integration.channels,
                 'date_created': integration.date_created,
-                'date_updated': integration.date_updated
+                'date_updated': integration.date_updated,
             })
         elif request.method == 'DELETE':
             # Get the appropriate strategy for the integration type
@@ -1798,7 +1805,7 @@ def manage_integration(request, guru_type, integration_type):
             
     except Integration.DoesNotExist:
         if request.method == 'GET':
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
         else:
             return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:

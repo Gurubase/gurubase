@@ -65,9 +65,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
           type.toUpperCase()
         );
 
-        // Case 1: 204 No Content - Show create content
-        if (data?.status === 204) {
-          setIntegrationData(null);
+        // Case 1: 202 Accepted - Show create content
+        if (data?.status === 202) {
+          setIntegrationData(data);
           setInternalError(null);
           return;
         }
@@ -137,7 +137,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     );
   }
 
-  if (integrationData) {
+  if (integrationData && integrationData.status !== 202) {
     return (
       <div className="w-full">
         <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
@@ -351,7 +351,11 @@ const IntegrationContent = ({ type, customGuru, error }) => {
           className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]"
           onClick={() =>
             window.open(
-              `${integrationUrl}&state={"type": "${type}", "guru_type": "${customGuru}"}`,
+              `${integrationUrl}&state=${JSON.stringify({
+                type: type,
+                guru_type: customGuru,
+                encoded_guru_slug: integrationData?.encoded_guru_slug
+              })}`,
               "_blank"
             )
           }>
