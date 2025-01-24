@@ -12,11 +12,13 @@ const SidebarOption = ({ icon, label, isActive, onClick }) => (
     variant="ghost"
     className={cn(
       "w-full justify-start gap-2 p-3 font-inter text-[14px] font-medium leading-[20px] transition-colors",
-      isActive ? "bg-gray-50" : "hover:bg-gray-50"
+      isActive
+        ? "bg-[#EFF6FF] text-[#2563EB] "
+        : "text-[#6D6D6D] hover:bg-[#FAFAFA]"
     )}
     onClick={onClick}>
-    <SidebarIcons type={icon} />
-    <span className="text-[#6D6D6D]">{label}</span>
+    <SidebarIcons type={icon} color={isActive ? "#2563EB" : "#6D6D6D"} />
+    <span>{label}</span>
   </Button>
 );
 
@@ -24,8 +26,8 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isSettingsActive = pathname.endsWith(`/guru/${guruSlug}`);
-  const isIntegrationsActive = pathname.includes("/integrations");
+  const isSettingsActive = pathname === `/guru/${guruSlug}`;
+  const isIntegrationsActive = pathname === `/guru/${guruSlug}/integrations`;
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
