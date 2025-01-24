@@ -1562,7 +1562,6 @@ def api_answer(request, guru_type):
     stream = request.data.get('stream', False)
     binge_id = request.data.get('session_id')
     fetch_existing = request.data.get('fetch_existing', False)
-    short_answer = request.data.get('short_answer', False)
     user = request.user
     api_type = request.api_type  # This is now set by the api_key_auth decorator
 
