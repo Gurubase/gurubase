@@ -157,7 +157,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         <div className="h-[1px] bg-neutral-200" />
         <div className="flex flex-col gap-6 p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div
                 className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
@@ -265,7 +265,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                   {channels
                     .filter((c) => c.allowed)
                     .map((channel) => (
-                      <div key={channel.id} className="flex items-center gap-4">
+                      <div key={channel.id} className="flex items-center gap-3">
                         <div className="relative w-full md:w-[300px]">
                           <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                             Channel
@@ -304,6 +304,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                         <div className="flex items-center">
                           <Button
                             variant="trashIcon"
+                            size="noSpace"
                             onClick={() => {
                               setChannels(
                                 channels.map((c) =>
@@ -323,7 +324,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 {/* Add New Channel */}
                 {channels.filter((c) => !c.allowed).length > 0 && (
                   <div className="mt-6">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="relative w-full md:w-[300px]">
                         <Select
                           key={channels.filter((c) => !c.allowed).length}
@@ -392,7 +393,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       </h2>
       <div className="h-[1px] bg-neutral-200" />
       <div className="flex items-center justify-between p-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div
             className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
