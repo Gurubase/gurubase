@@ -21,10 +21,10 @@ import {
 import { Trash2 } from "lucide-react";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 
-const IntegrationContent = ({ type, customGuru }) => {
+const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [channels, setChannels] = useState([]);
-  const [error, setError] = useState(null);
+  const [internalError, setInternalError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
@@ -62,7 +62,7 @@ const IntegrationContent = ({ type, customGuru }) => {
         // Case 1: 204 No Content - Show create content
         if (data?.status === 204) {
           setIntegrationData(null);
-          setError(null);
+          setInternalError(null);
           return;
         }
 
@@ -73,12 +73,12 @@ const IntegrationContent = ({ type, customGuru }) => {
 
         // Case 3: Successful response with integration data
         setIntegrationData(data);
-        setError(null);
+        setInternalError(null);
 
         // Fetch channels separately
         fetchChannels();
       } catch (err) {
-        setError(err.message);
+        setInternalError(err.message);
         setIntegrationData(null);
       } finally {
         setLoading(false);
@@ -121,12 +121,12 @@ const IntegrationContent = ({ type, customGuru }) => {
     );
   }
 
-  if (error) {
+  if (internalError) {
     return (
       <div className="w-full">
         <h2 className="text-xl font-semibold p-6">{type} Bot</h2>
         <div className="h-[1px] bg-neutral-200" />
-        <div className="p-6 text-red-500">{error}</div>
+        <div className="p-6 text-red-500">{internalError}</div>
       </div>
     );
   }
@@ -299,6 +299,12 @@ const IntegrationContent = ({ type, customGuru }) => {
           Connect
         </Button>
       </div>
+      {error && (
+        <div className="text-red-500 bg-red-50 p-4 rounded-md">
+          There was an error during the integration process. Please try again or
+          contact support if the issue persists.
+        </div>
+      )}
     </div>
   );
 };
