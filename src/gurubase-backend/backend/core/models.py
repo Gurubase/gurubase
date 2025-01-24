@@ -86,6 +86,7 @@ class Question(models.Model):
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
     llm_usages = models.JSONField(default=dict, blank=True, null=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    times = models.JSONField(default=dict, blank=True, null=False)
 
     def __str__(self):
         return f"{self.id} - {self.slug}"
@@ -1247,6 +1248,7 @@ class GithubFile(models.Model):
 class APIKey(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     key = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100, null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 

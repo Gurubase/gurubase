@@ -1,61 +1,68 @@
-from datetime import UTC, datetime, timedelta
 import json
 import logging
+import random
+import string
 import time
-from django.http import StreamingHttpResponse
+from datetime import UTC, datetime, timedelta
+from typing import Generator
+
+from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
-from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q
-from typing import Generator
 from django.core.exceptions import ValidationError
+from django.db.models import Q
+from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer
-from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
-from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType
-from accounts.models import User
-from core.utils import (
-    # Authentication & validation
-    check_binge_auth, generate_jwt, validate_binge_follow_up,
-    validate_guru_type, validate_image, 
-    
-    # Question & answer handling
-    get_question_summary, 
-    handle_failed_root_reanswer, is_question_dirty, search_question,
-    stream_question_answer, stream_and_save,
-    
-    # Content formatting & generation
-    format_references, format_trust_score, format_date_updated,
-    generate_og_image, 
-    
-    # Data management
-    clean_data_source_urls, create_binge_helper, create_custom_guru_type_slug,
-    create_guru_type_object, upload_image_to_storage,
-    
-)
-from core.tasks import data_source_retrieval
-from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import PermissionError, NotFoundError
-from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view, parser_classes, throttle_classes
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
 
-from core.tasks import data_source_retrieval
-from core.auth import api_key_auth, auth, jwt_auth, combined_auth, stream_combined_auth, widget_id_auth
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.exceptions import PermissionError, NotFoundError
+from core.auth import (
+    api_key_auth,
+    auth,
+    combined_auth,
+    follow_up_examples_auth,
+    jwt_auth,
+    stream_combined_auth,
+    widget_id_auth,
+)
+from core.data_sources import (
+    GitHubRepoStrategy,
+    PDFStrategy,
+    WebsiteStrategy,
+    YouTubeStrategy,
+)
+from core.exceptions import NotFoundError, PermissionError
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.handlers.response_handlers import APIResponseHandler, DataSourceResponseHandler, WidgetResponseHandler
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType
-from core.requester import OpenAIRequester, RerankerRequester
+from core.guru_types import (
+    get_auth0_user,
+    get_guru_type_object,
+    get_guru_type_object_by_maintainer,
+    get_guru_types,
+)
+from core.handlers.response_handlers import (
+    APIResponseHandler,
+    DataSourceResponseHandler,
+    WidgetResponseHandler,
+)
+from core.models import (
+    APIKey,
+    Binge,
+    ContentPageStatistics,
+    DataSource,
+    FeaturedDataSource,
+    GuruType,
+    Question,
+    WidgetId,
+)
+from core.requester import GeminiRequester
 from core.serializers import (
+    APIKeySerializer,
     BingeSerializer,
-    DataSourceSerializer, 
+    DataSourceAPISerializer,
+    DataSourceSerializer,
     FeaturedDataSourceSerializer,
     GuruTypeInternalSerializer,
     GuruTypeSerializer,
@@ -63,47 +70,33 @@ from core.serializers import (
     WidgetIdSerializer,
 )
 from core.services.data_source_service import DataSourceService
+from core.tasks import data_source_retrieval
+from core.throttling import ConcurrencyThrottleApiKey
 from core.utils import (
-    # Auth/validation
     APIAskResponse,
     APIType,
     api_ask,
     check_binge_auth,
+    clean_data_source_urls,
+    create_binge_helper,
+    create_custom_guru_type_slug,
+    create_guru_type_object,
+    format_date_updated,
+    format_references,
+    format_trust_score,
     generate_jwt,
-    validate_guru_type,
-    validate_image,
-    validate_binge_follow_up,
-
-    # Question handling
+    generate_og_image,
+    get_question_summary,
     handle_failed_root_reanswer,
     is_question_dirty,
     search_question,
-    get_question_summary,
-    stream_question_answer,
     stream_and_save,
-
-    # Guru type
-    create_guru_type_object,
-    create_custom_guru_type_slug,
-
-    # Formatting/display
-    format_references,
-    format_trust_score,
-    format_date_updated,
-
-    # Storage/media
+    stream_question_answer,
     upload_image_to_storage,
-    generate_og_image,
-
-    # Data sources
-    clean_data_source_urls,
-
-    # Binge
-    create_binge_helper,
+    validate_binge_follow_up,
+    validate_guru_type,
+    validate_image,
 )
-
-from accounts.models import User
-
 
 logger = logging.getLogger(__name__)
 
@@ -117,20 +110,22 @@ def conditional_csrf_exempt(view_func):
 @api_view(['POST'])
 @combined_auth
 def summary(request, guru_type):
-    endpoint_start = time.time()
+    times = {
+        'payload_processing': 0,
+        'existence_check': 0,
+        'dirtiness_check': 0,
+        'total': 0
+    }
     
+    endpoint_start = time.time()
     validate_guru_type(guru_type)
-
-    # reranker_requester = RerankerRequester()
-    # if not reranker_requester.rerank_health_check():
-    #     return Response({'msg': "Reranker is not healthy"}, status=status.HTTP_425_TOO_EARLY)
 
     payload_start = time.time()
     try:
         data = request.data
         question = data.get('question')
         binge_id = data.get('binge_id')
-    except Exception as e:  # This broad exception is for demonstration; specify your exceptions.
+    except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
         question = None
         
@@ -146,12 +141,11 @@ def summary(request, guru_type):
             return Response({'msg': 'Binge not found'}, status=status.HTTP_404_NOT_FOUND)
     else:
         binge = None
+    times['payload_processing'] = time.time() - payload_start
 
-    payload_time = time.time() - payload_start
-
-    existence_check_start = time.time()
+    existence_start = time.time()
     guru_type_object = get_guru_type_object(guru_type)
-
+    
     if not binge:
         # Only check existence for non-binge. We want to re-answer the binge questions again, and save them as separate questions.
         existing_question = search_question(
@@ -163,49 +157,46 @@ def summary(request, guru_type):
         )
     else:
         existing_question = None
+    times['existence_check'] = time.time() - existence_start
 
-    if existing_question and not is_question_dirty(existing_question):
-        response = {
-            'question': existing_question.question,
-            'question_slug': existing_question.slug,
-            'description': existing_question.description,
-            'user_question': existing_question.user_question,
-            'valid_question': True,
-            'completion_tokens': 0,
-            'prompt_tokens': 0,
-            'cached_prompt_tokens': 0,
-            "jwt" : generate_jwt(),
-        }
-        existence_check_time = time.time() - existence_check_start
-        times = {
-            'payload_time': payload_time,
-            'existence_check_time': existence_check_time,
-            'endpoint_start': endpoint_start,
-        }
-        if settings.LOG_STREAM_TIMES:
-            logger.info(f'Summary times: {times}')
-        return Response(response, status=status.HTTP_200_OK)
-    
-    existence_check_time = time.time() - existence_check_start
+    if existing_question:
+        dirtiness_start = time.time()
+        is_dirty = is_question_dirty(existing_question)
+        times['dirtiness_check'] = time.time() - dirtiness_start
+        
+        if not is_dirty:
+            response = {
+                'question': existing_question.question,
+                'question_slug': existing_question.slug,
+                'description': existing_question.description,
+                'user_question': existing_question.user_question,
+                'valid_question': True,
+                'completion_tokens': 0,
+                'prompt_tokens': 0,
+                'cached_prompt_tokens': 0,
+                "jwt": generate_jwt(),
+            }
+            times['total'] = time.time() - endpoint_start
+            return Response(response, status=status.HTTP_200_OK)
 
-    summary_start = time.time()
-    answer = get_question_summary(question, guru_type, binge, widget=False)
-    summary_time = time.time() - summary_start
+    answer, get_question_summary_times = get_question_summary(
+        question, 
+        guru_type, 
+        binge, 
+        widget=False
+    )
 
-    endpoint_time = time.time() - endpoint_start
-
-    times = {
-        'payload_time': payload_time,
-        'existence_check_time': existence_check_time,
-        'summary_time': summary_time,
-        'endpoint_time': endpoint_time,
-    }
+    times['get_question_summary'] = get_question_summary_times
 
     if existing_question:
         answer['question_slug'] = existing_question.slug
+
+    times['total'] = time.time() - endpoint_start
     
     if settings.LOG_STREAM_TIMES:
         logger.info(f'Summary times: {times}')
+
+    answer['times'] = times
 
     return Response(answer, status=status.HTTP_200_OK)
 
@@ -253,6 +244,7 @@ def answer(request, guru_type):
         parent_question_slug = data.get('parent_question_slug')
         binge_id = data.get('binge_id')
         source = data.get('source', Question.Source.USER.value)   # RAW_QUESTION, USER, REDDIT, SUMMARY_QUESTION
+        summary_times = data.get('times')
     except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
         question = None
@@ -307,7 +299,7 @@ def answer(request, guru_type):
     payload_time = time.time() - payload_start    
     stream_obj_start = time.time()
     try:
-        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = stream_question_answer(
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
             guru_type, 
             user_intent, 
@@ -324,14 +316,10 @@ def answer(request, guru_type):
         logger.error(f'Error while getting answer: {e}', exc_info=True)
         return Response({'msg': "An error occurred while getting the answer"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    stream_obj_time = time.time() - stream_obj_start
-    
-    times = {
-        # 'jwt_time': jwt_time,
-        'payload_time': payload_time,
-        'stream_obj_time': stream_obj_time,
-        'endpoint_start': endpoint_start,
-    }
+    times = {}
+    times['before_stream'] = before_stream_times
+    if summary_times:
+        times['summary'] = summary_times
 
     return StreamingHttpResponse(stream_and_save(
         user_question, 
@@ -829,7 +817,11 @@ def delete_data_sources(request, guru_type):
 
     logger.info(f'Deleting {guru_type} data sources: {ids}')
 
-    DataSource.objects.filter(guru_type=guru_type_object, id__in=ids).delete()
+    data_sources = DataSource.objects.filter(guru_type=guru_type_object, id__in=ids)
+    if len(data_sources) == 0:
+        return Response({'msg': 'No data sources found to delete'}, status=status.HTTP_404_NOT_FOUND)
+    
+    data_sources.delete()
 
     return Response({
         'msg': 'Data sources deleted successfully'
@@ -1294,6 +1286,30 @@ def get_binges(request):
 
     return Response(response, status=status.HTTP_200_OK)
 
+@api_view(['GET','POST', 'DELETE'])
+@jwt_auth
+def api_keys(request):
+    user = request.user
+    if request.method == 'GET':
+        api_keys = APIKey.objects.filter(user=user)
+        return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        # Check if user has reached the limit
+        existing_keys_count = APIKey.objects.filter(user=user).count()
+        if existing_keys_count >= 5:
+            return Response({'msg': 'You have reached the maximum limit of 5 API keys'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        key = "gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30))
+        api_key = APIKey.objects.create(user=user, name=request.data.get('name'), key=key)
+        return Response({'msg': 'API key created successfully', 'key': key}, status=status.HTTP_200_OK)
+    elif request.method == 'DELETE':
+        try:
+            api_key = APIKey.objects.get(key=request.data.get('api_key'), user=user)
+            api_key.delete()
+            return Response({'msg': 'API key deleted successfully'}, status=status.HTTP_200_OK)
+        except APIKey.DoesNotExist:
+            return Response({'msg': 'API key does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 def health_check(request):
     return Response({'status': 'healthy'}, status=status.HTTP_200_OK)
@@ -1441,8 +1457,67 @@ def get_guru_visuals(request):
     return Response(response, status=status.HTTP_200_OK)
 
 
+@parser_classes([MultiPartParser, FormParser])
+@api_view(['GET', 'POST', 'DELETE'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def api_data_sources(request, guru_type):
+    """
+    Unified endpoint for managing data sources.
+    GET: Retrieve data sources with pagination
+    POST: Create new data sources (YouTube URLs, website URLs)
+    DELETE: Delete specified data sources
+    """
+    response_handler = DataSourceResponseHandler()
+    
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return response_handler.handle_error_response('Forbidden', status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return response_handler.handle_error_response(f'Guru type {guru_type} not found', status.HTTP_404_NOT_FOUND)
+
+    validate_guru_type(guru_type, only_active=False)
+
+    if request.method == 'GET':
+        class DataSourcePagination(PageNumberPagination):
+            page_size = 1000
+            page_size_query_param = 'page_size'
+            max_page_size = 1000
+            
+        data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('-date_created')
+        paginator = DataSourcePagination()
+        paginated_data_sources = paginator.paginate_queryset(data_sources_queryset, request)
+        serializer = DataSourceAPISerializer(paginated_data_sources, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    elif request.method == 'POST':
+        try:
+            service = DataSourceService(guru_type_object, request.user)
+            
+            # Get URLs directly from request body
+            youtube_urls = request.data.get('youtube_urls', [])
+            website_urls = request.data.get('website_urls', [])
+
+            # Validate URL limits
+            service.validate_url_limits(youtube_urls, 'youtube')
+            service.validate_url_limits(website_urls, 'website')
+
+            # Create data sources (empty lists for PDF files and privacies)
+            results = service.create_data_sources([], [], youtube_urls, website_urls)
+            return Response(results, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            return response_handler.handle_error_response(str(e))
+        except Exception as e:
+            return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+
+    elif request.method == 'DELETE':
+        return delete_data_sources(request, guru_type) 
+
 @api_view(['POST'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_answer(request, guru_type):
     """
     API endpoint for answering questions.
@@ -1473,11 +1548,11 @@ def api_answer(request, guru_type):
     if binge_id:
         try:
             binge = Binge.objects.get(id=binge_id)
-        except Binge.DoesNotExist:
-            return response_handler.handle_error_response("Binge not found")
+        except Exception:
+            return response_handler.handle_error_response("Session not found")
         
         if not check_binge_auth(binge, user):
-            return response_handler.handle_error_response("Binge not found")
+            return response_handler.handle_error_response("Session not found")
         
         # Find the last question in the binge as the parent
         parent = Question.objects.filter(binge=binge).order_by('-date_updated').first()
@@ -1539,73 +1614,37 @@ def api_answer(request, guru_type):
             return response_handler.handle_error_response(e)
     
     # Handle any other cases
-    return response_handler.handle_non_stream_response(api_response.content)
+    return response_handler.handle_non_stream_response(api_response.content) 
 
-
-@parser_classes([MultiPartParser, FormParser])
-@api_view(['POST'])
-@api_key_auth
-def api_create_data_sources(request, guru_type):
-    """Create new data sources. Supports PDFs, YouTube URLs, and website URLs."""
-    response_handler = DataSourceResponseHandler()
+# @api_view(['PUT'])
+# @api_key_auth
+# @throttle_classes([ConcurrencyThrottleApiKey])
+# def api_update_data_source_privacy(request, guru_type):
+#     """Update privacy settings for data sources."""
+#     response_handler = DataSourceResponseHandler()
     
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
+#     try:
+#         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+#     except (PermissionError, NotFoundError) as e:
+#         return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
 
-    try:
-        service = DataSourceService(guru_type_object, request.user)
+#     try:
+#         service = DataSourceService(guru_type_object, request.user)
+#         data_sources = request.data
+#         if len(data_sources) == 0:
+#             return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
-        # Get and validate inputs
-        pdf_files = request.FILES.getlist('pdf_files', [])
-        pdf_privacies = json.loads(request.data.get('pdf_privacies', '[]'))
-        youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
-        website_urls = json.loads(request.data.get('website_urls', '[]'))
-
-        # Validate all inputs
-        service.validate_pdf_files(pdf_files, pdf_privacies)
-        service.validate_url_limits(youtube_urls, 'youtube')
-        service.validate_url_limits(website_urls, 'website')
-
-        # Create data sources
-        results = service.create_data_sources(pdf_files, pdf_privacies, youtube_urls, website_urls)
-
-        return response_handler.handle_success_response(
-            'Data sources processing completed',
-            {'results': results}
-        )
-    except ValueError as e:
-        return response_handler.handle_error_response(str(e))
-    except Exception as e:
-        return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
-
-
-@api_view(['PUT'])
-@api_key_auth
-def api_update_data_source_privacy(request, guru_type):
-    """Update privacy settings for data sources."""
-    response_handler = DataSourceResponseHandler()
-    
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
-
-    try:
-        service = DataSourceService(guru_type_object, request.user)
-        data_sources = request.data.get('data_sources', [])
-        
-        service.update_privacy_settings(data_sources)
-        return response_handler.handle_success_response('Data sources updated successfully')
-    except ValueError as e:
-        return response_handler.handle_error_response(str(e))
-    except Exception as e:
-        return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+#         service.update_privacy_settings(data_sources)
+#         return response_handler.handle_success_response('Data sources updated successfully')
+#     except ValueError as e:
+#         return response_handler.handle_error_response(str(e))
+#     except Exception as e:
+#         return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
 
 
 @api_view(['POST'])
 @api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
 def api_reindex_data_sources(request, guru_type):
     """Reindex specified data sources."""
     response_handler = DataSourceResponseHandler()
@@ -1618,6 +1657,8 @@ def api_reindex_data_sources(request, guru_type):
     try:
         service = DataSourceService(guru_type_object, request.user)
         datasource_ids = request.data.get('ids', [])
+        if len(datasource_ids) == 0:
+            return response_handler.handle_error_response('No data sources provided', status.HTTP_400_BAD_REQUEST)
         
         service.reindex_data_sources(datasource_ids)
         return response_handler.handle_success_response('Data sources reindexed successfully')
@@ -1625,45 +1666,3 @@ def api_reindex_data_sources(request, guru_type):
         return response_handler.handle_error_response(str(e))
     except Exception as e:
         return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
-
-
-@api_view(['DELETE'])
-@api_key_auth
-def api_delete_data_sources(request, guru_type):
-    """Delete specified data sources."""
-    response_handler = DataSourceResponseHandler()
-    
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except (PermissionError, NotFoundError) as e:
-        return response_handler.handle_error_response(str(e), status.HTTP_403_FORBIDDEN)
-
-    return delete_data_sources(request, guru_type) 
-
-
-@api_view(['GET'])
-@api_key_auth
-def api_retrieve_data_sources(request, guru_type):
-    """Retrieve data sources for a guru type with pagination."""
-    response_handler = DataSourceResponseHandler()
-    
-    class DataSourcePagination(PageNumberPagination):
-        page_size = 10_000
-        page_size_query_param = 'page_size'
-        max_page_size = 10_000
-
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except PermissionError:
-        return response_handler.handle_error_response('Forbidden', status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return response_handler.handle_error_response(f'Guru type {guru_type} not found', status.HTTP_404_NOT_FOUND)
-
-    validate_guru_type(guru_type, only_active=False)
-    data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('type', 'url')
-    
-    paginator = DataSourcePagination()
-    paginated_data_sources = paginator.paginate_queryset(data_sources_queryset, request)
-    serializer = DataSourceSerializer(paginated_data_sources, many=True)
-    
-    return paginator.get_paginated_response(serializer.data) 

@@ -210,7 +210,7 @@ def save_repository(data_source, structure):
 
     if settings.ENV != 'selfhosted':
         if len(structure) > settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_HARD_LIMIT:
-            raise GithubRepoFileCountLimitError(f"The codebase exceeds the maximum file limit of {settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_HARD_LIMIT} files supported")
+            raise GithubRepoFileCountLimitError(f"The codebase ({len(structure)}) exceeds the maximum file limit of {settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_HARD_LIMIT} files supported")
 
         # Calculate total size of all files
         total_size = sum(file['size'] for file in structure)

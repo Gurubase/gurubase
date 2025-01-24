@@ -38,6 +38,8 @@ from django.db.models import Model, Q
 from django.core.cache import caches
 import hashlib
 import pickle
+from rest_framework.views import exception_handler
+from rest_framework.exceptions import Throttled
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +61,7 @@ def stream_and_save(
         summary_cached_tokens, 
         context_vals, 
         context_distances, 
-        times, 
+        times, # Includes before_stream and summary
         reranked_scores, 
         trust_score, 
         processed_ctx_relevances, 
@@ -68,10 +70,18 @@ def stream_and_save(
         parent=None, 
         binge=None, 
         source=Question.Source.USER.value):
-    stream_start = time.time()
+    
+    start_total = time.perf_counter()
+    times['total'] = 0
+    times['stream_and_save'] = {
+        'time_to_stream': 0,
+        'processing_before_save': 0,
+        'total': 0
+    }
+    
+    start_stream = time.perf_counter()
     total_response = []
     chunks = []
-    latency_start = time.time()
     for chunk in response:
         chunks.append(chunk)
         try:
@@ -87,19 +97,15 @@ def stream_and_save(
         except Exception as e:
             logger.error(f'Error while streaming the response: {e}', exc_info=True)
             break
-        
-    latency_sec = time.time() - latency_start
-    stream_time = time.time() - stream_start
+    times['stream_and_save']['time_to_stream'] = time.perf_counter() - start_stream
 
-    cost_start = time.time()
+    start_processing = time.perf_counter()
     prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(chunk)
 
     cost_dollars = get_llm_usage(settings.GPT_MODEL, prompt_tokens, completion_tokens, cached_prompt_tokens)
-    cost_time = time.time() - cost_start
     
     guru_type_object = get_guru_type_object(guru_type)
 
-    question_save_start = time.time()
     answer = ''.join(total_response)
 
     llm_usages = {}
@@ -127,6 +133,9 @@ def stream_and_save(
         guru_type=guru_type_object,
         binge=binge
     ).first()
+    times['stream_and_save']['processing_before_save'] = time.perf_counter() - start_processing
+    times['stream_and_save']['total'] = time.perf_counter() - start_total
+    times['total'] = sum(time_dict.get('total', 0) for time_dict in times.values() if isinstance(time_dict, dict))
 
     try:
         if existing_question:
@@ -140,7 +149,7 @@ def stream_and_save(
             question_obj.prompt_tokens = prompt_tokens
             question_obj.cached_prompt_tokens = cached_prompt_tokens
             question_obj.cost_dollars = cost_dollars
-            question_obj.latency_sec = latency_sec
+            question_obj.latency_sec = times['stream_and_save']['time_to_stream']
             question_obj.source = source,
             question_obj.prompt = prompt
             question_obj.references = links
@@ -152,6 +161,7 @@ def stream_and_save(
             question_obj.llm_usages = llm_usages
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.user = user
+            question_obj.times = times
             question_obj.save()
             cloudflare_requester.purge_cache(guru_type, question_slug)
             
@@ -167,7 +177,7 @@ def stream_and_save(
                 prompt_tokens=prompt_tokens,
                 cached_prompt_tokens=cached_prompt_tokens,
                 cost_dollars=cost_dollars,
-                latency_sec=latency_sec,
+                latency_sec=times['stream_and_save']['time_to_stream'],
                 source=source,
                 prompt=prompt,
                 references=links,
@@ -178,29 +188,17 @@ def stream_and_save(
                 binge=binge,
                 user=user,
                 processed_ctx_relevances=processed_ctx_relevances,
-                llm_usages=llm_usages
+                llm_usages=llm_usages,
+                times=times
             )
             question_obj.save()
     except Exception as e:
         logger.error(f'Error while saving question after stream. Arguments are: \nQuestion: {question}\nUser question: {user_question}\nSlug: {question_slug}\nGuru Type: {guru_type_object}\nBinge: {binge}', exc_info=True)
         raise e
 
-    question_save_time = time.time() - question_save_start
-
     if binge:
         binge.save() # To update the last used field
 
-    endpoint_time = time.time() - times['endpoint_start']
-
-    times['stream_time'] = stream_time
-    times['cost_time'] = cost_time
-    times['question_save_time'] = question_save_time
-    times['endpoint_time'] = endpoint_time
-
-    del times['endpoint_start']
-
-    if settings.LOG_STREAM_TIMES:
-        logger.info(f'Times: {times}')
 
 class LLM_MODEL:
     OPENAI = 'openai'
@@ -371,8 +369,39 @@ def get_milvus_client():
 
 
 def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, llm_eval=False):
+    times = {
+        'total': 0,
+        'embedding': 0,
+        'stackoverflow': {
+            'total': 0,
+            'milvus_search': 0,
+            'pre_rerank': 0,
+            'rerank': 0,
+            'post_rerank': 0
+        },
+        'non_stackoverflow': {
+            'total': 0,
+            'milvus_search': 0,
+            'pre_rerank': 0,
+            'rerank': 0,
+            'post_rerank': 0
+        },
+        'github_repo': {
+            'total': 0,
+            'milvus_search': 0,
+            'pre_rerank': 0,
+            'rerank': 0,
+            'post_rerank': 0
+        },
+        'trust_score': 0
+    }
+    start_total = time.perf_counter()
+    
+    start_embedding = time.perf_counter()
     embedding = embed_text(question)
     embedding_user_question = embed_text(user_question)
+    times['embedding'] = time.perf_counter() - start_embedding
+    
     # logger.info(f'Embedding dimensions: {len(embedding)}')
     all_docs = {}
     search_params = None
@@ -453,6 +482,9 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         if settings.ENV == 'selfhosted':
             return [], []
+            
+        start_so = time.perf_counter()
+        start_milvus = time.perf_counter()
         batch = milvus_client.search(
             collection_name=collection_name,
             data=[embedding],
@@ -461,10 +493,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             filter='metadata["type"] in ["question", "answer"]',
             search_params=search_params
         )[0]
+        times['stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
         if not batch:
+            times['stackoverflow']['total'] = time.perf_counter() - start_so
             return [], []
 
+        start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
             collection_name=collection_name,
             data=[embedding_user_question],
@@ -480,9 +515,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+        times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
+        start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        times['stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
+        start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
             if len(stackoverflow_sources) >= 3:
                 break
@@ -541,7 +580,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     
             except Exception as e:
                 logger.error(f'Error while fetching stackoverflow sources: {e}', exc_info=True)
-        
+        times['stackoverflow']['post_rerank'] = time.perf_counter() - start_post_rerank
+        times['stackoverflow']['total'] = time.perf_counter() - start_so
         return list(stackoverflow_sources.values()), reranked_scores
 
     def fetch_non_stackoverflow_sources():
@@ -552,6 +592,9 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
+            
+        start_non_so = time.perf_counter()
+        start_milvus = time.perf_counter()
         batch = milvus_client.search(
             collection_name=collection_name,
             data=[embedding],
@@ -560,9 +603,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             filter='metadata["type"] not in ["question", "answer", "comment"]',
             search_params=search_params
         )[0]
+        times['non_stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
+        
         if not batch:
+            times['non_stackoverflow']['total'] = time.perf_counter() - start_non_so
             return [], []
 
+        start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
             collection_name=collection_name,
             data=[embedding_user_question],
@@ -578,9 +625,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+        times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
+        start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        times['non_stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
+        start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
             if len(non_stackoverflow_sources) >= 3:
                 break
@@ -593,7 +644,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
                 logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
-        
+        times['non_stackoverflow']['post_rerank'] = time.perf_counter() - start_post_rerank
+        times['non_stackoverflow']['total'] = time.perf_counter() - start_non_so
         return non_stackoverflow_sources, reranked_scores
 
     def fetch_github_repo_sources():
@@ -604,6 +656,9 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
+            
+        start_github = time.perf_counter()
+        start_milvus = time.perf_counter()
         batch = milvus_client.search(
             collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
             data=[embedding],
@@ -612,9 +667,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             filter=f'guru_slug == "{guru_type_slug}"',
             search_params=search_params
         )[0]
+        times['github_repo']['milvus_search'] = time.perf_counter() - start_milvus
+        
         if not batch:
+            times['github_repo']['total'] = time.perf_counter() - start_github
             return [], []
 
+        start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
             collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
             data=[embedding_user_question],
@@ -630,9 +689,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+        times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
+        start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        times['github_repo']['rerank'] = time.perf_counter() - start_rerank
 
+        start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
             if len(github_repo_sources) >= 2:
                 break
@@ -645,7 +708,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
                 logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
-        
+        times['github_repo']['post_rerank'] = time.perf_counter() - start_post_rerank
+        times['github_repo']['total'] = time.perf_counter() - start_github
         return github_repo_sources, reranked_scores        
 
     def filter_by_trust_score(contexts, reranked_scores, question, user_question, guru_type_slug):
@@ -710,14 +774,23 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
 
     # Contexts and rerankes_scores are in the same order (Same index corresponds to the same context)
+    start_trust_score = time.perf_counter()
     filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = filter_by_trust_score(contexts, reranked_scores, question, user_question, guru_type_slug)
+    times['trust_score'] = time.perf_counter() - start_trust_score
     
-    return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
+    return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 
 def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question):
+    times = {
+        'vector_db_fetch': {},
+        'prepare_contexts': 0,
+        'context_distances_processing': 0
+    }
+    
     try:
-        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question)
+        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question)
+        times['vector_db_fetch'] = vector_db_times
     except Exception as e:
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
         contexts = []
@@ -727,7 +800,12 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
     #     raise exceptions.InvalidRequestError({'msg': 'No context found for the question.'})
 
     logger.debug(f'Contexts: {contexts}')
+    
+    start_prepare_contexts = time.perf_counter()
     context_vals, links = prepare_contexts(contexts, reranked_scores)
+    times['prepare_contexts'] = time.perf_counter() - start_prepare_contexts
+    
+    start_context_distances = time.perf_counter()
     context_distances = []
     for ctx in contexts:
         if 'question' in ctx and ctx['question']:
@@ -740,8 +818,9 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
         else:
             # Non stackoverflow context
             context_distances.append({'context_id': ctx['id'],'distance': ctx['distance']})
-
-    return context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
+    times['context_distances_processing'] = time.perf_counter() - start_context_distances
+    
+    return context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
     
 def parse_summary_response(question, response):
@@ -932,26 +1011,29 @@ def prepare_chat_messages(user_question, question, guru_variables, context_vals,
 
 
 def ask_question_with_stream(milvus_client, collection_name, question, guru_type, user_intent, answer_length, user_question, parent_question, user=None):
-    vector_db_fetch_start = time.time()
+    start_total = time.perf_counter()
+    times = {
+        'total': 0,
+        'get_contexts': {},
+        'get_question_history': 0,
+        'prepare_chat_messages': 0,
+        'chatgpt_completion': 0
+    }
 
-    vector_db_fetch_time = time.time() - vector_db_fetch_start
-
-    context_preprocess_start = time.time()
     default_settings = get_default_settings()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = get_contexts(milvus_client, collection_name, question, guru_type, user_question)
+    start_get_contexts = time.perf_counter()
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question)
+    times['get_contexts'] = get_contexts_times
+    times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
+
     if not reranked_scores:
         OutOfContextQuestion.objects.create(question=question, guru_type=get_guru_type_object(guru_type), user_question=user_question, rerank_threshold=default_settings.rerank_threshold, trust_score_threshold=default_settings.trust_score_threshold, processed_ctx_relevances=processed_ctx_relevances)
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
-        return None, None, None, None, None, None, None, None, None
-
-    context_preprocess_time = time.time() - context_preprocess_start
-    
-    if settings.LOG_STREAM_TIMES:
-        logger.info(f'Vector db fetch time: {vector_db_fetch_time}. Context preprocess time: {context_preprocess_time}')
+        times['total'] = time.perf_counter() - start_total
+        return None, None, None, None, None, None, None, None, None, times
 
     simplified_github_details = get_github_details_if_applicable(guru_type)
 
-    # logger.debug(f'Contexts: {contexts}')
     guru_variables = get_guru_type_prompt_map(guru_type)
     guru_variables['streaming_type']='streaming'
     guru_variables['date'] = datetime.now().strftime("%Y-%m-%d")
@@ -959,12 +1041,17 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
     guru_variables['answer_length'] = answer_length
     guru_variables['github_details_if_applicable'] = simplified_github_details
 
-    # prompt = prompt_template.format(**guru_variables, **context_vals)
+    start_history = time.perf_counter()
     history = get_question_history(parent_question)
+    times['get_question_history'] = time.perf_counter() - start_history
 
+    start_prepare_messages = time.perf_counter()
     messages = prepare_chat_messages(user_question, question, guru_variables, context_vals, history)
+    times['prepare_chat_messages'] = time.perf_counter() - start_prepare_messages
+    
     used_prompt = messages[0]['content']
 
+    start_chatgpt = time.perf_counter()
     response = chatgpt_client.chat.completions.create(
         model=settings.GPT_MODEL,
         temperature=0,
@@ -972,10 +1059,22 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
         stream=True,
         stream_options={"include_usage": True},
     )
+    times['chatgpt_completion'] = time.perf_counter() - start_chatgpt
+    times['total'] = time.perf_counter() - start_total
 
-    return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
+    if settings.LOG_STREAM_TIMES:
+        logger.info(f'Times: {times}')
+
+    return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 def get_summary(question, guru_type, widget=False):
+    times = {
+        'total': 0,
+        'prompt_prep': 0,
+        'response_await': 0
+    }
+    start_total = time.perf_counter()
+    start_prompt_prep = time.perf_counter()
     from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
@@ -997,6 +1096,9 @@ def get_summary(question, guru_type, widget=False):
         guru_type_obj = get_guru_type_object(guru_type)
         question = f"{guru_type_obj.name} - {question}"
 
+    times['prompt_prep'] = time.perf_counter() - start_prompt_prep
+
+    start_response_await = time.perf_counter()
     try:
         response = chatgpt_client.beta.chat.completions.parse(
             model=settings.GPT_MODEL,
@@ -1013,24 +1115,34 @@ def get_summary(question, guru_type, widget=False):
             ],
             response_format=GptSummary
         )
+        times['response_await'] = time.perf_counter() - start_response_await
     except Exception as e:
         logger.error(f'Error while getting summary: {question}. Exception: {e}', exc_info=True)
-        return None
+        times['total'] = time.perf_counter() - start_total
+        return None, times
 
-    return response
+    times['total'] = time.perf_counter() - start_total
+    return response, times
 
 
 def get_question_summary(question: str, guru_type: str, binge: Binge, widget: bool = False):
-    response = get_summary(question, guru_type, widget)
+    times = {
+        'total': 0,
+    }
+    start_total = time.perf_counter()
+
+    response, get_summary_times = get_summary(question, guru_type, widget)
+    times['get_summary'] = get_summary_times
+
+    start_parse_summary_response = time.perf_counter()
     parsed_response = parse_summary_response(question, response)
-    guru_type_object = get_guru_type_object(guru_type)
+    times['parse_summary_response'] = time.perf_counter() - start_parse_summary_response
+
     if binge:
-        parsed_response['question_slug'] = validate_slug_existence(
-            parsed_response['question_slug'], 
-            guru_type_object, 
-            binge
-        )
-    return parsed_response
+        parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
+    times['total'] = time.perf_counter() - start_total
+
+    return parsed_response, times
 
 
 def ask_if_english(question):
@@ -1079,7 +1191,7 @@ def stream_question_answer(
     collection_name = guru_type_obj.milvus_collection_name
     milvus_client = get_milvus_client()
 
-    response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = ask_question_with_stream(
+    response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = ask_question_with_stream(
         milvus_client, 
         collection_name, 
         question, 
@@ -1091,9 +1203,9 @@ def stream_question_answer(
         user
     )
     if not response:
-        return None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None, times
 
-    return response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
+    return response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 def validate_guru_type(guru_type, only_active=True):
     if guru_type not in get_guru_type_names(only_active=only_active):
@@ -2109,7 +2221,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             logger.warning(f"Question {question} already exists for guru type {guru_type.slug}")
             return existing_question.content, None, usages, None
 
-    summary_data = get_question_summary(question, guru_type.slug, None, widget=False)
+    summary_data, _ = get_question_summary(question, guru_type.slug, None, widget=False)
     # Then with slug
     if check_existence:
         existing_question = search_question(
@@ -2135,7 +2247,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     question_slug = summary_data['question_slug']
     description = summary_data['description']
 
-    response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = stream_question_answer(
+    response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
         guru_type.slug, 
         user_intent, 
@@ -2230,6 +2342,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             question_obj.reranked_scores = reranked_scores
             question_obj.trust_score = trust_score
             question_obj.processed_ctx_relevances = processed_ctx_relevances
+            question_obj.times = times
             question_obj.save()
         else:
             question_obj = Question(
@@ -2251,7 +2364,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
                 reranked_scores=reranked_scores,
                 trust_score=trust_score,
                 processed_ctx_relevances=processed_ctx_relevances,
-                llm_usages=llm_usages
+                llm_usages=llm_usages,
+                times=times
             )
             question_obj.save()
 
@@ -2873,25 +2987,10 @@ def api_ask(question: str,
         APIType.API: Question.Source.API.value,
     }
 
-    if fetch_existing:
-        # Only check for existing questions if not in a binge
-        # Check if question exists without slug
-        existing_question = search_question(
-            user, 
-            guru_type, 
-            binge, 
-            None, 
-            question,
-            will_check_binge_auth=False,
-            include_api=include_api,
-            only_widget=only_widget
-        )
-        if existing_question and not is_question_dirty(existing_question):
-            logger.info(f"Found existing question {question} for guru type {guru_type.slug}")
-            return APIAskResponse.from_existing(existing_question)
+
 
     # Get question summary and check with slug
-    summary_data = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
     if fetch_existing:
         # Only check for existing questions if not in a binge
         existing_question = search_question(
@@ -2904,7 +3003,8 @@ def api_ask(question: str,
             include_api=include_api,
             only_widget=only_widget
         )
-        if existing_question and not is_question_dirty(existing_question):
+        # if existing_question and not is_question_dirty(existing_question):
+        if existing_question:
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
     
@@ -2932,7 +3032,7 @@ def api_ask(question: str,
 
     try:
         # Get streaming response
-        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = stream_question_answer(
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
             guru_type.slug, 
             user_intent, 
@@ -2946,7 +3046,10 @@ def api_ask(question: str,
             logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
             return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
 
-        times = {'endpoint_start': time.time()}
+        times = {}
+        times['before_stream'] = before_stream_times
+        times['summary'] = summary_times
+
         stream_generator = stream_and_save(
             user_question=user_question,
             question=question,
@@ -2969,7 +3072,7 @@ def api_ask(question: str,
             source=question_source[api_type],
             parent=parent,
             binge=binge,
-            user=user
+            user=user,
         )
     except Exception as e:
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
@@ -3076,40 +3179,6 @@ def create_binge_helper(guru_type: GuruType, user: User | None, root_question: Q
 
     return binge
 
-def validate_slug_existence(slug: str, guru_type_object: GuruType, binge: Binge):
-    """
-    For binge questions, we always create a new question with enumerated slug if needed
-
-    Args:
-        slug: Slug to validate
-        guru_type_object: Guru type object
-        binge: Binge object
-
-    Returns:
-        Validated slug
-    """
-
-    # For binge questions, we always create a new question with enumerated slug if needed
-    base_slug = slug
-    if Question.objects.filter(slug=base_slug, guru_type=guru_type_object, binge=binge).exists():
-        # Find the largest enumeration for this slug
-        similar_questions = Question.objects.filter(
-            slug__regex=f"^{base_slug}(-\d+)?$",
-            guru_type=guru_type_object,
-            binge=binge
-        ).values_list('slug', flat=True)
-        
-        max_enum = 0
-        for slug in similar_questions:
-            match = re.search(r'-(\d+)$', slug)
-            if match:
-                enum = int(match.group(1))
-                max_enum = max(max_enum, enum)
-        
-        return f"{base_slug}-{max_enum + 1}"
-    else:
-        return base_slug
-
 def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str:
     from core.prompts import (context_relevance_prompt, 
         context_relevance_cot_expected_output, 
@@ -3137,3 +3206,14 @@ def format_github_repo_error(error: str) -> str:
         return error
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'
+
+def custom_exception_handler_throttled(exc, context):
+    response = exception_handler(exc, context)
+    
+    if isinstance(exc, Throttled):
+        custom_response_data = {
+            'msg': 'Request was throttled. Expected available in %d seconds.' % exc.wait
+        }
+        response.data = custom_response_data
+        
+    return response

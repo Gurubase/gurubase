@@ -132,9 +132,7 @@ const BingeHistory = ({ guruTypes }) => {
   return (
     <main className="flex justify-center items-center px-16 guru-sm:px-0 w-full flex-grow guru-sm:max-w-full polygon-fill">
       <div className="container mx-auto guru-md:max-w-[870px] guru-lg:max-w-[1180px] h-full">
-        {/* Grid container */}
         <div className="grid guru-lg:grid-cols-2 grid-cols-1 h-full">
-          {/* Left column - Content */}
           <div className="bg-white shadow-md guru-sm:border-none border-l border-r guru-lg:border-r-0 border-solid border-neutral-200">
             <div className="block guru-sm:hidden border-r border-gray-200">
               <div className="h-full polygon-fill bg-repeat opacity-[0.02]" />

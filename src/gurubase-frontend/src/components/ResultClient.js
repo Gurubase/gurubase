@@ -1,7 +1,7 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
-import { notFound, redirect, useRouter } from "next/navigation";
+import mixpanel from "mixpanel-browser";
+import { notFound, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { getDataForSlugDetails, getExampleQuestions } from "@/app/actions";
@@ -21,17 +21,16 @@ import {
   setHasFetched,
   setInputQuery,
   setIsLoading,
+  setNotFoundContext,
   setParentQuestionSlug,
   setQuestionSummary,
   setSlugPageRendered,
   setStreamError,
   setStreamingStatus,
-  setWaitingForFirstChunk,
-  setNotFoundContext
+  setWaitingForFirstChunk
 } from "@/redux/slices/mainFormSlice";
 import { bingeRedirection } from "@/utils/bingeRedirection";
 import { getStream } from "@/utils/clientActions";
-import mixpanel from "mixpanel-browser";
 
 export const ResultClient = ({
   isHelpful,
@@ -95,7 +94,8 @@ export const ResultClient = ({
     user_intent = "",
     answer_length = "",
     jwt,
-    user_question
+    user_question,
+    times
   } = questionSummary || {};
 
   // Add this effect to handle initial dirty state
@@ -226,7 +226,8 @@ export const ResultClient = ({
           prompt_tokens: prompt_tokens,
           user_question: user_question,
           parent_question_slug: parentQuestionSlug || null,
-          binge_id: passedBingeId || bingeId || null
+          binge_id: passedBingeId || bingeId || null,
+          times: times
         };
 
         const response = await getStream(payload, guruType, jwt);

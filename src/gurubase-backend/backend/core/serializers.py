@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource
+from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey
 from core.gcp import replace_media_root_with_nginx_base_url
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -67,11 +67,27 @@ class WidgetIdSerializer(serializers.ModelSerializer):
         fields = ['key', 'domain_url']
 
 
-        
+
 class DataSourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataSource
         exclude = ['file', 'doc_ids', 'content', 'guru_type']
+
+    def to_representation(self, instance):
+        from core.utils import format_github_repo_error
+        repr = super().to_representation(instance)
+        if instance.type == DataSource.Type.PDF:
+            del repr['url']
+
+        if instance.type == DataSource.Type.GITHUB_REPO:
+            if instance.error:
+                repr['error'] = format_github_repo_error(instance.error)
+        return repr
+
+class DataSourceAPISerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DataSource
+        fields = ['id', 'type', 'url', 'title', 'status', 'error', 'date_created', 'private', 'last_reindex_date', 'reindex_count']
 
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
@@ -105,3 +121,8 @@ class BingeSerializer(serializers.ModelSerializer):
         # Filter out binges with null root_question
         valid_binges = [binge for binge in binges if binge.root_question]
         return cls(valid_binges, many=many).data
+
+class APIKeySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = APIKey
+        fields = ['id', 'key', 'name', 'date_created']
