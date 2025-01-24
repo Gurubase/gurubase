@@ -919,12 +919,12 @@ export async function deleteIntegration(guruType, integrationType) {
       const errorData = await response.json();
       return {
         error: true,
-        message: errorData.msg || "Failed to delete integration",
+        message: errorData.msg || "Failed to create integration",
         status: response.status
       };
     }
 
-    return { success: true };
+    return await response.json();
   } catch (error) {
     return handleRequestError(error, {
       context: "deleteIntegration",

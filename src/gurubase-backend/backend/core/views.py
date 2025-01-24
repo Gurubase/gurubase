@@ -1801,7 +1801,7 @@ def manage_integration(request, guru_type, integration_type):
             # Delete the integration
             integration.delete()
             
-            return Response({'msg': 'Integration deleted successfully'}, status=status.HTTP_200_OK)
+            return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
             
     except Integration.DoesNotExist:
         if request.method == 'GET':

@@ -137,7 +137,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     );
   }
 
-  if (integrationData && integrationData.status !== 202) {
+  if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
         <h2 className="text-xl font-semibold p-6">{name} Bot</h2>
@@ -174,8 +174,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                     type.toUpperCase()
                   );
                   if (!response?.error) {
-                    setIntegrationData(null);
-                    setChannels([]);
+                    setIntegrationData(response);
+                    setInternalError(null);
                   } else {
                     setInternalError(
                       response.message || "Failed to disconnect integration"
