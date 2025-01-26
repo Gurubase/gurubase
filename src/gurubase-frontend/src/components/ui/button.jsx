@@ -19,7 +19,9 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        ghostNoSpace: "hover:text-accent-foreground px-0"
+        ghostNoSpace: "hover:text-accent-foreground px-0",
+        trashIcon:
+          "text-[#BABFC8] hover:text-[#DC2626] hover:bg-transparent p-0 h-auto"
       },
       size: {
         default:
@@ -29,7 +31,8 @@ const buttonVariants = cva(
         icon: "h-9 w-9 text-sm",
         action: "h-12 guru-sm:px-2 guru-md:px-4 guru-lg:px-4 py-2 text-sm",
         action2: "h-12 px-4 py-2 text-sm",
-        action3: "h-12 py-2 text-md"
+        action3: "h-12 py-2 text-md",
+        noSpace: ""
       }
     },
     defaultVariants: {

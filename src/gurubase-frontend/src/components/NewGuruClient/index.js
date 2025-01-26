@@ -1,23 +1,28 @@
 "use client";
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import NewGuruContent from "./NewGuruContent";
+import GuruEditPageSidebar from "@/components/GuruEditPageSidebar";
+import Header from "@/components/Header";
+
 import CommonContentLayout from "../CommonContentLayout";
+import NewGuruContent from "./NewGuruContent";
 
 export const NewGuruClient = ({
-  guruTypes,
-  dataSources,
   customGuru,
+  dataSources,
+  guruTypes,
   isProcessing
 }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
       <Header textPageHeader={true} />
-      <CommonContentLayout>
+      <CommonContentLayout
+        sidebar={
+          <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />
+        }>
         <NewGuruContent
-          guruTypes={guruTypes}
-          dataSources={dataSources}
           customGuru={customGuru}
+          dataSources={dataSources}
+          guruTypes={guruTypes}
           isProcessing={isProcessing}
         />
       </CommonContentLayout>

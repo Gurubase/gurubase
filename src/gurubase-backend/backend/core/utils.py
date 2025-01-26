@@ -1,3 +1,4 @@
+from django.core.signing import Signer, BadSignature
 from enum import Enum
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from urllib.parse import urlparse
@@ -1067,7 +1068,7 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, widget=False):
+def get_summary(question, guru_type, short_answer=False):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1079,7 +1080,7 @@ def get_summary(question, guru_type, widget=False):
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
-    if widget:
+    if short_answer:
         summary_prompt_widget_addition = summary_prompt_widget_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
         summary_prompt_non_widget_addition = ""
     else:
@@ -1125,13 +1126,13 @@ def get_summary(question, guru_type, widget=False):
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, widget: bool = False):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False):
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, widget)
+    response, get_summary_times = get_summary(question, guru_type, short_answer)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -2221,7 +2222,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             logger.warning(f"Question {question} already exists for guru type {guru_type.slug}")
             return existing_question.content, None, usages, None
 
-    summary_data, _ = get_question_summary(question, guru_type.slug, None, widget=False)
+    summary_data, _ = get_question_summary(question, guru_type.slug, None, short_answer=False)
     # Then with slug
     if check_existence:
         existing_question = search_question(
@@ -2947,11 +2948,24 @@ class APIAskResponse:
             is_existing=False
         )
 
+class APIType:
+    API = 'API'
+    WIDGET = 'WIDGET'
+    DISCORD = 'DISCORD'
+    SLACK = 'SLACK'
 
-class APIType(Enum):
-    WIDGET = 'widget'
-    API = 'api'
+    @classmethod
+    def is_api_type(cls, api_type: str) -> bool:
+        return api_type in [cls.API, cls.DISCORD, cls.SLACK]
 
+    @classmethod
+    def get_question_source(cls, api_type: str) -> str:
+        return {
+            cls.WIDGET: Question.Source.WIDGET_QUESTION.value,
+            cls.API: Question.Source.API.value,
+            cls.DISCORD: Question.Source.DISCORD.value,
+            cls.SLACK: Question.Source.SLACK.value,
+        }[api_type]
 
 def api_ask(question: str, 
             guru_type: GuruType, 
@@ -2970,7 +2984,7 @@ def api_ask(question: str,
         binge (Binge): The binge to simulate the summary and answer for.
         parent (Question): The parent question.
         fetch_existing (bool): Whether to fetch the existing question data.
-        api_type (APIType): The type of API call (WIDGET or API).
+        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK).
         user (User): The user making the request.
     
     Returns:
@@ -2978,19 +2992,18 @@ def api_ask(question: str,
     """
 
     is_widget = api_type == APIType.WIDGET
+    is_api = APIType.is_api_type(api_type)
 
-    include_api = api_type == APIType.API
+    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
+        short_answer = True
+
+    include_api = is_api
     only_widget = api_type == APIType.WIDGET
 
-    question_source = {
-        APIType.WIDGET: Question.Source.WIDGET_QUESTION.value,
-        APIType.API: Question.Source.API.value,
-    }
-
-
+    question_source = APIType.get_question_source(api_type)
 
     # Get question summary and check with slug
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, widget=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
     if fetch_existing:
         # Only check for existing questions if not in a binge
         existing_question = search_question(
@@ -3019,7 +3032,7 @@ def api_ask(question: str,
     answer_length = summary_data.get('answer_length', '')
     default_settings = get_default_settings()
 
-    if is_widget and answer_length > default_settings.widget_answer_max_length:
+    if short_answer and answer_length > default_settings.widget_answer_max_length:
         # Double check just in case
         answer_length = default_settings.widget_answer_max_length
     
@@ -3069,7 +3082,7 @@ def api_ask(question: str,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
             times=times,
-            source=question_source[api_type],
+            source=question_source,
             parent=parent,
             binge=binge,
             user=user,
@@ -3179,6 +3192,21 @@ def create_binge_helper(guru_type: GuruType, user: User | None, root_question: Q
 
     return binge
 
+def create_fresh_binge(guru_type: GuruType, user: User | None):
+    """
+    Creates a new binge without requiring a root question.
+    Args:
+        guru_type: GuruType instance
+        user: User instance or None
+    Returns:
+        Binge instance
+    """
+    binge = Binge.objects.create(
+        guru_type=guru_type,
+        owner=user
+    )
+    return binge
+
 def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str:
     from core.prompts import (context_relevance_prompt, 
         context_relevance_cot_expected_output, 
@@ -3206,6 +3234,20 @@ def format_github_repo_error(error: str) -> str:
         return error
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'
+
+def encode_guru_slug(guru_slug: str) -> str:
+    return Signer(key=settings.SECRET_KEY).sign(guru_slug)
+
+def decode_guru_slug(encoded_guru_slug: str) -> str:
+    try:
+        signer = Signer(key=settings.SECRET_KEY)
+        decoded_slug = signer.unsign(encoded_guru_slug)
+        return decoded_slug
+    except BadSignature:
+        # Handle invalid signature
+        logger.error(f"Invalid signature for encoded guru slug: {encoded_guru_slug}")
+        return None
+
 
 def custom_exception_handler_throttled(exc, context):
     response = exception_handler(exc, context)

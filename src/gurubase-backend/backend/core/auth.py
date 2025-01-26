@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from jwt import PyJWKClient
 import jwt
-from core.utils import decode_jwt
-from core.models import APIKey, WidgetId
+from core.utils import decode_jwt, APIType
+from core.models import APIKey, WidgetId, Integration
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +210,19 @@ def api_key_auth(view_func):
         
         request.user = api_key_obj.user
         request.auth0_id = api_key_obj.user.auth0_id
+        
+        # Set API type based on integration
+        if hasattr(api_key_obj, 'integration_owner'):
+            integration = api_key_obj.integration_owner
+            if integration.type == Integration.Type.DISCORD:
+                request.api_type = APIType.DISCORD
+            elif integration.type == Integration.Type.SLACK:
+                request.api_type = APIType.SLACK
+            else:
+                request.api_type = APIType.API
+        else:
+            request.api_type = APIType.API
+            
         return view_func(request, *args, **kwargs)
     return wrapper
 

@@ -404,4 +404,14 @@ LARGE_GEMINI_MODEL = config('LARGE_GEMINI_MODEL', default='gemini-1.5-pro')
 if ENV == "selfhosted":
     NGINX_BASE_URL = config('NGINX_BASE_URL', default='http://gurubase-nginx:8029')
 
+DISCORD_CLIENT_ID = config('DISCORD_CLIENT_ID', default='')
+DISCORD_CLIENT_SECRET = config('DISCORD_CLIENT_SECRET', default='')
+DISCORD_REDIRECT_URI = config('DISCORD_REDIRECT_URI', default='')
+DISCORD_BOT_TOKEN = config('DISCORD_BOT_TOKEN', default='')
+
+SLACK_CLIENT_ID = config('SLACK_CLIENT_ID', default='')
+SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
+PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://kubernetesguru-backend-api.getanteon.com')
+
+
 API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')

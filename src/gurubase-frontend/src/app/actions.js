@@ -216,7 +216,7 @@ export async function getDataForSlugDetails(
   try {
     const session = await getUserSession();
     let url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/question/${slug}`;
-    
+
     // Only add question parameter if it's not empty
     if (question) {
       url += `?question=${question}`;
@@ -224,7 +224,7 @@ export async function getDataForSlugDetails(
 
     // Add bingeId as a query parameter, considering if question was already added
     if (bingeId) {
-      url += `${question ? '&' : '?'}binge_id=${bingeId}`;
+      url += `${question ? "&" : "?"}binge_id=${bingeId}`;
     }
 
     if (session?.user) {
@@ -682,7 +682,46 @@ export async function getApiKeys() {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'getApiKeys'
+      context: "getApiKeys"
+    });
+  }
+}
+
+export async function getIntegrationDetails(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    // Case 1: 202 Accepted - Integration doesn't exist but encoded guru slug is provided
+    if (response.status === 202) {
+      const data = await response.json();
+      return { status: 202, encoded_guru_slug: data.encoded_guru_slug };
+    }
+
+    // Case 2: 200 Success - Integration exists
+    if (response.ok) {
+      return await response.json();
+    }
+
+    // Case 3: Any other status - Error
+    const errorData = await response.json();
+    return {
+      error: true,
+      message: errorData.msg || "Failed to fetch integration data",
+      status: response.status
+    };
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getIntegrationDetails",
+      guruType,
+      integrationType
     });
   }
 }
@@ -703,7 +742,7 @@ export async function createApiKey(formData) {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'createApiKey',
+      context: "createApiKey",
       name: formData.get("name")
     });
   }
@@ -725,8 +764,202 @@ export async function deleteApiKey(formData) {
     return await response.json();
   } catch (error) {
     return handleRequestError(error, {
-      context: 'deleteApiKey',
+      context: "deleteApiKey",
       id: formData.get("id")
+    });
+  }
+}
+
+export async function getIntegrationChannels(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to fetch channels",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getIntegrationChannels",
+      guruType,
+      integrationType
+    });
+  }
+}
+
+export async function saveIntegrationChannels(
+  guruType,
+  integrationType,
+  channels
+) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to save channels",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "saveIntegrationChannels",
+      guruType,
+      integrationType
+    });
+  }
+}
+
+export async function createIntegration(code, state) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/create/?code=${code}&state=${state}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to create integration",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "createIntegration",
+      code,
+      state
+    });
+  }
+}
+
+export async function sendIntegrationTestMessage(integrationId, channelId) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/test_message/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integration_id: integrationId,
+          channel_id: channelId
+        })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to send test message",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "sendIntegrationTestMessage",
+      integrationId,
+      channelId
+    });
+  }
+}
+
+export async function deleteIntegration(guruType, integrationType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to create integration",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "deleteIntegration",
+      guruType,
+      integrationType
+    });
+  }
+}
+
+export async function getIntegrationsList(guruType) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to fetch integrations list",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getIntegrationsList",
+      guruType
     });
   }
 }

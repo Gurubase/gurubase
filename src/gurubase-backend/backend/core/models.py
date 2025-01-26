@@ -33,6 +33,8 @@ class Question(models.Model):
         SUMMARY_QUESTION = "SUMMARY QUESTION"
         WIDGET_QUESTION = "WIDGET QUESTION"
         API = "API"
+        DISCORD = "DISCORD"
+        SLACK = "SLACK"
 
     slug = models.SlugField(max_length=1500)
     question = models.TextField()
@@ -1076,6 +1078,20 @@ class Binge(models.Model):
     last_used = models.DateTimeField(auto_now=True)
 
 
+class Thread(models.Model):
+    thread_id = models.CharField(max_length=100)  # Discord thread ID
+    binge = models.ForeignKey(Binge, on_delete=models.CASCADE)
+    integration = models.ForeignKey('Integration', on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['thread_id', 'integration']
+
+    def __str__(self):
+        return f"{self.thread_id} - {self.integration.guru_type.slug}"
+
+
 class WidgetId(models.Model):
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, related_name='widget_ids')
     key = models.CharField(max_length=100, unique=True)
@@ -1248,6 +1264,7 @@ class GithubFile(models.Model):
 class APIKey(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     key = models.CharField(max_length=100, unique=True)
+    integration = models.BooleanField(default=False)
     name = models.CharField(max_length=100, null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1258,3 +1275,32 @@ class APIKey(models.Model):
             return cls.objects.get(key=api_key)
         except cls.DoesNotExist:
             return None
+
+
+class Integration(models.Model):
+    class Type(models.TextChoices):
+        DISCORD = "DISCORD"
+        SLACK = "SLACK"
+
+    type = models.CharField(
+        max_length=50,
+        choices=[(tag.value, tag.value) for tag in Type],
+        default=Type.DISCORD.value,
+    )
+
+    workspace_name = models.TextField(null=True, blank=True)
+    external_id = models.TextField()
+    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
+    code = models.TextField(null=True, blank=True)
+    api_key = models.OneToOneField(APIKey, on_delete=models.SET_NULL, null=True, blank=True, related_name='integration_owner')
+    access_token = models.TextField()
+    refresh_token = models.TextField(null=True, blank=True)
+    channels = models.JSONField(default=list, blank=True, null=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.type} - {self.guru_type.name}"
+
+    class Meta:
+        unique_together = ['type', 'guru_type']

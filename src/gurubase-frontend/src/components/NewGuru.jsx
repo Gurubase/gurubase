@@ -799,10 +799,9 @@ export default function NewGuru({
         (data.websiteUrls && data.websiteUrls.length > 0);
 
       // Add check for GitHub repo changes
-      const hasGithubChanges =
-        isEditMode
-          ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
-          : !!data.githubRepo;
+      const hasGithubChanges = isEditMode
+        ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
+        : !!data.githubRepo;
 
       if (
         (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
@@ -1777,7 +1776,8 @@ export default function NewGuru({
               </FormControl>
               {field.value &&
                 field.value === customGuruData?.github_repo &&
-                githubRepoStatus && index_repo && (
+                githubRepoStatus &&
+                index_repo && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
                     {(() => {
                       let badgeProps = {
@@ -1861,7 +1861,9 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Name <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Guru Name <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1909,7 +1911,9 @@ export default function NewGuru({
                 render={({ field: { value, onChange, ...rest } }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Logo <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Guru Logo <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -2005,7 +2009,9 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Topics <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Topics <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -2046,78 +2052,6 @@ export default function NewGuru({
                 {renderCodebaseIndexing()}
               </div>
             </div>
-            {/* Widget Id List */}
-            {customGuru && (
-              <div className="max-w-full">
-                <div className="flex flex-col mb-5">
-                  <h3 className="text-lg font-semibold mb-1">Widget</h3>
-                  <div className="flex items-center justify-between">
-                    <p className="text-body2 text-gray-400">
-                      Add {customGuruData?.name} Guru directly to your website.
-                      Here's the guide to{" "}
-                      <Link
-                        className="text-blue-500 hover:text-blue-600"
-                        href="https://github.com/getanteon/gurubase-widget"
-                        target="_blank">
-                        learn more
-                      </Link>
-                      .
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  {customGuruData?.widget_ids?.map((widget, index) => (
-                    <WidgetId
-                      key={widget.key}
-                      domainUrl={widget.domain_url}
-                      guruSlug={customGuru}
-                      isFirst={index === 0}
-                      isLast={
-                        !isWidgetModalVisible &&
-                        index === customGuruData.widget_ids.length - 1
-                      }
-                      widgetId={widget.key}
-                    />
-                  ))}
-
-                  {isWidgetModalVisible && (
-                    <>
-                      <CreateWidgetModal
-                        guruSlug={customGuru}
-                        onWidgetCreate={handleWidgetCreate}
-                      />
-                    </>
-                  )}
-                </div>
-                {/* Widget Id Creation */}
-                {!isWidgetModalVisible && (
-                  <Button
-                    className="text-black-600"
-                    size="action3"
-                    type="button"
-                    variant="ghostNoSpace"
-                    onClick={() => {
-                      handleAddWidget();
-                    }}>
-                    <span className="flex items-center text-md">
-                      <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          d="M12 4V20M20 12L4 12"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                      New Widget ID
-                    </span>
-                  </Button>
-                )}
-              </div>
-            )}
 
             {/* Table Area */}
             <div className="max-w-full">
