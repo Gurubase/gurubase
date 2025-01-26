@@ -53,7 +53,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
-      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`,
+      url: `https://slack.com/oauth/v2/authorize?client_id=1269209097589.8354424793156&scope=assistant:write,channels:history,channels:join,channels:read,chat:write,groups:history,groups:read,im:history,im:read,mpim:read&user_scope=channels:history,channels:read,chat:write,groups:history,groups:read,im:history`,
       icon: SlackIcon
     },
     discord: {
