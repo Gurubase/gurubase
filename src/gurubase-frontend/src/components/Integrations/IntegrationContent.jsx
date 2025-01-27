@@ -197,18 +197,18 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             </div>
             {/* Allowed Channels */}
             {channelsLoading ? (
-              <div className="space-y-4 guru-xs:mt-6 mt-4">
+              <div className="space-y-4 guru-xs:mt-5 mt-4">
                 <LoadingSkeleton count={3} width={400} />
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div className="space-y-4 guru-xs:mt-4 mt-5">
                   {channels
                     .filter((c) => c.allowed)
                     .map((channel) => (
                       <div
                         key={channel.id}
-                        className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3 pt-2">
+                        className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3 guru-xs:pt-1">
                         <div className="relative w-full md:w-[300px]">
                           <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                             Channel
@@ -227,8 +227,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                                 (c) => c.id === channel.id && c.allowed
                               )
                             }
+                            size="lgRounded"
                             className={cn(
-                              "flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap",
+                              "flex gap-2 border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap",
                               !originalChannels.find(
                                 (c) => c.id === channel.id && c.allowed
                               ) && "opacity-50 cursor-not-allowed"
@@ -278,7 +279,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 </div>
                 {/* Add New Channel */}
                 {channels.filter((c) => !c.allowed).length > 0 && (
-                  <div className="guru-xs:mt-6 mt-4">
+                  <div className="guru-xs:mt-5 mt-4">
                     <div className="flex items-center gap-3">
                       <div className="relative w-full md:w-[300px]">
                         <Select
