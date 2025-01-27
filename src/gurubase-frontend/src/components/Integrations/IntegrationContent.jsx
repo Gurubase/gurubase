@@ -36,6 +36,13 @@ import {
   IntegrationInfo,
   IntegrationError
 } from "./IntegrationShared";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/modal-dialog.jsx";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -46,6 +53,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const integrationConfig = {
     slack: {
@@ -166,45 +174,9 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             </IntegrationIconContainer>
             <div className="flex items-center gap-3">
               <Button
-                variant="destructive"
-                disabled={isDisconnecting}
-                onClick={async () => {
-                  setIsDisconnecting(true);
-                  try {
-                    const response = await deleteIntegration(
-                      customGuru,
-                      type.toUpperCase()
-                    );
-                    if (!response?.error) {
-                      setIntegrationData(response);
-                      setInternalError(null);
-                    } else {
-                      setInternalError(
-                        response.message || "Failed to disconnect integration"
-                      );
-                    }
-                  } catch (error) {
-                    setInternalError(error.message);
-                  } finally {
-                    setIsDisconnecting(false);
-                  }
-                }}
-                className="bg-white hover:bg-white text-red-500 hover:text-red-600 border border-neutral-200 rounded-full gap-2">
-                {isDisconnecting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                    Disconnecting...
-                  </div>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Disconnect
-                  </>
-                )}
-              </Button>
-              <Button
                 variant="outline"
-                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2">
+                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2"
+                onClick={() => setShowDeleteDialog(true)}>
                 <ConnectedIntegrationIcon />
                 Connected to {integrationData.workspace_name}
               </Button>
@@ -377,6 +349,59 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             )}
           </div>
         </div>
+
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="max-w-[400px] p-0">
+            <div className="p-6 text-center">
+              <DialogHeader>
+                <DialogTitle className="text-base font-semibold text-center text-[#191919] font-inter">
+                  Disconnect {name}
+                </DialogTitle>
+                <DialogDescription className="text-[14px] text-[#6D6D6D] text-center font-inter font-normal">
+                  Are you sure you want to disconnect this integration?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-6 flex flex-col gap-2">
+                <Button
+                  className={`h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white ${
+                    isDisconnecting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                  disabled={isDisconnecting}
+                  onClick={async () => {
+                    setIsDisconnecting(true);
+                    try {
+                      const response = await deleteIntegration(
+                        customGuru,
+                        type.toUpperCase()
+                      );
+                      if (!response?.error) {
+                        setIntegrationData(response);
+                        setInternalError(null);
+                      } else {
+                        setInternalError(
+                          response.message || "Failed to disconnect integration"
+                        );
+                      }
+                    } catch (error) {
+                      setInternalError(error.message);
+                    } finally {
+                      setIsDisconnecting(false);
+                      setShowDeleteDialog(false);
+                    }
+                  }}>
+                  {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                </Button>
+                <Button
+                  className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
+                  disabled={isDisconnecting}
+                  variant="outline"
+                  onClick={() => setShowDeleteDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
