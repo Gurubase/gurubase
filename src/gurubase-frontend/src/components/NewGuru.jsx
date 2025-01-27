@@ -2051,21 +2051,6 @@ export default function NewGuru({
               <div className="flex items-center space-x-4">
                 {renderCodebaseIndexing()}
               </div>
-              <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
-              </div>
-              <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
-              </div>
-              <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
-              </div>
-              <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
-              </div>
-              <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
-              </div>
             </div>
 
             {/* Table Area */}
