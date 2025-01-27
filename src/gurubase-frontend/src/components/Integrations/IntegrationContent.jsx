@@ -336,7 +336,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                         const response = await saveIntegrationChannels(
                           customGuru,
                           type.toUpperCase(),
-                          channels
+                          channels.filter((c) => c.allowed)
                         );
                         if (!response?.error) {
                           setHasChanges(false);
