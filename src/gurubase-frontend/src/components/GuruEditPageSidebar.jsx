@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { SidebarIcons } from "./Icons";
 import clsx from "clsx";
+import { IntegrationDivider } from "./Integrations/IntegrationShared";
 
 const SidebarOption = ({ icon, label, isActive, onClick }) => (
   <Button
@@ -43,7 +44,7 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   return (
     <aside className="relative guru-sm:h-auto guru-sm:static h-full">
       <div className="sticky guru-sm:static top-[100px]">
-        <nav className="flex flex-col items-center w-[250px] guru-sm:w-full guru-sm:mx-auto guru-sm:mb-0 bg-white guru-sm:border-0 border rounded-lg border-[#E2E2E2]">
+        <nav className="flex flex-col items-center w-[250px] guru-sm:w-full guru-sm:mx-auto guru-sm:mb-5 mb-0 bg-white guru-sm:border-0 border rounded-lg border-[#E2E2E2]">
           {/* Guru Logo and Name */}
           <div className="flex items-center gap-2 w-full p-5 guru-sm:hidden">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
@@ -84,6 +85,9 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
             />
           </div>
         </nav>
+      </div>
+      <div className="guru-sm:block hidden">
+        <IntegrationDivider />
       </div>
     </aside>
   );
