@@ -250,10 +250,8 @@ const Header = memo(({ guruType, allGuruTypes }) => {
         <div
           className={clsx(
             "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
-            guruType
-              ? "guru-sm:justify-between guru-sm:items-center max-w-[1440px]"
-              : "guru-sm:justify-start guru-md:max-w-[870px] guru-lg:max-w-[1180px]",
-            guruType ? "py-3" : "guru-sm:pt-5 guru-sm:pb-0 py-5"
+            "guru-sm:justify-between guru-sm:items-center max-w-[1440px]",
+            "py-3"
           )}>
           {/* Mobile Header Row */}
           <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
