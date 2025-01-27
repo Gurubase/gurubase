@@ -15,7 +15,7 @@
 [![Twitter](https://img.shields.io/badge/Twitter-%231DA1F2.svg?logo=x&logoColor=white)](https://twitter.com/gurubaseio)
 [![Mastodon](https://img.shields.io/badge/Mastodon-%236364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@gurubaseio)
 [![Bluesky](https://img.shields.io/badge/Bluesky-%230285FF.svg?logo=bluesky&logoColor=white)](https://bsky.app/profile/gurubase.bsky.social)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Gurubase/gurubase/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Gurubase/gurubase/blob/master/LICENSE)
 </div>
 
 - [What is Gurubase](#what-is-gurubase)

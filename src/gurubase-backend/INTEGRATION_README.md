@@ -77,7 +77,7 @@
     - `${backend_url}/slack/events`
 8. Go to Intergrations and add this as Redirect URL:
     - `${frontend_url}/OAuth`
-9. Add these as Bot and User Token scopes:
+9. Go to OAuth & Permissions and add these as Bot and User Token scopes:
     - Bot
         - `channels:history`
         - `channels.join`
@@ -87,7 +87,7 @@
         - `groups:read`
         - `im:history`
         - `im:read`
-        - `npim:read`
+        - `mpim:read`
     - User
         - `channels:history`
         - `channels:read`
@@ -99,7 +99,7 @@
 11. Enable it
 12. Set this as request url:
     - `${backend_url}/slack/events`
-13. Add these as Subscribe to bot events:
+13. Go to Event Subscriptions and add these as Subscribe to bot events:
     - message.channels
 14. Go to Manage Distribution
 15. Click and confirm "Remove Hard Coded Information"
