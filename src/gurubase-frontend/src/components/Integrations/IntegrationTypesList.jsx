@@ -75,7 +75,7 @@ const IntegrationTypesList = ({ customGuru }) => {
             Integrations
           </h1>
         </section>
-        <section className="flex flex-col flex-grow w-full px-6 py-4">
+        <section className="flex flex-col flex-grow w-full guru-sm:px-4 px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
             {integrationTypes.map((integration) => {
               const Icon = integration.icon;
