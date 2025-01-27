@@ -190,7 +190,7 @@ def widget_id_auth(view_func):
         if widget_id_obj.domain_url:
             origin = request.headers.get('Origin')
             if not origin or not origin.rstrip('/').endswith(widget_id_obj.domain_url):
-                return Response({'msg': 'Invalid domain'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'msg': 'Invalid domain. Please check your domain URL in Gurubase platform'}, status=status.HTTP_401_UNAUTHORIZED)
         
         request.guru_type = widget_id_obj.guru_type
         return view_func(request, *args, **kwargs)
