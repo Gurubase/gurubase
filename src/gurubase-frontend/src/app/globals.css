@@ -985,3 +985,8 @@ input[data-follow-up-input] {
 .guru-toast-info {
   @apply bg-blue-50 border-blue-200 text-blue-800;
 }
+
+.polygon-fill-none {
+  background: none;
+  /* or whatever properties you need to reset */
+}

@@ -6,12 +6,13 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { SidebarIcons } from "./Icons";
+import clsx from "clsx";
 
 const SidebarOption = ({ icon, label, isActive, onClick }) => (
   <Button
     variant="ghost"
     className={cn(
-      "w-full justify-start gap-2 p-3 font-inter text-[14px] font-medium leading-[20px] transition-colors",
+      "w-full justify-start gap-2 font-inter text-[14px] font-medium leading-[20px] transition-colors guru-sm:px-5 guru-sm:py-3",
       isActive
         ? "bg-[#EFF6FF] text-[#2563EB] hover:text-[#2563EB]"
         : "text-[#6D6D6D] hover:bg-[#FAFAFA]"
@@ -38,11 +39,11 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const guruLogo = guruTypes.find((type) => type.slug === guruSlug)?.icon_url;
 
   return (
-    <aside className="relative h-full min-h-screen">
-      <div className="sticky top-[110px]">
-        <nav className="flex flex-col items-center w-[250px] bg-white border rounded-lg border-[#E2E2E2]">
+    <aside className="relative guru-sm:h-auto guru-sm:static min-h-screen guru-sm:min-h-0">
+      <div className="sticky guru-sm:static top-[100px]">
+        <nav className="flex flex-col items-center w-[250px] guru-sm:w-full guru-sm:mx-auto guru-sm:mb-0 bg-white guru-sm:border-0 border rounded-lg border-[#E2E2E2]">
           {/* Guru Logo and Name */}
-          <div className="flex items-center gap-2 w-full p-5">
+          <div className="flex items-center gap-2 w-full p-5 guru-sm:hidden">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
               {guruLogo ? (
                 <Image
@@ -62,10 +63,10 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
           </div>
 
           {/* Divider */}
-          <div className="w-full h-px bg-[#E2E2E2]" />
+          <div className="w-full h-px bg-[#E2E2E2] guru-sm:hidden" />
 
           {/* Navigation Items */}
-          <div className="w-full p-2 space-y-1">
+          <div className="w-full p-2 guru-sm:px-4 guru-sm:pt-2 guru-sm:p-0 space-y-1">
             <SidebarOption
               icon="Settings"
               label="Settings"
