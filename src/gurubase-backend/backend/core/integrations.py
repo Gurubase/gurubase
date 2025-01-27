@@ -164,7 +164,7 @@ class DiscordStrategy(IntegrationStrategy):
                 for c in channels
                 if c['type'] == 0  # 0 is text channel
             ]
-            return text_channels
+            return sorted(text_channels, key=lambda x: x['name'])
 
         return self.handle_api_call(_list_channels)
 
@@ -277,7 +277,7 @@ class SlackStrategy(IntegrationStrategy):
                 if not cursor:
                     break
                     
-            return channels
+            return sorted(channels, key=lambda x: x['name'])
 
         return self.handle_api_call(_list_channels)
 
