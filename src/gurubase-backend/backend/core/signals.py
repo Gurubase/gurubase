@@ -833,3 +833,69 @@ def revoke_integration_access_token(sender, instance, **kwargs):
     except Exception as e:
         logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
         # Continue with deletion even if token revocation fails
+
+@receiver(pre_save, sender=Integration)
+def manage_slack_channels(sender, instance, **kwargs):
+    """Manage Slack channel membership when channels are updated."""
+    if instance.type != Integration.Type.SLACK:
+        return
+        
+    try:
+        # Get the old instance if it exists
+        if instance.id:
+            old_instance = Integration.objects.get(id=instance.id)
+            old_channels = {
+                channel['id']: channel.get('allowed', False) 
+                for channel in old_instance.channels
+            }
+        else:
+            old_channels = {}
+            
+        new_channels = {
+            channel['id']: channel.get('allowed', False) 
+            for channel in instance.channels
+        }
+        
+        # Skip if no changes to channels
+        if old_channels == new_channels:
+            return
+            
+        from slack_sdk import WebClient
+        client = WebClient(token=instance.access_token)
+        
+        # Leave channels that are no longer allowed
+        channels_to_leave = [
+            channel_id for channel_id, was_allowed in old_channels.items()
+            if was_allowed and (
+                channel_id not in new_channels or  # Channel removed
+                not new_channels[channel_id]       # Channel no longer allowed
+            )
+        ]
+        
+        # Join newly allowed channels
+        channels_to_join = [
+            channel_id for channel_id, is_allowed in new_channels.items()
+            if is_allowed and (
+                channel_id not in old_channels or  # New channel
+                not old_channels[channel_id]       # Previously not allowed
+            )
+        ]
+        
+        # Leave channels
+        for channel_id in channels_to_leave:
+            try:
+                client.conversations_leave(channel=channel_id)
+            except Exception as e:
+                logger.warning(f"Failed to leave Slack channel {channel_id}: {e}", exc_info=True)
+                
+        # Join channels
+        for channel_id in channels_to_join:
+            try:
+                client.conversations_join(channel=channel_id)
+            except Exception as e:
+                logger.warning(f"Failed to join Slack channel {channel_id}: {e}", exc_info=True)
+                
+    except Integration.DoesNotExist:
+        pass  # This is a new integration
+    except Exception as e:
+        logger.warning(f"Failed to manage Slack channels for integration {instance.id}: {e}", exc_info=True)
