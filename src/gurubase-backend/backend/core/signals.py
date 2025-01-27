@@ -819,3 +819,17 @@ def create_api_key_for_integration(sender, instance, **kwargs):
 def delete_api_key_for_integration(sender, instance, **kwargs):
     if instance.api_key:
         instance.api_key.delete()
+
+@receiver(pre_delete, sender=Integration)
+def revoke_integration_access_token(sender, instance, **kwargs):
+    """Revoke the OAuth access token when an integration is deleted."""
+    try:
+        # Get the appropriate strategy for the integration type
+        from .integrations import IntegrationFactory
+        strategy = IntegrationFactory.get_strategy(instance.type, instance)
+        
+        # Attempt to revoke the access token
+        strategy.revoke_access_token()
+    except Exception as e:
+        logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
+        # Continue with deletion even if token revocation fails

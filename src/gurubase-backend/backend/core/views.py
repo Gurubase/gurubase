@@ -1803,19 +1803,8 @@ def manage_integration(request, guru_type, integration_type):
                 'date_updated': integration.date_updated,
             })
         elif request.method == 'DELETE':
-            # Get the appropriate strategy for the integration type
-            strategy = IntegrationFactory.get_strategy(integration.type, integration)
-            
-            # Invalidate the OAuth token
-            try:
-                strategy.revoke_access_token()
-            except Exception as e:
-                logger.warning(f"Failed to revoke access token: {e}", exc_info=True)
-                # Continue with deletion even if token revocation fails
-            
-            # Delete the integration
+            # Delete the integration - token revocation is handled by signal
             integration.delete()
-            
             return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
             
     except Integration.DoesNotExist:
