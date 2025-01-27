@@ -71,7 +71,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
-      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2Fe306-34-32-48-186.ngrok-free.app%2FOAuth&integration_type=0&scope=identify+bot`,
+      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2F7eaf-34-32-48-186.ngrok-free.app%2Fintegrations%2Fcreate&integration_type=0&scope=identify+bot`,
       icon: DiscordIcon
     }
   };
@@ -167,14 +167,14 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
         <div className="flex flex-col gap-6 p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex md:items-center md:justify-between flex-col md:flex-row gap-4">
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
               <IntegrationInfo
                 name={name}
                 description="By connecting your account, you can easily share all your posts and invite your friends."
               />
             </IntegrationIconContainer>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-start w-full md:w-auto">
               <Button
                 variant="outline"
                 className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2"
@@ -185,27 +185,29 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             </div>
           </div>
           <div className="">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
               <h3 className="text-lg font-medium">Channels</h3>
+              <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                Select the channels you want, click <strong>Save</strong>, then
+                test the connection for each channel using{" "}
+                <strong>Send test message</strong>, and call the bot with{" "}
+                <strong>@gurubase</strong>.
+              </p>
             </div>
-            <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-4">
-              Select the channels you want, click <strong>Save</strong>, then
-              test the connection for each channel using{" "}
-              <strong>Send test message</strong>, and call the bot with{" "}
-              <strong>@gurubase</strong>.
-            </p>
             {/* Allowed Channels */}
             {channelsLoading ? (
-              <div className="space-y-4">
+              <div className="space-y-4 guru-xs:mt-6 mt-4">
                 <LoadingSkeleton count={3} width={400} />
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <div className="space-y-4 guru-xs:mt-6 mt-4">
                   {channels
                     .filter((c) => c.allowed)
                     .map((channel) => (
-                      <div key={channel.id} className="flex items-center gap-3">
+                      <div
+                        key={channel.id}
+                        className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3">
                         <div className="relative w-full md:w-[300px]">
                           <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                             Channel
@@ -216,63 +218,66 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                             value={channel.name}
                           />
                         </div>
-                        <Button
-                          variant="outline"
-                          disabled={
-                            !originalChannels.find(
-                              (c) => c.id === channel.id && c.allowed
-                            )
-                          }
-                          className={cn(
-                            "flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium",
-                            !originalChannels.find(
-                              (c) => c.id === channel.id && c.allowed
-                            ) && "opacity-50 cursor-not-allowed"
-                          )}
-                          onClick={async () => {
-                            try {
-                              const response = await sendIntegrationTestMessage(
-                                integrationData.id,
-                                channel.id
-                              );
-                              if (response?.error) {
+                        <div className="flex flex-row gap-3 w-full md:w-auto">
+                          <Button
+                            variant="outline"
+                            disabled={
+                              !originalChannels.find(
+                                (c) => c.id === channel.id && c.allowed
+                              )
+                            }
+                            className={cn(
+                              "flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap",
+                              !originalChannels.find(
+                                (c) => c.id === channel.id && c.allowed
+                              ) && "opacity-50 cursor-not-allowed"
+                            )}
+                            onClick={async () => {
+                              try {
+                                const response =
+                                  await sendIntegrationTestMessage(
+                                    integrationData.id,
+                                    channel.id
+                                  );
+                                if (response?.error) {
+                                  console.error(
+                                    "Failed to send test message:",
+                                    response.message
+                                  );
+                                }
+                              } catch (error) {
                                 console.error(
-                                  "Failed to send test message:",
-                                  response.message
+                                  "Error sending test message:",
+                                  error
                                 );
                               }
-                            } catch (error) {
-                              console.error(
-                                "Error sending test message:",
-                                error
-                              );
-                            }
-                          }}>
-                          <SendTestMessageIcon />
-                          Send Test Message
-                        </Button>
-                        <div className="flex items-center">
-                          <button
-                            className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group"
-                            onClick={() => {
-                              setChannels(
-                                channels.map((c) =>
-                                  c.id === channel.id
-                                    ? { ...c, allowed: false }
-                                    : c
-                                )
-                              );
-                              setHasChanges(true);
                             }}>
-                            <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
-                          </button>
+                            <SendTestMessageIcon />
+                            Send Test Message
+                          </Button>
+                          <div className="flex items-center md:justify-start justify-center">
+                            <button
+                              className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group"
+                              onClick={() => {
+                                setChannels(
+                                  channels.map((c) =>
+                                    c.id === channel.id
+                                      ? { ...c, allowed: false }
+                                      : c
+                                  )
+                                );
+                                setHasChanges(true);
+                              }}>
+                              <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
                 </div>
                 {/* Add New Channel */}
                 {channels.filter((c) => !c.allowed).length > 0 && (
-                  <div className="mt-4">
+                  <div className="guru-xs:mt-6 mt-4">
                     <div className="flex items-center gap-3">
                       <div className="relative w-full md:w-[300px]">
                         <Select
@@ -326,10 +331,10 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                     </div>
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="guru-xs:mt-6 mt-4">
                   <Button
                     disabled={!hasChanges || isSaving}
-                    className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white"
+                    className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white w-full"
                     onClick={async () => {
                       setIsSaving(true);
                       try {
