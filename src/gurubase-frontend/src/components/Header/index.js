@@ -70,7 +70,7 @@ const SelfHostedAvatar = memo(() => (
 
 SelfHostedAvatar.displayName = "SelfHostedAvatar";
 
-const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
+const Header = memo(({ guruType, allGuruTypes }) => {
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
@@ -232,30 +232,28 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
 
   return (
     <div className="relative">
-      <div className={clsx("h-[72px]", isMobileSidebarOpen && "guru-sm:hidden")} />
+      <div
+        className={clsx("h-[72px]", isMobileSidebarOpen && "guru-sm:hidden")}
+      />
       <header
         className={clsx(
           "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 z-50 bg-white",
           isMobileSidebarOpen && "guru-sm:hidden",
           guruType || !guruType || postContentExist || isLoading
-            ? !textPageHeader && "guru-sm:mt-0"
-            : !textPageHeader && "guru-sm:mt-[10rem] ",
+            ? "guru-sm:mt-0"
+            : "guru-sm:mt-[10rem] ",
           guruType || !guruType || postContentExist || isLoading
-            ? !textPageHeader && "guru-sm:mb-0"
-            : !textPageHeader && "guru-sm:mb-8"
+            ? "guru-sm:mb-0"
+            : "guru-sm:mb-8"
         )}
         style={{ backgroundColor: getBackgroundColor() }}>
         <div
           className={clsx(
             "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
-            guruType && !textPageHeader
+            guruType
               ? "guru-sm:justify-between guru-sm:items-center max-w-[1440px]"
               : "guru-sm:justify-start guru-md:max-w-[870px] guru-lg:max-w-[1180px]",
-            guruType
-              ? "py-3"
-              : textPageHeader
-                ? "py-5"
-                : "guru-sm:pt-5 guru-sm:pb-0 py-5"
+            guruType ? "py-3" : "guru-sm:pt-5 guru-sm:pb-0 py-5"
           )}>
           {/* Mobile Header Row */}
           <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
@@ -272,7 +270,10 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                 prefetch={false}
                 onClick={handleRedirectToHome}>
                 <div className={clsx(isLongGuruName && "scale-75 -ml-4")}>
-                  <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
+                  <GuruBaseLogo
+                    allGuruTypes={allGuruTypes}
+                    guruType={guruType}
+                  />
                 </div>
               </Link>
             </div>
