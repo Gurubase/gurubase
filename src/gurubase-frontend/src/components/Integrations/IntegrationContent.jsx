@@ -47,6 +47,7 @@ import {
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [channels, setChannels] = useState([]);
+  const [originalChannels, setOriginalChannels] = useState([]);
   const [internalError, setInternalError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [channelsLoading, setChannelsLoading] = useState(true);
@@ -61,7 +62,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
-      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`,
+      url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=app_mentions:read,channels:history,channels:join,channels:read,chat:write,groups:history,groups:read,groups:write,im:history,im:read,im:write,mpim:read,mpim:write,channels:manage&user_scope=channels:history,channels:read,chat:write,groups:history,groups:read,im:history,channels:write,groups:write,mpim:write,im:write`,
       icon: SlackIcon
     },
     discord: {
@@ -123,6 +124,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
           console.error("Failed to fetch channels:", channelsData.message);
         } else {
           setChannels(channelsData?.channels || []);
+          setOriginalChannels(channelsData?.channels || []);
         }
       } catch (err) {
         console.error("Failed to fetch channels:", err);
@@ -216,7 +218,17 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                         </div>
                         <Button
                           variant="outline"
-                          className="flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium"
+                          disabled={
+                            !originalChannels.find(
+                              (c) => c.id === channel.id && c.allowed
+                            )
+                          }
+                          className={cn(
+                            "flex h-[36px] px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium",
+                            !originalChannels.find(
+                              (c) => c.id === channel.id && c.allowed
+                            ) && "opacity-50 cursor-not-allowed"
+                          )}
                           onClick={async () => {
                             try {
                               const response = await sendIntegrationTestMessage(
@@ -328,6 +340,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                         );
                         if (!response?.error) {
                           setHasChanges(false);
+                          setOriginalChannels(channels);
                         }
                       } catch (error) {
                         console.error("Failed to save channels:", error);
