@@ -28,11 +28,13 @@ ROOT_EMAIL = config('ROOT_EMAIL', default='root@gurubase.io')
 ROOT_PASSWORD = config('ROOT_PASSWORD', default='ChangeMe')
 
 SENTRY_ENABLED = config('SENTRY_ENABLED', default=False, cast=bool)
-if SENTRY_ENABLED:
+
+if SENTRY_ENABLED or ENV == "selfhosted":
     import sentry_sdk
     from sentry_sdk.integrations.celery import CeleryIntegration
-    from sentry_sdk.integrations.django import DjangoIntegration
-    SENTRY_DSN = config('SENTRY_DSN')
+    from sentry_sdk.integrations.django import DjangoIntegration    
+    # Use the configured DSN or fallback to selfhosted DSN - https://sentry.zendesk.com/hc/en-us/articles/26741783759899-My-DSN-key-is-publicly-visible-is-this-a-security-vulnerability
+    SENTRY_DSN = config('SENTRY_DSN', default="https://004f52d6be335c0087a2c582f238ede2@o1185050.ingest.us.sentry.io/4508715634982912")
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration(monitor_beat_tasks=False)],
