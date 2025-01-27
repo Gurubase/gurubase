@@ -815,25 +815,6 @@ def create_api_key_for_integration(sender, instance, **kwargs):
         )
         instance.api_key = api_key
 
-@receiver(pre_delete, sender=Integration)
-def delete_api_key_for_integration(sender, instance, **kwargs):
-    if instance.api_key:
-        instance.api_key.delete()
-
-@receiver(pre_delete, sender=Integration)
-def revoke_integration_access_token(sender, instance, **kwargs):
-    """Revoke the OAuth access token when an integration is deleted."""
-    try:
-        # Get the appropriate strategy for the integration type
-        from .integrations import IntegrationFactory
-        strategy = IntegrationFactory.get_strategy(instance.type, instance)
-        
-        # Attempt to revoke the access token
-        strategy.revoke_access_token()
-    except Exception as e:
-        logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
-        # Continue with deletion even if token revocation fails
-
 @receiver(pre_save, sender=Integration)
 def manage_slack_channels(sender, instance, **kwargs):
     """Manage Slack channel membership when channels are updated."""
@@ -899,3 +880,44 @@ def manage_slack_channels(sender, instance, **kwargs):
         pass  # This is a new integration
     except Exception as e:
         logger.warning(f"Failed to manage Slack channels for integration {instance.id}: {e}", exc_info=True)
+
+@receiver(pre_delete, sender=Integration)
+def handle_integration_deletion(sender, instance, **kwargs):
+    """
+    Wrapper signal to handle all cleanup operations when an integration is deleted.
+    Order of operations:
+    1. Platform-specific cleanup (Discord: leave guild, Slack: leave channels)
+    2. Revoke access token
+    3. Delete API key
+    """
+    # Step 1: Platform-specific cleanup
+    if instance.type == Integration.Type.DISCORD:
+        try:
+            def leave_guild():
+                headers = {
+                    'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'
+                }
+                guild_id = instance.external_id
+                url = f'https://discord.com/api/v10/users/@me/guilds/{guild_id}'
+                
+                response = requests.delete(url, headers=headers)
+                if response.status not in [200, 204]:
+                    response_data = response.json()
+                    logger.warning(f"Failed to leave Discord guild {guild_id}: {response_data}")
+            
+            leave_guild()
+        except Exception as e:
+            logger.warning(f"Failed to leave Discord guild for integration {instance.id}: {e}", exc_info=True)
+            
+
+    # Step 2: Revoke access token
+    try:
+        from .integrations import IntegrationFactory
+        strategy = IntegrationFactory.get_strategy(instance.type, instance)
+        strategy.revoke_access_token()
+    except Exception as e:
+        logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
+        # Continue with deletion even if token revocation fails
+
+    if instance.api_key:
+        instance.api_key.delete()
