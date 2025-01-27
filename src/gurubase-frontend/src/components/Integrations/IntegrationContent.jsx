@@ -177,7 +177,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             <div className="flex items-center justify-start w-full md:w-auto">
               <Button
                 variant="outline"
-                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2"
+                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2 guru-xs:w-full guru-xs:justify-center"
                 onClick={() => setShowDeleteDialog(true)}>
                 <ConnectedIntegrationIcon />
                 Connected to {integrationData.workspace_name}
@@ -334,7 +334,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 <div className="guru-xs:mt-6 mt-4">
                   <Button
                     disabled={!hasChanges || isSaving}
-                    className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white w-full"
+                    className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white guru-xs:w-full md:w-auto"
                     onClick={async () => {
                       setIsSaving(true);
                       try {
@@ -438,7 +438,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         </IntegrationIconContainer>
         <Button
           variant="default"
-          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]"
+          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a] guru-xs:w-full guru-xs:justify-center"
           onClick={() =>
             window.open(
               `${integrationUrl}&state=${JSON.stringify({
