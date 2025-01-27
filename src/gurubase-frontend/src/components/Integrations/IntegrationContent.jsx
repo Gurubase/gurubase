@@ -144,8 +144,12 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       <div className="w-full">
         <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
-        <div className="p-6">
-          <LoadingSkeleton count={2} width={400} />
+        <div className="p-6 guru-xs:p-2">
+          <LoadingSkeleton
+            count={2}
+            width="100%"
+            className="max-w-[400px] guru-xs:max-w-[280px] md:w-1/2"
+          />
         </div>
       </div>
     );
@@ -197,8 +201,12 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             </div>
             {/* Allowed Channels */}
             {channelsLoading ? (
-              <div className="space-y-4 guru-xs:mt-5 mt-4">
-                <LoadingSkeleton count={3} width={400} />
+              <div className="p-6 guru-xs:p-2">
+                <LoadingSkeleton
+                  count={2}
+                  width="100%"
+                  className="max-w-[400px] guru-xs:max-w-[280px] md:w-1/2"
+                />
               </div>
             ) : (
               <>
