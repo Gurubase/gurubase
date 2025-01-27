@@ -15,6 +15,7 @@ import { getIntegrationsList } from "@/app/actions";
 const IntegrationTypesList = ({ customGuru }) => {
   const [connectedIntegrations, setConnectedIntegrations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredIntegration, setHoveredIntegration] = useState(null);
 
   useEffect(() => {
     const fetchIntegrations = async () => {
@@ -79,6 +80,10 @@ const IntegrationTypesList = ({ customGuru }) => {
             {integrationTypes.map((integration) => {
               const Icon = integration.icon;
               const isConnected = isIntegrationConnected(integration.type);
+              const workspaceName = connectedIntegrations.find(
+                (connectedIntegration) =>
+                  connectedIntegration.type === integration.type
+              )?.workspace_name;
 
               return (
                 <Link
@@ -93,8 +98,40 @@ const IntegrationTypesList = ({ customGuru }) => {
                     "bg-[#FDFDFD] hover:bg-gray-50 transition-colors"
                   )}>
                   {isConnected && (
-                    <div className="absolute top-4 right-4">
+                    <div
+                      className="absolute top-4 right-4"
+                      onMouseEnter={() =>
+                        setHoveredIntegration(integration.name)
+                      }
+                      onMouseLeave={() => setHoveredIntegration(null)}>
                       <ConnectedIntegrationIcon width={20} height={20} />
+                      {hoveredIntegration === integration.name && (
+                        <div
+                          className="absolute rounded-lg shadow-lg p-3 border bg-[#1B242D] text-white"
+                          style={{
+                            bottom: "100%",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            marginBottom: "8px",
+                            whiteSpace: "nowrap",
+                            zIndex: 50
+                          }}>
+                          <div
+                            className="absolute w-2 h-2 border-b border-r bg-[#1B242D]"
+                            style={{
+                              bottom: "-4px",
+                              left: "50%",
+                              transform: "translateX(-50%) rotate(45deg)",
+                              borderColor: "inherit"
+                            }}
+                          />
+                          <p
+                            className="text-center font-inter px-2"
+                            style={{ fontSize: "12px", fontWeight: 500 }}>
+                            Connected to {workspaceName}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="w-8 h-8">
