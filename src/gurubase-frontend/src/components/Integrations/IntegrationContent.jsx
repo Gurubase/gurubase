@@ -177,6 +177,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             <div className="flex items-center justify-start w-full md:w-auto">
               <Button
                 variant="outline"
+                size="lgRounded"
                 className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2 guru-xs:w-full guru-xs:justify-center"
                 onClick={() => setShowDeleteDialog(true)}>
                 <ConnectedIntegrationIcon />
@@ -201,13 +202,13 @@ const IntegrationContent = ({ type, customGuru, error }) => {
               </div>
             ) : (
               <>
-                <div className="space-y-4 guru-xs:mt-6 mt-4">
+                <div className="space-y-4">
                   {channels
                     .filter((c) => c.allowed)
                     .map((channel) => (
                       <div
                         key={channel.id}
-                        className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3">
+                        className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3 pt-2">
                         <div className="relative w-full md:w-[300px]">
                           <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                             Channel
@@ -429,7 +430,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     <div className="w-full">
       <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
-      <div className="flex items-center justify-between p-6">
+      <div className="flex flex-row items-center justify-between p-6 guru-xs:flex-col guru-xs:items-start gap-4">
         <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
           <IntegrationInfo
             name={config.name}
@@ -438,7 +439,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         </IntegrationIconContainer>
         <Button
           variant="default"
-          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a] guru-xs:w-full guru-xs:justify-center"
+          size="lgRounded"
+          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a] guru-xs:w-full w-auto "
           onClick={() =>
             window.open(
               `${integrationUrl}&state=${JSON.stringify({
