@@ -38,15 +38,6 @@ export const WebWidgetIntegrationContent = ({ customGuru, guruData }) => {
       <IntegrationHeader text="Web Widget" />
       <IntegrationDivider />
       <div className="flex flex-col gap-6 p-6">
-        <div className="flex items-center justify-between">
-          <IntegrationIconContainer Icon={WebWidgetIcon} iconSize="w-5 h-5">
-            <IntegrationInfo
-              name="Web Widget"
-              description="Add your Guru directly to your website with a simple widget integration."
-            />
-          </IntegrationIconContainer>
-        </div>
-
         <div>
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-lg font-medium">Widget IDs</h3>
