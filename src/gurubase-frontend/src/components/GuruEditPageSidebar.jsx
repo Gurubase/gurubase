@@ -39,7 +39,7 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const guruLogo = guruTypes.find((type) => type.slug === guruSlug)?.icon_url;
 
   return (
-    <aside className="relative guru-sm:h-auto guru-sm:static min-h-screen guru-sm:min-h-0">
+    <aside className="relative guru-sm:h-auto guru-sm:static h-full">
       <div className="sticky guru-sm:static top-[100px]">
         <nav className="flex flex-col items-center w-[250px] guru-sm:w-full guru-sm:mx-auto guru-sm:mb-0 bg-white guru-sm:border-0 border rounded-lg border-[#E2E2E2]">
           {/* Guru Logo and Name */}
