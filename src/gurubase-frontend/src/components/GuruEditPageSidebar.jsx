@@ -28,7 +28,9 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const pathname = usePathname();
 
   const isSettingsActive = pathname === `/guru/${guruSlug}`;
-  const isIntegrationsActive = pathname === `/guru/${guruSlug}/integrations`;
+  const isIntegrationsActive = pathname.includes(
+    `/guru/${guruSlug}/integrations`
+  );
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
