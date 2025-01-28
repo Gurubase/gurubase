@@ -74,6 +74,17 @@
                 "django_celery_beat.schedulers:DatabaseScheduler",
             ],
             "justMyCode": false,
+        },
+        {
+            "name": "Discord Listener",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/manage.py",
+            "args": [
+                "discordListener"
+            ],
+            "django": true,
+            "justMyCode": false,
         }
     ]
 }
