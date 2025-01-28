@@ -250,7 +250,11 @@ class SlackStrategy(IntegrationStrategy):
             cursor = None
             
             while True:
-                params = {'limit': 100}
+                params = {
+                    'limit': 100,
+                    'types': 'public_channel,private_channel',  # Include both public and private channels
+                    'exclude_archived': True
+                }
                 if cursor:
                     params['cursor'] = cursor
                     

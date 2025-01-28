@@ -88,6 +88,7 @@
         - `channels:read`
         - `chat:write`
         - `groups:read`
+        - `groups:history`
 
     These are the final and minimal scopes
     ![Slack Bot Permissions](slack-bot-permissions.png)
@@ -96,7 +97,8 @@
 12. Set this as request url:
     - `${backend_url}/slack/events`
 13. Go to Event Subscriptions and add these as Subscribe to bot events:
-    - message.channels
+    - `message.channels`
+    - `message.groups`
 14. Go to Manage Distribution
 15. Click and confirm "Remove Hard Coded Information"
 16. Activate Public Distribution
