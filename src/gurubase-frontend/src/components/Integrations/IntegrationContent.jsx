@@ -217,7 +217,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                       <div
                         key={channel.id}
                         className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3 guru-xs:pt-1">
-                        <div className="relative w-full md:w-[300px]">
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
                           <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                             Channel
                           </span>
@@ -289,7 +289,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 {channels.filter((c) => !c.allowed).length > 0 && (
                   <div className="guru-xs:mt-5 mt-4">
                     <div className="flex items-center gap-3">
-                      <div className="relative w-full md:w-[300px]">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
                         <Select
                           key={channels.filter((c) => !c.allowed).length}
                           value=""
