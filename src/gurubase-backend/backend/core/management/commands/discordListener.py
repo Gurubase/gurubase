@@ -215,6 +215,10 @@ class Command(BaseCommand):
             try:
                 # Check if the current channel is allowed
                 channel_id = str(message.channel.id)
+                # If message is from a thread, get the parent channel id
+                if isinstance(message.channel, discord.Thread):
+                    channel_id = str(message.channel.parent_id)
+                
                 channels = await sync_to_async(lambda: integration.channels)()
                 channel_allowed = False
                 for channel in channels:
