@@ -213,6 +213,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 <div className="space-y-4 guru-xs:mt-4 mt-5">
                   {channels
                     .filter((c) => c.allowed)
+                    .sort((a, b) => a.name.localeCompare(b.name))
                     .map((channel) => (
                       <div
                         key={channel.id}
@@ -327,6 +328,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                           <SelectContent className="bg-white border border-[#E5E7EB] text-[14px] rounded-lg shadow-lg">
                             {channels
                               .filter((c) => !c.allowed)
+                              .sort((a, b) => a.name.localeCompare(b.name))
                               .map((channel) => (
                                 <SelectItem
                                   key={channel.id}
