@@ -87,13 +87,10 @@
         - `channels.join`
         - `channels:read`
         - `chat:write`
-        - `groups:history`
         - `groups:read`
-        - `im:history`
-        - `im:read`
-        - `mpim:read`
+
     These are the final and minimal scopes
-    ![Slack bot scopes](slack-bot-permissions.png)
+    ![Slack Bot Permissions](slack-bot-permissions.png)
 10. Then, go to Event Subscriptions
 11. Enable it
 12. Set this as request url:
