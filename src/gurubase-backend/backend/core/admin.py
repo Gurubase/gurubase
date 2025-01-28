@@ -93,9 +93,14 @@ class QuestionAdmin(admin.ModelAdmin):
         return obj.sitemap_reason
     
     def link(self, obj):
-        if obj.guru_type:
-            return format_html(f'<a href="{settings.BASE_URL}/g/{obj.guru_type.slug}/{obj.slug}" target="_blank">{obj.slug}</a>')
-        return ""
+        if not obj.guru_type:
+            return ""
+            
+        if obj.binge:
+            root_slug = obj.binge.root_question.slug if obj.binge.root_question else ""
+            return format_html(f'<a href="{settings.BASE_URL}/g/{obj.guru_type.slug}/{root_slug}/binge/{obj.binge.id}?question_slug={obj.slug}" target="_blank">{obj.slug}</a>')
+        
+        return format_html(f'<a href="{settings.BASE_URL}/g/{obj.guru_type.slug}/{obj.slug}" target="_blank">{obj.slug}</a>')
     
     def binge_link(self, obj):
         if obj.binge:
