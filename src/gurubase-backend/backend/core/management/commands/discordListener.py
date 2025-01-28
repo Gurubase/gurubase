@@ -57,6 +57,10 @@ class Command(BaseCommand):
             metadata_length += len("\n**References**:")
             for ref in response['references']:
                 metadata_length += len(f"\n• [{ref['title']}](<{ref['link']}>)")
+
+        # Add space for frontend link
+        metadata_length += len("\n\nView on <span class=\"guru-text\">Guru</span>base for a better UX: ")
+        metadata_length += 100  # Approximate length for the URL
         
         # Calculate max length for content to stay within Discord's 2000 char limit
         max_content_length = 1900 - metadata_length  # Leave some buffer
@@ -79,6 +83,10 @@ class Command(BaseCommand):
             formatted_msg.append("\n**References**:")
             for ref in response['references']:
                 formatted_msg.append(f"\n• [{ref['title']}](<{ref['link']}>)")
+
+        # Add frontend link if question_url is present
+        if response.get('question_url'):
+            formatted_msg.append(f"\n[View on Gurubase for a better UX]({response['question_url']})")
         
         return "\n".join(formatted_msg)
 
