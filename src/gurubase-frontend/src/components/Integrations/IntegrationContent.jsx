@@ -62,8 +62,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
-      url: `https://slack.com/oauth/v2/authorize?client_id=1269209097589.8354424793156&scope=assistant:write,channels:history,channels:join,channels:read,chat:write,groups:history,groups:read,im:history,im:read,mpim:read&user_scope=channels:history,channels:read,chat:write,groups:history,groups:read,im:history`,
-      icon: SlackIcon
+      icon: SlackIcon,
+      extraText: ""
     },
     discord: {
       name: "Discord",
@@ -72,7 +72,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
       url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2F7eaf-34-32-48-186.ngrok-free.app%2Fintegrations%2Fcreate&integration_type=0&scope=identify+bot`,
-      icon: DiscordIcon
+      icon: DiscordIcon,
+      extraText: "To subscribe to a private channel and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels."
     }
   };
   const config = integrationConfig[type];
@@ -198,6 +199,11 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 <strong>Send test message</strong>, and call the bot with{" "}
                 <strong>@gurubase</strong>.
               </p>
+              {config.extraText && (
+                <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                  {config.extraText}
+                </p>
+              )}
             </div>
             {/* Allowed Channels */}
             {channelsLoading ? (
