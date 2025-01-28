@@ -53,7 +53,8 @@ const Content = (props) => {
     setQuestion,
     setDescription,
     passedBingeId,
-    setShowLoginModal
+    setShowLoginModal,
+    source
   } = props;
 
   const currentQuestionSlug = useAppSelector(
@@ -135,7 +136,9 @@ const Content = (props) => {
   const lastScrollStateRef = useRef(false);
 
   // window genişliği için state
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
 
   // window genişliğini client-side'da takip et
   useEffect(() => {
@@ -425,6 +428,14 @@ const Content = (props) => {
   }, [isBingeMapOpen]);
 
   const isAnswerValid = useAppSelector((state) => state.mainForm.isAnswerValid);
+  const reduxSource = useAppSelector((state) => state.mainForm.source);
+  const finalSource = reduxSource || source;
+  const shouldHideFollowUp =
+    finalSource?.toLowerCase() === "discord" ||
+    finalSource?.toLowerCase() === "slack";
+
+  console.log("Should hide follow up", shouldHideFollowUp);
+  console.log("Source", finalSource);
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user } = isSelfHosted ? { user: true, isLoading: false } : useUser();
@@ -457,7 +468,7 @@ const Content = (props) => {
 
   useEffect(() => {
     // Only run on client-side
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       setShowFloatingSearch(true);
       setShouldShowSimilar(!!slug);
     }
@@ -480,15 +491,15 @@ const Content = (props) => {
           ref={sectionRef}
           className="bg-white guru-sm:border-none border-l border-r border-solid border-neutral-200 flex-1 xs:col-span-2 guru-md:col-span-2">
           <section className="flex-1 flex flex-col h-full">
-              <MainForm
-                {...childProps}
-                input={input}
-                isScrolledToBottom={isScrolledToBottom}
-                setContent={setContent}
-                setDescription={setDescription}
-                setInput={setInput}
-                setQuestion={setQuestion}
-              />
+            <MainForm
+              {...childProps}
+              input={input}
+              isScrolledToBottom={isScrolledToBottom}
+              setContent={setContent}
+              setDescription={setDescription}
+              setInput={setInput}
+              setQuestion={setQuestion}
+            />
             {/* Sources section */}
             {!isLoading && !question && !content && resources?.length ? (
               <Sources
@@ -532,34 +543,74 @@ const Content = (props) => {
                 />
               )}
 
-            {typeof window !== 'undefined' && finalBingeId && bingeOutdated && (
-              <div className="flex flex-col items-center justify-center gap-3 mt-auto mb-20">
-                <div className="w-12 h-12 rounded-full bg-slate-400 flex items-center justify-center">
-                  <Clock className="w-8 h-8 text-white" />
+            {typeof window !== "undefined" &&
+              finalBingeId &&
+              bingeOutdated &&
+              !shouldHideFollowUp && (
+                <div className="flex flex-col items-center justify-center gap-3 mt-auto mb-20">
+                  <div className="w-12 h-12 rounded-full bg-slate-400 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-white" />
+                  </div>
+                  <h1 className="text-2xl font-semibold">Oops</h1>
+                  <p className="text-md text-muted-foreground text-center max-w-lg">
+                    This binge has expired due to 2 hours of inactivity. You can
+                    start a new binge.
+                  </p>
+                  <Button
+                    className="gap-2 rounded-[24px]"
+                    size="lg"
+                    onClick={newQuestionClick}>
+                    <Image
+                      alt="New Question"
+                      className="brightness-0 invert"
+                      height={24}
+                      src={NewQuestionIcon}
+                      width={24}
+                    />
+                    New
+                  </Button>
                 </div>
-                <h1 className="text-2xl font-semibold">Oops</h1>
-                <p className="text-md text-muted-foreground text-center max-w-lg">
-                  This binge has expired due to 2 hours of inactivity. You can
-                  start a new binge.
-                </p>
-                <Button
-                  className="gap-2 rounded-[24px]"
-                  size="lg"
-                  onClick={newQuestionClick}>
-                  <Image
-                    alt="New Question"
-                    className="brightness-0 invert"
-                    height={24}
-                    src={NewQuestionIcon}
-                    width={24}
-                  />
-                  New
-                </Button>
-              </div>
-            )}
+              )}
+
+            {typeof window !== "undefined" &&
+              shouldHideFollowUp &&
+              content &&
+              !isLoading &&
+              !streamingStatus &&
+              !streamError &&
+              !contextError &&
+              isAnswerValid && (
+                <div className="flex flex-col items-center justify-center gap-3 mt-auto mb-20">
+                  <div className="w-12 h-12 rounded-full bg-slate-400 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-white" />
+                  </div>
+                  <h1 className="text-2xl font-semibold">Bot Conversation</h1>
+                  <p className="text-md text-muted-foreground text-center max-w-lg">
+                    This binge is from a conversation on{" "}
+                    {finalSource?.charAt(0).toUpperCase() +
+                      finalSource?.slice(1).toLowerCase()}
+                    . You can't ask follow up questions.
+                  </p>
+                  <Button
+                    className="gap-2 rounded-[24px]"
+                    size="lg"
+                    onClick={newQuestionClick}>
+                    <Image
+                      alt="New Question"
+                      className="brightness-0 invert"
+                      height={24}
+                      src={NewQuestionIcon}
+                      width={24}
+                    />
+                    New
+                  </Button>
+                </div>
+              )}
 
             {/* <div className="w-full pt-16"></div> */}
-            {typeof window !== 'undefined' && !bingeOutdated &&
+            {typeof window !== "undefined" &&
+              !bingeOutdated &&
+              !shouldHideFollowUp &&
               content &&
               slug &&
               !isLoading &&
@@ -572,10 +623,10 @@ const Content = (props) => {
                   id="bottom-search-container">
                   <div className="w-full p-6 pb-8">
                     {/* Example Questions */}
-                    <ExampleQuestions 
-                      questions={exampleQuestions} 
-                      onQuestionClick={handleExampleQuestionClick} 
-                      />
+                    <ExampleQuestions
+                      questions={exampleQuestions}
+                      onQuestionClick={handleExampleQuestionClick}
+                    />
 
                     {/* Search Bar */}
 
@@ -617,7 +668,7 @@ const Content = (props) => {
                   </div>
                 </div>
               )}
-            
+
             {/* Floating follow up search bar (present only with answer content) */}
             {typeof window !== "undefined" &&
               showFloatingSearch &&
@@ -627,59 +678,65 @@ const Content = (props) => {
               !streamingStatus &&
               !contextError &&
               isAnswerValid &&
-              !bingeOutdated && (
-              <div
-                className={clsx(
-                  "fixed",
-                  "bottom-[0px]",
-                  "pl-2 pr-2 guru-sm:pl-3 guru-sm:pr-3",
-                  error ? "pb-12 guru-sm:pb-12" : "pb-8 guru-sm:pb-8",
-                  "z-50",
-                  "bg-gradient-to-b from-white/0 to-white",
-                  isScrolledToBottom ? "hidden" : "block",
-                  windowWidth > 1366 ? "left-1/2 -translate-x-1/2" : ""
-                )}
-                style={{
-                  width: `${sectionWidth}px`,
-                  // Sadece küçük ekranlarda left pozisyonunu kullan
-                  ...(windowWidth <= 1366 ? { left: `${sectionLeft}px` } : {})
-                }}>
-                {typeof window !== "undefined" && !streamError && !contextError && isAnswerValid && (
-                  <div className="max-w-[800px] mx-auto w-full">
-                    <div className="flex items-center relative">
-                      <div className="bg-white/80 shadow-lg h-12 w-full rounded-full">
-                        <FollowUpQueryInput
-                          enableTypeSense={false}
-                          error={error}
-                          guruType={guruType}
-                          guruTypePromptName={getGuruPromptMap(
-                            guruType,
-                            allGuruTypes
-                          )}
-                          inputId="bottom-search"
-                          sessionUserExists={sessionUserExists}
-                          setContentWrapperLeft={setContentWrapperLeft}
-                          setContentWrapperWidth={setContentWrapperWidth}
-                          setError={setError}
-                          setTypesenseLoading={setTypesenseLoading}
-                          onSubmit={(e) => submitWithAbortController(e, true)}
-                        />
+              !bingeOutdated &&
+              !shouldHideFollowUp && (
+                <div
+                  className={clsx(
+                    "fixed",
+                    "bottom-[0px]",
+                    "pl-2 pr-2 guru-sm:pl-3 guru-sm:pr-3",
+                    error ? "pb-12 guru-sm:pb-12" : "pb-8 guru-sm:pb-8",
+                    "z-50",
+                    "bg-gradient-to-b from-white/0 to-white",
+                    isScrolledToBottom ? "hidden" : "block",
+                    windowWidth > 1366 ? "left-1/2 -translate-x-1/2" : ""
+                  )}
+                  style={{
+                    width: `${sectionWidth}px`,
+                    // Sadece küçük ekranlarda left pozisyonunu kullan
+                    ...(windowWidth <= 1366 ? { left: `${sectionLeft}px` } : {})
+                  }}>
+                  {typeof window !== "undefined" &&
+                    !streamError &&
+                    !contextError &&
+                    isAnswerValid && (
+                      <div className="max-w-[800px] mx-auto w-full">
+                        <div className="flex items-center relative">
+                          <div className="bg-white/80 shadow-lg h-12 w-full rounded-full">
+                            <FollowUpQueryInput
+                              enableTypeSense={false}
+                              error={error}
+                              guruType={guruType}
+                              guruTypePromptName={getGuruPromptMap(
+                                guruType,
+                                allGuruTypes
+                              )}
+                              inputId="bottom-search"
+                              sessionUserExists={sessionUserExists}
+                              setContentWrapperLeft={setContentWrapperLeft}
+                              setContentWrapperWidth={setContentWrapperWidth}
+                              setError={setError}
+                              setTypesenseLoading={setTypesenseLoading}
+                              onSubmit={(e) =>
+                                submitWithAbortController(e, true)
+                              }
+                            />
+                          </div>
+                          <button
+                            className="ml-2 bg-white text-gray-400 border border-solid border-gray-100 rounded-full p-2"
+                            onClick={newQuestionClick}>
+                            <Image
+                              alt="New Question"
+                              height={24}
+                              src={NewQuestionIcon}
+                              width={24}
+                            />
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        className="ml-2 bg-white text-gray-400 border border-solid border-gray-100 rounded-full p-2"
-                        onClick={newQuestionClick}>
-                        <Image
-                          alt="New Question"
-                          height={24}
-                          src={NewQuestionIcon}
-                          width={24}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                    )}
+                </div>
+              )}
             <CurrentlyAsking
               answerErrorType={answerErrorType}
               askingQuestion={askingQuestion}
@@ -695,31 +752,33 @@ const Content = (props) => {
         {/* SimilarQuestions visible in guru-lg and above */}
         {
           <div
-            className={clsx(shouldShowSimilar ? "guru-md:hidden guru-lg:block " : "hidden")}>
-              {!finalBingeId &&
-                slugPageRendered &&
-                content &&
-                !isLoading &&
-                !streamingStatus && (
-                  <SimilarQuestions similarQuestions={similarQuestions} />
+            className={clsx(
+              shouldShowSimilar ? "guru-md:hidden guru-lg:block " : "hidden"
+            )}>
+            {!finalBingeId &&
+              slugPageRendered &&
+              content &&
+              !isLoading &&
+              !streamingStatus && (
+                <SimilarQuestions similarQuestions={similarQuestions} />
               )}
-              {finalBingeId && (
-                <div className="flex flex-col items-start guru-md:justify-start rounded-lg flex-1 my-4 guru-sm:m-0 sticky guru-md:top-28 guru-lg:top-28 guru-sm:hidden h-[calc(100vh-170px)]">
-                  <BingeMap
-                    bingeOutdated={bingeOutdated}
-                    setContent={setContent}
-                    setDescription={setDescription}
-                    setQuestion={setQuestion}
-                    treeData={treeData}
-                  />
-                </div>
-              )}
-        </div>
+            {finalBingeId && (
+              <div className="flex flex-col items-start guru-md:justify-start rounded-lg flex-1 my-4 guru-sm:m-0 sticky guru-md:top-28 guru-lg:top-28 guru-sm:hidden h-[calc(100vh-170px)]">
+                <BingeMap
+                  bingeOutdated={bingeOutdated}
+                  setContent={setContent}
+                  setDescription={setDescription}
+                  setQuestion={setQuestion}
+                  treeData={treeData}
+                />
+              </div>
+            )}
+          </div>
         }
       </div>
 
       {/* Mobile Binge Map section */}
-      {typeof window !== 'undefined' && slug && (
+      {typeof window !== "undefined" && slug && (
         <>
           {finalBingeId &&
             !isBingeMapOpen &&

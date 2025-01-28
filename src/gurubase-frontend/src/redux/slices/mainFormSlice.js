@@ -1,5 +1,5 @@
 // redux/slices/counterSlice.js
-import { createSlice, createAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 
 // NOTE: If you add initial state to slice, also add to reset action
 const initialState = {
@@ -27,7 +27,6 @@ const initialState = {
   hasFetched: false,
   references: [],
   isPageTransitioning: false,
-  bingeOutdated: false,
   bingeMapRefreshTrigger: null,
   askingQuestion: false, // We are sending /summary/ and /answer/ requests to the backend
   waitingForFirstChunk: false,
@@ -37,8 +36,8 @@ const initialState = {
   dateUpdated: null,
   followUpQuestions: [],
   treeData: null,
-  bingeOutdated: false,
-  notFoundContext: null
+  notFoundContext: null,
+  source: null
 };
 
 const mainFormSlice = createSlice({
@@ -60,6 +59,10 @@ const mainFormSlice = createSlice({
         state.followUpQuestions = action.payload.followUpQuestions;
       } else {
         state.followUpQuestions = [];
+      }
+
+      if (action.payload.source) {
+        state.source = action.payload.source;
       }
     },
     setBingeOutdated: (state, action) => {

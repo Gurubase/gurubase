@@ -434,7 +434,8 @@ def question_detail(request, guru_type, slug):
         'date_updated': format_date_updated(question.date_updated),
         'date_created_meta': question.date_created,
         'date_updated_meta': question.date_updated,
-        'follow_up_questions': question.follow_up_questions
+        'follow_up_questions': question.follow_up_questions,
+        'source': question.source
     }
 
     return Response(question_data)
@@ -1178,7 +1179,7 @@ def follow_up_examples(request, guru_type):
 
 
 @api_view(['GET'])
-@jwt_auth
+@combined_auth
 def follow_up_graph(request, guru_type):
     user = request.user
     validate_guru_type(guru_type, only_active=True)

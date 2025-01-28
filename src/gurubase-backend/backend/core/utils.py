@@ -2664,8 +2664,17 @@ def check_binge_auth(binge, user):
         return True
     if settings.ENV == 'selfhosted':
         return True
-    if user.is_admin:
+    if user and user.is_authenticated and user.is_admin:
         return True
+    
+    # Allow access to SLACK and DISCORD questions for everyone
+    root_question = binge.root_question
+    if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value]:
+        return True
+        
+    # For other sources, check ownership
+    if not user:
+        return False
     return binge.owner == user
 
 def search_question(user, guru_type_object, binge, slug=None, question=None, will_check_binge_auth=True, include_api=False, only_widget=False):
@@ -2675,6 +2684,7 @@ def search_question(user, guru_type_object, binge, slug=None, question=None, wil
             # For anonymous users
             # API requests are not allowed
             # Widget requests are allowed
+            # SLACK and DISCORD questions are allowed
             if only_widget:
                 return Q(source__in=[Question.Source.WIDGET_QUESTION.value])
             else:
@@ -2690,7 +2700,8 @@ def search_question(user, guru_type_object, binge, slug=None, question=None, wil
                 if include_api:
                     return (
                         ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]) |
-                        Q(source__in=[Question.Source.API.value], user=user)
+                        Q(source__in=[Question.Source.API.value], user=user) |
+                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value])
                     )
                 else:
                     return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])

@@ -158,7 +158,12 @@ const Result = async ({ params, searchParams }) => {
 
   // Get all data first
   const [response, allGuruTypes] = await Promise.all([
-    getDataForSlugDetails(params.slug, params.guruType, null, searchParams.question),
+    getDataForSlugDetails(
+      params.slug,
+      params.guruType,
+      null,
+      searchParams.question
+    ),
     getGuruTypes()
   ]);
 
@@ -179,7 +184,8 @@ const Result = async ({ params, searchParams }) => {
     similar_questions,
     trust_score,
     dirty,
-    date_updated
+    date_updated,
+    source
   } = parsedResponse;
 
   const headersList = headers();
@@ -187,7 +193,8 @@ const Result = async ({ params, searchParams }) => {
   const isBot = isbot(userAgent);
 
   const reload = dirty && !isBot;
-  const isInstantContentExist = !(response && msg?.toLowerCase() === "question not found") && !reload;
+  const isInstantContentExist =
+    !(response && msg?.toLowerCase() === "question not found") && !reload;
 
   return (
     <ResultClient
@@ -203,6 +210,7 @@ const Result = async ({ params, searchParams }) => {
       similarQuestions={isInstantContentExist ? similar_questions : []}
       slug={params.slug}
       trustScore={trust_score}
+      source={source}
     />
   );
 };
