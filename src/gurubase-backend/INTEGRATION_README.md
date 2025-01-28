@@ -40,6 +40,10 @@
 6. Then, pick the appropriate scopes and permissions
     - Identify
     - Bot
+        - Send Messages
+
+    ![alt text](discord-bot-permissions.png)
+    ![alt text](discord-bot-permissions-2.png)
 7. Select your redirect url
     - `${frontend_url}/OAuth`
 8. Pick appropriate bot permissions
