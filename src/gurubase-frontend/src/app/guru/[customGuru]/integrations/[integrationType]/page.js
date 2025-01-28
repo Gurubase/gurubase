@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { getGuruTypes, getMyGurus } from "@/app/actions";
 import IntegrationContent from "@/components/Integrations/IntegrationContent";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
@@ -36,9 +38,15 @@ export default async function IntegrationsPage({ params, searchParams }) {
     }
   };
 
+  const content = getIntegrationContent();
+
+  if (!content) {
+    redirect("/not-found");
+  }
+
   return (
     <IntegrationPayeLayout
-      content={getIntegrationContent()}
+      content={content}
       customGuru={customGuru}
       error={hasError}
       guruTypes={guruTypes}
