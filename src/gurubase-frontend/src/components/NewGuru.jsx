@@ -154,6 +154,22 @@ export default function NewGuru({
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
 
+  // Add helper function here at the top level
+  const isSourceProcessing = (source) => {
+    console.log("source", source);
+    if (typeof source.id === "string") {
+      return false;
+    }
+
+    // For sources with domains (website/youtube), check if any domain is not processed
+    if (source.domains) {
+      return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
+    }
+
+    // For single sources (PDF), check its own status
+    return source.status === "NOT_PROCESSED";
+  };
+
   const handleAddWidget = () => {
     setIsWidgetModalVisible(true);
   };
@@ -218,6 +234,19 @@ export default function NewGuru({
       websiteUrls: []
     }
   });
+
+  // Add effect to check for unprocessed sources on load - at the top level
+  useEffect(() => {
+    if (customGuru && sources.length > 0) {
+      const hasUnprocessedSources = sources.some((source) =>
+        isSourceProcessing(source)
+      );
+      if (hasUnprocessedSources) {
+        setIsSourcesProcessing(true);
+        pollForGuruReadiness(customGuru);
+      }
+    }
+  }, [customGuru, sources]);
 
   const updateEditorContent = useCallback((sources, type) => {
     // Filter sources by type and status
@@ -691,7 +720,6 @@ export default function NewGuru({
             }));
 
             setSources(updatedSources);
-            setProcessingSources([]);
 
             // Update form values and reset states
             const newFormValues = {
@@ -716,6 +744,7 @@ export default function NewGuru({
             setDirtyChanges({ sources: [], guruUpdated: false });
             setUrlEditorContent("");
             setYoutubeEditorContent("");
+            setProcessingSources([]);
 
             setIsSourcesProcessing(false);
 
@@ -1016,8 +1045,12 @@ export default function NewGuru({
                 newSource.id === source.id
             )
           ) {
-            // For non-grouped sources (PDFs)
-            ids.push(source.id);
+            // For PDFs, use the file name instead of the temporary ID
+            if (source.type?.toLowerCase() === "pdf") {
+              ids.push(source.name);
+            } else {
+              ids.push(source.id);
+            }
           }
 
           return ids;
@@ -2208,6 +2241,9 @@ export default function NewGuru({
                         ...fileSources
                       ];
 
+                      console.log("displaySources", displaySources);
+                      console.log("processingSources", processingSources);
+
                       return displaySources.map((source) => (
                         <TableRow key={source.id}>
                           <TableCell className="font-medium">
@@ -2226,7 +2262,7 @@ export default function NewGuru({
                           </TableCell>
 
                           <TableCell>
-                            {processingSources.includes(source.id) ? (
+                            {isSourceProcessing(source) ? (
                               <div className="flex items-center gap-2 text-gray-500">
                                 <LoaderCircle className="h-4 w-4 animate-spin" />
                                 <span className="text-sm">
