@@ -132,6 +132,7 @@ class DiscordStrategy(IntegrationStrategy):
         }
         response = requests.post(token_url, data=data)
         if not response.ok:
+            logger.error(f"Discord API error: {response.text}")
             raise ValueError(f"Discord API error: {response.text}")
         return response.json()
 
@@ -262,6 +263,7 @@ class SlackStrategy(IntegrationStrategy):
                 data = response.json()
                 
                 if not data.get('ok', False):
+                    logger.error(f"Slack API error: {data}")
                     raise ValueError(f"Slack API error: {data.get('error')}")
                     
                 channels.extend([
@@ -312,6 +314,7 @@ class SlackStrategy(IntegrationStrategy):
             response_data = response.json()
             
             if not response_data.get('ok', False):
+                logger.error(f"Slack API error: {response_data}")
                 raise ValueError(f"Slack API error: {response_data.get('error')}")
 
         return self.handle_api_call(_revoke_token)
