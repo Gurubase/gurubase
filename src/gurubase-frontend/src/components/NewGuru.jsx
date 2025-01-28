@@ -156,7 +156,6 @@ export default function NewGuru({
 
   // Add helper function here at the top level
   const isSourceProcessing = (source) => {
-    console.log("source", source);
     if (typeof source.id === "string") {
       return false;
     }
@@ -2240,9 +2239,6 @@ export default function NewGuru({
                         ...groupedSources,
                         ...fileSources
                       ];
-
-                      console.log("displaySources", displaySources);
-                      console.log("processingSources", processingSources);
 
                       return displaySources.map((source) => (
                         <TableRow key={source.id}>
