@@ -156,6 +156,10 @@ export default function NewGuru({
 
   // Add helper function here at the top level
   const isSourceProcessing = (source) => {
+    if (!isPublishing && !isUpdating) {
+      return false;
+    }
+
     if (typeof source.id === "string") {
       return false;
     }
