@@ -434,8 +434,8 @@ const Content = (props) => {
     finalSource?.toLowerCase() === "discord" ||
     finalSource?.toLowerCase() === "slack";
 
-  console.log("Should hide follow up", shouldHideFollowUp);
-  console.log("Source", finalSource);
+  // console.log("Should hide follow up", shouldHideFollowUp);
+  // console.log("Source", finalSource);
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user } = isSelfHosted ? { user: true, isLoading: false } : useUser();
