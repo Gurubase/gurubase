@@ -34,23 +34,29 @@ const IntegrationTypesList = ({ customGuru }) => {
     fetchIntegrations();
   }, [customGuru]);
 
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
   const integrationTypes = [
-    {
-      id: "slack",
-      name: "Slack Bot",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-      icon: SlackIcon,
-      type: "SLACK"
-    },
-    {
-      id: "discord",
-      name: "Discord Bot",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-      icon: DiscordIcon,
-      type: "DISCORD"
-    },
+    ...(isSelfHosted
+      ? []
+      : [
+          {
+            id: "slack",
+            name: "Slack Bot",
+            description:
+              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+            icon: SlackIcon,
+            type: "SLACK"
+          },
+          {
+            id: "discord",
+            name: "Discord Bot",
+            description:
+              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+            icon: DiscordIcon,
+            type: "DISCORD"
+          }
+        ]),
     {
       id: "web_widget",
       name: "Web Widget",

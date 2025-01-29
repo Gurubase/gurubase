@@ -14,6 +14,12 @@ export default async function IntegrationsPage({ params, searchParams }) {
   const guruTypes = await getMyGurus();
   const currentGuru = guruTypes.find((guru) => guru.slug === customGuru);
 
+  const selfhosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  if (selfhosted) {
+    redirect("/not-found");
+  }
+
   // Determine which content component to use based on integration type
   const getIntegrationContent = () => {
     switch (integrationType) {
