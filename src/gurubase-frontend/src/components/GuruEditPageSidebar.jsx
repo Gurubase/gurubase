@@ -42,11 +42,7 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   let guruLogo = guruTypes?.find((type) => type.slug === guruSlug)?.icon_url;
 
   if (!guruName) {
-    guruName = "New";
-  }
-
-  if (!guruLogo) {
-    guruLogo = "";
+    return null;
   }
 
   return (
