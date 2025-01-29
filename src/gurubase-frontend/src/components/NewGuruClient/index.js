@@ -14,7 +14,7 @@ export const NewGuruClient = ({
 }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
-      <Header textPageHeader={true} />
+      <Header />
       <CommonContentLayout
         sidebar={
           <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />

@@ -815,7 +815,109 @@ def create_api_key_for_integration(sender, instance, **kwargs):
         )
         instance.api_key = api_key
 
+@receiver(pre_save, sender=Integration)
+def manage_slack_channels(sender, instance, **kwargs):
+    """Manage Slack channel membership when channels are updated."""
+    if instance.type != Integration.Type.SLACK:
+        return
+        
+    try:
+        # Get the old instance if it exists
+        if instance.id:
+            old_instance = Integration.objects.get(id=instance.id)
+            old_channels = {
+                channel['id']: channel.get('allowed', False) 
+                for channel in old_instance.channels
+            }
+        else:
+            old_channels = {}
+            
+        new_channels = {
+            channel['id']: channel.get('allowed', False) 
+            for channel in instance.channels
+        }
+        
+        # Skip if no changes to channels
+        if old_channels == new_channels:
+            return
+            
+        from slack_sdk import WebClient
+        client = WebClient(token=instance.access_token)
+        
+        # Leave channels that are no longer allowed
+        channels_to_leave = [
+            channel_id for channel_id, was_allowed in old_channels.items()
+            if was_allowed and (
+                channel_id not in new_channels or  # Channel removed
+                not new_channels[channel_id]       # Channel no longer allowed
+            )
+        ]
+        
+        # Join newly allowed channels
+        channels_to_join = [
+            channel_id for channel_id, is_allowed in new_channels.items()
+            if is_allowed and (
+                channel_id not in old_channels or  # New channel
+                not old_channels[channel_id]       # Previously not allowed
+            )
+        ]
+        
+        # Leave channels
+        for channel_id in channels_to_leave:
+            try:
+                client.conversations_leave(channel=channel_id)
+            except Exception as e:
+                logger.warning(f"Failed to leave Slack channel {channel_id}: {e}", exc_info=True)
+                
+        # Join channels
+        for channel_id in channels_to_join:
+            try:
+                client.conversations_join(channel=channel_id)
+            except Exception as e:
+                logger.warning(f"Failed to join Slack channel {channel_id}: {e}", exc_info=True)
+                
+    except Integration.DoesNotExist:
+        pass  # This is a new integration
+    except Exception as e:
+        logger.warning(f"Failed to manage Slack channels for integration {instance.id}: {e}", exc_info=True)
+
 @receiver(pre_delete, sender=Integration)
-def delete_api_key_for_integration(sender, instance, **kwargs):
+def handle_integration_deletion(sender, instance, **kwargs):
+    """
+    Wrapper signal to handle all cleanup operations when an integration is deleted.
+    Order of operations:
+    1. Platform-specific cleanup (Discord: leave guild, Slack: leave channels)
+    2. Revoke access token
+    3. Delete API key
+    """
+    # Step 1: Platform-specific cleanup
+    if instance.type == Integration.Type.DISCORD:
+        try:
+            def leave_guild():
+                headers = {
+                    'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'
+                }
+                guild_id = instance.external_id
+                url = f'https://discord.com/api/v10/users/@me/guilds/{guild_id}'
+                
+                response = requests.delete(url, headers=headers)
+                if response.status not in [200, 204]:
+                    response_data = response.json()
+                    logger.warning(f"Failed to leave Discord guild {guild_id}: {response_data}")
+            
+            leave_guild()
+        except Exception as e:
+            logger.warning(f"Failed to leave Discord guild for integration {instance.id}: {e}", exc_info=True)
+            
+
+    # Step 2: Revoke access token
+    try:
+        from .integrations import IntegrationFactory
+        strategy = IntegrationFactory.get_strategy(instance.type, instance)
+        strategy.revoke_access_token()
+    except Exception as e:
+        logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
+        # Continue with deletion even if token revocation fails
+
     if instance.api_key:
         instance.api_key.delete()

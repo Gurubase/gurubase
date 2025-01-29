@@ -40,6 +40,10 @@
 6. Then, pick the appropriate scopes and permissions
     - Identify
     - Bot
+        - Send Messages
+
+    ![alt text](discord-bot-permissions.png)
+    ![alt text](discord-bot-permissions-2.png)
 7. Select your redirect url
     - `${frontend_url}/OAuth`
 8. Pick appropriate bot permissions
@@ -83,24 +87,18 @@
         - `channels.join`
         - `channels:read`
         - `chat:write`
-        - `groups:history`
         - `groups:read`
-        - `im:history`
-        - `im:read`
-        - `mpim:read`
-    - User
-        - `channels:history`
-        - `channels:read`
-        - `chat:write`
         - `groups:history`
-        - `groups:read`
-        - `im:history`
+
+    These are the final and minimal scopes
+    ![Slack Bot Permissions](slack-bot-permissions.png)
 10. Then, go to Event Subscriptions
 11. Enable it
 12. Set this as request url:
     - `${backend_url}/slack/events`
 13. Go to Event Subscriptions and add these as Subscribe to bot events:
-    - message.channels
+    - `message.channels`
+    - `message.groups`
 14. Go to Manage Distribution
 15. Click and confirm "Remove Hard Coded Information"
 16. Activate Public Distribution

@@ -434,7 +434,8 @@ def question_detail(request, guru_type, slug):
         'date_updated': format_date_updated(question.date_updated),
         'date_created_meta': question.date_created,
         'date_updated_meta': question.date_updated,
-        'follow_up_questions': question.follow_up_questions
+        'follow_up_questions': question.follow_up_questions,
+        'source': question.source
     }
 
     return Response(question_data)
@@ -1178,7 +1179,7 @@ def follow_up_examples(request, guru_type):
 
 
 @api_view(['GET'])
-@jwt_auth
+@combined_auth
 def follow_up_graph(request, guru_type):
     user = request.user
     validate_guru_type(guru_type, only_active=True)
@@ -1803,19 +1804,8 @@ def manage_integration(request, guru_type, integration_type):
                 'date_updated': integration.date_updated,
             })
         elif request.method == 'DELETE':
-            # Get the appropriate strategy for the integration type
-            strategy = IntegrationFactory.get_strategy(integration.type, integration)
-            
-            # Invalidate the OAuth token
-            try:
-                strategy.revoke_access_token()
-            except Exception as e:
-                logger.warning(f"Failed to revoke access token: {e}", exc_info=True)
-                # Continue with deletion even if token revocation fails
-            
-            # Delete the integration
+            # Delete the integration - token revocation is handled by signal
             integration.delete()
-            
             return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
             
     except Integration.DoesNotExist:
@@ -1949,7 +1939,7 @@ def convert_markdown_to_slack(content: str) -> str:
     
     return content
 
-def format_slack_response(content: str, trust_score: int, references: list) -> str:
+def format_slack_response(content: str, trust_score: int, references: list, question_url: str) -> str:
     """Format the response with trust score and references for Slack.
     Using Slack's formatting syntax:
     *bold*
@@ -1977,6 +1967,10 @@ def format_slack_response(content: str, trust_score: int, references: list) -> s
         formatted_msg.append("\n*References*:")
         for ref in references:
             formatted_msg.append(f"\n• <{ref['link']}|{ref['title']}>")
+    
+    # Add frontend link if it exists
+    if question_url:
+        formatted_msg.append(f"\n\n<{question_url}|View on Gurubase for a better UX>")
     
     return "\n".join(formatted_msg)
 
@@ -2057,8 +2051,9 @@ async def get_final_response(
                 trust_score = final_response.get('trust_score', 0)
                 references = final_response.get('references', [])
                 content = final_response.get('content', '')
-                
-                final_text = format_slack_response(content, trust_score, references)
+                question_url = final_response.get('question_url', '')
+
+                final_text = format_slack_response(content, trust_score, references, question_url)
                 if final_text.strip():  # Only update if there's content after stripping header
                     client.chat_update(
                         channel=channel_id,

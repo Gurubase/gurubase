@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { getGuruTypes, getMyGurus } from "@/app/actions";
 import IntegrationContent from "@/components/Integrations/IntegrationContent";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
@@ -11,6 +13,12 @@ export default async function IntegrationsPage({ params, searchParams }) {
 
   const guruTypes = await getMyGurus();
   const currentGuru = guruTypes.find((guru) => guru.slug === customGuru);
+
+  const selfhosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  if (selfhosted) {
+    redirect("/not-found");
+  }
 
   // Determine which content component to use based on integration type
   const getIntegrationContent = () => {
@@ -36,9 +44,15 @@ export default async function IntegrationsPage({ params, searchParams }) {
     }
   };
 
+  const content = getIntegrationContent();
+
+  if (!content) {
+    redirect("/not-found");
+  }
+
   return (
     <IntegrationPayeLayout
-      content={getIntegrationContent()}
+      content={content}
       customGuru={customGuru}
       error={hasError}
       guruTypes={guruTypes}

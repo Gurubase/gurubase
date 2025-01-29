@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export const IntegrationHeader = ({ text }) => (
-  <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6 pt-7">
+  <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
     {text}
   </h2>
 );
@@ -12,10 +12,10 @@ export const IntegrationDivider = () => (
 );
 
 export const IntegrationIconContainer = ({ Icon, iconSize, children }) => (
-  <div className="flex items-center gap-3">
+  <div className="flex md:items-center md:gap-3 flex-col md:flex-row w-full gap-4">
     <div
       className={cn(
-        "w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
+        "min-w-10 min-h-10 w-10 h-10 rounded-full flex items-center justify-center border border-neutral-200"
       )}>
       <Icon className={cn(iconSize, "text-white")} />
     </div>
@@ -24,7 +24,7 @@ export const IntegrationIconContainer = ({ Icon, iconSize, children }) => (
 );
 
 export const IntegrationInfo = ({ name, description }) => (
-  <div>
+  <div className="text-left">
     <h3 className="font-medium">{name}</h3>
     <p className="text-sm text-muted-foreground">{description}</p>
   </div>

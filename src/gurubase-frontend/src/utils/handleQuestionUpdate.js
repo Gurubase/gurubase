@@ -22,7 +22,8 @@ export const handleQuestionUpdate = async ({
   references = [],
   trustScore = null,
   dateUpdated = null,
-  followUpQuestions = []
+  followUpQuestions = [],
+  source = null
 }) => {
   try {
     dispatch(setPageTransitioning(true));
@@ -43,6 +44,7 @@ export const handleQuestionUpdate = async ({
       trustScore = data.trust_score;
       dateUpdated = data.date_updated;
       followUpQuestions = data.follow_up_questions;
+      source = data.source;
     }
 
     setContent(content);
@@ -60,7 +62,8 @@ export const handleQuestionUpdate = async ({
       trustScore,
       dateUpdated,
       references,
-      followUpQuestions
+      followUpQuestions,
+      source
     });
 
     dispatch(setInputQuery(""));

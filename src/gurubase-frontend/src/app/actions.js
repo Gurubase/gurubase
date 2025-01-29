@@ -591,14 +591,24 @@ export async function createBinge({ guruType, rootSlug }) {
 }
 
 export async function getBingeData(guruType, bingeId) {
-  const response = await makeAuthenticatedRequest(
-    // const response = await makePublicRequest(
-    `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/follow_up/graph/?binge_id=${bingeId}`
-  );
+  try {
+    const session = await getUserSession();
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/follow_up/graph/?binge_id=${bingeId}`;
 
-  if (!response) return null;
-
-  return await response.json();
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(url);
+      if (!response) return null;
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(url);
+      if (!response) return null;
+      return await response.json();
+    }
+  } catch (error) {
+    return handleRequestError(error, { guruType, bingeId });
+  }
 }
 
 export async function getBingeHistory(page = 1, query = "") {

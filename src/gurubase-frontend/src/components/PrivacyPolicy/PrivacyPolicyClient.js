@@ -1,14 +1,15 @@
 "use client";
 
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import PrivacyPolicy from "./PrivacyPolicy";
+import Header from "@/components/Header";
+
 import CommonContentLayout from "../CommonContentLayout";
+import PrivacyPolicy from "./PrivacyPolicy";
 
 export default function Page() {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
-      <Header textPageHeader={true} />
+      <Header />
       <CommonContentLayout>
         <PrivacyPolicy />
       </CommonContentLayout>

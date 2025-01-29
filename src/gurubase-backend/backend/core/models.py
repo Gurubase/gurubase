@@ -90,6 +90,19 @@ class Question(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     times = models.JSONField(default=dict, blank=True, null=False)
 
+    @property
+    def frontend_url(self):
+        """Returns the frontend URL for this question."""
+        from django.conf import settings
+        if not self.guru_type:
+            return ""
+            
+        if self.binge:
+            root_slug = self.binge.root_question.slug if self.binge.root_question else self.slug
+            return f"{settings.BASE_URL}/g/{self.guru_type.slug}/{root_slug}/binge/{self.binge.id}?question_slug={self.slug}"
+        
+        return f"{settings.BASE_URL}/g/{self.guru_type.slug}/{self.slug}"
+
     def __str__(self):
         return f"{self.id} - {self.slug}"
 

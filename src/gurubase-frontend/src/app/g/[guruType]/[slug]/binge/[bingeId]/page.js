@@ -171,7 +171,8 @@ const Result = async ({ params, searchParams }) => {
     references,
     similar_questions,
     date_updated,
-    trust_score
+    trust_score,
+    source
   } = JSON.parse(response);
 
   const isInstantContentExist = !(
@@ -196,6 +197,7 @@ const Result = async ({ params, searchParams }) => {
       similarQuestions={isInstantContentExist ? similar_questions : []}
       slug={searchParams.question_slug}
       trustScore={trust_score}
+      source={source}
     />
   );
 };

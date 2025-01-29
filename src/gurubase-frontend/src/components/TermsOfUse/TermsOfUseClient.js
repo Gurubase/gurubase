@@ -1,14 +1,15 @@
 "use client";
 
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import TermsOfUse from "./TermsOfUse";
+import Header from "@/components/Header";
+
 import CommonContentLayout from "../CommonContentLayout";
+import TermsOfUse from "./TermsOfUse";
 
 export default function Page() {
   return (
     <div className={`flex flex-col bg-white guru-md:h-screen h-full`}>
-      <Header textPageHeader={true} />
+      <Header />
       <CommonContentLayout>
         <TermsOfUse />
       </CommonContentLayout>
