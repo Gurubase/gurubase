@@ -570,6 +570,8 @@ class DataSource(models.Model):
     last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     reindex_count = models.IntegerField(default=0)
 
+    scrape_tool = models.CharField(max_length=100, null=True, blank=True)
+
     class Meta:
         unique_together = ["type", "url", "guru_type"]
 
