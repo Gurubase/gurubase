@@ -1163,8 +1163,12 @@ def follow_up_examples(request, guru_type):
         return Response([], status=status.HTTP_200_OK)
     
     # Generate follow-up questions using Gemini
-    gemini_requester = GeminiRequester(settings.LARGE_GEMINI_MODEL)
-    follow_up_examples = gemini_requester.generate_follow_up_questions(
+    if settings.ENV == 'selfhosted':
+        requester = OpenAIRequester()
+    else:
+        requester = GeminiRequester(settings.LARGE_GEMINI_MODEL)
+
+    follow_up_examples = requester.generate_follow_up_questions(
         questions=questions,
         last_content=last_question.content,
         guru_type=guru_type_object,
