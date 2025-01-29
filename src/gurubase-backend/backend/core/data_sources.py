@@ -155,10 +155,9 @@ def clean_title(title):
 
 
 def clean_content(content):
-    # Content may contain base64 encoded images like this: ![Card image](data:image/png;base64,iVBORw0...
-    # Remove them
-    content = re.sub(r'!\[[^\]]*\]\((data:[^)]+)\)', '', content)
-
+    # Remove image references with any URL (data:, http:, https:, etc)
+    content = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
+    
     # Remove non-ascii characters
     # content = re.sub(r'[^\x00-\x7F]+', '', content)
 
