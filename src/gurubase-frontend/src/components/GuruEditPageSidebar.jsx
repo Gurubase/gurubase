@@ -38,8 +38,16 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
     router.push(path);
   };
 
-  const guruName = guruTypes.find((type) => type.slug === guruSlug)?.name;
-  const guruLogo = guruTypes.find((type) => type.slug === guruSlug)?.icon_url;
+  let guruName = guruTypes?.find((type) => type.slug === guruSlug)?.name;
+  let guruLogo = guruTypes?.find((type) => type.slug === guruSlug)?.icon_url;
+
+  if (!guruName) {
+    guruName = "New";
+  }
+
+  if (!guruLogo) {
+    guruLogo = "";
+  }
 
   return (
     <aside className="relative guru-sm:h-auto guru-sm:static h-full">
@@ -47,8 +55,8 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
         <nav className="flex flex-col items-center w-[250px] guru-sm:w-full guru-sm:mx-auto guru-sm:mb-5 mb-0 bg-white guru-sm:border-0 border rounded-lg border-[#E2E2E2]">
           {/* Guru Logo and Name */}
           <div className="flex items-center gap-2 w-full p-5 guru-sm:hidden">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
-              {guruLogo ? (
+            {guruLogo && (
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
                 <Image
                   src={guruLogo}
                   alt={`${guruName} logo`}
@@ -56,10 +64,8 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
                   height={32}
                   className="w-full h-full object-cover"
                 />
-              ) : (
-                <div className="w-full h-full bg-gray-200" />
-              )}
-            </div>
+              </div>
+            )}
             <span className="font-inter text-[14px] font-medium leading-[20px] text-[#191919]">
               {guruName} Guru
             </span>
