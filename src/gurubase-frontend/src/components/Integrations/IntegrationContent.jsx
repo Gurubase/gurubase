@@ -62,6 +62,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
+      url: `https://slack.com/oauth/v2/authorize?client_id=1269209097589.8354424793156&scope=channels:history,channels:join,channels:read,chat:write,groups:history,groups:read&user_scope=`,
       icon: SlackIcon,
       extraText:
         'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.'
