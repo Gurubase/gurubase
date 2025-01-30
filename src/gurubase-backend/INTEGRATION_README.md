@@ -32,6 +32,7 @@
 2. Click "New Application" and follow up
 3. Go to Bot and set these as backend envs:
     - `DISCORD_BOT_TOKEN`
+    - Enable `Message Content Intent` under Privileged Gateway Intents.
 4. Go to OAuth2 and set these as backend envs:
     - `DISCORD_CLIENT_ID`
     - `DISCORD_CLIENT_SECRET`
