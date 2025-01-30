@@ -1,16 +1,15 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { getIntegrationsList } from "@/app/actions";
 import {
+  ConnectedIntegrationIcon,
   DiscordIcon,
   SlackIcon,
-  WebWidgetIcon,
-  ConnectedIntegrationIcon
+  WebWidgetIcon
 } from "@/components/Icons";
-import Link from "next/link";
 import clsx from "clsx";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getIntegrationsList } from "@/app/actions";
 
 const IntegrationTypesList = ({ customGuru }) => {
   const [connectedIntegrations, setConnectedIntegrations] = useState([]);
@@ -44,7 +43,7 @@ const IntegrationTypesList = ({ customGuru }) => {
             id: "slack",
             name: "Slack Bot",
             description:
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+              "Ask your Guru directly in Slack.",
             icon: SlackIcon,
             type: "SLACK"
           },
@@ -52,7 +51,7 @@ const IntegrationTypesList = ({ customGuru }) => {
             id: "discord",
             name: "Discord Bot",
             description:
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+              "Instant access to your guru, right in Discord.",
             icon: DiscordIcon,
             type: "DISCORD"
           }
@@ -61,7 +60,7 @@ const IntegrationTypesList = ({ customGuru }) => {
       id: "web_widget",
       name: "Web Widget",
       description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+        "Easily integrate your Guru into your website.",
       icon: WebWidgetIcon,
       type: "WEB_WIDGET"
     }
