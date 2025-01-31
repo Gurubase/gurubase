@@ -11,7 +11,6 @@ export const Link = ({ children, ...props }) => {
       return;
     }
 
-    console.log("props", props);
     // If there's an onClick handler already, call it
     if (props.onClick) {
       props.onClick(e);
