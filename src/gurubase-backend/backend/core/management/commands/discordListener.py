@@ -19,7 +19,10 @@ class Command(BaseCommand):
     def __init__(self):
         super().__init__()
         # Cache timeout in seconds (e.g., 5 minutes)
-        self.cache_timeout = 300
+        # Set to 0 to disable caching
+        # This is because dynamic channel updates are not immediately reflected
+        # And this may result in bad UX, and false positive bug reports
+        self.cache_timeout = 0
         self.prod_backend_url = settings.PROD_BACKEND_URL.rstrip('/')
 
     def get_trust_score_emoji(self, trust_score):
@@ -173,6 +176,44 @@ class Command(BaseCommand):
                     print(response_json, type(response_json))
                     return response_json['msg'], False
 
+    async def send_channel_unauthorized_message(
+        self,
+        message: discord.Message,
+        guru_slug: str,
+        question: str
+    ) -> None:
+        """Send a message explaining how to authorize the channel."""
+        try:
+            settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/discord"
+            
+            # Create embed for better formatting
+            embed = discord.Embed(
+                title="❌ Channel Not Authorized",
+                description=(
+                    "This channel is not authorized to use the bot.\n\n"
+                    f"Please visit [Gurubase Settings]({settings_url}) to configure "
+                    "the bot and add this channel to the allowed channels list."
+                ),
+                color=discord.Color.red()  # Red color for error messages
+            )
+            
+            # If in a thread, reply in thread. Otherwise create a thread
+            if isinstance(message.channel, discord.Thread):
+                await message.channel.send(embed=embed)
+            else:
+                thread = await message.create_thread(
+                    name=f"Q: {question[:50]}...",
+                    auto_archive_duration=60  # Archive after 1 hour of inactivity
+                )
+                await thread.send(embed=embed)
+            
+        except discord.Forbidden as e:
+            logging.error(f"Discord forbidden error while sending unauthorized message: {str(e)}")
+        except discord.HTTPException as e:
+            logging.error(f"Discord API error while sending unauthorized message: {str(e)}")
+        except Exception as e:
+            logging.error(f"Error sending unauthorized channel message: {str(e)}")
+
     def setup_discord_client(self):
         # Setup logging to stdout
         handler = logging.StreamHandler(sys.stdout)
@@ -216,16 +257,22 @@ class Command(BaseCommand):
                 
                 channels = await sync_to_async(lambda: integration.channels)()
                 channel_allowed = False
+                question = message.content.replace(f'<@{client.user.id}>', '').strip()
+
                 for channel in channels:
                     if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                         channel_allowed = True
                         break
                 
                 if not channel_allowed:
+                    guru_type_slug = await self.get_guru_type_slug(integration)
+                    await self.send_channel_unauthorized_message(
+                        message, 
+                        guru_type_slug, 
+                        question)
                     return
 
                 # Remove the bot mention from the message
-                question = message.content.replace(f'<@{client.user.id}>', '').strip()
                 
                 # Get guru type slug and API key
                 guru_type_slug = await self.get_guru_type_slug(integration)
