@@ -184,7 +184,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
               <Button
                 variant="outline"
                 size="lgRounded"
-                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2 guru-xs:w-full guru-xs:justify-center"
+                className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2 guru-xs:w-full guru-xs:justify-center hover:bg-[#F3F4F6] active:bg-[#E2E2E2]"
                 onClick={() => setShowDeleteDialog(true)}>
                 <ConnectedIntegrationIcon />
                 Connected to {integrationData.workspace_name}
