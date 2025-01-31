@@ -16,7 +16,7 @@ export const PageTransition = () => {
     if (isNavigating || isPageTransitioning) {
       setIsVisible(true);
     } else if (isVisible && progressRef.current) {
-      // Mevcut animasyonu durdur ve son frame'de tut
+      // Stop the current animation and keep it on the last frame
       const element = progressRef.current;
       const computedStyle = window.getComputedStyle(element);
       const currentWidth = computedStyle.getPropertyValue("width");
@@ -24,10 +24,10 @@ export const PageTransition = () => {
       element.style.animation = "none";
       element.style.width = currentWidth;
 
-      // Reflow için gerekli
+      // Necessary for reflow
       element.offsetHeight;
 
-      // Tamamlama animasyonunu başlat
+      // Start the completion animation
       element.style.animation = "progress-to-complete 500ms ease-out forwards";
 
       // Animasyon bitince gizle
