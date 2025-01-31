@@ -7,7 +7,7 @@ import {
   WebWidgetIcon,
   ConnectedIntegrationIcon
 } from "@/components/Icons";
-import Link from "next/link";
+import { Link } from "@/components/Link";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { getIntegrationsList } from "@/app/actions";

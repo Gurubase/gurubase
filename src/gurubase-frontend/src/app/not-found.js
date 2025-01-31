@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
+
 import { SolarHomeBold } from "@/components/Icons";
-import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { Link } from "@/components/Link";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setNotFoundContext } from "@/redux/slices/mainFormSlice";
 import { reportErrorToSentry } from "@/utils/sentry";
 

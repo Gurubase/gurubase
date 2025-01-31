@@ -8,6 +8,7 @@ import Image from "next/image";
 import { SidebarIcons } from "./Icons";
 import clsx from "clsx";
 import { IntegrationDivider } from "./Integrations/IntegrationShared";
+import { useAppNavigation } from "@/lib/navigation";
 
 const SidebarOption = ({ icon, label, isActive, onClick }) => (
   <Button
@@ -27,6 +28,7 @@ const SidebarOption = ({ icon, label, isActive, onClick }) => (
 export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const router = useRouter();
   const pathname = usePathname();
+  const navigation = useAppNavigation();
 
   const isSettingsActive = pathname === `/guru/${guruSlug}`;
   const isIntegrationsActive = pathname.includes(
@@ -35,7 +37,8 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
-    router.push(path);
+    console.log("Will navigate to", path);
+    navigation.push(path);
   };
 
   let guruName = guruTypes?.find((type) => type.slug === guruSlug)?.name;

@@ -165,7 +165,6 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       </div>
     );
   }
-  console.log(channels);
 
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (

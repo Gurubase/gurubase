@@ -1,4 +1,5 @@
 "use client";
+import { useAppNavigation } from "@/lib/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -16,8 +17,7 @@ import {
   Check
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { redirect, useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -144,7 +144,7 @@ export default function NewGuru({
   customGuru,
   isProcessing
 }) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -165,11 +165,11 @@ export default function NewGuru({
   // Modify the auth check effect
   useEffect(() => {
     if (!isSelfHosted && !user && !authLoading) {
-      router.push("/api/auth/login");
+      navigation.push("/api/auth/login");
 
       return;
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -326,7 +326,7 @@ export default function NewGuru({
     const response = await deleteGuru(customGuru);
 
     if (response) {
-      router.push("/my-gurus");
+      navigation.push("/my-gurus");
     }
   };
 

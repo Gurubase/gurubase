@@ -31,6 +31,7 @@ import OtherGurus from "../OtherGurus";
 import SimilarQuestions from "../SimilarQuestions";
 import ExampleQuestions from "../FollowUpQuestions";
 import { getExampleQuestions } from "@/app/actions";
+import { useAppNavigation } from "@/lib/navigation";
 
 const MainForm = dynamic(() => import("@/components/Content/MainForm"));
 
@@ -120,12 +121,12 @@ const Content = (props) => {
 
   // console.log("finalBingeId", finalBingeId);
 
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   const newQuestionClick = () => {
     if (guruType) {
       dispatch(setResetMainForm());
-      window.location.href = `/g/${guruType}`;
+      navigation.setHref(`/g/${guruType}`);
     }
   };
 

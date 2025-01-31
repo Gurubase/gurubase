@@ -1,16 +1,19 @@
 "use client";
 import { useAppSelector } from "@/redux/hooks";
 import { useState, useEffect, useRef } from "react";
+import { useNavigation } from "@/hooks/useNavigation";
+import { useAppDispatch } from "@/redux/hooks";
 
 export const PageTransition = () => {
-  const isTransitioning = useAppSelector(
-    (state) => state.mainForm.isPageTransitioning
-  );
+  const isNavigating = useNavigation((state) => state.isNavigating);
   const [isVisible, setIsVisible] = useState(false);
   const progressRef = useRef(null);
+  const isPageTransitioning = useAppSelector(
+    (state) => state.mainForm.isPageTransitioning
+  );
 
   useEffect(() => {
-    if (isTransitioning) {
+    if (isNavigating || isPageTransitioning) {
       setIsVisible(true);
     } else if (isVisible && progressRef.current) {
       // Mevcut animasyonu durdur ve son frame'de tut
@@ -36,7 +39,7 @@ export const PageTransition = () => {
         { once: true }
       );
     }
-  }, [isTransitioning]);
+  }, [isNavigating, isPageTransitioning]);
 
   if (!isVisible) return null;
 

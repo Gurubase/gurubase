@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import Image from "next/image";
-import Link from "next/link";
 
 import GurubaseLogo from "@/assets/images/guru-base.svg";
 import SocialMediaHeader from "@/components/Header/SocialMediaHeader";
+import { Link } from "@/components/Link";
 import useIsSmallScreen from "@/utils/hooks/useIsSmallScreen";
 
 import NotificationCard from "./NotificationCard/NotificationCard";
