@@ -73,6 +73,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
+      url: `https://slack.com/oauth/v2/authorize?client_id=1269209097589.8372955318630&scope=channels:history,channels:join,channels:read,chat:write,groups:history,groups:read&user_scope=`,
       icon: SlackIcon,
       extraText:
         'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.'
@@ -83,7 +84,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
-      url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2F7eaf-34-32-48-186.ngrok-free.app%2Fintegrations%2Fcreate&integration_type=0&scope=identify+bot`,
+      url: `https://discord.com/oauth2/authorize?client_id=1334819798256975954&permissions=2048&response_type=code&redirect_uri=https%3A%2F%2Fdevelop.preview.gurubase.ai%2FOAuth&integration_type=0&scope=identify+bot`,
       icon: DiscordIcon,
       extraText:
         "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels."

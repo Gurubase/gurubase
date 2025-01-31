@@ -8,6 +8,8 @@ ENV LANG=C.UTF-8
 COPY ./requirements.txt .
 RUN apt update -y && apt install -y gcc libcairo2 libcairo2-dev git && rm -rf /var/lib/apt/lists/*
 RUN pip --no-cache-dir install -r requirements.txt
+RUN playwright install
+RUN playwright install-deps
 
 WORKDIR /workspace
 

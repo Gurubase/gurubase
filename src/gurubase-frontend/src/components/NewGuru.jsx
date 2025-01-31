@@ -154,6 +154,8 @@ export default function NewGuru({
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
 
+  // Add helper function here at the top level
+
   const handleAddWidget = () => {
     setIsWidgetModalVisible(true);
   };
@@ -206,6 +208,20 @@ export default function NewGuru({
   // First, add a state to track the GitHub repository source status
   const [githubRepoStatus, setGithubRepoStatus] = useState(null);
 
+  const isSourceProcessing = (source) => {
+    if (typeof source.id === "string") {
+      return false;
+    }
+
+    // For sources with domains (website/youtube), check if any domain is not processed
+    if (source.domains) {
+      return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
+    }
+
+    // For single sources (PDF), check its own status
+    return source.status === "NOT_PROCESSED";
+  };
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -218,6 +234,21 @@ export default function NewGuru({
       websiteUrls: []
     }
   });
+
+  // Add effect to check for unprocessed sources on load - at the top level
+  useEffect(() => {
+    if (customGuru && sources.length > 0) {
+      const hasUnprocessedSources = sources.some((source) =>
+        isSourceProcessing(source)
+      );
+      console.log("sources", sources);
+      if (hasUnprocessedSources) {
+        console.log("hasUnprocessedSources", hasUnprocessedSources);
+        setIsSourcesProcessing(true);
+        pollForGuruReadiness(customGuru);
+      }
+    }
+  }, [customGuru, sources]);
 
   const updateEditorContent = useCallback((sources, type) => {
     // Filter sources by type and status
@@ -691,7 +722,6 @@ export default function NewGuru({
             }));
 
             setSources(updatedSources);
-            setProcessingSources([]);
 
             // Update form values and reset states
             const newFormValues = {
@@ -716,6 +746,7 @@ export default function NewGuru({
             setDirtyChanges({ sources: [], guruUpdated: false });
             setUrlEditorContent("");
             setYoutubeEditorContent("");
+            setProcessingSources([]);
 
             setIsSourcesProcessing(false);
 
@@ -1016,8 +1047,12 @@ export default function NewGuru({
                 newSource.id === source.id
             )
           ) {
-            // For non-grouped sources (PDFs)
-            ids.push(source.id);
+            // For PDFs, use the file name instead of the temporary ID
+            if (source.type?.toLowerCase() === "pdf") {
+              ids.push(source.name);
+            } else {
+              ids.push(source.id);
+            }
           }
 
           return ids;
@@ -1032,6 +1067,13 @@ export default function NewGuru({
 
         if (sourcesResponse.error) {
           throw new Error(sourcesResponse.message);
+        }
+
+        // If not in edit mode, redirect immediately after guru creation
+        if (!isEditMode) {
+          redirectingRef.current = true;
+          window.location.href = `/guru/${guruSlug}`;
+          return; // Exit early for new guru creation
         }
 
         // Wait for polling to complete before proceeding
@@ -2227,7 +2269,8 @@ export default function NewGuru({
                           </TableCell>
 
                           <TableCell>
-                            {processingSources.includes(source.id) ? (
+                            {isSourceProcessing(source) &&
+                            isSourcesProcessing ? (
                               <div className="flex items-center gap-2 text-gray-500">
                                 <LoaderCircle className="h-4 w-4 animate-spin" />
                                 <span className="text-sm">
