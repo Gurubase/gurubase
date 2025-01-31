@@ -167,6 +167,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       </div>
     );
   }
+  console.log(channels);
 
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
@@ -222,7 +223,6 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                 <div className="space-y-4 guru-xs:mt-4 mt-5">
                   {channels
                     .filter((c) => c.allowed)
-                    .sort((a, b) => a.name.localeCompare(b.name))
                     .map((channel) => (
                       <div
                         key={channel.id}
@@ -304,11 +304,14 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                           key={channels.filter((c) => !c.allowed).length}
                           value=""
                           onValueChange={(value) => {
-                            setChannels(
-                              channels.map((c) =>
-                                c.id === value ? { ...c, allowed: true } : c
-                              )
+                            const selectedChannel = channels.find(
+                              (c) => c.id === value
                             );
+                            const updatedChannels = [
+                              ...channels.filter((c) => c.id !== value),
+                              { ...selectedChannel, allowed: true }
+                            ];
+                            setChannels(updatedChannels);
                             setHasChanges(true);
                           }}>
                           <SelectTrigger
