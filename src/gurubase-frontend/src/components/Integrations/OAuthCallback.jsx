@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createIntegration } from "@/app/actions";
 import { useRouter } from "next/navigation";
+import { useAppNavigation } from "@/lib/navigation";
 
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -14,7 +15,7 @@ const LoadingSpinner = () => (
 const OAuthCallback = () => {
   const [error, setError] = useState(null);
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -23,7 +24,7 @@ const OAuthCallback = () => {
 
       if (!code || !state) {
         setError("Missing required parameters");
-        router.push(`/`);
+        navigation.push(`/`);
       }
 
       try {
@@ -35,9 +36,9 @@ const OAuthCallback = () => {
 
         if (response.error) {
           setError(response.message);
-          router.push(`${url}?error=true`);
+          navigation.push(`${url}?error=true`);
         } else {
-          router.push(url);
+          navigation.push(url);
         }
       } catch (err) {
         setError(err.message || "Failed to create integration");

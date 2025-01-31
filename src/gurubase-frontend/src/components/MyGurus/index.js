@@ -2,13 +2,13 @@
 
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { LoaderCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { getMyGurus } from "@/app/actions";
 import Footer from "@/components/Footer";
 import GuruList from "@/components/GuruList";
 import Header from "@/components/Header";
+import { useAppNavigation } from "@/lib/navigation";
 
 export const MyGurusClient = () => {
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -18,11 +18,11 @@ export const MyGurusClient = () => {
   const [myGurus, setMyGurus] = useState([]);
   const [error, setError] = useState(null);
   const [isLoadingGurus, setIsLoadingGurus] = useState(true);
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
     if (!user && !authLoading) {
-      router.push("/api/auth/login");
+      navigation.push("/api/auth/login");
 
       return;
     }
@@ -46,7 +46,7 @@ export const MyGurusClient = () => {
     if (user) {
       fetchMyGurus();
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   return (
     <div className="flex flex-col bg-white h-screen">

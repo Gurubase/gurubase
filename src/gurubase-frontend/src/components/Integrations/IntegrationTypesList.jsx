@@ -7,8 +7,8 @@ import {
   SlackIcon,
   WebWidgetIcon
 } from "@/components/Icons";
+import { Link } from "@/components/Link";
 import clsx from "clsx";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const IntegrationTypesList = ({ customGuru }) => {
@@ -42,16 +42,14 @@ const IntegrationTypesList = ({ customGuru }) => {
           {
             id: "slack",
             name: "Slack Bot",
-            description:
-              "Ask your Guru directly in Slack.",
+            description: "Ask your Guru directly in Slack.",
             icon: SlackIcon,
             type: "SLACK"
           },
           {
             id: "discord",
             name: "Discord Bot",
-            description:
-              "Instant access to your guru, right in Discord.",
+            description: "Instant access to your guru, right in Discord.",
             icon: DiscordIcon,
             type: "DISCORD"
           }
@@ -59,8 +57,7 @@ const IntegrationTypesList = ({ customGuru }) => {
     {
       id: "web_widget",
       name: "Web Widget",
-      description:
-        "Easily integrate your Guru into your website.",
+      description: "Easily integrate your Guru into your website.",
       icon: WebWidgetIcon,
       type: "WEB_WIDGET"
     }
@@ -74,11 +71,9 @@ const IntegrationTypesList = ({ customGuru }) => {
 
   return (
     <main className="flex justify-center items-center w-full flex-grow">
-      <section className="container mx-auto guru-md:max-w-[870px] guru-lg:max-w-[1180px] bg-white h-full">
+      <section className="container mx-auto guru-lg:max-w-[1180px] bg-white h-full">
         <section className="flex flex-col flex-grow w-full p-6 border-b border-[#E5E7EB]">
-          <h1 className="font-inter text-[20px] font-medium text-[#191919]">
-            Integrations
-          </h1>
+          <h1 className="text-h5 font-semibold text-black-600">Integrations</h1>
         </section>
         <section className="flex flex-col flex-grow w-full guru-sm:px-4 px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">

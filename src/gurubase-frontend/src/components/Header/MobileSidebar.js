@@ -1,14 +1,15 @@
 import { Icon } from "@iconify/react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import GuruBaseLogo from "@/components/GuruBaseLogo";
+import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useAppNavigation } from "@/lib/navigation";
 
 const MobileSidebar = ({ isOpen, onClose, user }) => {
-  const router = useRouter();
   const pathname = usePathname();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
     if (isOpen) {
@@ -25,7 +26,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
   const handleNavigate = (path) => {
     const returnTo = encodeURIComponent(pathname);
 
-    router.push(`${path}?returnTo=${returnTo}`);
+    navigation.push(`${path}?returnTo=${returnTo}`);
   };
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";

@@ -8,6 +8,7 @@ import string
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
+import re
 
 from accounts.models import User
 from django.conf import settings
@@ -1277,12 +1278,14 @@ def get_binges(request):
         return Response({'msg': 'Page number must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
     
     page_size = settings.BINGE_HISTORY_PAGE_SIZE
+
+    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK])
     
     # Base queryset
     if settings.ENV == 'selfhosted' or user.is_admin:
-        binges = Binge.objects.all().order_by('-last_used')
+        binges = binges.order_by('-last_used')
     else:
-        binges = Binge.objects.filter(owner=user).order_by('-last_used')
+        binges = binges.filter(owner=user).order_by('-last_used')
     
     # Apply search filter if search query exists
     if search_query:
@@ -1964,17 +1967,19 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
     
     # Add trust score with emoji
     trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
-    formatted_msg.append(f"\n\n*Trust Score*: {trust_emoji} {trust_score}%")
+    formatted_msg.append(f"\n---------\n_*Trust Score*: {trust_emoji} {trust_score}_%")
     
     # Add references if they exist
     if references:
-        formatted_msg.append("\n*References*:")
+        formatted_msg.append("\n_*Sources*_:")
         for ref in references:
-            formatted_msg.append(f"\n• <{ref['link']}|{ref['title']}>")
+            # Remove both Slack-style emoji codes and Unicode emojis
+            clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+            formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
     
     # Add frontend link if it exists
     if question_url:
-        formatted_msg.append(f"\n\n<{question_url}|View on Gurubase for a better UX>")
+        formatted_msg.append(f"\n:eyes: _<{question_url}|View on Gurubase for a better UX>_")
     
     return "\n".join(formatted_msg)
 
@@ -2012,6 +2017,7 @@ async def stream_and_update_message(
                     cleaned_content = strip_first_header(current_content)
                     if cleaned_content.strip():
                         formatted_content = convert_markdown_to_slack(cleaned_content)
+                        formatted_content += '\n\n:clock1: _streaming..._'
                         current_time = time.time()
                         if current_time - last_update >= update_interval:
                             try:
@@ -2207,6 +2213,29 @@ async def handle_slack_message(
         except:
             pass  # If this fails too, we can't do much
 
+async def send_channel_unauthorized_message(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+    guru_slug: str
+) -> None:
+    """Send a message explaining how to authorize the channel."""
+    try:
+        settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/slack"
+        message = (
+            "❌ This channel is not authorized to use the bot.\n\n"
+            f"Please visit <{settings_url}|Gurubase Settings> to configure "
+            "the bot and add this channel to the allowed channels list."
+        )
+        client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text=message
+        )
+    except SlackApiError as e:
+        logger.error(f"Error sending unauthorized channel message: {e.response}", exc_info=True)
+
+
 @api_view(['GET', 'POST'])
 def slack_events(request):
     """Handle Slack events including verification and message processing."""
@@ -2251,8 +2280,9 @@ def slack_events(request):
                         try:
                             # If not in cache, get from database
                             integration = Integration.objects.get(type=Integration.Type.SLACK, external_id=team_id)
-                            # Cache for 5 minutes
-                            cache.set(cache_key, integration, timeout=300)
+                            # Set cache timeout to 0. This is because dynamic channel updates are not immediately reflected
+                            # And this may result in bad UX, and false positive bug reports
+                            cache.set(cache_key, integration, timeout=0)
                         except Integration.DoesNotExist:
                             logger.error(f"No integration found for team {team_id}", exc_info=True)
                             return
@@ -2270,15 +2300,27 @@ def slack_events(request):
                             if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                                 channel_allowed = True
                                 break
+
+                        # Get thread_ts if it exists (means we're in a thread)
+                        thread_ts = event.get("thread_ts") or event.get("ts")
                         
                         if not channel_allowed:
+                            # Run the unauthorized message handler in the event loop
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                loop.run_until_complete(send_channel_unauthorized_message(
+                                    client=client,
+                                    channel_id=channel_id,
+                                    thread_ts=thread_ts,
+                                    guru_slug=integration.guru_type.slug
+                                ))
+                            finally:
+                                loop.close()
                             return
                         
                         # Remove the bot mention from the message
                         clean_message = user_message.replace(f"<@{bot_user_id}>", "").strip()
-                        
-                        # Get thread_ts if it exists (means we're in a thread)
-                        thread_ts = event.get("thread_ts") or event.get("ts")
                         
                         # Run the async handler in a new event loop
                         loop = asyncio.new_event_loop()
