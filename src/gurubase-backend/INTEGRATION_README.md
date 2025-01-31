@@ -36,21 +36,20 @@
 4. Go to OAuth2 and set these as backend envs:
     - `DISCORD_CLIENT_ID`
     - `DISCORD_CLIENT_SECRET`
-5. Add the following to Redirects:
-    - `${frontend_url}/OAuth`
-6. Then, pick the appropriate scopes and permissions
-    - Identify
-    - Bot
-        - Send Messages
+    - Add the following to Redirects:
+        - `${frontend_url}/OAuth`
+    - Then, pick the appropriate scopes and permissions
+        - Identify
+        - Bot
+            - Send Messages
 
-    ![alt text](discord-bot-permissions.png)
-    ![alt text](discord-bot-permissions-2.png)
-7. Select your redirect url
-    - `${frontend_url}/OAuth`
-8. Pick appropriate bot permissions
-    - The minimum set is currently untested. You can pick Administrator for now.
-9. Pick Guild Install as Integration Type
-10. Copy the generated url as the Discord integration button url 
+        ![alt text](discord-bot-permissions.png)
+        ![alt text](discord-bot-permissions-2.png)
+    - Select your redirect url
+        - `${frontend_url}/OAuth`
+    - Pick appropriate bot permissions
+    - Pick Guild Install as Integration Type
+    - Copy the generated url as the Discord integration button url 
 
 
 ## Envs
