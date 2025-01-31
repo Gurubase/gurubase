@@ -30,7 +30,7 @@ export const PageTransition = () => {
       // Start the completion animation
       element.style.animation = "progress-to-complete 500ms ease-out forwards";
 
-      // Animasyon bitince gizle
+      // Hide when animation ends
       element.addEventListener(
         "animationend",
         () => {
