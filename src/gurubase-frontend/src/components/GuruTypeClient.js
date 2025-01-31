@@ -38,14 +38,18 @@ export default function Home({
 
   return (
     <div className="flex flex-col bg-white h-screen">
-      <Header allGuruTypes={allGuruTypes} guruType={guruType} />
+      <Header
+        allGuruTypes={allGuruTypes}
+        guruType={guruType}
+        sidebarExists={true}
+      />
       <Content
         allGuruTypes={allGuruTypes}
         defaultQuestions={defaultQuestions}
         guruType={guruType}
         resources={resources}
       />
-      <Footer guruType={guruType} />
+      <Footer guruType={guruType} sidebarExists={true} />
     </div>
   );
 }

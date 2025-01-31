@@ -447,7 +447,11 @@ export const ResultClient = ({
 
   return (
     <main className="flex flex-col bg-white h-screen">
-      <Header allGuruTypes={allGuruTypes} guruType={guruType} />
+      <Header
+        allGuruTypes={allGuruTypes}
+        guruType={guruType}
+        sidebarExists={true}
+      />
       <Content
         allGuruTypes={allGuruTypes}
         content={data}
@@ -468,7 +472,7 @@ export const ResultClient = ({
         triggerStreamUpdate={triggerStreamUpdate}
         trustScore={trustScore}
       />
-      <Footer guruType={guruType} slug={finalSlug} />
+      <Footer guruType={guruType} sidebarExists={true} slug={finalSlug} />
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}

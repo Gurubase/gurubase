@@ -70,7 +70,7 @@ const SelfHostedAvatar = memo(() => (
 
 SelfHostedAvatar.displayName = "SelfHostedAvatar";
 
-const Header = memo(({ guruType, allGuruTypes }) => {
+const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useAppDispatch();
@@ -250,8 +250,11 @@ const Header = memo(({ guruType, allGuruTypes }) => {
         <div
           className={clsx(
             "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
-            "guru-sm:justify-between guru-sm:items-center max-w-[1440px]",
-            "py-3"
+            "guru-sm:justify-between guru-sm:items-center",
+            "py-3",
+            sidebarExists
+              ? "max-w-[1440px]"
+              : "guru-md:max-w-[870px] guru-lg:max-w-[1180px]"
           )}>
           {/* Mobile Header Row */}
           <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
