@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import { CustomToast } from "@/components/CustomToast";
 import { Button } from "@/components/ui/button";
 import {
   DiscordIcon,
@@ -18,7 +18,6 @@ import {
   sendIntegrationTestMessage,
   deleteIntegration
 } from "@/app/actions";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -26,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -247,7 +245,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                             }
                             size="lgRounded"
                             className={cn(
-                              "flex gap-2 border border-[#E2E2E2] bg-white hover:bg-white text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap",
+                              "flex gap-2 border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap transition-all",
                               !originalChannels.find(
                                 (c) => c.id === channel.id && c.allowed
                               ) && "opacity-50 cursor-not-allowed"
@@ -259,17 +257,29 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                                     integrationData.id,
                                     channel.id
                                   );
+                                CustomToast({
+                                  message: "Test message sent successfully!",
+                                  variant: "success"
+                                });
                                 if (response?.error) {
                                   console.error(
                                     "Failed to send test message:",
                                     response.message
                                   );
+                                  CustomToast({
+                                    message: "Failed to send test message.",
+                                    variant: "error"
+                                  });
                                 }
                               } catch (error) {
                                 console.error(
                                   "Error sending test message:",
                                   error
                                 );
+                                CustomToast({
+                                  message: "Failed to send test message.",
+                                  variant: "error"
+                                });
                               }
                             }}>
                             <SendTestMessageIcon />
