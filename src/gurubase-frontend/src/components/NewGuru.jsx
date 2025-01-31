@@ -1838,11 +1838,12 @@ export default function NewGuru({
   // Modify the form component
   return (
     <>
-      <div className="p-6">
-        <h5 className="text-h5 font-semibold mb-2 text-black-600">
+      <section className="flex flex-col flex-grow w-full p-6 border-b border-[#E5E7EB]">
+        <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
-        </h5>
-
+        </h1>
+      </section>
+      <div className="p-6 pt-0">
         <Form {...form}>
           <form
             className="space-y-8"

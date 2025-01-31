@@ -2,9 +2,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export const IntegrationHeader = ({ text }) => (
-  <h2 className="text-[#191919] font-inter text-[20px] font-medium p-6">
-    {text}
-  </h2>
+  <h2 className="p-6 text-h5 font-semibold text-black-600">{text}</h2>
 );
 
 export const IntegrationDivider = () => (
