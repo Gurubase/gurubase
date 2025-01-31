@@ -1274,12 +1274,14 @@ def get_binges(request):
         return Response({'msg': 'Page number must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
     
     page_size = settings.BINGE_HISTORY_PAGE_SIZE
+
+    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK])
     
     # Base queryset
     if settings.ENV == 'selfhosted' or user.is_admin:
-        binges = Binge.objects.all().order_by('-last_used')
+        binges = binges.order_by('-last_used')
     else:
-        binges = Binge.objects.filter(owner=user).order_by('-last_used')
+        binges = binges.filter(owner=user).order_by('-last_used')
     
     # Apply search filter if search query exists
     if search_query:
