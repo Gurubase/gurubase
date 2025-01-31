@@ -41,6 +41,18 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/modal-dialog.jsx";
+import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -53,6 +65,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const integrationConfig = {
     slack: {
@@ -309,57 +322,71 @@ const IntegrationContent = ({ type, customGuru, error }) => {
                   <div className="guru-xs:mt-5 mt-4">
                     <div className="flex items-center gap-3">
                       <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                        <Select
-                          key={channels.filter((c) => !c.allowed).length}
-                          value=""
-                          onValueChange={(value) => {
-                            const selectedChannel = channels.find(
-                              (c) => c.id === value
-                            );
-                            const updatedChannels = [
-                              ...channels.filter((c) => c.id !== value),
-                              { ...selectedChannel, allowed: true }
-                            ];
-                            setChannels(updatedChannels);
-                            setHasChanges(true);
-                          }}>
-                          <SelectTrigger
-                            className="bg-white border border-[#E2E2E2] text-[14px] rounded-lg h-[48px] px-3 flex items-center gap-2 self-stretch"
-                            arrow={false}>
-                            <div className="flex flex-col items-start">
-                              <span className="text-[12px] text-gray-500">
-                                Channel
-                              </span>
-                              <SelectValue placeholder="Select a channel..." />
-                            </div>
-                            <svg
-                              width="20"
-                              height="20"
-                              viewBox="0 0 20 20"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg">
-                              <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
-                                fill="#6D6D6D"
+                        <Popover open={open} onOpenChange={setOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="lgRounded"
+                              className="bg-white border border-[#E2E2E2] text-[14px] rounded-lg h-[48px] px-3 flex items-center gap-2 self-stretch w-full justify-between font-inter font-medium text-[#191919]">
+                              <div className="flex flex-col items-start">
+                                <span className="text-[12px] text-gray-500">
+                                  Channel
+                                </span>
+                                <span className="text-[14px] text-[#6D6D6D]">
+                                  Select a channel...
+                                </span>
+                              </div>
+                              <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
+                                  fill="#6D6D6D"
+                                />
+                              </svg>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[450px] p-0 border border-[#E2E2E2] rounded-lg shadow-lg">
+                            <Command className="rounded-lg">
+                              <CommandInput
+                                placeholder="Search channels..."
+                                className="h-[48px] border-0 border-b border-[#E2E2E2] focus:ring-0 px-3 text-[14px] font-normal"
                               />
-                            </svg>
-                          </SelectTrigger>
-                          <SelectContent className="bg-white border border-[#E5E7EB] text-[14px] rounded-lg shadow-lg">
-                            {channels
-                              .filter((c) => !c.allowed)
-                              .sort((a, b) => a.name.localeCompare(b.name))
-                              .map((channel) => (
-                                <SelectItem
-                                  key={channel.id}
-                                  value={channel.id}
-                                  className="px-4 py-2 hover:bg-[#F3F4F6] cursor-pointer">
-                                  {channel.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                              <CommandEmpty className="px-4 py-3 text-[14px] text-[#6D6D6D]">
+                                No channels found.
+                              </CommandEmpty>
+                              <CommandGroup className="max-h-[200px] overflow-auto p-1">
+                                {channels
+                                  .filter((c) => !c.allowed)
+                                  .sort((a, b) => a.name.localeCompare(b.name))
+                                  .map((channel) => (
+                                    <CommandItem
+                                      key={channel.id}
+                                      value={channel.name}
+                                      onSelect={() => {
+                                        const updatedChannels = [
+                                          ...channels.filter(
+                                            (c) => c.id !== channel.id
+                                          ),
+                                          { ...channel, allowed: true }
+                                        ];
+                                        setChannels(updatedChannels);
+                                        setHasChanges(true);
+                                        setOpen(false);
+                                      }}
+                                      className="px-3 py-2 text-[14px] hover:bg-[#F3F4F6] cursor-pointer rounded-md">
+                                      {channel.name}
+                                    </CommandItem>
+                                  ))}
+                              </CommandGroup>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                   </div>
