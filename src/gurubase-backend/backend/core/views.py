@@ -2011,6 +2011,7 @@ async def stream_and_update_message(
                     cleaned_content = strip_first_header(current_content)
                     if cleaned_content.strip():
                         formatted_content = convert_markdown_to_slack(cleaned_content)
+                        formatted_content += '\n\n:clock1: _streaming..._'
                         current_time = time.time()
                         if current_time - last_update >= update_interval:
                             try:

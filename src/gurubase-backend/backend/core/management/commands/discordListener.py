@@ -276,6 +276,7 @@ class Command(BaseCommand):
                             # Strip header from streamed content
                             cleaned_content = self.strip_first_header(streamed_content)
                             if cleaned_content:
+                                cleaned_content += '\n:clock1: _streaming..._'
                                 await thinking_msg.edit(content=cleaned_content)
                                 last_update = current_time
                     
