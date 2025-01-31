@@ -70,7 +70,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
-      url: `https://discord.com/oauth2/authorize?client_id=1334126938221973514&permissions=2048&response_type=code&redirect_uri=https%3A%2F%2Fdevelop.preview.gurubase.ai%2FOAuth&integration_type=0&scope=identify+bot`,
+      url: `https://discord.com/oauth2/authorize?client_id=1334819798256975954&permissions=2048&response_type=code&redirect_uri=https%3A%2F%2Fdevelop.preview.gurubase.ai%2FOAuth&integration_type=0&scope=identify+bot`,
       icon: DiscordIcon,
       extraText:
         "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels."
