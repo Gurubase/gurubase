@@ -1,3 +1,4 @@
+import re
 import os
 import discord
 import logging
@@ -46,47 +47,33 @@ class Command(BaseCommand):
 
     def format_response(self, response):
         formatted_msg = []
+        content = self.strip_first_header(response['content'])
+        metadata_length = 0
         
         # Calculate space needed for metadata (trust score and references)
-        metadata_length = 0
         trust_score = response.get('trust_score', 0)
         trust_emoji = self.get_trust_score_emoji(trust_score)
-        metadata_length += len(f"\n\n**Trust Score**: {trust_emoji} {trust_score}%\n")
+        formatted_msg.append(f"---------\n_**Trust Score**: {trust_emoji} {trust_score}%_")
         
         if response.get('references'):
-            metadata_length += len("\n**References**:")
+            formatted_msg.append("_**Sources:**_")
             for ref in response['references']:
-                metadata_length += len(f"\n• [{ref['title']}](<{ref['link']}>)")
+                clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+                formatted_msg.append(f"• [_{clean_title}_](<{ref['link']}>)")
 
         # Add space for frontend link
-        metadata_length += len("\n\nView on <span class=\"guru-text\">Guru</span>base for a better UX: ")
-        metadata_length += 100  # Approximate length for the URL
+        formatted_msg.append(f":eyes: [_View on Gurubase for a better UX_]({response['question_url']})")
+
+        metadata_length = sum(len(msg) for msg in formatted_msg)
         
         # Calculate max length for content to stay within Discord's 2000 char limit
         max_content_length = 1900 - metadata_length  # Leave some buffer
         
-        # Get content and strip first header
-        content = self.strip_first_header(response['content'])
-        
         # Truncate content if necessary
         if len(content) > max_content_length:
             content = content[:max_content_length-3] + "..."
-        
-        # Build the message
-        formatted_msg.append(content)
-        
-        # Add trust score
-        formatted_msg.append(f"\n**Trust Score**: {trust_emoji} {trust_score}%")
-        
-        # Add references if they exist
-        if response.get('references'):
-            formatted_msg.append("\n**References**:")
-            for ref in response['references']:
-                formatted_msg.append(f"\n• [{ref['title']}](<{ref['link']}>)")
 
-        # Add frontend link if question_url is present
-        if response.get('question_url'):
-            formatted_msg.append(f"\n[View on Gurubase for a better UX]({response['question_url']})")
+        formatted_msg.insert(0, content)
         
         return "\n".join(formatted_msg)
 
