@@ -188,7 +188,8 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                   <div className="w-full">
                     <Link
                       className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                      href="/api/auth/logout">
+                      href="/api/auth/logout"
+                      prefetch={false}>
                       <Icon
                         className="w-4 h-4 shrink-0 text-[#DC2626]"
                         icon="solar:logout-outline"
