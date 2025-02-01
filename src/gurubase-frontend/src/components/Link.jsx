@@ -6,12 +6,21 @@ export const Link = ({ children, ...props }) => {
   const navigation = useAppNavigation();
 
   const handleClick = (e) => {
-    // If it's an external link or has a target, don't handle it
-    if (props.target || props.href.startsWith("http")) {
+    // Don't handle auth-related links, external links, or links with targets
+    if (
+      props.target ||
+      props.href.startsWith("http") ||
+      props.href.startsWith("/api/auth/")
+    ) {
+      if (props.onClick) {
+        props.onClick(e);
+      }
       return;
     }
 
-    // If there's an onClick handler already, call it
+    e.preventDefault(); // Prevent default navigation
+
+    // Handle internal navigation
     navigation.push(props.href);
     if (props.onClick) {
       props.onClick(e);
