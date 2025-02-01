@@ -92,18 +92,6 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
                       Binge History
                     </span>
                   </Link>
-                  {!isSelfHosted && (
-                    <a
-                      className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-                        hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
-                      href="/api/auth/logout">
-                      <Icon
-                        className="w-5 h-5 text-[#DC2626]"
-                        icon="solar:logout-outline"
-                      />
-                      <span className="text-sm text-[#DC2626]">Log out</span>
-                    </a>
-                  )}
                 </div>
               </>
             ) : (

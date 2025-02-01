@@ -185,23 +185,6 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                   </Link>
                 </div>
               </DropdownMenuItem>
-              {!isSelfHosted && (
-                <DropdownMenuItem className="p-0.5 mb-0.5">
-                  <div className="w-full">
-                    <Link
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                      href="/api/auth/logout">
-                      <Icon
-                        className="w-4 h-4 shrink-0 text-[#DC2626]"
-                        icon="solar:logout-outline"
-                      />
-                      <span className="flex-1 text-sm font-medium text-[#DC2626] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                        Log out
-                      </span>
-                    </Link>
-                  </div>
-                </DropdownMenuItem>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
