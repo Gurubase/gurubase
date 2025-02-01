@@ -12,10 +12,9 @@ export const Link = ({ children, ...props }) => {
     }
 
     // If there's an onClick handler already, call it
+    navigation.push(props.href);
     if (props.onClick) {
       props.onClick(e);
-    } else {
-      navigation.push(props.href);
     }
   };
 

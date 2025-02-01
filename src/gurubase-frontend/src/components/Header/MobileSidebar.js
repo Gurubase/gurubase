@@ -92,6 +92,18 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
                       Binge History
                     </span>
                   </Link>
+                  <Link
+                    className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
+                      hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
+                    href="/api-keys"
+                    prefetch={false}
+                    onClick={onClose}>
+                    <Icon
+                      className="w-5 h-5 text-[#6D6D6D]"
+                      icon="solar:key-linear"
+                    />
+                    <span className="text-sm text-[#6D6D6D]"> API Keys</span>
+                  </Link>
                   {!isSelfHosted && (
                     <Link
                       className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
