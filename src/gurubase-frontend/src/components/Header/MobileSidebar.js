@@ -1,9 +1,9 @@
 import { Icon } from "@iconify/react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import GuruBaseLogo from "@/components/GuruBaseLogo";
-import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAppNavigation } from "@/lib/navigation";
 
