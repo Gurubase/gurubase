@@ -2500,54 +2500,6 @@ def analytics_stats(request, guru_type):
     
     return Response(response_data, status=status.HTTP_200_OK)
 
-def format_datetime_readable(dt, include_time=False, include_range_end=None):
-    """
-    Format datetime in a human readable format with smart date range grouping.
-    
-    Args:
-        dt: datetime object to format
-        include_time: bool, whether to include time in format
-        include_range_end: datetime object, if provided will format as a range
-        
-    Returns:
-        str: Formatted date(time) string like:
-            "27 January 2024" or
-            "27 January 2024 14:00" or
-            "1-3 January 2024" or
-            "27 January - 3 February 2024" or
-            "27 December 2023 - 3 January 2024"
-    """
-    if include_range_end:
-        # Handle date range formatting
-        start_day = dt.day
-        start_month = dt.strftime('%B')
-        start_year = dt.year
-        
-        end_day = include_range_end.day
-        end_month = include_range_end.strftime('%B')
-        end_year = include_range_end.year
-        
-        # Same year cases
-        if start_year == end_year:
-            # Same month
-            if dt.month == include_range_end.month:
-                formatted = f"{start_day}-{end_day} {start_month} {start_year}"
-            # Different months
-            else:
-                formatted = f"{start_day} {start_month} - {end_day} {end_month} {start_year}"
-        # Different years
-        else:
-            formatted = f"{start_day} {start_month} {start_year} - {end_day} {end_month} {end_year}"
-    else:
-        # Single date formatting
-        formatted = dt.strftime('%-d %B %Y')  # %-d removes leading zeros from day
-        
-        # Add time if requested
-        if include_time:
-            formatted += dt.strftime(' %H:%M')
-            
-    return formatted
-
 def get_histogram_data(guru_type, metric_type, start_date, end_date, interval):
     """
     Get histogram data for a specific metric type and time period, grouped into at most 30 points.
