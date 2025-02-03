@@ -52,7 +52,7 @@ export default function BarChartComponent({ data = [], interval }) {
 
   return (
     <div className="rounded-xl border border-[#E2E2E2]">
-      <div className="w-full p-6 relative">
+      <div className="w-full relative">
         <style jsx global>{`
           .recharts-bar-rectangle {
             cursor: pointer;
@@ -81,10 +81,9 @@ export default function BarChartComponent({ data = [], interval }) {
           <BarChart
             data={data}
             margin={{
-              top: 40,
-              right: 20,
-              bottom: 20,
-              left: 20
+              top: 30,
+              right: 10,
+              left: -10
             }}>
             <CartesianGrid
               horizontal={true}
