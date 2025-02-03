@@ -804,6 +804,11 @@ const Content = (props) => {
             )}
 
           {/* Mobile Binge Map Sliding Panel */}
+          {finalBingeId &&
+            !isLoading &&
+            !streamingStatus &&
+            content &&
+            slug && (
           <div
             ref={slidePanel}
             className={`guru-lg:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 transition-transform duration-300 ease-in-out z-40 overflow-hidden bg-white ${
@@ -847,6 +852,7 @@ const Content = (props) => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Overlay */}
           {isBingeMapOpen && (
