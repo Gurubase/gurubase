@@ -12,6 +12,8 @@ RUN apt update -y && \
 
 COPY ./requirements.txt .
 RUN pip --no-cache-dir install -r requirements.txt
+RUN playwright install
+RUN playwright install-deps
 
 WORKDIR /workspace
 

@@ -3,13 +3,20 @@ import time
 import logging
 from urllib.parse import urlparse
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Tuple
 from django.conf import settings
 from openai import OpenAI
 import requests
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
+from abc import ABC, abstractmethod
+from firecrawl import FirecrawlApp
+from core.exceptions import WebsiteContentExtractionError, WebsiteContentExtractionThrottleError
+import asyncio
+from crawl4ai import AsyncWebCrawler
+from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
+from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.ERROR)
 
@@ -65,6 +72,140 @@ class QuestionGenerationResponse(BaseModel):
 
 class OrderGitHubFilesByImportance(BaseModel):
     files: List[str] = Field(..., description="List of files ordered by their importance")
+
+class WebScraper(ABC):
+    """Abstract base class for web scrapers"""
+    @abstractmethod
+    def scrape_url(self, url: str) -> Tuple[str, str]:
+        """
+        Scrape content from a URL
+        Returns: Tuple[title: str, content: str]
+        """
+        pass
+
+class FirecrawlScraper(WebScraper):
+    """Firecrawl implementation of WebScraper"""
+    def __init__(self):
+        self.app = FirecrawlApp(api_key=settings.FIRECRAWL_API_KEY)
+
+    def scrape_url(self, url: str) -> Tuple[str, str]:
+        scrape_status = self.app.scrape_url(
+            url, 
+            params={'formats': ['markdown'], "onlyMainContent": True}
+        )
+
+        if 'statusCode' in scrape_status['metadata']:
+            if scrape_status['metadata']['statusCode'] != 200:
+                if scrape_status['metadata']['statusCode'] == 429:
+                    raise WebsiteContentExtractionThrottleError(
+                        f"Status code: {scrape_status['metadata']['statusCode']}. "
+                        f"Description: {scrape_status['metadata'].get('description', '')}"
+                    )
+                else:
+                    raise WebsiteContentExtractionError(
+                        f"Status code: {scrape_status['metadata']['statusCode']}"
+                    )
+
+        title = scrape_status['metadata'].get('title', url)
+        if not title:
+            title = url
+
+        if 'markdown' not in scrape_status:
+            raise WebsiteContentExtractionError("No content found")
+
+        return title, scrape_status['markdown']
+
+class Crawl4AIScraper(WebScraper):
+    """Crawl4AI implementation of WebScraper using AsyncWebCrawler"""
+    def __init__(self):
+        self.browser_config = BrowserConfig(
+            headless=True
+        )
+        
+        # Configure markdown generator with content filter
+        md_generator = DefaultMarkdownGenerator(
+            # content_filter=PruningContentFilter()
+        )
+        
+        self.run_config = CrawlerRunConfig(
+            word_count_threshold=10,
+            exclude_external_links=True,
+            remove_overlay_elements=True,
+            process_iframes=True,
+            markdown_generator=md_generator,
+            wait_until='domcontentloaded',  # Wait for all these events
+            page_timeout=60000,  # 60 seconds timeout for page operations
+            wait_for='body',  # Wait for body to be present
+        )
+
+    def scrape_url(self, url: str) -> Tuple[str, str]:
+        async def _scrape():
+            try:
+                async with AsyncWebCrawler(config=self.browser_config) as crawler:
+                    result = await crawler.arun(url=url, config=self.run_config)
+                    
+                    if not result.success:
+                        status_code = result.status_code or 500
+                        if status_code == 429:
+                            raise WebsiteContentExtractionThrottleError(
+                                f"Status code: {status_code}. Rate limit exceeded."
+                            )
+                        else:
+                            raise WebsiteContentExtractionError(
+                                f"Status code: {status_code}. Error: {result.error_message}"
+                            )
+
+                    # Get the title from metadata or use URL as fallback
+                    title = result.metadata.get('title', url) if result.metadata else url
+                    
+                    # Try different markdown properties in order of preference
+                    content = None
+                    if hasattr(result, 'markdown'):
+                        if hasattr(result.markdown, 'fit_markdown') and result.markdown.fit_markdown:
+                            content = result.markdown.fit_markdown
+                        elif hasattr(result.markdown, 'raw_markdown') and result.markdown.raw_markdown:
+                            content = result.markdown.raw_markdown
+                        else:
+                            content = result.markdown
+                    
+                    if not content:
+                        raise WebsiteContentExtractionError("No content found")
+
+                    return title, content
+            except Exception as e:
+                logger.error(f"Error scraping URL {url}: {str(e)}")
+                if "Page.content: Unable to retrieve content because the page is navigating" in str(e):
+                    # If we hit the navigation error, try one more time with increased timeouts
+                    self.run_config.wait_for_timeout = 10000  # Increase to 10 seconds
+                    self.run_config.page_timeout = 90000     # Increase to 90 seconds
+                    async with AsyncWebCrawler(config=self.browser_config) as crawler:
+                        result = await crawler.arun(url=url, config=self.run_config)
+                        title = result.metadata.get('title', url) if result.metadata else url
+                        content = result.markdown
+                        if not content:
+                            raise WebsiteContentExtractionError("No content found after retry")
+                        return title, content
+                else:
+                    raise
+
+        # Run the async function in the event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create a new one
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        return loop.run_until_complete(_scrape())
+
+def get_web_scraper() -> WebScraper:
+    """Factory function to get the appropriate web scraper based on settings"""
+    if settings.WEBSITE_EXTRACTION == 'crawl4ai':
+        return Crawl4AIScraper()
+    elif settings.WEBSITE_EXTRACTION == 'firecrawl':
+        return FirecrawlScraper()
+    else:
+        raise ValueError(f"Invalid website extraction tool: {settings.WEBSITE_EXTRACTION}")
 
 class GuruRequester():
     def __init__(self):

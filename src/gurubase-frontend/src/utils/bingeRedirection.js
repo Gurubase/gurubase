@@ -15,7 +15,8 @@ export const bingeRedirection = async ({
   trustScore,
   dateUpdated,
   references,
-  followUpQuestions = []
+  followUpQuestions = [],
+  source = null
 }) => {
   // console.log("bingeRedirection");
 
@@ -23,6 +24,7 @@ export const bingeRedirection = async ({
   if (bingeId) {
     // Otherwise it is an initial question
     const searchParams = new URLSearchParams();
+
     searchParams.append("question_slug", newSlug);
 
     // Get root slug from URL or fallback to oldSlug
@@ -42,7 +44,15 @@ export const bingeRedirection = async ({
     //console.log("redirected to new slug with params:", newUrl);
   }
 
-  dispatch(setQuestionUpdate({ trustScore, dateUpdated, references, followUpQuestions }));
+  dispatch(
+    setQuestionUpdate({
+      trustScore,
+      dateUpdated,
+      references,
+      followUpQuestions,
+      source
+    })
+  );
 
   // Update slugs in Redux store
   dispatch(setCurrentQuestionSlug(newSlug));

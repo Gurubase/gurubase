@@ -1,8 +1,7 @@
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Icon } from "@iconify/react";
 import clsx from "clsx";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { memo, useState } from "react";
 
 import GuruBaseLogo from "@/components/GuruBaseLogo";
@@ -10,6 +9,7 @@ import {
   getGuruPromptMap,
   getGuruTypeTextColor
 } from "@/components/Header/utils";
+import { Link } from "@/components/Link";
 import MobileOtherGurus from "@/components/OtherGurus/MobileOtherGurus";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useAppNavigation } from "@/lib/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setResetMainForm } from "@/redux/slices/mainFormSlice";
 
@@ -70,19 +71,19 @@ const SelfHostedAvatar = memo(() => (
 
 SelfHostedAvatar.displayName = "SelfHostedAvatar";
 
-const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
-  const router = useRouter();
+const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector((state) => state.mainForm.isLoading);
   const postContentExist = useAppSelector(
     (state) => state.mainForm.postContentExist
   );
+  const navigation = useAppNavigation();
 
   const handleNavigate = (path) => {
     const returnTo = encodeURIComponent(pathname);
 
-    router.push(`${path}?returnTo=${returnTo}`);
+    navigation.push(`${path}?returnTo=${returnTo}`);
   };
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -136,7 +137,7 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                   <DropdownMenuSeparator className="bg-[#E2E2E2]" />
                 </>
               )}
-              <DropdownMenuItem asChild className="p-0.5">
+              <DropdownMenuItem className="p-0.5">
                 <Link
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
                   href="/my-gurus"
@@ -150,47 +151,54 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                   </span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="p-0.5">
-                <Link
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                  href="/binge-history"
-                  prefetch={false}>
-                  <Icon
-                    className="w-4 h-4 text-[#6D6D6D]"
-                    icon="solar:history-linear"
-                  />
-                  <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                    Binge History
-                  </span>
-                </Link>
+              <DropdownMenuItem className="p-0.5">
+                <div className="w-full">
+                  <Link
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                    href="/binge-history"
+                    prefetch={false}>
+                    <Icon
+                      className="w-4 h-4 text-[#6D6D6D]"
+                      icon="solar:history-linear"
+                    />
+                    <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                      Binge History
+                    </span>
+                  </Link>
+                </div>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="p-0.5">
-                <Link
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                  href="/api-keys"
-                  prefetch={false}>
-                  <Icon
-                    className="w-4 h-4 text-[#6D6D6D]"
-                    icon="solar:key-linear"
-                  />
-                  <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                    API Keys
-                  </span>
-                </Link>
+              <DropdownMenuItem className="p-0.5">
+                <div className="w-full">
+                  <Link
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                    href="/api-keys"
+                    prefetch={false}>
+                    <Icon
+                      className="w-4 h-4 text-[#6D6D6D]"
+                      icon="solar:key-linear"
+                    />
+                    <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                      API Keys
+                    </span>
+                  </Link>
+                </div>
               </DropdownMenuItem>
               {!isSelfHosted && (
-                <DropdownMenuItem asChild className="p-0.5 mb-0.5">
-                  <a
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                    href="/api/auth/logout">
-                    <Icon
-                      className="w-4 h-4 shrink-0 text-[#DC2626]"
-                      icon="solar:logout-outline"
-                    />
-                    <span className="flex-1 text-sm font-medium text-[#DC2626] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                      Log out
-                    </span>
-                  </a>
+                <DropdownMenuItem className="p-0.5 mb-0.5">
+                  <div className="w-full">
+                    <Link
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                      href="/api/auth/logout"
+                      prefetch={false}>
+                      <Icon
+                        className="w-4 h-4 shrink-0 text-[#DC2626]"
+                        icon="solar:logout-outline"
+                      />
+                      <span className="flex-1 text-sm font-medium text-[#DC2626] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                        Log out
+                      </span>
+                    </Link>
+                  </div>
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -227,35 +235,37 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
 
   const handleRedirectToHome = () => {
     dispatch(setResetMainForm());
-    window.location.href = "/";
+    navigation.setHref("/");
   };
 
   return (
     <div className="relative">
-      <div className={clsx("h-[72px]", isMobileSidebarOpen && "guru-sm:hidden")} />
+      <div
+        className={clsx(
+          isMobileSidebarOpen && "guru-sm:hidden",
+          guruType ? "h-[81px] guru-sm:h-[64px] guru-md:h-[81px]" : "h-[64px]"
+        )}
+      />
       <header
         className={clsx(
           "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 z-50 bg-white",
           isMobileSidebarOpen && "guru-sm:hidden",
           guruType || !guruType || postContentExist || isLoading
-            ? !textPageHeader && "guru-sm:mt-0"
-            : !textPageHeader && "guru-sm:mt-[10rem] ",
+            ? "guru-sm:mt-0"
+            : "guru-sm:mt-[10rem] ",
           guruType || !guruType || postContentExist || isLoading
-            ? !textPageHeader && "guru-sm:mb-0"
-            : !textPageHeader && "guru-sm:mb-8"
+            ? "guru-sm:mb-0"
+            : "guru-sm:mb-8"
         )}
         style={{ backgroundColor: getBackgroundColor() }}>
         <div
           className={clsx(
             "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
-            guruType && !textPageHeader
-              ? "guru-sm:justify-between guru-sm:items-center max-w-[1440px]"
-              : "guru-sm:justify-start guru-md:max-w-[870px] guru-lg:max-w-[1180px]",
-            guruType
-              ? "py-3"
-              : textPageHeader
-                ? "py-5"
-                : "guru-sm:pt-5 guru-sm:pb-0 py-5"
+            "guru-sm:justify-between guru-sm:items-center",
+            "py-3",
+            sidebarExists
+              ? "max-w-[1440px]"
+              : "guru-md:max-w-[870px] guru-lg:max-w-[1180px]"
           )}>
           {/* Mobile Header Row */}
           <div className="hidden guru-sm:flex items-center justify-between w-full gap-6">
@@ -272,7 +282,10 @@ const Header = memo(({ guruType, allGuruTypes, textPageHeader = false }) => {
                 prefetch={false}
                 onClick={handleRedirectToHome}>
                 <div className={clsx(isLongGuruName && "scale-75 -ml-4")}>
-                  <GuruBaseLogo allGuruTypes={allGuruTypes} guruType={guruType} />
+                  <GuruBaseLogo
+                    allGuruTypes={allGuruTypes}
+                    guruType={guruType}
+                  />
                 </div>
               </Link>
             </div>

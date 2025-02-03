@@ -1,7 +1,8 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import mixpanel from "mixpanel-browser";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, redirect, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { getDataForSlugDetails, getExampleQuestions } from "@/app/actions";
@@ -45,7 +46,8 @@ export const ResultClient = ({
   allGuruTypes,
   dirty,
   dateUpdated,
-  trustScore
+  trustScore,
+  source
 }) => {
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -61,7 +63,7 @@ export const ResultClient = ({
   const [currentSlug, setCurrentSlug] = useState(slug);
   const [isInitializing, setIsInitializing] = useState(dirty);
 
-  const [fingerprint, setFingerprint] = useState(null);
+  const [fingerprint] = useState(null);
   const isLoading = useAppSelector((state) => state.mainForm.isLoading);
   const hasFetched = useAppSelector((state) => state.mainForm.hasFetched);
 
@@ -290,6 +292,7 @@ export const ResultClient = ({
             const dateUpdated = data.date_updated;
             const references = data.references;
             const followUpQuestions = data.follow_up_questions;
+            const source = data.source;
 
             bingeRedirection({
               dispatch,
@@ -301,7 +304,8 @@ export const ResultClient = ({
               trustScore,
               dateUpdated,
               references,
-              followUpQuestions
+              followUpQuestions,
+              source
             });
 
             const generatedFollowUpQuestions = await getExampleQuestions(
@@ -443,7 +447,11 @@ export const ResultClient = ({
 
   return (
     <main className="flex flex-col bg-white h-screen">
-      <Header allGuruTypes={allGuruTypes} guruType={guruType} />
+      <Header
+        allGuruTypes={allGuruTypes}
+        guruType={guruType}
+        sidebarExists={true}
+      />
       <Content
         allGuruTypes={allGuruTypes}
         content={data}
@@ -460,10 +468,11 @@ export const ResultClient = ({
         setShowLoginModal={setIsLoginModalOpen}
         similarQuestions={similarQuestions}
         slug={finalSlug}
+        source={source}
         triggerStreamUpdate={triggerStreamUpdate}
         trustScore={trustScore}
       />
-      <Footer guruType={guruType} slug={finalSlug} />
+      <Footer guruType={guruType} sidebarExists={true} slug={finalSlug} />
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}

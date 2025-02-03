@@ -1,5 +1,4 @@
 import { setCookie } from "cookies-next";
-import { useRouter } from "next/navigation";
 
 import { getAnswerFromMyBackend, getDataForSlugDetails } from "@/app/actions";
 import { setAnswerErrorWithTimeout } from "@/lib/utils";
@@ -22,7 +21,7 @@ import {
   setStreamError,
   setValidAnswer
 } from "@/redux/slices/mainFormSlice";
-import { handleQuestionUpdate } from "@/utils/handleQuestionUpdate";
+import { useAppNavigation } from "@/lib/navigation";
 
 export const useHandleSubmit = (
   guruType,
@@ -34,7 +33,7 @@ export const useHandleSubmit = (
   setDescription = null
 ) => {
   const dispatch = useAppDispatch();
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const inputValue = useAppSelector((state) => state.mainForm.inputValue);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const currentQuestionSlug = useAppSelector(
@@ -247,7 +246,7 @@ export const useHandleSubmit = (
 
       dispatch(setHasFetched(false));
       if (!isFollowUp) {
-        router.push(`/g/${guruType}/${slug}?question=${question}`);
+        navigation.push(`/g/${guruType}/${slug}?question=${question}`);
         //console.log("redirect to slug page");
       } else {
         //console.log("need to trigger stream update");

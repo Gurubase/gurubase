@@ -13,6 +13,7 @@ import json
 from core.github_handler import process_github_repository, extract_repo_name
 import os
 import random
+from core.requester import get_web_scraper
 
 
 logger = logging.getLogger(__name__)
@@ -75,29 +76,22 @@ def pdf_content_extraction(pdf_path):
 
 def website_content_extraction(url):
     """
-    Example firecrawl response:
-    {
-        "markdown": "# 404\n\n## This page could not be found.",
-        "metadata": {
-            "title": "404: This page could not be found.Next.js by Vercel - The React Framework | Next.js by Vercel - The React Framework",
-            "description": "Next.js by Vercel is the full-stack React framework for the web.",
-            "language": "en",
-            "robots": "noindex",
-            "ogTitle": "Next.js by Vercel - The React Framework | Next.js by Vercel - The React Framework",
-            "ogDescription": "Next.js by Vercel is the full-stack React framework for the web.",
-            "ogImage": "https://assets.vercel.com/image/upload/front/nextjs/twitter-card.png",
-            "ogLocaleAlternate": [],
-            "sourceURL": "https://nextjs.org/docs/app/building-your-application/routing/error-handling3",
-            "error": "Not Found",
-            "statusCode": 404
-        }
-    }
+    Extract content from a website URL using either Firecrawl or Crawl4AI based on settings.
+    Returns: Tuple[title: str, content: str, scrape_tool: str]
     """
     try:
-        scrape_status = app.scrape_url(
-            url, 
-            params={'formats': ['markdown'], "onlyMainContent": True}
-        )
+        scraper = get_web_scraper()
+        title, content = scraper.scrape_url(url)
+        
+        # Clean the extracted content
+        title = clean_title(title)
+        content = clean_content(content)
+        
+        # Return the scraping tool used based on the scraper class
+        scrape_tool = settings.WEBSITE_EXTRACTION
+        
+        return title, content, scrape_tool
+        
     except Exception as e:
         try:
             status_code = e.response.status_code
@@ -105,7 +99,7 @@ def website_content_extraction(url):
             response = e.response.content
         except Exception as e:
             status_code = 'Unknown'
-            reason = 'Unknown error'
+            reason = str(e)
             response = 'Unknown'
 
         if status_code == 429:
@@ -114,34 +108,6 @@ def website_content_extraction(url):
         else:
             logger.error(f"Error extracting content from Website URL {url}. status: {status_code}, reason: {reason}, response: {response}")
             raise WebsiteContentExtractionError(f"Status code: {status_code}\nReason: {reason}")
-
-    # check if the statusCode key exists in the metadata
-    if 'statusCode' in scrape_status['metadata']:
-        if scrape_status['metadata']['statusCode'] != 200:
-            if scrape_status['metadata']['statusCode'] == 429:
-                logger.warning(f"Throttled for Website URL {url}. Scrape status: {scrape_status}.")
-                raise WebsiteContentExtractionThrottleError(f"Status code: {scrape_status['metadata']['statusCode']}. Description: {scrape_status['metadata']['description']}")
-            else:
-                logger.warning(f"No content found for Website URL {url}. Scrape status: {scrape_status}.")
-                raise WebsiteContentExtractionError(f"Status code: {scrape_status['metadata']['statusCode']}")
-
-    # check if the title key exists in the metadata
-    if 'title' not in scrape_status['metadata']:
-        logger.warning(f"No title found for Website URL {url}. Scrape status: {scrape_status}")
-        title = url
-    else:
-        title = scrape_status['metadata']['title']
-        title = clean_title(title)
-
-    # check if the markdown key exists in the scrape_status
-    if 'markdown' not in scrape_status:
-        logger.error(f"No markdown found for Website URL {url}. Scrape status: {scrape_status}")
-        raise WebsiteContentExtractionError(f"No content found")
-    else:
-        content = scrape_status['markdown']
-        content = clean_content(content)
-
-    return title, content
 
 
 def clean_title(title):
@@ -155,10 +121,9 @@ def clean_title(title):
 
 
 def clean_content(content):
-    # Content may contain base64 encoded images like this: ![Card image](data:image/png;base64,iVBORw0...
-    # Remove them
-    content = re.sub(r'!\[[^\]]*\]\((data:[^)]+)\)', '', content)
-
+    # Remove image references with any URL (data:, http:, https:, etc)
+    content = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
+    
     # Remove non-ascii characters
     # content = re.sub(r'[^\x00-\x7F]+', '', content)
 
@@ -191,20 +156,24 @@ def fetch_data_source_content(data_source):
 
     if data_source.type == DataSource.Type.PDF:
         data_source.content = pdf_content_extraction(data_source.url)
+        data_source.scrape_tool = 'pdf'
     elif data_source.type == DataSource.Type.WEBSITE:
-        title, content = website_content_extraction(data_source.url)
+        title, content, scrape_tool = website_content_extraction(data_source.url)
         data_source.title = title
         data_source.content = content
+        data_source.scrape_tool = scrape_tool
     elif data_source.type == DataSource.Type.YOUTUBE:
         content = youtube_content_extraction(data_source.url)
         data_source.title = content['metadata']['title']
         data_source.content = content['content']
+        data_source.scrape_tool = 'youtube'
     elif data_source.type == DataSource.Type.GITHUB_REPO:
         default_branch = process_github_repository(data_source)
         # Use the repository name as the title
         owner, repo = extract_repo_name(data_source.url)
         data_source.default_branch = default_branch
         data_source.title = f"{owner}/{repo}"
+        data_source.scrape_tool = 'github'
 
     data_source.error = ""
     return data_source

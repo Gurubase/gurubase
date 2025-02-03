@@ -112,7 +112,7 @@ const APIKeys = ({ initialApiKeys = [] }) => {
 
   return (
     <main className="flex justify-center items-center px-16 guru-sm:px-0 w-full flex-grow guru-sm:max-w-full polygon-fill">
-      <div className="container mx-auto guru-md:max-w-[870px] guru-lg:max-w-[1180px] h-full">
+      <div className="guru-md:max-w-[870px] guru-lg:max-w-[1180px] w-full gap-4 h-full">
         <div className="grid grid-cols-1 h-full">
           <div className="bg-white shadow-md guru-sm:border-none border-l border-r guru-lg:border-r-0 border-solid border-neutral-200">
             <div className="block guru-sm:hidden border-r border-gray-200">

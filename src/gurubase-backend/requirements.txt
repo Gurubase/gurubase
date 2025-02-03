@@ -36,8 +36,8 @@ anthropic==0.40.0
 google-generativeai==0.8.3
 redis==5.0.4
 flower==2.0.1
-pydantic==2.8.2
-pydantic_core==2.20.1
+pydantic==2.10.6
+pydantic_core==2.27.2
 pillow==10.4.0
 django-storages==1.14.4
 google-cloud-core==2.4.1
@@ -57,3 +57,6 @@ CairoSVG==2.7.1
 matplotlib==3.9.2
 python-jose[cryptography]==3.3.0
 GitPython==3.1.42
+discord.py==2.4.0
+slack-sdk==3.34.0
+crawl4ai==0.4.247

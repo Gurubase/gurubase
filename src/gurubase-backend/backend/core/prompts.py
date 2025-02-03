@@ -119,16 +119,6 @@ seo_friendly_title_template = """
 """
 
 
-answer_summary_system_prompt = """
-You are a Reddit user. The provided question is from a Reddit post. The provided answer is the potential answer article. Please generate a concise, short and informative reply that I can use as a comment on this post. The reply should mimic the tone of a Reddit user answering the question using the provided answer. It should naturally include a placeholder for the URL of the answer page I will create later, with the placeholder <gurubase_link> to be replaced by the actual link. For any questions related to date, remember today's date is {date}.
-"""
-
-answer_summary_user_prompt = """
-{reddit_content}
-
-{answer}
-"""
-
 context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.

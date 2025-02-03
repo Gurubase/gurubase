@@ -1,14 +1,14 @@
 import clsx from "clsx";
 import Image from "next/image";
-import Link from "next/link";
 
 import GurubaseLogo from "@/assets/images/guru-base.svg";
 import SocialMediaHeader from "@/components/Header/SocialMediaHeader";
+import { Link } from "@/components/Link";
 import useIsSmallScreen from "@/utils/hooks/useIsSmallScreen";
 
 import NotificationCard from "./NotificationCard/NotificationCard";
 
-export default function Footer({ guruType, slug }) {
+export default function Footer({ guruType, slug, sidebarExists = false }) {
   const isSmallScreen = useIsSmallScreen();
 
   // Don't render footer on mobile screens
@@ -21,7 +21,7 @@ export default function Footer({ guruType, slug }) {
       <section
         className={clsx(
           "flex flex-col justify-center border-0 border-solid border-neutral-200 flex-grow mx-6 guru-sm:mx-5",
-          guruType || slug
+          sidebarExists
             ? "max-w-[1440px]"
             : "guru-md:max-w-[870px] guru-lg:max-w-[1180px]"
         )}>

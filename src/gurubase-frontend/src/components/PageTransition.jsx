@@ -1,19 +1,22 @@
 "use client";
 import { useAppSelector } from "@/redux/hooks";
 import { useState, useEffect, useRef } from "react";
+import { useNavigation } from "@/hooks/useNavigation";
+import { useAppDispatch } from "@/redux/hooks";
 
 export const PageTransition = () => {
-  const isTransitioning = useAppSelector(
-    (state) => state.mainForm.isPageTransitioning
-  );
+  const isNavigating = useNavigation((state) => state.isNavigating);
   const [isVisible, setIsVisible] = useState(false);
   const progressRef = useRef(null);
+  const isPageTransitioning = useAppSelector(
+    (state) => state.mainForm.isPageTransitioning
+  );
 
   useEffect(() => {
-    if (isTransitioning) {
+    if (isNavigating || isPageTransitioning) {
       setIsVisible(true);
     } else if (isVisible && progressRef.current) {
-      // Mevcut animasyonu durdur ve son frame'de tut
+      // Stop the current animation and keep it on the last frame
       const element = progressRef.current;
       const computedStyle = window.getComputedStyle(element);
       const currentWidth = computedStyle.getPropertyValue("width");
@@ -21,13 +24,13 @@ export const PageTransition = () => {
       element.style.animation = "none";
       element.style.width = currentWidth;
 
-      // Reflow için gerekli
+      // Necessary for reflow
       element.offsetHeight;
 
-      // Tamamlama animasyonunu başlat
+      // Start the completion animation
       element.style.animation = "progress-to-complete 500ms ease-out forwards";
 
-      // Animasyon bitince gizle
+      // Hide when animation ends
       element.addEventListener(
         "animationend",
         () => {
@@ -36,7 +39,7 @@ export const PageTransition = () => {
         { once: true }
       );
     }
-  }, [isTransitioning]);
+  }, [isNavigating, isPageTransitioning]);
 
   if (!isVisible) return null;
 
