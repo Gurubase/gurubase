@@ -15,43 +15,62 @@ export default function BarChartComponent({
 
   const isHourly = interval === "today" || interval === "yesterday";
 
+  const formatXAxisTick = (value) => {
+    if (!value) return "";
+
+    // Check if the data point has date ranges or single point
+    const hasDateRanges = data.some((item) => "date_start" in item);
+
+    // For date ranges, value will be date_start
+    const date = new Date(value);
+
+    if (isHourly) {
+      return date.toLocaleTimeString([], { hour: "2-digit", hour12: true });
+    }
+
+    // Format as "DD MMM"
+    return date.toLocaleString([], {
+      day: "numeric",
+      month: "short"
+    });
+  };
+
+  // Add tooltip date formatting
+  const formatTooltipDate = (dataPoint) => {
+    if ("date_point" in dataPoint) {
+      const date = new Date(dataPoint.date_point);
+      return date.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: isHourly ? "2-digit" : undefined,
+        minute: isHourly ? "2-digit" : undefined,
+        hour12: true
+      });
+    } else {
+      const startDate = new Date(dataPoint.date_start);
+      const endDate = new Date(dataPoint.date_end);
+      return `${startDate.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      })} - ${endDate.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      })}`;
+    }
+  };
+
+  const calculateTickInterval = () => {
+    if (isHourly) return 3;
+    return Math.max(1, Math.floor(data.length / 6));
+  };
+
   const chartConfig = {
     questions: {
       label: "Question",
       color: "#CCE2FF"
-    }
-  };
-
-  // Format date for display
-  const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      if (isHourly) {
-        return date.getHours().toString().padStart(2, "0") + ":00";
-      }
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric"
-      });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return dateString;
-    }
-  };
-
-  // Format tooltip date
-  const formatTooltipDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        ...(isHourly && { hour: "numeric", minute: "numeric" })
-      });
-    } catch (e) {
-      console.error("Error formatting tooltip date:", e);
-      return dateString;
     }
   };
 
@@ -86,22 +105,22 @@ export default function BarChartComponent({
                   marginTop: "-10px"
                 }}>
                 <div className="text-sm font-medium">
-                  {formatTooltipDate(tooltip.date)}
+                  {formatTooltipDate(tooltip.data)}
                 </div>
                 <Separator className="my-2" />
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-muted-foreground">
-                    Question:
-                  </span>
-                  <span className="text-sm font-medium">
-                    {tooltip.questions}
-                  </span>
+                  <span className="text-sm text-muted-foreground">Count:</span>
+                  <span className="text-sm font-medium">{tooltip.value}</span>
                 </div>
               </div>
             )}
             <ChartContainer config={chartConfig} className="aspect-[2/1]">
               <BarChart
-                data={data}
+                data={data.map((item) => ({
+                  ...item,
+                  // Use date_point if available, otherwise date_start for x-axis
+                  date: item.date_point || item.date_start
+                }))}
                 margin={{
                   top: 30,
                   right: 10,
@@ -117,8 +136,8 @@ export default function BarChartComponent({
                   tickLine={false}
                   axisLine={false}
                   tick={{ fill: "#000000" }}
-                  tickFormatter={formatDate}
-                  interval={isHourly ? 3 : interval === "30d" ? 4 : 0}
+                  interval={calculateTickInterval()}
+                  tickFormatter={formatXAxisTick}
                 />
                 <YAxis
                   tickLine={false}
@@ -127,7 +146,7 @@ export default function BarChartComponent({
                   tickCount={6}
                 />
                 <Bar
-                  dataKey="questions"
+                  dataKey="value"
                   fill="#CCE2FF"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
@@ -147,8 +166,8 @@ export default function BarChartComponent({
                     setTooltip({
                       x,
                       y,
-                      date: data.date,
-                      questions: data.questions
+                      data,
+                      value: data.value
                     });
                   }}
                   onMouseLeave={(data, index, event) => {

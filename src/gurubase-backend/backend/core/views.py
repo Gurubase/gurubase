@@ -6,7 +6,7 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Generator
 
 from accounts.models import User
@@ -22,7 +22,7 @@ from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, Git
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, OutOfContextQuestion
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -2394,6 +2394,68 @@ def list_integrations(request, guru_type):
         logger.error(f"Error in list_integrations: {e}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+def get_date_range(interval):
+    """
+    Helper function to get date range based on interval.
+    
+    Args:
+        interval (str): One of 'today', 'yesterday', '7d', '30d', '3m', '6m', '12m'
+        
+    Returns:
+        tuple: (start_date, end_date) both as timezone-aware datetimes
+    """
+    now = datetime.now(UTC)
+    end_date = now
+    
+    if interval == 'today':
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif interval == 'yesterday':
+        end_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = end_date - timedelta(days=1)
+    elif interval == '7d':
+        start_date = now - timedelta(days=7)
+    elif interval == '30d':
+        start_date = now - timedelta(days=30)
+    elif interval == '3m':
+        start_date = now - timedelta(days=90)  # Approximately 3 months
+    elif interval == '6m':
+        start_date = now - timedelta(days=180)  # Approximately 6 months
+    elif interval == '12m':
+        start_date = now - timedelta(days=365)  # Approximately 1 year
+    else:  # Default to today
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    return start_date, end_date
+
+def calculate_percentage_change(current_value, previous_value):
+    """Calculate percentage change between two values."""
+    if previous_value == 0:
+        return 0 if current_value == 0 else 100
+    return round(((current_value - previous_value) / previous_value) * 100, 2)
+
+def get_stats_for_period(guru_type, start_date, end_date):
+    """Get statistics for a specific time period."""
+    total_questions = Question.objects.filter(
+        guru_type=guru_type,
+        date_created__gte=start_date,
+        date_created__lte=end_date
+    ).count()
+    
+    out_of_context = OutOfContextQuestion.objects.filter(
+        guru_type=guru_type,
+        date_created__gte=start_date,
+        date_created__lte=end_date
+    ).count()
+    
+    popular_sources = DataSource.objects.filter(
+        guru_type=guru_type,
+        date_created__gte=start_date,
+        date_created__lte=end_date,
+        status=DataSource.Status.SUCCESS
+    ).count()
+    
+    return total_questions, out_of_context, popular_sources
+
 @api_view(['GET'])
 @jwt_auth
 def analytics_stats(request, guru_type):
@@ -2406,26 +2468,167 @@ def analytics_stats(request, guru_type):
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
         
     interval = request.query_params.get('interval', 'today')
+    current_start_date, current_end_date = get_date_range(interval)
     
-    # Mock data for now
-    mock_data = {
+    # Get current period stats
+    current_total, current_out_of_context, current_popular_sources = get_stats_for_period(
+        guru_type_object, current_start_date, current_end_date
+    )
+    
+    # Get previous period stats for comparison
+    previous_start = current_start_date - (current_end_date - current_start_date)
+    previous_total, previous_out_of_context, previous_popular_sources = get_stats_for_period(
+        guru_type_object, previous_start, current_start_date
+    )
+    
+    response_data = {
         'data': {
             'total_questions': {
-                'value': 100,
-                'percentage_change': 20
-        },
+                'value': current_total,
+                'percentage_change': calculate_percentage_change(current_total, previous_total)
+            },
             'out_of_context': {
-                'value': 23,
-                'percentage_change': 20
-        },
+                'value': current_out_of_context,
+                'percentage_change': calculate_percentage_change(current_out_of_context, previous_out_of_context)
+            },
             'popular_sources': {
-                    'value': 56,
-                    'percentage_change': 0
-        }
+                'value': current_popular_sources,
+                'percentage_change': calculate_percentage_change(current_popular_sources, previous_popular_sources)
+            }
         }
     }
     
-    return Response(mock_data, status=status.HTTP_200_OK)
+    return Response(response_data, status=status.HTTP_200_OK)
+
+def format_datetime_readable(dt, include_time=False, include_range_end=None):
+    """
+    Format datetime in a human readable format with smart date range grouping.
+    
+    Args:
+        dt: datetime object to format
+        include_time: bool, whether to include time in format
+        include_range_end: datetime object, if provided will format as a range
+        
+    Returns:
+        str: Formatted date(time) string like:
+            "27 January 2024" or
+            "27 January 2024 14:00" or
+            "1-3 January 2024" or
+            "27 January - 3 February 2024" or
+            "27 December 2023 - 3 January 2024"
+    """
+    if include_range_end:
+        # Handle date range formatting
+        start_day = dt.day
+        start_month = dt.strftime('%B')
+        start_year = dt.year
+        
+        end_day = include_range_end.day
+        end_month = include_range_end.strftime('%B')
+        end_year = include_range_end.year
+        
+        # Same year cases
+        if start_year == end_year:
+            # Same month
+            if dt.month == include_range_end.month:
+                formatted = f"{start_day}-{end_day} {start_month} {start_year}"
+            # Different months
+            else:
+                formatted = f"{start_day} {start_month} - {end_day} {end_month} {start_year}"
+        # Different years
+        else:
+            formatted = f"{start_day} {start_month} {start_year} - {end_day} {end_month} {end_year}"
+    else:
+        # Single date formatting
+        formatted = dt.strftime('%-d %B %Y')  # %-d removes leading zeros from day
+        
+        # Add time if requested
+        if include_time:
+            formatted += dt.strftime(' %H:%M')
+            
+    return formatted
+
+def get_histogram_data(guru_type, metric_type, start_date, end_date, interval):
+    """
+    Get histogram data for a specific metric type and time period, grouped into at most 30 points.
+    
+    Args:
+        guru_type: GuruType object
+        metric_type (str): One of 'questions', 'out_of_context', 'popular_sources'
+        start_date: datetime
+        end_date: datetime
+        interval (str): One of 'today', 'yesterday', '7d', etc.
+        
+    Returns:
+        list: List of dictionaries containing:
+            For single points:
+                - date_point: str (ISO format: "2024-01-27T14:00:00")
+                - value: int
+            For ranges:
+                - date_start: str (ISO format: "2024-01-27T00:00:00")
+                - date_end: str (ISO format: "2024-01-31T23:59:59")
+                - value: int
+    """
+    # Calculate total duration and determine grouping size
+    total_duration = end_date - start_date
+    
+    # For today/yesterday, group by hours (max 24 points)
+    if interval in ['today', 'yesterday']:
+        increment = timedelta(hours=1)
+        def format_data_point(current, next_slot):
+            return {'date_point': current.isoformat()}
+    else:
+        # For longer periods, calculate appropriate grouping
+        days_total = total_duration.days or 1
+        if days_total <= 30:
+            # If 30 days or less, show daily data
+            increment = timedelta(days=1)
+            def format_data_point(current, next_slot):
+                return {'date_point': current.isoformat()}
+        else:
+            # Group into roughly 30 buckets
+            days_per_group = max(days_total // 30, 1)
+            increment = timedelta(days=days_per_group)
+            def format_data_point(current, next_slot):
+                # If group spans multiple days, return range
+                if next_slot.date() > current.date():
+                    range_end = next_slot - timedelta(days=1)
+                    # Set end time to end of day
+                    range_end = range_end.replace(hour=23, minute=59, second=59)
+                    return {
+                        'date_start': current.isoformat(),
+                        'date_end': range_end.isoformat()
+                    }
+                return {'date_point': current.isoformat()}
+
+    # Initialize result list
+    result = []
+    current = start_date
+    
+    while current < end_date:
+        next_slot = min(current + increment, end_date)
+        
+        # Get stats for this time slot
+        slot_stats = get_stats_for_period(guru_type, current, next_slot)
+        
+        # Map metric type to the corresponding stat index
+        metric_map = {
+            'questions': 0,
+            'out_of_context': 1,
+            'popular_sources': 2
+        }
+        
+        value = slot_stats[metric_map[metric_type]]
+        
+        # Get date data (either point or range)
+        data_point = format_data_point(current, next_slot)
+        data_point['value'] = value
+        
+        result.append(data_point)
+        
+        current = next_slot
+    
+    return result
 
 @api_view(['GET'])
 @jwt_auth
@@ -2438,30 +2641,22 @@ def analytics_histogram(request, guru_type):
     except NotFoundError:
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
         
-    metric_type = request.query_params.get('metric_type')  # questions, out_of_context, popular_sources
+    metric_type = request.query_params.get('metric_type')
     interval = request.query_params.get('interval', 'today')
     
     if not metric_type:
         return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if metric_type not in ['questions', 'out_of_context', 'popular_sources']:
+        return Response({'msg': 'Invalid metric type'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Mock data for now
-    mock_data = {
-        'data': []
-    }
-    if interval in ['today', 'yesterday']:
-        for hour in range(24):
-            mock_data['data'].append({
-                'date': f'2024-01-27T{hour:02d}:00:00Z',
-                'questions': int(random.random() * 100)
-            })
-    else:
-        for day in range(7):
-            mock_data['data'].append({
-                'date': f'2024-01-{20+day}',
-                'questions': int(random.random() * 100)
-            })
+    # Get date range for the requested interval
+    start_date, end_date = get_date_range(interval)
     
-    return Response(mock_data, status=status.HTTP_200_OK)
+    # Get histogram data
+    data = get_histogram_data(guru_type_object, metric_type, start_date, end_date, interval)
+    
+    return Response({'data': data}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @jwt_auth
