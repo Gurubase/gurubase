@@ -242,8 +242,8 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
     <div className="relative">
       <div
         className={clsx(
-          "h-[60px] guru-sm:h-[68px]",
-          isMobileSidebarOpen && "guru-sm:hidden"
+          isMobileSidebarOpen && "guru-sm:hidden",
+          guruType ? "h-[81px] guru-sm:h-[64px] guru-md:h-[81px]" : "h-[64px]"
         )}
       />
       <header
