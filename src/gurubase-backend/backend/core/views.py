@@ -2448,14 +2448,28 @@ def get_stats_for_period(guru_type, start_date, end_date):
         date_created__lte=end_date
     ).count()
     
-    popular_sources = DataSource.objects.filter(
+    # Get questions in the time period
+    questions = Question.objects.filter(
         guru_type=guru_type,
         date_created__gte=start_date,
-        date_created__lte=end_date,
-        status=DataSource.Status.SUCCESS
+        date_created__lte=end_date
+    )
+    
+    # Extract unique referenced links
+    referenced_links = set()
+    for question in questions:
+        for ref in question.references:
+            link = ref.get('link')
+            if link:
+                referenced_links.add(link)
+    
+    # Count data sources that match these links
+    referenced_sources = DataSource.objects.filter(
+        guru_type=guru_type,
+        url__in=referenced_links
     ).count()
     
-    return total_questions, out_of_context, popular_sources
+    return total_questions, out_of_context, referenced_sources
 
 @api_view(['GET'])
 @jwt_auth
