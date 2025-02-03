@@ -82,16 +82,12 @@ const MetricSection = ({
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
 
-  let histogramData;
-  let histogramLoading;
-
-  if (metricType !== METRIC_TYPES.REFERENCED_SOURCES) {
-    const { data: histogramData, loading: histogramLoading } = useHistogram(
-      guruType,
-      metricType,
-      interval
-    );
-  }
+  // Only fetch histogram data if not referenced sources
+  const { data: histogramData, loading: histogramLoading } = useHistogram(
+    guruType,
+    metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
+    interval
+  );
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,

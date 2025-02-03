@@ -39,6 +39,8 @@ export const useHistogram = (guruType, metricType, interval) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  if (metricType === null) return { data: null, loading: false, error: null };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
