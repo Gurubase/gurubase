@@ -1,7 +1,10 @@
 {
 	"name": "Gurubase Backend",
-	"context": "..",
-	"dockerFile": "../Dockerfile.dev",
+	"build": {
+		"context": "..",
+		"dockerfile": "../Dockerfile",
+		"target": "dev"
+	},
 	"runArgs": [
 		"--name",
 		"gurubase-backend-dev",

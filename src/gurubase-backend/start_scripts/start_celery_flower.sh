@@ -3,4 +3,4 @@
 set -o errexit
 set -o nounset
 
-cd backend && celery --app backend flower
+cd backend && exec celery --app backend flower
