@@ -103,7 +103,7 @@ export default function TableComponent() {
                 <TableCell className="font-inter text-xs font-medium">
                   {item.question}
                 </TableCell>
-                <TableCell>
+                {/* <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -122,7 +122,7 @@ export default function TableComponent() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </TableCell>
+                </TableCell> */}
               </TableRow>
             ))}
           </TableBody>
