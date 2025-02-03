@@ -8,6 +8,7 @@ import string
 import time
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Generator
+from rest_framework.exceptions import NotFound
 
 from accounts.models import User
 from django.conf import settings
@@ -2610,6 +2611,13 @@ def analytics_histogram(request, guru_type):
     
     return Response({'data': data}, status=status.HTTP_200_OK)
 
+def format_filter_name(name):
+    """
+    Format filter name to be Title Case.
+    Example: 'USER_QUESTION' -> 'User Question'
+    """
+    return name.lower().replace('_', ' ').title()
+
 @api_view(['GET'])
 @jwt_auth
 def analytics_table(request, guru_type):
@@ -2623,45 +2631,93 @@ def analytics_table(request, guru_type):
         
     metric_type = request.query_params.get('metric_type')
     interval = request.query_params.get('interval', 'today')
-    filter_type = request.query_params.get('filter_type', 'all')
-    page = int(request.query_params.get('page', 1))
+    filter_type = request.query_params.get('filter_type')
+    try:
+        page = max(1, int(request.query_params.get('page', 1)))
+    except ValueError:
+        page = 1
     page_size = 5
     
     if not metric_type:
         return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if metric_type not in ['questions', 'out_of_context', 'referenced_sources']:
+        return Response({'msg': 'Invalid metric type'}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Mock data for now
-    mock_data = {
-        'results': [
-            {
-                'date': '27.01.2024T07:00:00Z',
-                'type': 'Bug',
-                'question': 'I want to create pods with custom ordinal index in stateful set'
-            },
-            {
-                'date': '27.01.2024T07:00:00Z',
-                'type': 'Feature',
-                'question': 'How do I implement a distributed caching mechanism?'
-            },
-            {
-                'date': '27.01.2024T07:00:00Z',
-                'type': 'Bug',
-                'question': 'How to handle Kubernetes pod scheduling?'
-            },
-            {
-                'date': '27.01.2024T07:00:00Z',
-                'type': 'Bug',
-                'question': 'Best practices for microservices communication'
-            },
-            {
-                'date': '27.01.2024T07:00:00Z',
-                'type': 'Bug',
-                'question': 'Setting up monitoring in production environment'
-            }
-        ],
-        'total_pages': 12,
+    # Get date range for the interval
+    start_date, end_date = get_date_range(interval)
+    
+    # Get possible filters (source types) based on metric type
+    if metric_type in ['questions', 'out_of_context']:
+        raw_filters = [choice[0] for choice in Question.Source.choices]
+    elif metric_type == 'referenced_sources':
+        raw_filters = [choice[0] for choice in DataSource.Type.choices]
+        
+    # Format filters and add "All" option
+    filters = [{'value': 'all', 'label': 'All'}] + [
+        {'value': f.lower(), 'label': format_filter_name(f)} 
+        for f in raw_filters
+    ]
+    
+    # Build base queryset
+    if metric_type == 'questions':
+        queryset = Question.objects.filter(
+            guru_type=guru_type_object,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        )
+        
+        # Apply source filter if provided and not 'all'
+        if filter_type and filter_type != 'all':
+            queryset = queryset.filter(source__iexact=filter_type)
+            
+        # Order by date created descending
+        queryset = queryset.order_by('-date_created')
+        
+    else:  # out_of_context
+        queryset = OutOfContextQuestion.objects.filter(
+            guru_type=guru_type_object,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        )
+        
+        # Apply source filter if provided and not 'all'
+        if filter_type and filter_type != 'all':
+            queryset = queryset.filter(source__iexact=filter_type)
+            
+        # Order by date created descending
+        queryset = queryset.order_by('-date_created')
+    
+    # Get total count before pagination
+    total_items = queryset.count()
+    total_pages = (total_items + page_size - 1) // page_size  # Ceiling division
+    
+    # Adjust page number if it's out of range
+    if total_pages > 0:
+        page = min(page, total_pages)
+    else:
+        page = 1
+    
+    # Calculate slice indices
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    
+    # Get paginated results
+    paginated_queryset = queryset[start_idx:end_idx]
+    
+    # Format results
+    results = [{
+        'date': item.date_created.isoformat(),
+        'type': format_filter_name(item.source),
+        'question': item.question
+    } for item in paginated_queryset]
+    
+    response_data = {
+        'results': results,
+        'total_pages': total_pages,
         'current_page': page,
-        'total_items': 58
+        'total_items': total_items,
+        'available_filters': filters
     }
     
-    return Response(mock_data, status=status.HTTP_200_OK)
+    return Response(response_data, status=status.HTTP_200_OK)

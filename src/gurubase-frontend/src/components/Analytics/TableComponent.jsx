@@ -44,12 +44,26 @@ export default function TableComponent({
   const {
     results = [],
     total_pages: totalPages = 1,
-    current_page: pageNum = 1
+    current_page: pageNum = 1,
+    available_filters: filters = [],
+    total_items: totalItems = 0
   } = data || {};
 
   const getPaginationGroup = (current, total) => {
-    if (current <= 2) return [1, 2, 3];
-    if (current >= total - 1) return [total - 2, total - 1, total];
+    if (total <= 3) {
+      // If total pages is 3 or less, show all pages
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current <= 2) {
+      // If we're at the start, show first 3 pages
+      return [1, 2, 3];
+    }
+    if (current >= total - 1) {
+      // If we're at the end, show last 3 pages
+      return [total - 2, total - 1, total];
+    }
+    // Otherwise show current page and neighbors
     return [current - 1, current, current + 1];
   };
 
@@ -65,11 +79,11 @@ export default function TableComponent({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <Select
           defaultValue={currentFilter}
           onValueChange={handleFilterChange}
-          disabled={isLoading}>
+          disabled={isLoading || !filters.length}>
           <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
             <div className="flex items-start gap-1 text-xs">
               <span className="text-[#6D6D6D]">Sources by:</span>
@@ -77,11 +91,14 @@ export default function TableComponent({
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="bugs">Bugs</SelectItem>
-            <SelectItem value="features">Features</SelectItem>
+            {filters.map((filter) => (
+              <SelectItem key={filter.label} value={filter.value}>
+                {filter.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
+        <div className="text-xs text-[#6D6D6D]">Total items: {totalItems}</div>
       </div>
 
       <div className="rounded-xl bg-background pt-2">
@@ -134,70 +151,81 @@ export default function TableComponent({
           </TableBody>
         </Table>
         <div className="flex items-center justify-end gap-1 border-t border-[#E2E2E2] p-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
-            onClick={() => handlePageChange(pageNum - 1)}
-            disabled={pageNum === 1 || isLoading}>
-            <div className="flex items-center px-2">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-            </div>
-          </Button>
-          <div className="flex items-center gap-2 md:gap-2 gap-1">
-            {pageNum > 2 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
-                  onClick={() => handlePageChange(1)}>
-                  1
-                </Button>
-                <span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </span>
-              </>
-            )}
-            {paginationGroup.map((number) => (
+          {totalPages > 0 && (
+            <>
               <Button
-                key={number}
                 variant="ghost"
                 size="sm"
-                className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
-                  number === pageNum ? "border border-[#E2E2E2] rounded-lg" : ""
-                }`}
-                onClick={() => handlePageChange(number)}
-                disabled={isLoading}>
-                {number}
+                className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                onClick={() => handlePageChange(pageNum - 1)}
+                disabled={pageNum === 1 || isLoading}>
+                <div className="flex items-center px-2">
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                </div>
               </Button>
-            ))}
-            {pageNum < totalPages - 2 && (
-              <>
-                <span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
-                  onClick={() => handlePageChange(totalPages)}
-                  disabled={isLoading}>
-                  {totalPages}
-                </Button>
-              </>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
-            onClick={() => handlePageChange(pageNum + 1)}
-            disabled={pageNum === totalPages || isLoading}>
-            <div className="flex items-center px-2">
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </div>
-          </Button>
+              <div className="flex items-center gap-2 md:gap-2 gap-1">
+                {pageNum > 2 && totalPages > 3 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                      onClick={() => handlePageChange(1)}
+                      disabled={isLoading}>
+                      1
+                    </Button>
+                    {pageNum > 3 && (
+                      <span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </span>
+                    )}
+                  </>
+                )}
+                {paginationGroup.map((number) => (
+                  <Button
+                    key={number}
+                    variant="ghost"
+                    size="sm"
+                    className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
+                      number === pageNum
+                        ? "border border-[#E2E2E2] rounded-lg"
+                        : ""
+                    }`}
+                    onClick={() => handlePageChange(number)}
+                    disabled={isLoading}>
+                    {number}
+                  </Button>
+                ))}
+                {pageNum < totalPages - 1 && totalPages > 3 && (
+                  <>
+                    {pageNum < totalPages - 2 && (
+                      <span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                      onClick={() => handlePageChange(totalPages)}
+                      disabled={isLoading}>
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                onClick={() => handlePageChange(pageNum + 1)}
+                disabled={pageNum === totalPages || isLoading}>
+                <div className="flex items-center px-2">
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </div>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

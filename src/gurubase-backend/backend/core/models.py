@@ -904,6 +904,11 @@ class OutOfContextQuestion(models.Model):
     trust_score_threshold = models.FloatField(default=0.0)
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
     date_created = models.DateTimeField(auto_now_add=True)
+    source = models.CharField(
+        max_length=50,
+        choices=[(tag.value, tag.value) for tag in Question.Source],
+        default=Question.Source.USER.value,
+    )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
 
     def __str__(self):
