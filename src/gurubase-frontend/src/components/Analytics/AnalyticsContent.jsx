@@ -2,7 +2,7 @@ import BarChartComponent from "./BarChartComponent";
 import LineChartComponent from "./LineChartComponent";
 import TimeSelectionComponent from "./TimeSelectionComponent";
 import { generateBarChartData } from "./GenerateBarChartData";
-import StatsCardComponent from "./StatsCardComponent";
+import StatsCardComponent, { STAT_TYPES } from "./StatsCardComponent";
 import TableComponent from "./TableComponent";
 import {
   IntegrationHeader,
@@ -164,16 +164,19 @@ const AnalyticsContent = () => {
               title="Total Questions"
               value={100}
               percentageChange={20}
+              statType={STAT_TYPES.HIGHER_BETTER}
             />
             <StatsCardComponent
               title="Out of Context Questions"
               value={23}
               percentageChange={-20}
+              statType={STAT_TYPES.LOWER_BETTER}
             />
             <StatsCardComponent
               title="Popular Data Sources"
               value={56}
               percentageChange={0}
+              statType={STAT_TYPES.NEUTRAL}
             />
           </div>
           <div>
