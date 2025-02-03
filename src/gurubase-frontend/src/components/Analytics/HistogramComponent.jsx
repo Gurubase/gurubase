@@ -6,7 +6,7 @@ import { ChartContainer } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function BarChartComponent({
+export default function HistogramComponent({
   data = [],
   interval,
   isLoading = false

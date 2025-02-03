@@ -1,7 +1,5 @@
-import BarChartComponent from "./BarChartComponent";
-import LineChartComponent from "./LineChartComponent";
+import HistogramComponent from "./HistogramComponent";
 import TimeSelectionComponent from "./TimeSelectionComponent";
-import { generateBarChartData } from "./GenerateBarChartData";
 import StatsCardComponent, { STAT_TYPES } from "./StatsCardComponent";
 import TableComponent from "./TableComponent";
 import {
@@ -104,7 +102,7 @@ const MetricSection = ({
         <h3 className="text-lg font-size-[17px] font-semibold">{title}</h3>
         <HeaderTooltip text={tooltipText} />
       </div>
-      <BarChartComponent
+      <HistogramComponent
         interval={interval}
         data={histogramData}
         isLoading={histogramLoading}
