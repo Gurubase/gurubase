@@ -73,7 +73,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       description:
         "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
-      url: process.env.SLACK_INTEGRATION_URL,
+      url: process.env.NEXT_PUBLIC_SLACK_INTEGRATION_URL,
       icon: SlackIcon,
       extraText:
         'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.'
@@ -84,7 +84,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
-      url: process.env.DISCORD_INTEGRATION_URL,
+      url: process.env.NEXT_PUBLIC_DISCORD_INTEGRATION_URL,
       icon: DiscordIcon,
       extraText:
         "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels."
