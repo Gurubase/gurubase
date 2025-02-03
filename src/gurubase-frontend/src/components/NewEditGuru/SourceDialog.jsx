@@ -52,7 +52,8 @@ const SourceDialog = React.memo(
     setDirtyChanges,
     setClickedSource,
     setSources,
-    handleDeleteUrls
+    handleDeleteUrls,
+    readOnly = false
   }) => (
     <Dialog
       open={isOpen}

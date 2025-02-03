@@ -5,7 +5,8 @@ import {
   Copy,
   MoreHorizontal,
   Pencil,
-  ExternalLink
+  ExternalLink,
+  Link
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,10 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { METRIC_TYPES } from "@/services/analyticsService";
+import { Badge } from "@/components/ui/badge";
+import SourceDialog from "@/components/NewEditGuru/SourceDialog";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useState } from "react";
 
 export default function TableComponent({
   data,
@@ -42,6 +47,12 @@ export default function TableComponent({
   isLoading = false,
   metricType
 }) {
+  const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
+  const [clickedSource, setClickedSource] = useState([]);
+  const [selectedUrls, setSelectedUrls] = useState([]);
+  const [urlEditorContent, setUrlEditorContent] = useState("");
+  const isMobile = useMediaQuery("(max-width: 915px)");
+
   if (!data && !isLoading) return null;
 
   const {
@@ -89,6 +100,18 @@ export default function TableComponent({
 
   const handlePageChange = (page) => {
     onPageChange?.(page);
+  };
+
+  const handleReferenceClick = (item) => {
+    setClickedSource([
+      {
+        id: item.id,
+        url: item.title,
+        type: "website",
+        status: "SUCCESS"
+      }
+    ]);
+    setIsUrlSidebarOpen(true);
   };
 
   return (
@@ -192,8 +215,18 @@ export default function TableComponent({
                       )}
                     </TableCell>
                     {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
-                      <TableCell className="font-inter text-xs font-medium">
-                        {item.reference_count}
+                      <TableCell className="font-inter text-xs font-medium flex items-center justify-center">
+                        <Badge
+                          iconColor="text-gray-500"
+                          text={
+                            <div className="flex items-center gap-1">
+                              <Link className="h-3 w-3 text-gray-500" />
+                              <span>{item.reference_count}</span>
+                            </div>
+                          }
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleReferenceClick(item)}></Badge>
                       </TableCell>
                     )}
                   </TableRow>
@@ -278,6 +311,27 @@ export default function TableComponent({
           )}
         </div>
       </div>
+
+      <SourceDialog
+        clickedSource={clickedSource}
+        editorContent={urlEditorContent}
+        form={{}}
+        handleDeleteUrls={() => {}}
+        initialActiveTab="success"
+        isMobile={isMobile}
+        isOpen={isUrlSidebarOpen}
+        selectedUrls={selectedUrls}
+        setClickedSource={setClickedSource}
+        setDirtyChanges={() => {}}
+        setSelectedUrls={setSelectedUrls}
+        setSources={() => {}}
+        sourceType="website"
+        title="Referenced URLs"
+        onAddUrls={() => {}}
+        onEditorChange={() => {}}
+        onOpenChange={setIsUrlSidebarOpen}
+        readOnly={true}
+      />
     </div>
   );
 }
