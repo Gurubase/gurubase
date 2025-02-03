@@ -77,14 +77,14 @@ export default function TableComponent() {
         <Table>
           <TableHeader className="bg-[#FAFAFA]">
             <TableRow className="border-b border-[#E2E2E2]">
-              <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
-                Tarih
+              <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                Date
               </TableHead>
               <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
                 Type
               </TableHead>
               <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
-                Soru
+                Question
               </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
