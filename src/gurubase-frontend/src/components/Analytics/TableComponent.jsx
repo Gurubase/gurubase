@@ -30,15 +30,34 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-const sampleData = Array(5)
-  .fill({
+const sampleData = [
+  {
     date: "27.01.2024, 7:00 AM",
     type: "Bug",
     question: "I want to create pods with custom ordinal index in stateful set"
-  })
-  .map((item) => ({
-    ...item
-  }));
+  },
+  {
+    date: "27.01.2024, 7:00 AM",
+    type: "Feature",
+    question:
+      "How do I implement a distributed caching mechanism for my microservices architecture that ensures data consistency across multiple regions while maintaining low latency and handling network partitions effectively?"
+  },
+  {
+    date: "27.01.2024, 7:00 AM",
+    type: "Bug",
+    question: "I want to create pods with custom ordinal index in stateful set"
+  },
+  {
+    date: "27.01.2024, 7:00 AM",
+    type: "Bug",
+    question: "I want to create pods with custom ordinal index in stateful set"
+  },
+  {
+    date: "27.01.2024, 7:00 AM",
+    type: "Bug",
+    question: "I want to create pods with custom ordinal index in stateful set"
+  }
+];
 
 export default function TableComponent() {
   const currentPage = 3;
@@ -100,8 +119,8 @@ export default function TableComponent() {
                 <TableCell className="font-inter text-xs font-medium">
                   {item.type}
                 </TableCell>
-                <TableCell className="font-inter text-xs font-medium">
-                  {item.question}
+                <TableCell className="font-inter text-xs font-medium max-w-0">
+                  <div className="truncate">{item.question}</div>
                 </TableCell>
                 {/* <TableCell>
                   <DropdownMenu>
