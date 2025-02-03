@@ -3,6 +3,7 @@
 import { Minus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Inter } from "next/font/google";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -48,7 +49,8 @@ export default function StatsCardComponent({
   title = "Total Questions",
   value = 100,
   percentageChange = 0,
-  statType = STAT_TYPES.HIGHER_BETTER // default to higher is better
+  statType = STAT_TYPES.HIGHER_BETTER, // default to higher is better
+  isLoading = false
 }) {
   const getChangeIndicator = () => {
     const isPositiveChange = percentageChange > 0;
@@ -89,6 +91,21 @@ export default function StatsCardComponent({
       </div>
     );
   };
+
+  if (isLoading) {
+    return (
+      <Card
+        className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-gray-200 ${inter.className}`}>
+        <div>
+          <Skeleton className="h-[14px] w-24" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-[31px] w-16" />
+          <Skeleton className="h-[16px] w-16" />
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card

@@ -104,23 +104,20 @@ const MetricSection = ({
         <h3 className="text-lg font-size-[17px] font-semibold">{title}</h3>
         <HeaderTooltip text={tooltipText} />
       </div>
-      {histogramLoading ? (
-        <div>Loading histogram...</div>
-      ) : (
-        <BarChartComponent interval={interval} data={histogramData} />
-      )}
+      <BarChartComponent
+        interval={interval}
+        data={histogramData}
+        isLoading={histogramLoading}
+      />
       <div className="mt-6"></div>
-      {tableLoading ? (
-        <div>Loading table...</div>
-      ) : (
-        <TableComponent
-          data={tableData}
-          onFilterChange={setFilterType}
-          onPageChange={setPage}
-          currentFilter={filterType}
-          currentPage={page}
-        />
-      )}
+      <TableComponent
+        data={tableData}
+        onFilterChange={setFilterType}
+        onPageChange={setPage}
+        currentFilter={filterType}
+        currentPage={page}
+        isLoading={tableLoading}
+      />
     </div>
   );
 };
@@ -148,36 +145,33 @@ const AnalyticsContent = ({ customGuru }) => {
               defaultPeriod={interval}
             />
           </div>
-          {statCardsLoading ? (
-            <div>Loading stats...</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <StatsCardComponent
-                title="Total Questions"
-                value={statCardsData?.total_questions.value}
-                percentageChange={
-                  statCardsData?.total_questions.percentage_change
-                }
-                statType={STAT_TYPES.HIGHER_BETTER}
-              />
-              <StatsCardComponent
-                title="Out of Context Questions"
-                value={statCardsData?.out_of_context.value}
-                percentageChange={
-                  statCardsData?.out_of_context.percentage_change
-                }
-                statType={STAT_TYPES.LOWER_BETTER}
-              />
-              <StatsCardComponent
-                title="Popular Data Sources"
-                value={statCardsData?.popular_sources.value}
-                percentageChange={
-                  statCardsData?.popular_sources.percentage_change
-                }
-                statType={STAT_TYPES.NEUTRAL}
-              />
-            </div>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatsCardComponent
+              title="Total Questions"
+              value={statCardsData?.total_questions.value}
+              percentageChange={
+                statCardsData?.total_questions.percentage_change
+              }
+              statType={STAT_TYPES.HIGHER_BETTER}
+              isLoading={statCardsLoading}
+            />
+            <StatsCardComponent
+              title="Out of Context Questions"
+              value={statCardsData?.out_of_context.value}
+              percentageChange={statCardsData?.out_of_context.percentage_change}
+              statType={STAT_TYPES.LOWER_BETTER}
+              isLoading={statCardsLoading}
+            />
+            <StatsCardComponent
+              title="Popular Data Sources"
+              value={statCardsData?.popular_sources.value}
+              percentageChange={
+                statCardsData?.popular_sources.percentage_change
+              }
+              statType={STAT_TYPES.NEUTRAL}
+              isLoading={statCardsLoading}
+            />
+          </div>
 
           <MetricSection
             title="Questions"
