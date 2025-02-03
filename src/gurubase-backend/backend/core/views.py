@@ -2471,13 +2471,13 @@ def analytics_stats(request, guru_type):
     current_start_date, current_end_date = get_date_range(interval)
     
     # Get current period stats
-    current_total, current_out_of_context, current_popular_sources = get_stats_for_period(
+    current_total, current_out_of_context, current_referenced_sources = get_stats_for_period(
         guru_type_object, current_start_date, current_end_date
     )
     
     # Get previous period stats for comparison
     previous_start = current_start_date - (current_end_date - current_start_date)
-    previous_total, previous_out_of_context, previous_popular_sources = get_stats_for_period(
+    previous_total, previous_out_of_context, previous_referenced_sources = get_stats_for_period(
         guru_type_object, previous_start, current_start_date
     )
     
@@ -2491,9 +2491,9 @@ def analytics_stats(request, guru_type):
                 'value': current_out_of_context,
                 'percentage_change': calculate_percentage_change(current_out_of_context, previous_out_of_context)
             },
-            'popular_sources': {
-                'value': current_popular_sources,
-                'percentage_change': calculate_percentage_change(current_popular_sources, previous_popular_sources)
+            'referenced_sources': {
+                'value': current_referenced_sources,
+                'percentage_change': calculate_percentage_change(current_referenced_sources, previous_referenced_sources)
             }
         }
     }
@@ -2554,7 +2554,7 @@ def get_histogram_data(guru_type, metric_type, start_date, end_date, interval):
     
     Args:
         guru_type: GuruType object
-        metric_type (str): One of 'questions', 'out_of_context', 'popular_sources'
+        metric_type (str): One of 'questions', 'out_of_context', 'referenced_sources'
         start_date: datetime
         end_date: datetime
         interval (str): One of 'today', 'yesterday', '7d', etc.
@@ -2615,7 +2615,7 @@ def get_histogram_data(guru_type, metric_type, start_date, end_date, interval):
         metric_map = {
             'questions': 0,
             'out_of_context': 1,
-            'popular_sources': 2
+            'referenced_sources': 2
         }
         
         value = slot_stats[metric_map[metric_type]]
@@ -2647,7 +2647,7 @@ def analytics_histogram(request, guru_type):
     if not metric_type:
         return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-    if metric_type not in ['questions', 'out_of_context', 'popular_sources']:
+    if metric_type not in ['questions', 'out_of_context', 'referenced_sources']:
         return Response({'msg': 'Invalid metric type'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Get date range for the requested interval
@@ -2669,7 +2669,7 @@ def analytics_table(request, guru_type):
     except NotFoundError:
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
         
-    metric_type = request.query_params.get('metric_type')  # questions, out_of_context, popular_sources
+    metric_type = request.query_params.get('metric_type')
     interval = request.query_params.get('interval', 'today')
     filter_type = request.query_params.get('filter_type', 'all')
     page = int(request.query_params.get('page', 1))

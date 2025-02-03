@@ -161,10 +161,10 @@ const AnalyticsContent = ({ customGuru }) => {
               isLoading={statCardsLoading}
             />
             <StatsCardComponent
-              title="Popular Data Sources"
-              value={statCardsData?.popular_sources.value}
+              title="Referenced Data Sources"
+              value={statCardsData?.referenced_sources.value}
               percentageChange={
-                statCardsData?.popular_sources.percentage_change
+                statCardsData?.referenced_sources.percentage_change
               }
               statType={STAT_TYPES.NEUTRAL}
               isLoading={statCardsLoading}
@@ -188,9 +188,9 @@ const AnalyticsContent = ({ customGuru }) => {
           />
 
           <MetricSection
-            title="Popular Data Sources"
-            tooltipText="Most accessed data sources"
-            metricType={METRIC_TYPES.POPULAR_SOURCES}
+            title="Referenced Data Sources"
+            tooltipText="Most referenced data sources"
+            metricType={METRIC_TYPES.REFERENCED_SOURCES}
             interval={interval}
             guruType={guruType}
           />

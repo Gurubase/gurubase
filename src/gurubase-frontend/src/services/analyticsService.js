@@ -3,7 +3,7 @@ import { makeAuthenticatedRequest } from "@/app/actions";
 export const METRIC_TYPES = {
   QUESTIONS: "questions",
   OUT_OF_CONTEXT: "out_of_context",
-  POPULAR_SOURCES: "popular_sources"
+  REFERENCED_SOURCES: "referenced_sources"
 };
 
 const handleRequestError = (error, context = {}) => {
