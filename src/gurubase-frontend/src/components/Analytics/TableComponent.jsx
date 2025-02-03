@@ -112,21 +112,20 @@ export default function TableComponent({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+            className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
             onClick={() => handlePageChange(pageNum - 1)}
             disabled={pageNum === 1}>
             <div className="flex items-center px-2">
               <ChevronLeft className="h-4 w-4 mr-1" />
-              <span className="px-[10px]">Previous</span>
             </div>
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:gap-2 gap-1">
             {pageNum > 2 && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg"
+                  className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
                   onClick={() => handlePageChange(1)}>
                   1
                 </Button>
@@ -140,7 +139,7 @@ export default function TableComponent({
                 key={number}
                 variant="ghost"
                 size="sm"
-                className={`h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg ${
+                className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
                   number === pageNum ? "border border-[#E2E2E2] rounded-lg" : ""
                 }`}
                 onClick={() => handlePageChange(number)}>
@@ -155,7 +154,7 @@ export default function TableComponent({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg"
+                  className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
                   onClick={() => handlePageChange(totalPages)}>
                   {totalPages}
                 </Button>
@@ -165,11 +164,10 @@ export default function TableComponent({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+            className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
             onClick={() => handlePageChange(pageNum + 1)}
             disabled={pageNum === totalPages}>
             <div className="flex items-center px-2">
-              <span className="px-[10px]">Next</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </div>
           </Button>
