@@ -398,7 +398,7 @@ const MainForm = ({
     <section
       className={clsx(
         "flex flex-col w-full guru-sm:max-w-full",
-        mobileInputFocused ? "pb-0" : "pb-6"
+        mobileInputFocused ? "pb-0" : "pb-4"
       )}>
       {(!content || isLoading || (!SlugPageRendered && streamingStatus)) &&
         (!bingeId || (!streamError && !contextError && isAnswerValid)) && (
