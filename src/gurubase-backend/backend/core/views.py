@@ -2647,7 +2647,7 @@ def analytics_histogram(request, guru_type):
     if not metric_type:
         return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-    if metric_type not in ['questions', 'out_of_context', 'referenced_sources']:
+    if metric_type not in ['questions', 'out_of_context']:
         return Response({'msg': 'Invalid metric type'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Get date range for the requested interval

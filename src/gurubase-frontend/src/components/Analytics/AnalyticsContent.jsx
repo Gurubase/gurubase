@@ -82,11 +82,16 @@ const MetricSection = ({
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
 
-  const { data: histogramData, loading: histogramLoading } = useHistogram(
-    guruType,
-    metricType,
-    interval
-  );
+  let histogramData;
+  let histogramLoading;
+
+  if (metricType !== METRIC_TYPES.REFERENCED_SOURCES) {
+    const { data: histogramData, loading: histogramLoading } = useHistogram(
+      guruType,
+      metricType,
+      interval
+    );
+  }
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
@@ -102,11 +107,13 @@ const MetricSection = ({
         <h3 className="text-lg font-size-[17px] font-semibold">{title}</h3>
         <HeaderTooltip text={tooltipText} />
       </div>
-      <HistogramComponent
-        interval={interval}
-        data={histogramData}
-        isLoading={histogramLoading}
-      />
+      {metricType !== METRIC_TYPES.REFERENCED_SOURCES && (
+        <HistogramComponent
+          interval={interval}
+          data={histogramData}
+          isLoading={histogramLoading}
+        />
+      )}
       <div className="mt-6"></div>
       <TableComponent
         data={tableData}
