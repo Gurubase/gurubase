@@ -10,6 +10,8 @@ import {
 } from "../Integrations/IntegrationShared";
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
+import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
+import { METRIC_TYPES } from "@/services/analyticsService";
 
 const HeaderTooltip = ({ text }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -72,84 +74,68 @@ const HeaderTooltip = ({ text }) => {
   );
 };
 
-const ChartExamples = () => {
+const MetricSection = ({
+  title,
+  tooltipText,
+  metricType,
+  interval,
+  guruType
+}) => {
+  const [filterType, setFilterType] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const { data: histogramData, loading: histogramLoading } = useHistogram(
+    guruType,
+    metricType,
+    interval
+  );
+
+  const { data: tableData, loading: tableLoading } = useTableData(
+    guruType,
+    metricType,
+    interval,
+    filterType,
+    page
+  );
+
   return (
-    <div className="space-y-8">
-      <div>
-        {/* <h3 className="text-lg font-medium mb-2">Today (Hourly)</h3> */}
-        <BarChartComponent
-          interval="today"
-          data={generateBarChartData("today")}
+    <div>
+      <div className="flex items-center mb-3">
+        <h3 className="text-lg font-size-[17px] font-semibold">{title}</h3>
+        <HeaderTooltip text={tooltipText} />
+      </div>
+      {histogramLoading ? (
+        <div>Loading histogram...</div>
+      ) : (
+        <BarChartComponent interval={interval} data={histogramData} />
+      )}
+      <div className="mt-6"></div>
+      {tableLoading ? (
+        <div>Loading table...</div>
+      ) : (
+        <TableComponent
+          data={tableData}
+          onFilterChange={setFilterType}
+          onPageChange={setPage}
+          currentFilter={filterType}
+          currentPage={page}
         />
-      </div>
-
-      {/* <div>
-        <h3 className="text-lg font-medium mb-2">Last 7 Days</h3>
-        <BarChartComponent interval="7d" data={generateBarChartData("7d")} />
-      </div>
-
-      <div>
-        <h3 className="text-lg font-medium mb-2">Last 30 Days</h3>
-        <BarChartComponent interval="30d" data={generateBarChartData("30d")} />
-      </div> */}
+      )}
     </div>
   );
 };
 
-const ChartExample1 = () => {
-  return (
-    <div className="space-y-8">
-      <div>
-        <BarChartComponent
-          interval="today"
-          data={generateBarChartData("today")}
-        />
-      </div>
-    </div>
+const AnalyticsContent = ({ customGuru }) => {
+  const [interval, setInterval] = useState("today");
+  const guruType = customGuru;
+
+  const { data: statCardsData, loading: statCardsLoading } = useStatCards(
+    guruType,
+    interval
   );
-};
 
-const ChartExample2 = () => {
-  return (
-    <div className="space-y-8">
-      <BarChartComponent interval="7d" data={generateBarChartData("7d")} />
-    </div>
-  );
-};
+  console.log("statCardsData", statCardsData);
 
-const LineChartData = [
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 7602
-  },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 500
-  },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 200
-  },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 180
-  },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 175
-  },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 160
-  },
-  { text: "Others", value: 750 },
-  {
-    text: "I want to create pods with custom ordinal index in stateful set",
-    value: 100
-  }
-];
-
-const AnalyticsContent = () => {
   return (
     <>
       <IntegrationHeader text="Analytics" />
@@ -157,65 +143,67 @@ const AnalyticsContent = () => {
       <div className="grid grid-cols-4 px-6 pt-6">
         <div className="col-span-3 guru-md:col-span-4 space-y-8">
           <div>
-            <TimeSelectionComponent />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatsCardComponent
-              title="Total Questions"
-              value={100}
-              percentageChange={20}
-              statType={STAT_TYPES.HIGHER_BETTER}
-            />
-            <StatsCardComponent
-              title="Out of Context Questions"
-              value={23}
-              percentageChange={-20}
-              statType={STAT_TYPES.LOWER_BETTER}
-            />
-            <StatsCardComponent
-              title="Popular Data Sources"
-              value={56}
-              percentageChange={0}
-              statType={STAT_TYPES.NEUTRAL}
+            <TimeSelectionComponent
+              onPeriodChange={setInterval}
+              defaultPeriod={interval}
             />
           </div>
-          <div>
-            <div className="flex items-center mb-3">
-              <h3 className="text-lg font-size-[17px] font-semibold">
-                Questions
-              </h3>
-              <HeaderTooltip text="Total questions asked by users" />
+          {statCardsLoading ? (
+            <div>Loading stats...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <StatsCardComponent
+                title="Total Questions"
+                value={statCardsData?.total_questions.value}
+                percentageChange={
+                  statCardsData?.total_questions.percentage_change
+                }
+                statType={STAT_TYPES.HIGHER_BETTER}
+              />
+              <StatsCardComponent
+                title="Out of Context Questions"
+                value={statCardsData?.out_of_context.value}
+                percentageChange={
+                  statCardsData?.out_of_context.percentage_change
+                }
+                statType={STAT_TYPES.LOWER_BETTER}
+              />
+              <StatsCardComponent
+                title="Popular Data Sources"
+                value={statCardsData?.popular_sources.value}
+                percentageChange={
+                  statCardsData?.popular_sources.percentage_change
+                }
+                statType={STAT_TYPES.NEUTRAL}
+              />
             </div>
-            <ChartExample1 />
-            <div className="mt-6"></div>
-            <TableComponent />
-          </div>
+          )}
 
-          <div>
-            <div className="flex items-center mb-3">
-              <h3 className="text-lg font-size-[17px] font-semibold">
-                Unable to Answers
-              </h3>
-              <HeaderTooltip text="Questions without satisfactory answers" />
-            </div>
-            <ChartExample2 />
-            <div className="mt-6"></div>
-            <TableComponent />
-          </div>
+          <MetricSection
+            title="Questions"
+            tooltipText="Total questions asked by users"
+            metricType={METRIC_TYPES.QUESTIONS}
+            interval={interval}
+            guruType={guruType}
+          />
 
-          <div>
-            <div className="flex items-center mb-3">
-              <h3 className="text-lg font-size-[17px] font-semibold">
-                Popular Data Sources
-              </h3>
-              <HeaderTooltip text="Most accessed data sources" />
-            </div>
-            <div className="mt-6"></div>
-            <TableComponent />
-          </div>
+          <MetricSection
+            title="Unable to Answers"
+            tooltipText="Questions without satisfactory answers"
+            metricType={METRIC_TYPES.OUT_OF_CONTEXT}
+            interval={interval}
+            guruType={guruType}
+          />
+
+          <MetricSection
+            title="Popular Data Sources"
+            tooltipText="Most accessed data sources"
+            metricType={METRIC_TYPES.POPULAR_SOURCES}
+            interval={interval}
+            guruType={guruType}
+          />
         </div>
 
-        {/* Fourth Column - Empty */}
         <div className="block guru-md:hidden"></div>
       </div>
     </>

@@ -45,7 +45,7 @@ const STAT_TYPES = {
 };
 
 export default function StatsCardComponent({
-  title = "Toplam Sorular",
+  title = "Total Questions",
   value = 100,
   percentageChange = 0,
   statType = STAT_TYPES.HIGHER_BETTER // default to higher is better

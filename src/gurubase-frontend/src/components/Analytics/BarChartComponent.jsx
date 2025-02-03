@@ -5,7 +5,7 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
 
-export default function BarChartComponent({ data, interval }) {
+export default function BarChartComponent({ data = [], interval }) {
   const [tooltip, setTooltip] = useState(null);
 
   const isHourly = interval === "today" || interval === "yesterday";
@@ -14,6 +14,39 @@ export default function BarChartComponent({ data, interval }) {
     questions: {
       label: "Question",
       color: "#CCE2FF"
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      if (isHourly) {
+        return date.getHours().toString().padStart(2, "0") + ":00";
+      }
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric"
+      });
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString;
+    }
+  };
+
+  // Format tooltip date
+  const formatTooltipDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        ...(isHourly && { hour: "numeric", minute: "numeric" })
+      });
+    } catch (e) {
+      console.error("Error formatting tooltip date:", e);
+      return dateString;
     }
   };
 
@@ -35,12 +68,7 @@ export default function BarChartComponent({ data, interval }) {
               marginTop: "-10px"
             }}>
             <div className="text-sm font-medium">
-              {new Date(tooltip.date).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                ...(isHourly && { hour: "numeric", minute: "numeric" })
-              })}
+              {formatTooltipDate(tooltip.date)}
             </div>
             <Separator className="my-2" />
             <div className="flex items-center gap-1">
@@ -68,16 +96,7 @@ export default function BarChartComponent({ data, interval }) {
               tickLine={false}
               axisLine={false}
               tick={{ fill: "#000000" }}
-              tickFormatter={(value) => {
-                const date = new Date(value);
-                if (isHourly) {
-                  return date.getHours().toString().padStart(2, "0") + ":00";
-                }
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric"
-                });
-              }}
+              tickFormatter={formatDate}
               interval={isHourly ? 3 : interval === "30d" ? 4 : 0}
             />
             <YAxis

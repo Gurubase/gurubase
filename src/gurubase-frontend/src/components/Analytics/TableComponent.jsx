@@ -30,38 +30,16 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-const sampleData = [
-  {
-    date: "27.01.2024, 7:00 AM",
-    type: "Bug",
-    question: "I want to create pods with custom ordinal index in stateful set"
-  },
-  {
-    date: "27.01.2024, 7:00 AM",
-    type: "Feature",
-    question:
-      "How do I implement a distributed caching mechanism for my microservices architecture that ensures data consistency across multiple regions while maintaining low latency and handling network partitions effectively?"
-  },
-  {
-    date: "27.01.2024, 7:00 AM",
-    type: "Bug",
-    question: "I want to create pods with custom ordinal index in stateful set"
-  },
-  {
-    date: "27.01.2024, 7:00 AM",
-    type: "Bug",
-    question: "I want to create pods with custom ordinal index in stateful set"
-  },
-  {
-    date: "27.01.2024, 7:00 AM",
-    type: "Bug",
-    question: "I want to create pods with custom ordinal index in stateful set"
-  }
-];
+export default function TableComponent({
+  data,
+  onFilterChange,
+  onPageChange,
+  currentFilter = "all",
+  currentPage = 1
+}) {
+  if (!data) return null;
 
-export default function TableComponent() {
-  const currentPage = 3;
-  const totalPages = 12;
+  const { results, total_pages: totalPages, current_page: pageNum } = data;
 
   const getPaginationGroup = (current, total) => {
     if (current <= 2) return [1, 2, 3];
@@ -69,12 +47,20 @@ export default function TableComponent() {
     return [current - 1, current, current + 1];
   };
 
-  const paginationGroup = getPaginationGroup(currentPage, totalPages);
+  const paginationGroup = getPaginationGroup(pageNum, totalPages);
+
+  const handleFilterChange = (value) => {
+    onFilterChange?.(value);
+  };
+
+  const handlePageChange = (page) => {
+    onPageChange?.(page);
+  };
 
   return (
     <div className="space-y-2">
       <div className="flex items-center">
-        <Select defaultValue="all">
+        <Select defaultValue={currentFilter} onValueChange={handleFilterChange}>
           <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
             <div className="flex items-start gap-1 text-xs">
               <span className="text-[#6D6D6D]">Sources by:</span>
@@ -85,9 +71,6 @@ export default function TableComponent() {
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="bugs">Bugs</SelectItem>
             <SelectItem value="features">Features</SelectItem>
-            <SelectItem value="long-option">
-              A Much Longer Option Text
-            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -105,11 +88,10 @@ export default function TableComponent() {
               <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
                 Question
               </TableHead>
-              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sampleData.map((item, i) => (
+            {results.map((item, i) => (
               <TableRow
                 key={i}
                 className="hover:bg-transparent border-b border-[#E2E2E2]">
@@ -122,26 +104,6 @@ export default function TableComponent() {
                 <TableCell className="font-inter text-xs font-medium max-w-0">
                   <div className="truncate">{item.question}</div>
                 </TableCell>
-                {/* <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">More actions</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[140px]">
-                      <DropdownMenuItem className="gap-2">
-                        <Copy className="h-4 w-4" />
-                        <span>Copy</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="gap-2">
-                        <Pencil className="h-4 w-4" />
-                        <span>Edit</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell> */}
               </TableRow>
             ))}
           </TableBody>
@@ -150,19 +112,22 @@ export default function TableComponent() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg">
+            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+            onClick={() => handlePageChange(pageNum - 1)}
+            disabled={pageNum === 1}>
             <div className="flex items-center px-2">
               <ChevronLeft className="h-4 w-4 mr-1" />
               <span className="px-[10px]">Previous</span>
             </div>
           </Button>
           <div className="flex items-center gap-2">
-            {currentPage > 2 && (
+            {pageNum > 2 && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg">
+                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg"
+                  onClick={() => handlePageChange(1)}>
                   1
                 </Button>
                 <span>
@@ -176,14 +141,13 @@ export default function TableComponent() {
                 variant="ghost"
                 size="sm"
                 className={`h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg ${
-                  number === currentPage
-                    ? "border border-[#E2E2E2] rounded-lg"
-                    : ""
-                }`}>
+                  number === pageNum ? "border border-[#E2E2E2] rounded-lg" : ""
+                }`}
+                onClick={() => handlePageChange(number)}>
                 {number}
               </Button>
             ))}
-            {currentPage < totalPages - 2 && (
+            {pageNum < totalPages - 2 && (
               <>
                 <span>
                   <MoreHorizontal className="h-4 w-4" />
@@ -191,7 +155,8 @@ export default function TableComponent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg">
+                  className="h-8 w-8 hover:bg-[#F6F6F6] hover:rounded-lg"
+                  onClick={() => handlePageChange(totalPages)}>
                   {totalPages}
                 </Button>
               </>
@@ -200,7 +165,9 @@ export default function TableComponent() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg">
+            className="h-8 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+            onClick={() => handlePageChange(pageNum + 1)}
+            disabled={pageNum === totalPages}>
             <div className="flex items-center px-2">
               <span className="px-[10px]">Next</span>
               <ChevronRight className="h-4 w-4 ml-1" />

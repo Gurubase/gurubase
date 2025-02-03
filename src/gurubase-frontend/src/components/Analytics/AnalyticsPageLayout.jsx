@@ -17,7 +17,9 @@ export const AnalyticsPageLayout = ({ customGuru, guruTypes }) => {
           <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />
         }>
         <div className="flex gap-6">
-          <div className="flex-1">{<AnalyticsContent />}</div>
+          <div className="flex-1">
+            <AnalyticsContent customGuru={customGuru} />
+          </div>
         </div>
       </CommonContentLayout>
       <Footer />
