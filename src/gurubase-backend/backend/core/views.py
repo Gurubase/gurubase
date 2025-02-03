@@ -2706,11 +2706,20 @@ def analytics_table(request, guru_type):
     paginated_queryset = queryset[start_idx:end_idx]
     
     # Format results
-    results = [{
-        'date': item.date_created.isoformat(),
-        'type': format_filter_name(item.source),
-        'question': item.question
-    } for item in paginated_queryset]
+    if metric_type in ['questions']:
+        results = [{
+            'date': item.date_created.isoformat(),
+            'type': format_filter_name(item.source),
+            'question': item.question,
+            'link': item.frontend_url
+        } for item in paginated_queryset]
+        
+    else:  # referenced_sources
+        results = [{
+            'date': item.date_created.isoformat(),
+            'type': format_filter_name(item.source),
+            'question': item.question,
+        } for item in paginated_queryset]
     
     response_data = {
         'results': results,

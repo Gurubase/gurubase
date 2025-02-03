@@ -112,6 +112,7 @@ const MetricSection = ({
       )}
       <div className="mt-6"></div>
       <TableComponent
+        metricType={metricType}
         data={tableData}
         onFilterChange={setFilterType}
         onPageChange={setPage}

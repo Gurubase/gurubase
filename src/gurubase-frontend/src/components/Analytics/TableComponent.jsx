@@ -4,7 +4,8 @@ import {
   ChevronRight,
   Copy,
   MoreHorizontal,
-  Pencil
+  Pencil,
+  ExternalLink
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { METRIC_TYPES } from "@/services/analyticsService";
 
 export default function TableComponent({
   data,
@@ -37,7 +39,8 @@ export default function TableComponent({
   onPageChange,
   currentFilter = "all",
   currentPage = 1,
-  isLoading = false
+  isLoading = false,
+  metricType
 }) {
   if (!data && !isLoading) return null;
 
@@ -48,6 +51,17 @@ export default function TableComponent({
     available_filters: filters = [],
     total_items: totalItems = 0
   } = data || {};
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "2-digit",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
 
   const getPaginationGroup = (current, total) => {
     if (total <= 3) {
@@ -109,7 +123,9 @@ export default function TableComponent({
                 Date
               </TableHead>
               <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
-                Type
+                {metricType !== METRIC_TYPES.REFERENCED_SOURCES
+                  ? "Source"
+                  : "Type"}
               </TableHead>
               <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
                 Question
@@ -123,7 +139,10 @@ export default function TableComponent({
                     key={i}
                     className="hover:bg-transparent border-b border-[#E2E2E2]">
                     <TableCell className="font-inter text-xs font-medium">
-                      <Skeleton className="h-4 w-24" />
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-full max-w-[400px]" />
+                        <div className="w-3 flex-shrink-0" />
+                      </div>
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium">
                       <Skeleton className="h-4 w-16" />
@@ -138,19 +157,34 @@ export default function TableComponent({
                     key={i}
                     className="hover:bg-transparent border-b border-[#E2E2E2]">
                     <TableCell className="font-inter text-xs font-medium">
-                      {item.date}
+                      {formatDate(item.date)}
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium">
                       {item.type}
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium max-w-0">
-                      <div className="truncate">{item.question}</div>
+                      {metricType === METRIC_TYPES.QUESTIONS && item.link ? (
+                        <a
+                          href={item.link || "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2 group ${item.link ? "hover:text-blue-600" : "cursor-default"}`}>
+                          <div className="truncate">{item.question}</div>
+                          <ExternalLink
+                            className={`h-3 w-3 flex-shrink-0 transition-opacity ${
+                              item.link ? "opacity-100" : "opacity-0"
+                            }`}
+                          />
+                        </a>
+                      ) : (
+                        <div className="truncate">{item.question}</div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
           </TableBody>
         </Table>
-        <div className="flex items-center justify-end gap-1 border-t border-[#E2E2E2] p-2">
+        <div className="flex items-center justify-end gap-1 p-2">
           {totalPages > 0 && (
             <>
               <Button
