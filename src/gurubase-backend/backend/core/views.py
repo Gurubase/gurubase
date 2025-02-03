@@ -2393,3 +2393,128 @@ def list_integrations(request, guru_type):
     except Exception as e:
         logger.error(f"Error in list_integrations: {e}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def analytics_stats(request, guru_type):
+    """Get analytics stat cards data for a specific time period."""
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    interval = request.query_params.get('interval', 'today')
+    
+    # Mock data for now
+    mock_data = {
+        'data': {
+            'total_questions': {
+                'value': 100,
+                'percentage_change': 20
+        },
+            'out_of_context': {
+                'value': 23,
+                'percentage_change': 20
+        },
+            'popular_sources': {
+                    'value': 56,
+                    'percentage_change': 0
+        }
+        }
+    }
+    
+    return Response(mock_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@jwt_auth
+def analytics_histogram(request, guru_type):
+    """Get analytics histogram data for a specific metric type and time period."""
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    metric_type = request.query_params.get('metric_type')  # questions, out_of_context, popular_sources
+    interval = request.query_params.get('interval', 'today')
+    
+    if not metric_type:
+        return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Mock data for now
+    mock_data = {
+        'data': []
+    }
+    if interval in ['today', 'yesterday']:
+        for hour in range(24):
+            mock_data['data'].append({
+                'date': f'2024-01-27T{hour:02d}:00:00Z',
+                'questions': int(random.random() * 100)
+            })
+    else:
+        for day in range(7):
+            mock_data['data'].append({
+                'date': f'2024-01-{20+day}',
+                'questions': int(random.random() * 100)
+            })
+    
+    return Response(mock_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@jwt_auth
+def analytics_table(request, guru_type):
+    """Get analytics table data for a specific metric type with pagination."""
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    metric_type = request.query_params.get('metric_type')  # questions, out_of_context, popular_sources
+    interval = request.query_params.get('interval', 'today')
+    filter_type = request.query_params.get('filter_type', 'all')
+    page = int(request.query_params.get('page', 1))
+    page_size = 5
+    
+    if not metric_type:
+        return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Mock data for now
+    mock_data = {
+        'results': [
+            {
+                'date': '27.01.2024T07:00:00Z',
+                'type': 'Bug',
+                'question': 'I want to create pods with custom ordinal index in stateful set'
+            },
+            {
+                'date': '27.01.2024T07:00:00Z',
+                'type': 'Feature',
+                'question': 'How do I implement a distributed caching mechanism?'
+            },
+            {
+                'date': '27.01.2024T07:00:00Z',
+                'type': 'Bug',
+                'question': 'How to handle Kubernetes pod scheduling?'
+            },
+            {
+                'date': '27.01.2024T07:00:00Z',
+                'type': 'Bug',
+                'question': 'Best practices for microservices communication'
+            },
+            {
+                'date': '27.01.2024T07:00:00Z',
+                'type': 'Bug',
+                'question': 'Setting up monitoring in production environment'
+            }
+        ],
+        'total_pages': 12,
+        'current_page': page,
+        'total_items': 58
+    }
+    
+    return Response(mock_data, status=status.HTTP_200_OK)
