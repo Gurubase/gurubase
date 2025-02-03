@@ -2106,7 +2106,6 @@ async def handle_slack_message(
         try:
             # Get or create thread and binge
             thread, binge = await sync_to_async(get_or_create_thread_binge)(thread_ts, integration)
-            logger.info(f"handle_slack_message: Thread: {thread}, Binge: {binge}")
         except Exception as e:
             logger.error(f"Error creating thread/binge: {str(e)}", exc_info=True)
             client.chat_update(
@@ -2135,7 +2134,6 @@ async def handle_slack_message(
                     'short_answer': True,
                     'session_id': str(binge.id)
                 }
-                logger.info(f"handle_slack_message: Stream payload: {stream_payload}")
                 await stream_and_update_message(
                     session=session,
                     url=url,
