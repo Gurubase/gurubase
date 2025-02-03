@@ -128,8 +128,15 @@ export default function TableComponent({
                   : "Type"}
               </TableHead>
               <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
-                Question
+                {metricType !== METRIC_TYPES.REFERENCED_SOURCES
+                  ? "Question"
+                  : "Source"}
               </TableHead>
+              {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
+                <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                  Referenced
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,9 +184,18 @@ export default function TableComponent({
                           />
                         </a>
                       ) : (
-                        <div className="truncate">{item.question}</div>
+                        <div className="truncate">
+                          {metricType === METRIC_TYPES.REFERENCED_SOURCES
+                            ? item.title
+                            : item.question}
+                        </div>
                       )}
                     </TableCell>
+                    {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
+                      <TableCell className="font-inter text-xs font-medium">
+                        {item.reference_count}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
           </TableBody>

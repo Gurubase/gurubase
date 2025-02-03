@@ -2674,7 +2674,7 @@ def analytics_table(request, guru_type):
         # Order by date created descending
         queryset = queryset.order_by('-date_created')
         
-    else:  # out_of_context
+    elif metric_type == 'out_of_context':
         queryset = OutOfContextQuestion.objects.filter(
             guru_type=guru_type_object,
             date_created__gte=start_date,
@@ -2687,11 +2687,46 @@ def analytics_table(request, guru_type):
             
         # Order by date created descending
         queryset = queryset.order_by('-date_created')
-    
+    elif metric_type == 'referenced_sources':
+        # Get all questions in the time interval with non-empty references
+        questions = Question.objects.filter(
+            guru_type=guru_type_object,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        )
+        
+        # Extract all referenced links and count their occurrences
+        referenced_links = []
+        reference_counts = {}
+        
+        for question in questions:
+            for ref in question.references:
+                link = ref.get('link')
+                if link:
+                    referenced_links.append(link)
+                    reference_counts[link] = reference_counts.get(link, 0) + 1
+
+        # Get matching data sources
+        queryset = DataSource.objects.filter(
+            guru_type=guru_type_object,
+            url__in=referenced_links
+        )
+        
+        # Apply source type filter if provided
+        if filter_type and filter_type != 'all':
+            queryset = queryset.filter(type__iexact=filter_type)
+            
+        # Order by reference count descending
+        queryset = sorted(
+            queryset,
+            key=lambda ds: reference_counts.get(ds.url, 0),
+            reverse=True
+        )
+
     # Get total count before pagination
-    total_items = queryset.count()
-    total_pages = (total_items + page_size - 1) // page_size  # Ceiling division
-    
+    total_items = len(queryset) if metric_type == 'referenced_sources' else queryset.count()
+    total_pages = (total_items + page_size - 1) // page_size
+
     # Adjust page number if it's out of range
     if total_pages > 0:
         page = min(page, total_pages)
@@ -2703,18 +2738,25 @@ def analytics_table(request, guru_type):
     end_idx = start_idx + page_size
     
     # Get paginated results
-    paginated_queryset = queryset[start_idx:end_idx]
-    
-    # Format results
-    if metric_type in ['questions']:
+    if metric_type == 'referenced_sources':
+        paginated_queryset = queryset[start_idx:end_idx]
+        results = [{
+            'date': item.date_created.isoformat(),
+            'type': format_filter_name(item.type),
+            'title': item.title or item.url,
+            'url': item.url,
+            'reference_count': reference_counts.get(item.url, 0)
+        } for item in paginated_queryset]
+    elif metric_type == 'questions':
+        paginated_queryset = queryset[start_idx:end_idx]
         results = [{
             'date': item.date_created.isoformat(),
             'type': format_filter_name(item.source),
             'question': item.question,
             'link': item.frontend_url
         } for item in paginated_queryset]
-        
-    else:  # referenced_sources
+    elif metric_type == 'out_of_context':
+        paginated_queryset = queryset[start_idx:end_idx]
         results = [{
             'date': item.date_created.isoformat(),
             'type': format_filter_name(item.source),
