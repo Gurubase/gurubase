@@ -30,7 +30,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-const sampleData = Array(12)
+const sampleData = Array(5)
   .fill({
     date: "27.01.2024, 7:00 AM",
     type: "Bug",
