@@ -46,8 +46,8 @@ const STAT_TYPES = {
 };
 
 export default function StatsCardComponent({
-  title = "Total Questions",
-  value = 100,
+  title = "Unknown",
+  value = 0,
   percentageChange = 0,
   statType = STAT_TYPES.HIGHER_BETTER, // default to higher is better
   isLoading = false
