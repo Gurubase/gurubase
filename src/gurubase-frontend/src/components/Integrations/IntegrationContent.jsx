@@ -53,6 +53,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover";
+import Link from "next/link";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -70,8 +71,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const integrationConfig = {
     slack: {
       name: "Slack",
-      description:
-        "By connecting your account, you can easily share all your posts and invite your friends.",
+      description:(
+        <>
+          By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
+          <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+            learn more
+          </Link>
+          .   
+        </>
+      ),
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_SLACK_INTEGRATION_URL,
       icon: SlackIcon,
@@ -80,8 +88,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     },
     discord: {
       name: "Discord",
-      description:
-        "Connect your Discord account to share content and interact with your community.",
+      description:(
+        <>
+          By connecting your account, you can ask your Guru directly in Discord. Here is the guide to{" "}
+          <Link href="https://docs.gurubase.io/integrations/discord-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+            learn more
+          </Link>
+          .   
+        </>
+      ),
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_DISCORD_INTEGRATION_URL,
@@ -190,7 +205,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
               <IntegrationInfo
                 name={name}
-                description="By connecting your account, you can easily share all your posts and invite your friends."
+                description={config.description}
               />
             </IntegrationIconContainer>
             <div className="flex items-center justify-start w-full md:w-auto">
