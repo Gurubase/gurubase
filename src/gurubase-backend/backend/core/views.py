@@ -23,7 +23,7 @@ from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, Git
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, OutOfContextQuestion
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, OutOfContextQuestion, GithubFile
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -2469,8 +2469,12 @@ def get_stats_for_period(guru_type, start_date, end_date):
         guru_type=guru_type,
         url__in=referenced_links
     ).count()
+
+    referenced_github_files = GithubFile.objects.filter(
+        link__in=referenced_links
+    ).count()
     
-    return total_questions, out_of_context, referenced_sources
+    return total_questions, out_of_context, referenced_sources + referenced_github_files
 
 @api_view(['GET'])
 @jwt_auth
@@ -2634,6 +2638,8 @@ def format_filter_name(name):
 
     if name.lower() == 'user':
         return 'Gurubase UI'
+    elif name.lower() == 'github_repo':
+        return 'Codebase'
     return name.lower().replace('_', ' ').title()
 
 
@@ -2677,11 +2683,12 @@ def analytics_table(request, guru_type):
             {'value': 'slack', 'label': 'Slack'},
         ]
     elif metric_type == 'referenced_sources':
-        raw_filters = [choice[0] for choice in DataSource.Type.choices]
-        # Format filters and add "All" option
-        filters = [{'value': 'all', 'label': 'All'}] + [
-            {'value': f.lower(), 'label': format_filter_name(f)} 
-            for f in raw_filters
+        filters = [
+            {'value': 'all', 'label': 'All'},
+            {'value': 'github_repo', 'label': 'Codebase'},
+            {'value': 'pdf', 'label': 'PDF'},
+            {'value': 'website', 'label': 'Website'},
+            {'value': 'youtube', 'label': 'YouTube'},
         ]
     
     # Build base queryset
@@ -2727,26 +2734,59 @@ def analytics_table(request, guru_type):
         for question in questions:
             for ref in question.references:
                 link = ref.get('link')
-                if link:
-                    referenced_links.append(link)
-                    reference_counts[link] = reference_counts.get(link, 0) + 1
+                if not link:
+                    continue
+                    
+                referenced_links.append(link)
+                reference_counts[link] = reference_counts.get(link, 0) + 1
 
-        # Get matching data sources
-        queryset = DataSource.objects.filter(
-            guru_type=guru_type_object,
-            url__in=referenced_links
-        )
+        # Get both data sources and github files when needed
+        data_source_qs = DataSource.objects.none()
+        github_file_qs = GithubFile.objects.none()
         
-        # Apply source type filter if provided
-        if filter_type and filter_type != 'all':
-            queryset = queryset.filter(type__iexact=filter_type)
-            
-        # Order by reference count descending
-        queryset = sorted(
-            queryset,
-            key=lambda ds: reference_counts.get(ds.url, 0),
-            reverse=True
-        )
+        if filter_type == 'all':
+            data_source_qs = DataSource.objects.filter(
+                guru_type=guru_type_object,
+                url__in=referenced_links
+            )
+            github_file_qs = GithubFile.objects.filter(
+                link__in=referenced_links
+            ).select_related('data_source')
+        elif filter_type == 'github_repo':
+            github_file_qs = GithubFile.objects.filter(
+                link__in=referenced_links
+            ).select_related('data_source')
+        else:
+            data_source_qs = DataSource.objects.filter(
+                guru_type=guru_type_object,
+                url__in=referenced_links,
+                type__iexact=filter_type
+            )
+
+        # Combine and sort the results
+        combined = []
+        
+        # Process DataSources
+        for ds in data_source_qs:
+            combined.append({
+                'obj': ds,
+                'count': reference_counts.get(ds.url, 0),
+                'is_github_file': False
+            })
+        
+        # Process GitHubFiles
+        for gf in github_file_qs:
+            combined.append({
+                'obj': gf,
+                'count': reference_counts.get(gf.link, 0),
+                'is_github_file': True
+            })
+        
+        # Sort combined results by reference count
+        combined.sort(key=lambda x: x['count'], reverse=True)
+        
+        # Extract sorted queryset
+        queryset = [item['obj'] for item in combined]
 
     # Get total count before pagination
     total_items = len(queryset) if metric_type == 'referenced_sources' else queryset.count()
@@ -2765,13 +2805,24 @@ def analytics_table(request, guru_type):
     # Get paginated results
     if metric_type == 'referenced_sources':
         paginated_queryset = queryset[start_idx:end_idx]
-        results = [{
-            'date': item.date_created.isoformat(),
-            'type': format_filter_name(item.type),
-            'title': item.title or item.url,
-            'link': item.url,
-            'reference_count': reference_counts.get(item.url, 0)
-        } for item in paginated_queryset]
+        results = []
+        for item in paginated_queryset:
+            if isinstance(item, GithubFile):
+                results.append({
+                    'date': item.data_source.date_created.isoformat(),  # Use parent DataSource's date
+                    'type': 'Codebase',  # Match DataSource type
+                    'title': item.title,
+                    'link': item.link,
+                    'reference_count': reference_counts.get(item.link, 0)
+                })
+            else:
+                results.append({
+                    'date': item.date_created.isoformat(),
+                    'type': format_filter_name(item.type),
+                    'title': item.title or item.url,
+                    'link': item.url,
+                    'reference_count': reference_counts.get(item.url, 0)
+                })
     elif metric_type == 'questions':
         paginated_queryset = queryset[start_idx:end_idx]
         results = [{
@@ -2819,11 +2870,36 @@ def data_source_questions(request, guru_type):
         page = 1
     page_size = 10
 
-    # Get questions that reference this data source
-    queryset = Question.objects.filter(
-        guru_type=guru_type_object,
-        references__contains=[{'link': data_source_url}]
-    ).order_by('-date_created')
+    # First try to find the data source
+    try:
+        data_source = DataSource.objects.get(
+            guru_type=guru_type_object,
+            url=data_source_url
+        )
+    except DataSource.DoesNotExist:
+        try:
+            data_source = GithubFile.objects.get(
+                link=data_source_url
+            )
+        except GithubFile.DoesNotExist:
+            return Response({'msg': 'Data source not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Build base query for questions
+    base_query = Q(guru_type=guru_type_object)
+
+    # Handle different data source types
+    if isinstance(data_source, GithubFile):
+        # Get all file URLs from this repo
+        reference_query = Q()
+        reference_query |= Q(references__contains=[{'link': data_source.link}])
+        
+        base_query &= reference_query
+    else:
+        # For non-GitHub sources, just match the exact URL
+        base_query &= Q(references__contains=[{'link': data_source_url}])
+
+    # Get questions matching our query
+    queryset = Question.objects.filter(base_query).order_by('-date_created')
 
     # Get total count before pagination
     total_items = queryset.count()
