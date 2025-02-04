@@ -1,3 +1,4 @@
+import re
 import os
 import discord
 import logging
@@ -18,7 +19,10 @@ class Command(BaseCommand):
     def __init__(self):
         super().__init__()
         # Cache timeout in seconds (e.g., 5 minutes)
-        self.cache_timeout = 300
+        # Set to 0 to disable caching
+        # This is because dynamic channel updates are not immediately reflected
+        # And this may result in bad UX, and false positive bug reports
+        self.cache_timeout = 0
         self.prod_backend_url = settings.PROD_BACKEND_URL.rstrip('/')
 
     def get_trust_score_emoji(self, trust_score):
@@ -46,47 +50,33 @@ class Command(BaseCommand):
 
     def format_response(self, response):
         formatted_msg = []
+        content = self.strip_first_header(response['content'])
+        metadata_length = 0
         
         # Calculate space needed for metadata (trust score and references)
-        metadata_length = 0
         trust_score = response.get('trust_score', 0)
         trust_emoji = self.get_trust_score_emoji(trust_score)
-        metadata_length += len(f"\n\n**Trust Score**: {trust_emoji} {trust_score}%\n")
+        formatted_msg.append(f"---------\n_**Trust Score**: {trust_emoji} {trust_score}%_")
         
         if response.get('references'):
-            metadata_length += len("\n**References**:")
+            formatted_msg.append("_**Sources:**_")
             for ref in response['references']:
-                metadata_length += len(f"\n• [{ref['title']}](<{ref['link']}>)")
+                clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+                formatted_msg.append(f"• [_{clean_title}_](<{ref['link']}>)")
 
         # Add space for frontend link
-        metadata_length += len("\n\nView on <span class=\"guru-text\">Guru</span>base for a better UX: ")
-        metadata_length += 100  # Approximate length for the URL
+        formatted_msg.append(f":eyes: [_View on Gurubase for a better UX_]({response['question_url']})")
+
+        metadata_length = sum(len(msg) for msg in formatted_msg)
         
         # Calculate max length for content to stay within Discord's 2000 char limit
         max_content_length = 1900 - metadata_length  # Leave some buffer
         
-        # Get content and strip first header
-        content = self.strip_first_header(response['content'])
-        
         # Truncate content if necessary
         if len(content) > max_content_length:
             content = content[:max_content_length-3] + "..."
-        
-        # Build the message
-        formatted_msg.append(content)
-        
-        # Add trust score
-        formatted_msg.append(f"\n**Trust Score**: {trust_emoji} {trust_score}%")
-        
-        # Add references if they exist
-        if response.get('references'):
-            formatted_msg.append("\n**References**:")
-            for ref in response['references']:
-                formatted_msg.append(f"\n• [{ref['title']}](<{ref['link']}>)")
 
-        # Add frontend link if question_url is present
-        if response.get('question_url'):
-            formatted_msg.append(f"\n[View on Gurubase for a better UX]({response['question_url']})")
+        formatted_msg.insert(0, content)
         
         return "\n".join(formatted_msg)
 
@@ -186,6 +176,44 @@ class Command(BaseCommand):
                     print(response_json, type(response_json))
                     return response_json['msg'], False
 
+    async def send_channel_unauthorized_message(
+        self,
+        message: discord.Message,
+        guru_slug: str,
+        question: str
+    ) -> None:
+        """Send a message explaining how to authorize the channel."""
+        try:
+            settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/discord"
+            
+            # Create embed for better formatting
+            embed = discord.Embed(
+                title="❌ Channel Not Authorized",
+                description=(
+                    "This channel is not authorized to use the bot.\n\n"
+                    f"Please visit [Gurubase Settings]({settings_url}) to configure "
+                    "the bot and add this channel to the allowed channels list."
+                ),
+                color=discord.Color.red()  # Red color for error messages
+            )
+            
+            # If in a thread, reply in thread. Otherwise create a thread
+            if isinstance(message.channel, discord.Thread):
+                await message.channel.send(embed=embed)
+            else:
+                thread = await message.create_thread(
+                    name=f"Q: {question[:50]}...",
+                    auto_archive_duration=60  # Archive after 1 hour of inactivity
+                )
+                await thread.send(embed=embed)
+            
+        except discord.Forbidden as e:
+            logging.error(f"Discord forbidden error while sending unauthorized message: {str(e)}")
+        except discord.HTTPException as e:
+            logging.error(f"Discord API error while sending unauthorized message: {str(e)}")
+        except Exception as e:
+            logging.error(f"Error sending unauthorized channel message: {str(e)}")
+
     def setup_discord_client(self):
         # Setup logging to stdout
         handler = logging.StreamHandler(sys.stdout)
@@ -229,16 +257,22 @@ class Command(BaseCommand):
                 
                 channels = await sync_to_async(lambda: integration.channels)()
                 channel_allowed = False
+                question = message.content.replace(f'<@{client.user.id}>', '').strip()
+
                 for channel in channels:
                     if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                         channel_allowed = True
                         break
                 
                 if not channel_allowed:
+                    guru_type_slug = await self.get_guru_type_slug(integration)
+                    await self.send_channel_unauthorized_message(
+                        message, 
+                        guru_type_slug, 
+                        question)
                     return
 
                 # Remove the bot mention from the message
-                question = message.content.replace(f'<@{client.user.id}>', '').strip()
                 
                 # Get guru type slug and API key
                 guru_type_slug = await self.get_guru_type_slug(integration)
@@ -289,6 +323,7 @@ class Command(BaseCommand):
                             # Strip header from streamed content
                             cleaned_content = self.strip_first_header(streamed_content)
                             if cleaned_content:
+                                cleaned_content += '\n:clock1: _streaming..._'
                                 await thinking_msg.edit(content=cleaned_content)
                                 last_update = current_time
                     

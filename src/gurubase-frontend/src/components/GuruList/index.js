@@ -1,13 +1,14 @@
 import clsx from "clsx";
 import { Plus } from "lucide-react";
-import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import SearchBar from "@/components/OtherGurus/SearchBar";
+import { Link } from "@/components/Link";
 import { useAppDispatch } from "@/redux/hooks";
 import { setBingeInfo, setResetMainForm } from "@/redux/slices/mainFormSlice";
 import { GuruIconGetter } from "@/utils/guruIconGetter";
+import { useAppNavigation } from "@/lib/navigation";
 
 const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
   const [guruTypes, setGuruTypes] = useState(allGuruTypes);
@@ -15,6 +16,7 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
   const pathname = usePathname();
   const isMyGurusPage = pathname === "/my-gurus";
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+  const navigation = useAppNavigation();
 
   const [filter, setFilter] = useState("");
   const [filteredGurus, setFilteredGurus] = useState(guruTypes);
@@ -41,13 +43,11 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
     }
   }, [filter, guruTypes]);
 
-  const router = useRouter();
-
   const handleGuruClick = (guru) => {
     dispatch(setResetMainForm());
     const url = isMyGurusPage ? `/guru/${guru.slug}` : `/g/${guru.slug}`;
 
-    router.push(url);
+    navigation.push(url);
   };
 
   return (

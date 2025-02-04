@@ -31,6 +31,7 @@ import OtherGurus from "../OtherGurus";
 import SimilarQuestions from "../SimilarQuestions";
 import ExampleQuestions from "../FollowUpQuestions";
 import { getExampleQuestions } from "@/app/actions";
+import { useAppNavigation } from "@/lib/navigation";
 
 const MainForm = dynamic(() => import("@/components/Content/MainForm"));
 
@@ -120,12 +121,12 @@ const Content = (props) => {
 
   // console.log("finalBingeId", finalBingeId);
 
-  const router = useRouter();
+  const navigation = useAppNavigation();
 
   const newQuestionClick = () => {
     if (guruType) {
       dispatch(setResetMainForm());
-      window.location.href = `/g/${guruType}`;
+      navigation.setHref(`/g/${guruType}`);
     }
   };
 
@@ -803,6 +804,11 @@ const Content = (props) => {
             )}
 
           {/* Mobile Binge Map Sliding Panel */}
+          {finalBingeId &&
+            !isLoading &&
+            !streamingStatus &&
+            content &&
+            slug && (
           <div
             ref={slidePanel}
             className={`guru-lg:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 transition-transform duration-300 ease-in-out z-40 overflow-hidden bg-white ${
@@ -846,6 +852,7 @@ const Content = (props) => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Overlay */}
           {isBingeMapOpen && (

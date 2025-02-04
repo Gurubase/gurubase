@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import React from "react";
 
 import { SettingsIcon } from "@/components/Icons";
+import { useAppNavigation } from "@/lib/navigation";
 import { useAppDispatch } from "@/redux/hooks";
 import { resetErrors, setResetMainForm } from "@/redux/slices/mainFormSlice";
 
@@ -12,6 +13,7 @@ const GuruItem = ({ slug, icon, text }) => {
   const pathname = usePathname();
   const isMyGurusPage = pathname === "/my-gurus";
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+  const navigation = useAppNavigation();
 
   const handleClick = (e) => {
     e.preventDefault();
@@ -20,16 +22,16 @@ const GuruItem = ({ slug, icon, text }) => {
 
     // If we're on the My Gurus page, use the custom guru URL pattern
     if (isMyGurusPage) {
-      window.location.href = `/guru/${slug}`;
+      navigation.setHref(`/guru/${slug}`);
     } else {
-      window.location.href = `/g/${slug}`;
+      navigation.setHref(`/g/${slug}`);
     }
   };
 
   const handleSettingsClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    window.location.href = `/guru/${slug}`;
+    navigation.setHref(`/guru/${slug}`);
   };
 
   return (

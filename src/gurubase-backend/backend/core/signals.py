@@ -863,11 +863,11 @@ def manage_slack_channels(sender, instance, **kwargs):
         ]
         
         # Leave channels
-        for channel_id in channels_to_leave:
-            try:
-                client.conversations_leave(channel=channel_id)
-            except Exception as e:
-                logger.warning(f"Failed to leave Slack channel {channel_id}: {e}", exc_info=True)
+        # for channel_id in channels_to_leave:
+        #     try:
+        #         client.conversations_leave(channel=channel_id)
+        #     except Exception as e:
+        #         logger.warning(f"Failed to leave Slack channel {channel_id}: {e}", exc_info=True)
                 
         # Join channels
         for channel_id in channels_to_join:
