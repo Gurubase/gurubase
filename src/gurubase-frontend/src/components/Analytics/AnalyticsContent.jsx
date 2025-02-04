@@ -119,6 +119,7 @@ const MetricSection = ({
         currentFilter={filterType}
         currentPage={page}
         isLoading={tableLoading}
+        guruType={guruType}
       />
     </div>
   );

@@ -6,8 +6,16 @@ import {
   MoreHorizontal,
   Pencil,
   ExternalLink,
-  Link
+  Link,
+  X
 } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/alert-dialog";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +44,206 @@ import { METRIC_TYPES } from "@/services/analyticsService";
 import { Badge } from "@/components/ui/badge";
 import SourceDialog from "@/components/NewEditGuru/SourceDialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { getDataSourceQuestions } from "@/services/analyticsService";
+import { useDataSourceQuestions } from "@/hooks/useAnalytics";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { cn } from "@/lib/utils";
+import * as React from "react";
+
+const StyledDialogContent = React.forwardRef(
+  ({ children, isMobile, ...props }, ref) => (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed z-[100] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          isMobile
+            ? "inset-x-0 bottom-0 z-[100] h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
+            : "right-0 top-0 z-[100] h-full w-full max-w-[400px] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+        )}
+        {...props}>
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  )
+);
+
+StyledDialogContent.displayName = "StyledDialogContent";
+
+const QuestionsList = ({ url, guruType, onClose }) => {
+  const {
+    data: questions,
+    loading,
+    page,
+    setPage
+  } = useDataSourceQuestions(guruType, url);
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  const isMobile = useMediaQuery("(max-width: 915px)");
+
+  const getPaginationGroup = (current, total) => {
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current <= 2) {
+      return [1, 2, 3];
+    }
+    if (current >= total - 1) {
+      return [total - 2, total - 1, total];
+    }
+    return [current - 1, current, current + 1];
+  };
+
+  return (
+    <DialogPrimitive.Root open={true} onOpenChange={onClose}>
+      <StyledDialogContent isMobile={isMobile}>
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="guru-sm:hidden guru-md:flex guru-lg:flex px-5 py-6 items-center gap-5 border-b border-gray-85 bg-gray-25 sticky top-0 z-10">
+            <div className="flex-grow">
+              <h2 className="text-h5 font-semibold mb-1">
+                Questions referencing this source
+              </h2>
+            </div>
+            <DialogPrimitive.Close asChild>
+              <Button size="icon" variant="ghost">
+                <X className="h-6 w-6 text-gray-400" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogPrimitive.Close>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {questions?.results.map((question, idx) => (
+                    <div
+                      key={idx}
+                      className="border rounded-lg p-4 space-y-2 hover:bg-gray-50">
+                      <div className="flex justify-between items-start gap-4">
+                        <a
+                          href={question.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium hover:text-blue-600 flex-1">
+                          {question.title}
+                        </a>
+                        <div className="text-xs text-gray-500 whitespace-nowrap">
+                          {formatDate(question.date)}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Source: {question.source}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {questions?.total_pages > 1 && (
+                  <div className="flex items-center justify-end gap-1 p-2 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}>
+                      <div className="flex items-center px-2">
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                      </div>
+                    </Button>
+                    <div className="flex items-center gap-2 md:gap-2 gap-1">
+                      {page > 2 && questions.total_pages > 3 && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                            onClick={() => setPage(1)}
+                            disabled={loading}>
+                            1
+                          </Button>
+                          {page > 3 && (
+                            <span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {getPaginationGroup(page, questions.total_pages).map(
+                        (number) => (
+                          <Button
+                            key={number}
+                            variant="ghost"
+                            size="sm"
+                            className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
+                              number === page
+                                ? "border border-[#E2E2E2] rounded-lg"
+                                : ""
+                            }`}
+                            onClick={() => setPage(number)}
+                            disabled={loading}>
+                            {number}
+                          </Button>
+                        )
+                      )}
+                      {page < questions.total_pages - 1 &&
+                        questions.total_pages > 3 && (
+                          <>
+                            {page < questions.total_pages - 2 && (
+                              <span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                              onClick={() => setPage(questions.total_pages)}
+                              disabled={loading}>
+                              {questions.total_pages}
+                            </Button>
+                          </>
+                        )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === questions.total_pages || loading}>
+                      <div className="flex items-center px-2">
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </div>
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </StyledDialogContent>
+    </DialogPrimitive.Root>
+  );
+};
 
 export default function TableComponent({
   data,
@@ -45,7 +252,8 @@ export default function TableComponent({
   currentFilter = "all",
   currentPage = 1,
   isLoading = false,
-  metricType
+  metricType,
+  guruType
 }) {
   const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
   const [clickedSource, setClickedSource] = useState([]);
@@ -66,7 +274,7 @@ export default function TableComponent({
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
-      year: "2-digit",
+      year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -106,7 +314,7 @@ export default function TableComponent({
     setClickedSource([
       {
         id: item.id,
-        url: item.title,
+        link: item.link,
         type: "website",
         status: "SUCCESS"
       }
@@ -310,26 +518,13 @@ export default function TableComponent({
         </div>
       </div>
 
-      <SourceDialog
-        clickedSource={clickedSource}
-        editorContent={urlEditorContent}
-        form={{}}
-        handleDeleteUrls={() => {}}
-        initialActiveTab="success"
-        isMobile={isMobile}
-        isOpen={isUrlSidebarOpen}
-        selectedUrls={selectedUrls}
-        setClickedSource={setClickedSource}
-        setDirtyChanges={() => {}}
-        setSelectedUrls={setSelectedUrls}
-        setSources={() => {}}
-        sourceType="website"
-        title="Referenced URLs"
-        onAddUrls={() => {}}
-        onEditorChange={() => {}}
-        onOpenChange={setIsUrlSidebarOpen}
-        readOnly={true}
-      />
+      {isUrlSidebarOpen && (
+        <QuestionsList
+          url={clickedSource[0]?.link}
+          guruType={guruType}
+          onClose={() => setIsUrlSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -70,6 +70,7 @@ urlpatterns += [
     path('<str:guru_type>/analytics/table', core_views.analytics_table, name='analytics_table'),
     path('<str:guru_type>/analytics/histogram', core_views.analytics_histogram, name='analytics_histogram'),
     path('<str:guru_type>/analytics/stats', core_views.analytics_stats, name='analytics_stats'),
+    path('<str:guru_type>/data-source-questions/', core_views.data_source_questions, name='data_source_questions'),
 ]
 
 if settings.STREAM_ENABLED:

@@ -2797,3 +2797,62 @@ def analytics_table(request, guru_type):
     }
     
     return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@jwt_auth
+def data_source_questions(request, guru_type):
+    """Get paginated list of questions that reference a specific data source."""
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    data_source_url = request.query_params.get('url')
+    if not data_source_url:
+        return Response({'msg': 'Data source URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        page = max(1, int(request.query_params.get('page', 1)))
+    except ValueError:
+        page = 1
+    page_size = 10
+
+    # Get questions that reference this data source
+    queryset = Question.objects.filter(
+        guru_type=guru_type_object,
+        references__contains=[{'link': data_source_url}]
+    ).order_by('-date_created')
+
+    # Get total count before pagination
+    total_items = queryset.count()
+    total_pages = (total_items + page_size - 1) // page_size
+
+    # Adjust page number if it's out of range
+    if total_pages > 0:
+        page = min(page, total_pages)
+    else:
+        page = 1
+    
+    # Calculate slice indices
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    
+    # Get paginated results
+    paginated_queryset = queryset[start_idx:end_idx]
+    results = [{
+        'date': item.date_created.isoformat(),
+        'title': item.question,
+        'link': item.frontend_url,
+        'source': format_filter_name(item.source)
+    } for item in paginated_queryset]
+    
+    response_data = {
+        'results': results,
+        'total_pages': total_pages,
+        'current_page': page,
+        'total_items': total_items
+    }
+    
+    return Response(response_data, status=status.HTTP_200_OK)

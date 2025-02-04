@@ -103,3 +103,32 @@ export const getTableData = async (
     });
   }
 };
+
+export const getDataSourceQuestions = async (guruType, url, page = 1) => {
+  try {
+    const params = new URLSearchParams({
+      url: url,
+      page: page.toString()
+    });
+
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/data-source-questions/?${params}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      },
+      true
+    );
+
+    if (!response) return null;
+
+    return response;
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getDataSourceQuestions",
+      guruType,
+      url,
+      page
+    });
+  }
+};
