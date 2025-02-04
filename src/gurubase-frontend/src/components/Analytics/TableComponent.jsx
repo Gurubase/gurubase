@@ -193,13 +193,15 @@ export default function TableComponent({
                       {item.type}
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium max-w-0">
-                      {metricType === METRIC_TYPES.QUESTIONS && item.link ? (
+                      {metricType === METRIC_TYPES.QUESTIONS ||
+                      (metricType === METRIC_TYPES.REFERENCED_SOURCES &&
+                        item.link) ? (
                         <a
                           href={item.link || "#"}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`flex items-center gap-2 group ${item.link ? "hover:text-blue-600" : "cursor-default"}`}>
-                          <div className="truncate">{item.question}</div>
+                          <div className="truncate">{item.title}</div>
                           <ExternalLink
                             className={`h-3 w-3 flex-shrink-0 transition-opacity ${
                               item.link ? "opacity-100" : "opacity-0"
@@ -207,11 +209,7 @@ export default function TableComponent({
                           />
                         </a>
                       ) : (
-                        <div className="truncate">
-                          {metricType === METRIC_TYPES.REFERENCED_SOURCES
-                            ? item.title
-                            : item.question}
-                        </div>
+                        <div className="truncate">{item.title}</div>
                       )}
                     </TableCell>
                     {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
