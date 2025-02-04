@@ -2769,7 +2769,7 @@ def analytics_table(request, guru_type):
             'date': item.date_created.isoformat(),
             'type': format_filter_name(item.type),
             'title': item.title or item.url,
-            'url': item.url,
+            'link': item.url,
             'reference_count': reference_counts.get(item.url, 0)
         } for item in paginated_queryset]
     elif metric_type == 'questions':
@@ -2777,7 +2777,7 @@ def analytics_table(request, guru_type):
         results = [{
             'date': item.date_created.isoformat(),
             'type': format_filter_name(item.source),
-            'question': item.question,
+            'title': item.question,
             'link': item.frontend_url
         } for item in paginated_queryset]
     elif metric_type == 'out_of_context':
@@ -2785,7 +2785,7 @@ def analytics_table(request, guru_type):
         results = [{
             'date': item.date_created.isoformat(),
             'type': format_filter_name(item.source),
-            'question': item.question,
+            'title': item.question,
         } for item in paginated_queryset]
     
     response_data = {
