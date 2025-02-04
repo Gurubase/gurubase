@@ -344,6 +344,7 @@ def answer(request, guru_type):
             user_intent, 
             answer_length, 
             user_question, 
+            source,
             parent_question, 
             user
         )

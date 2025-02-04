@@ -1011,7 +1011,17 @@ def prepare_chat_messages(user_question, question, guru_variables, context_vals,
     return messages
 
 
-def ask_question_with_stream(milvus_client, collection_name, question, guru_type, user_intent, answer_length, user_question, parent_question, user=None):
+def ask_question_with_stream(
+    milvus_client, 
+    collection_name, 
+    question, 
+    guru_type, 
+    user_intent, 
+    answer_length, 
+    user_question, 
+    parent_question, 
+    source,
+    user=None):
     start_total = time.perf_counter()
     times = {
         'total': 0,
@@ -1028,7 +1038,14 @@ def ask_question_with_stream(milvus_client, collection_name, question, guru_type
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
     if not reranked_scores:
-        OutOfContextQuestion.objects.create(question=question, guru_type=get_guru_type_object(guru_type), user_question=user_question, rerank_threshold=default_settings.rerank_threshold, trust_score_threshold=default_settings.trust_score_threshold, processed_ctx_relevances=processed_ctx_relevances)
+        OutOfContextQuestion.objects.create(
+            question=question, 
+            guru_type=get_guru_type_object(guru_type), 
+            user_question=user_question, 
+            rerank_threshold=default_settings.rerank_threshold, 
+            trust_score_threshold=default_settings.trust_score_threshold, processed_ctx_relevances=processed_ctx_relevances, 
+            source=source)
+
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
         times['total'] = time.perf_counter() - start_total
         return None, None, None, None, None, None, None, None, None, times
@@ -1185,8 +1202,9 @@ def stream_question_answer(
         user_intent, 
         answer_length, 
         user_question, 
+        source,
         parent_question=None,
-        user=None
+        user=None,
     ):
     guru_type_obj = get_guru_type_object(guru_type)
     collection_name = guru_type_obj.milvus_collection_name
@@ -1201,6 +1219,7 @@ def stream_question_answer(
         answer_length, 
         user_question, 
         parent_question,
+        source,
         user
     )
     if not response:
@@ -2253,7 +2272,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
         guru_type.slug, 
         user_intent, 
         answer_length, 
-        user_question
+        user_question,
+        source
     )
 
     total_response = []
@@ -3067,6 +3087,7 @@ def api_ask(question: str,
             user_intent, 
             answer_length, 
             user_question,
+            question_source,
             parent,
             user
         )
