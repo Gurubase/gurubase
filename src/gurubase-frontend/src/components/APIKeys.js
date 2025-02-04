@@ -127,7 +127,15 @@ const APIKeys = ({ initialApiKeys = [] }) => {
                       API Keys
                     </h1>
                     <p className="text-[14px] font-normal text-[#6D6D6D] font-inter">
-                      Manage your API keys for accessing the Gurubase API.
+                      Manage your API keys for accessing the{" "}
+                      <a
+                        className="text-blue-600 hover:text-blue-700 hover:underline transition-colors duration-200"
+                        href="https://docs.gurubase.ai/api-reference/introduction"
+                        rel="noopener noreferrer"
+                        target="_blank">
+                        Gurubase API
+                      </a>
+                      .
                     </p>
                   </div>
                   <div>
