@@ -51,9 +51,14 @@ export const handleSubmitQuestion = async ({
   if (e) {
     e?.preventDefault();
   }
+  // Unfocus input on submit
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   dispatch(setInputQuery(inputValue));
   dispatch(setInputValue(inputValue));
   dispatch(resetErrors());
+  dispatch(setMobileInputFocused(false));
 
   const isErrorExist = checkErrorExist?.(inputValue);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
