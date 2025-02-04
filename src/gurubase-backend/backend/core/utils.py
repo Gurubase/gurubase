@@ -2671,6 +2671,10 @@ def check_binge_auth(binge, user):
     root_question = binge.root_question
     if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value]:
         return True
+
+    if not root_question:
+        # Slack and Discord questions are being asked currently. Allow.
+        return True
         
     # For other sources, check ownership
     if not user:
