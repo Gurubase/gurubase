@@ -78,7 +78,7 @@ export default function HistogramComponent({
     <div className="rounded-xl border border-[#E2E2E2]">
       <div className="w-full relative">
         {isLoading ? (
-          <div className="aspect-[2/1] p-8">
+          <div className="aspect-[3/1] p-8">
             <div className="h-full w-full flex flex-col justify-between">
               <Skeleton className="w-full h-[80%]" />
               <div className="flex justify-between w-full">
@@ -114,7 +114,7 @@ export default function HistogramComponent({
                 </div>
               </div>
             )}
-            <ChartContainer config={chartConfig} className="aspect-[2/1]">
+            <ChartContainer config={chartConfig} className="aspect-[3/1]">
               <BarChart
                 data={data.map((item) => ({
                   ...item,

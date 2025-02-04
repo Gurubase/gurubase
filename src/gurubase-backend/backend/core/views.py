@@ -2654,7 +2654,7 @@ def analytics_table(request, guru_type):
         page = max(1, int(request.query_params.get('page', 1)))
     except ValueError:
         page = 1
-    page_size = 5
+    page_size = 10
     
     if not metric_type:
         return Response({'msg': 'Metric type is required'}, status=status.HTTP_400_BAD_REQUEST)
