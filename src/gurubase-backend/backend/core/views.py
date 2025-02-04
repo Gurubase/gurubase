@@ -2670,7 +2670,6 @@ def analytics_table(request, guru_type):
         filters = [
             {'value': 'all', 'label': 'All'},
             {'value': 'user', 'label': 'Gurubase UI'},
-            {'value': 'reddit', 'label': 'Reddit'},
             {'value': 'widget', 'label': 'Widget'},
             {'value': 'api', 'label': 'API'},
             {'value': 'discord', 'label': 'Discord'},
