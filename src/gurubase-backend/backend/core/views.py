@@ -2640,6 +2640,12 @@ def format_filter_name(name):
         return 'Gurubase UI'
     elif name.lower() == 'github_repo':
         return 'Codebase'
+    elif name.lower() == 'pdf':
+        return 'PDF'
+    elif name.lower() == 'website':
+        return 'Website'
+    elif name.lower() == 'youtube':
+        return 'YouTube'
     return name.lower().replace('_', ' ').title()
 
 
