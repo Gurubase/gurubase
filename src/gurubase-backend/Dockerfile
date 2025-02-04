@@ -24,7 +24,6 @@ FROM base AS build
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
       libcairo2-dev
 
 # 2) Install app dependencies into a virtual environment for
