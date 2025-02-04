@@ -1,30 +1,39 @@
 "use client";
 
-import {
-  deleteIntegration,
-  getIntegrationChannels,
-  getIntegrationDetails,
-  saveIntegrationChannels,
-  sendIntegrationTestMessage
-} from "@/app/actions";
-import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
+import { useEffect, useState } from "react";
 import { CustomToast } from "@/components/CustomToast";
-import {
-  ConnectedIntegrationIcon,
-  DiscordIcon,
-  SendTestMessageIcon,
-  SlackIcon,
-  SolarTrashBinTrashBold
-} from "@/components/Icons";
 import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem
-} from "@/components/ui/command";
+  DiscordIcon,
+  SlackIcon,
+  SendTestMessageIcon,
+  SolarTrashBinTrashBold,
+  ConnectedIntegrationIcon
+} from "@/components/Icons";
+import { cn } from "@/lib/utils";
+import {
+  getIntegrationDetails,
+  getIntegrationChannels,
+  saveIntegrationChannels,
+  sendIntegrationTestMessage,
+  deleteIntegration
+} from "@/app/actions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import { Input } from "@/components/ui/input";
+import {
+  IntegrationHeader,
+  IntegrationDivider,
+  IntegrationIconContainer,
+  IntegrationInfo,
+  IntegrationError
+} from "./IntegrationShared";
 import {
   Dialog,
   DialogContent,
@@ -33,18 +42,17 @@ import {
   DialogTitle
 } from "@/components/ui/modal-dialog.jsx";
 import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem
+} from "@/components/ui/command";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover";
-import { useEffect, useState } from "react";
-import {
-  IntegrationDivider,
-  IntegrationError,
-  IntegrationHeader,
-  IntegrationIconContainer,
-  IntegrationInfo
-} from "./IntegrationShared";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -62,15 +70,8 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const integrationConfig = {
     slack: {
       name: "Slack",
-      description: (
-        <>
-          By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
-          <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
-            learn more
-          </Link>
-          .   
-        </>
-      ),
+      description:
+        "By connecting your account, you can easily share all your posts and invite your friends.",
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_SLACK_INTEGRATION_URL,
       icon: SlackIcon,
@@ -80,15 +81,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     discord: {
       name: "Discord",
       description:
-      (
-        <>
-          By connecting your account, you can ask your Guru directly in Discord. Here is the guide to{" "}
-          <Link href="https://docs.gurubase.io/integrations/discord-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
-            learn more
-          </Link>
-          .   
-        </>
-      ),
+        "Connect your Discord account to share content and interact with your community.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_DISCORD_INTEGRATION_URL,
@@ -197,15 +190,7 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
               <IntegrationInfo
                 name={name}
-                description={
-                  <>
-                    By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
-                    <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
-                      learn more
-                    </Link>
-                    .
-                  </>
-                }
+                description="By connecting your account, you can easily share all your posts and invite your friends."
               />
             </IntegrationIconContainer>
             <div className="flex items-center justify-start w-full md:w-auto">
