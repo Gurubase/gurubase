@@ -73,6 +73,9 @@ RUN addgroup --gid 1001 --system nonroot && \
     adduser --no-create-home --shell /bin/false \
       --disabled-password --uid 1001 --system --group nonroot
 
+ENV CRAWL4_AI_BASE_DIRECTORY=/workspace/.crawl4ai
+RUN mkdir -p $CRAWL4_AI_BASE_DIRECTORY && chown -R nonroot:nonroot $CRAWL4_AI_BASE_DIRECTORY
+
 USER nonroot:nonroot
 
 ENV VIRTUAL_ENV=/workspace/.venv \
