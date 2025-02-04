@@ -38,8 +38,9 @@ COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
-COPY . .
+RUN playwright install --with-deps chromium
 
+COPY . .
 
 # Development stage.
 FROM build AS dev
