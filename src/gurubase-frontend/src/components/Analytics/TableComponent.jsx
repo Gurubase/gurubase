@@ -128,13 +128,37 @@ const QuestionsList = ({ url, guruType, onClose }) => {
 
           <div className="flex-1 overflow-auto p-4">
             {loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+              <div className="space-y-4">
+                {[...Array(10)].map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="border rounded-lg p-4 space-y-2 animate-pulse">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-3/4 mb-2" />
+                        <Skeleton className="h-3 w-1/4" />
+                      </div>
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : !questions?.results?.length ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                <div className="text-gray-400 mb-2">
+                  <Link className="h-12 w-12" />
+                </div>
+                <h3 className="text-base font-medium text-gray-900 mb-1">
+                  No questions found
+                </h3>
+                <p className="text-sm text-gray-500">
+                  This source hasn't been referenced in any questions yet.
+                </p>
               </div>
             ) : (
               <>
                 <div className="space-y-4">
-                  {questions?.results.map((question, idx) => (
+                  {questions.results.map((question, idx) => (
                     <div
                       key={idx}
                       className="border rounded-lg p-4 space-y-2 hover:bg-gray-50">
@@ -372,7 +396,7 @@ export default function TableComponent({
           </TableHeader>
           <TableBody>
             {isLoading
-              ? [...Array(5)].map((_, i) => (
+              ? [...Array(10)].map((_, i) => (
                   <TableRow
                     key={i}
                     className="hover:bg-transparent border-b border-[#E2E2E2]">
