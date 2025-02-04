@@ -2675,6 +2675,11 @@ def check_binge_auth(binge, user):
     # For other sources, check ownership
     if not user:
         return False
+
+    # Allow if user is a maintainer
+    if user in binge.guru_type.maintainers.all():
+        return True
+
     return binge.owner == user
 
 def search_question(user, guru_type_object, binge, slug=None, question=None, will_check_binge_auth=True, include_api=False, only_widget=False):
