@@ -2630,7 +2630,11 @@ def format_filter_name(name):
     Format filter name to be Title Case.
     Example: 'USER_QUESTION' -> 'User Question'
     """
+
+    if name.lower() == 'user':
+        return 'Gurubase UI'
     return name.lower().replace('_', ' ').title()
+
 
 @api_view(['GET'])
 @jwt_auth
@@ -2663,15 +2667,22 @@ def analytics_table(request, guru_type):
     
     # Get possible filters (source types) based on metric type
     if metric_type in ['questions', 'out_of_context']:
-        raw_filters = [choice[0] for choice in Question.Source.choices]
+        filters = [
+            {'value': 'all', 'label': 'All'},
+            {'value': 'user', 'label': 'Gurubase UI'},
+            {'value': 'reddit', 'label': 'Reddit'},
+            {'value': 'widget', 'label': 'Widget'},
+            {'value': 'api', 'label': 'API'},
+            {'value': 'discord', 'label': 'Discord'},
+            {'value': 'slack', 'label': 'Slack'},
+        ]
     elif metric_type == 'referenced_sources':
         raw_filters = [choice[0] for choice in DataSource.Type.choices]
-        
-    # Format filters and add "All" option
-    filters = [{'value': 'all', 'label': 'All'}] + [
-        {'value': f.lower(), 'label': format_filter_name(f)} 
-        for f in raw_filters
-    ]
+        # Format filters and add "All" option
+        filters = [{'value': 'all', 'label': 'All'}] + [
+            {'value': f.lower(), 'label': format_filter_name(f)} 
+            for f in raw_filters
+        ]
     
     # Build base queryset
     if metric_type == 'questions':
