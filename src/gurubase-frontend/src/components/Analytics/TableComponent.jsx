@@ -2,28 +2,15 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Copy,
   MoreHorizontal,
-  Pencil,
   ExternalLink,
   Link,
   X
 } from "lucide-react";
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/alert-dialog";
+import { SolarFileTextBold, SolarVideoLibraryBold } from "@/components/Icons";
+import { Icon } from "@iconify/react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -42,11 +29,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { Badge } from "@/components/ui/badge";
-import SourceDialog from "@/components/NewEditGuru/SourceDialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
-import { getDataSourceQuestions } from "@/services/analyticsService";
 import { useDataSourceQuestions } from "@/hooks/useAnalytics";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
@@ -441,7 +425,30 @@ export default function TableComponent({
                       {formatDate(item.date)}
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium">
-                      {item.type}
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          switch (item.type?.toLowerCase()) {
+                            case "pdf":
+                              return <SolarFileTextBold className="h-4 w-4" />;
+                            case "youtube":
+                              return (
+                                <SolarVideoLibraryBold className="h-4 w-4" />
+                              );
+                            case "website":
+                              return <Link className="h-4 w-4" />;
+                            case "codebase":
+                              return (
+                                <Icon
+                                  icon="simple-icons:github"
+                                  className="h-4 w-4"
+                                />
+                              );
+                            default:
+                              return null;
+                          }
+                        })()}
+                        {item.type}
+                      </div>
                     </TableCell>
                     <TableCell className="font-inter text-xs font-medium max-w-0">
                       {metricType === METRIC_TYPES.QUESTIONS ||
