@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "env-cmd -f .env.dev next dev",
     "dev-selfhosted": "NEXT_PUBLIC_TELEMETRY_ENABLED=false env-cmd -f .env.selfhosted.dev next dev",
+    "dev-staging": "NEXT_PUBLIC_TELEMETRY_ENABLED=false env-cmd -f .env.staging next dev",
     "build-dev": "env-cmd -f .env.dev next build",
     "build-prod": "env-cmd -f .env.prod next build",
     "build-staging": "env-cmd -f .env.staging next build",
