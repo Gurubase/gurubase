@@ -20,14 +20,6 @@ ENV PYTHONUNBUFFERED=1 \
 # Build stage.
 FROM base AS build
 
-# 1) Install the build dependencies (they are pretty heavy).
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-      libcairo2-dev
-
-# 2) Install app dependencies into a virtual environment for
-#    easier copying to the runtime stage.
 WORKDIR /workspace
 
 RUN python -m venv .venv
