@@ -1,41 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import {
-  DiscordIcon,
-  SlackIcon,
-  SendTestMessageIcon,
-  SolarTrashBinTrashBold,
-  ConnectedIntegrationIcon
-} from "@/components/Icons";
-import { cn } from "@/lib/utils";
-import {
-  getIntegrationDetails,
+  deleteIntegration,
   getIntegrationChannels,
+  getIntegrationDetails,
   saveIntegrationChannels,
-  sendIntegrationTestMessage,
-  deleteIntegration
+  sendIntegrationTestMessage
 } from "@/app/actions";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
-import { Input } from "@/components/ui/input";
 import {
-  IntegrationHeader,
-  IntegrationDivider,
-  IntegrationIconContainer,
-  IntegrationInfo,
-  IntegrationError
-} from "./IntegrationShared";
+  ConnectedIntegrationIcon,
+  DiscordIcon,
+  SendTestMessageIcon,
+  SlackIcon,
+  SolarTrashBinTrashBold
+} from "@/components/Icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +24,22 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/modal-dialog.jsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import {
+  IntegrationDivider,
+  IntegrationError,
+  IntegrationHeader,
+  IntegrationIconContainer,
+  IntegrationInfo
+} from "./IntegrationShared";
 
 const IntegrationContent = ({ type, customGuru, error }) => {
   const [integrationData, setIntegrationData] = useState(null);
@@ -59,8 +56,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const integrationConfig = {
     slack: {
       name: "Slack",
-      description:
-        "By connecting your account, you can easily share all your posts and invite your friends.",
+      description: (
+        <>
+          By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
+          <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+            learn more
+          </Link>
+          .   
+        </>
+      ),
       iconSize: "w-5 h-5",
       url: `https://slack.com/oauth/v2/authorize?client_id=1269209097589.8354424793156&scope=channels:history,channels:join,channels:read,chat:write,groups:history,groups:read&user_scope=`,
       icon: SlackIcon,
@@ -70,7 +74,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     discord: {
       name: "Discord",
       description:
-        "Connect your Discord account to share content and interact with your community.",
+      (
+        <>
+          By connecting your account, you can ask your Guru directly in Discord. Here is the guide to{" "}
+          <Link href="https://docs.gurubase.io/integrations/discord-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+            learn more
+          </Link>
+          .   
+        </>
+      ),
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
       url: `https://discord.com/oauth2/authorize?client_id=1334126938221973514&permissions=2048&response_type=code&redirect_uri=https%3A%2F%2Fdevelop.preview.gurubase.ai%2FOAuth&integration_type=0&scope=identify+bot`,
@@ -179,7 +191,15 @@ const IntegrationContent = ({ type, customGuru, error }) => {
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
               <IntegrationInfo
                 name={name}
-                description="By connecting your account, you can easily share all your posts and invite your friends."
+                description={
+                  <>
+                    By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
+                    <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+                      learn more
+                    </Link>
+                    .
+                  </>
+                }
               />
             </IntegrationIconContainer>
             <div className="flex items-center justify-start w-full md:w-auto">
