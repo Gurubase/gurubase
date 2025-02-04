@@ -62,7 +62,7 @@ const StyledDialogContent = React.forwardRef(
           "fixed z-[100] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           isMobile
             ? "inset-x-0 bottom-0 z-[100] h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
-            : "right-0 top-0 z-[100] h-full w-full max-w-[400px] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+            : "right-0 top-0 z-[100] h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
         )}
         {...props}>
         {children}
@@ -126,143 +126,162 @@ const QuestionsList = ({ url, guruType, onClose }) => {
             </DialogPrimitive.Close>
           </div>
 
-          <div className="flex-1 overflow-auto p-4">
-            {loading ? (
-              <div className="space-y-4">
-                {[...Array(10)].map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="border rounded-lg p-4 space-y-2 animate-pulse">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-3/4 mb-2" />
-                        <Skeleton className="h-3 w-1/4" />
+          <div className="flex-1 overflow-auto py-4 px-8">
+            <Table>
+              <TableHeader className="bg-[#FAFAFA]">
+                <TableRow className="border-b border-[#E2E2E2]">
+                  <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                    Date
+                  </TableHead>
+                  <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                    Source
+                  </TableHead>
+                  <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                    Question
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  [...Array(10)].map((_, i) => (
+                    <TableRow
+                      key={i}
+                      className="hover:bg-transparent border-b border-[#E2E2E2]">
+                      <TableCell className="font-inter text-xs font-medium">
+                        <Skeleton className="h-4 w-[120px]" />
+                      </TableCell>
+                      <TableCell className="font-inter text-xs font-medium">
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                      <TableCell className="font-inter text-xs font-medium">
+                        <Skeleton className="h-4 w-[80px]" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : !questions?.results?.length ? (
+                  <TableRow>
+                    <TableCell colSpan={3}>
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="text-gray-400 mb-2">
+                          <Link className="h-12 w-12" />
+                        </div>
+                        <h3 className="text-base font-medium text-gray-900 mb-1">
+                          No questions found
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          This source hasn't been referenced in any questions
+                          yet.
+                        </p>
                       </div>
-                      <Skeleton className="h-4 w-24" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : !questions?.results?.length ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                <div className="text-gray-400 mb-2">
-                  <Link className="h-12 w-12" />
-                </div>
-                <h3 className="text-base font-medium text-gray-900 mb-1">
-                  No questions found
-                </h3>
-                <p className="text-sm text-gray-500">
-                  This source hasn't been referenced in any questions yet.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {questions.results.map((question, idx) => (
-                    <div
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  questions.results.map((question, idx) => (
+                    <TableRow
                       key={idx}
-                      className="border rounded-lg p-4 space-y-2 hover:bg-gray-50">
-                      <div className="flex justify-between items-start gap-4">
+                      className="hover:bg-gray-50 border-b border-[#E2E2E2]">
+                      <TableCell className="font-inter text-xs font-medium">
+                        {formatDate(question.date)}
+                      </TableCell>
+                      <TableCell className="font-inter text-xs font-medium">
+                        {question.source}
+                      </TableCell>
+                      <TableCell className="font-inter text-xs font-medium">
                         <a
                           href={question.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-medium hover:text-blue-600 flex-1">
-                          {question.title}
+                          className="flex items-center gap-2 group hover:text-blue-600">
+                          <div className="truncate">{question.title}</div>
+                          <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
                         </a>
-                        <div className="text-xs text-gray-500 whitespace-nowrap">
-                          {formatDate(question.date)}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Source: {question.source}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pagination */}
-                {questions?.total_pages > 1 && (
-                  <div className="flex items-center justify-end gap-1 p-2 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}>
-                      <div className="flex items-center px-2">
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                      </div>
-                    </Button>
-                    <div className="flex items-center gap-2 md:gap-2 gap-1">
-                      {page > 2 && questions.total_pages > 3 && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
-                            onClick={() => setPage(1)}
-                            disabled={loading}>
-                            1
-                          </Button>
-                          {page > 3 && (
-                            <span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {getPaginationGroup(page, questions.total_pages).map(
-                        (number) => (
-                          <Button
-                            key={number}
-                            variant="ghost"
-                            size="sm"
-                            className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
-                              number === page
-                                ? "border border-[#E2E2E2] rounded-lg"
-                                : ""
-                            }`}
-                            onClick={() => setPage(number)}
-                            disabled={loading}>
-                            {number}
-                          </Button>
-                        )
-                      )}
-                      {page < questions.total_pages - 1 &&
-                        questions.total_pages > 3 && (
-                          <>
-                            {page < questions.total_pages - 2 && (
-                              <span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </span>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
-                              onClick={() => setPage(questions.total_pages)}
-                              disabled={loading}>
-                              {questions.total_pages}
-                            </Button>
-                          </>
-                        )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === questions.total_pages || loading}>
-                      <div className="flex items-center px-2">
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </div>
-                    </Button>
-                  </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
-              </>
-            )}
+              </TableBody>
+            </Table>
           </div>
+
+          {/* Pagination */}
+          {questions?.total_pages > 1 && (
+            <div className="flex items-center justify-end gap-1 p-2 border-t">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}>
+                <div className="flex items-center px-2">
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                </div>
+              </Button>
+              <div className="flex items-center gap-2 md:gap-2 gap-1">
+                {page > 2 && questions.total_pages > 3 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                      onClick={() => setPage(1)}
+                      disabled={loading}>
+                      1
+                    </Button>
+                    {page > 3 && (
+                      <span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </span>
+                    )}
+                  </>
+                )}
+                {getPaginationGroup(page, questions.total_pages).map(
+                  (number) => (
+                    <Button
+                      key={number}
+                      variant="ghost"
+                      size="sm"
+                      className={`h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg ${
+                        number === page
+                          ? "border border-[#E2E2E2] rounded-lg"
+                          : ""
+                      }`}
+                      onClick={() => setPage(number)}
+                      disabled={loading}>
+                      {number}
+                    </Button>
+                  )
+                )}
+                {page < questions.total_pages - 1 &&
+                  questions.total_pages > 3 && (
+                    <>
+                      {page < questions.total_pages - 2 && (
+                        <span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 md:h-8 h-7 w-8 md:w-8 w-6 hover:bg-[#F6F6F6] hover:rounded-lg"
+                        onClick={() => setPage(questions.total_pages)}
+                        disabled={loading}>
+                        {questions.total_pages}
+                      </Button>
+                    </>
+                  )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 md:h-8 h-7 px-0 hover:bg-[#F6F6F6] hover:rounded-lg"
+                onClick={() => setPage(page + 1)}
+                disabled={page === questions.total_pages || loading}>
+                <div className="flex items-center px-2">
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </div>
+              </Button>
+            </div>
+          )}
         </div>
       </StyledDialogContent>
     </DialogPrimitive.Root>
