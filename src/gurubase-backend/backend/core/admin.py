@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from core.models import (APIKey,
-                         Binge, 
+                         Binge, Integration, 
                          LLMEval, 
                          LinkReference, 
                          LinkValidity, 
@@ -18,7 +18,7 @@ from core.models import (APIKey,
                          Summarization, 
                          SummaryQuestionGeneration, 
                          Settings, 
-                         LLMEvalResult, 
+                         LLMEvalResult, Thread, 
                          WidgetId,
                          GithubFile
                          )
@@ -93,9 +93,9 @@ class QuestionAdmin(admin.ModelAdmin):
         return obj.sitemap_reason
     
     def link(self, obj):
-        if obj.guru_type:
-            return format_html(f'<a href="{settings.BASE_URL}/g/{obj.guru_type.slug}/{obj.slug}" target="_blank">{obj.slug}</a>')
-        return ""
+        if not obj.guru_type:
+            return ""
+        return format_html(f'<a href="{obj.frontend_url}" target="_blank">{obj.slug}</a>')
     
     def binge_link(self, obj):
         if obj.binge:
@@ -381,18 +381,19 @@ class SummaryQuestionGenerationAdmin(admin.ModelAdmin):
 @admin.register(Binge)
 class BingeAdmin(admin.ModelAdmin):
     list_display = ['id', 'guru_type', 'root_question_link', 'owner_link', 'question_count', 'date_created', 'last_used']
-    search_fields = ['id', 'root_question__slug', 'root_question__name', 'guru_type__name', 'owner__email']
-    ordering = ('-id',)
+    search_fields = ['id', 'root_question__slug', 'guru_type__name', 'owner__email']
+    ordering = ('-date_created',)
     raw_id_fields = ('root_question', 'owner')
     readonly_fields = ('date_created', 'last_used')
-
 
     def question_count(self, obj):
         return Question.objects.filter(binge=obj).count()
     question_count.short_description = 'Question Count'
 
     def root_question_link(self, obj):
-        return format_html(f'<a href="{settings.BACKEND_URL}/admin/core/question/{obj.root_question.id}/change/" target="_blank">{obj.root_question.id}-{obj.root_question.slug}</a>')
+        if obj.root_question:
+            return format_html(f'<a href="{settings.BACKEND_URL}/admin/core/question/{obj.root_question.id}/change/" target="_blank">{obj.root_question.id}-{obj.root_question.slug}</a>')
+        return None
     root_question_link.short_description = 'Root Question'
     
     def owner_link(self, obj):
@@ -428,8 +429,26 @@ class GitHubFileAdmin(admin.ModelAdmin):
 
 @admin.register(APIKey)
 class APIKeyAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'key', 'date_created', 'date_updated']
+    list_display = ['id', 'user', 'integration', 'key', 'date_created', 'date_updated']
     search_fields = ['id', 'user__email', 'key']
-    list_filter = ('user__email',)
+    list_filter = ('user__email', 'integration')
     ordering = ('-id',)
     raw_id_fields = ('user',)
+
+
+@admin.register(Integration)
+class IntegrationAdmin(admin.ModelAdmin):
+    list_display = ['id', 'guru_type', 'type', 'workspace_name', 'date_created', 'date_updated']
+    list_filter = ('guru_type__slug', 'type')
+    search_fields = ['id', 'guru_type__slug', 'type']
+    ordering = ('-id',)
+    raw_id_fields = ('guru_type',)
+
+
+@admin.register(Thread)
+class ThreadAdmin(admin.ModelAdmin):
+    list_display = ['id', 'binge', 'integration', 'thread_id', 'date_created', 'date_updated']
+    search_fields = ['id', 'binge__id', 'integration__id', 'thread_id']
+    list_filter = ('binge__guru_type__slug', 'integration')
+    ordering = ('-id',)
+    raw_id_fields = ('binge', 'integration')

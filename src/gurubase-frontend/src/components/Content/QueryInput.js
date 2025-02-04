@@ -67,6 +67,8 @@ const QueryInput = ({
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      // Unfocus input on submit
+      e.target.blur();
       onSubmit(e);
     }
   };
@@ -91,13 +93,23 @@ const QueryInput = ({
     dispatch(setInputValue(e.target.value));
   };
 
+  // Update form onSubmit handler
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    // Unfocus input on submit
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    onSubmit(e);
+  };
+
   return (
     <form
       className={clsx(
         "flex gap-2 guru-sm:gap-1 items-center px-3 guru-sm:px-4 max-h-16 bg-gray-900 guru-sm:flex-wrap",
         panelHintsListed ? "rounded-t-[30px]" : "rounded-[40px]"
       )}
-      onSubmit={onSubmit}>
+      onSubmit={handleFormSubmit}>
       <label className="sr-only" htmlFor="queryInput">
         Ask anything about {guruType}
       </label>

@@ -19,17 +19,21 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        ghostNoSpace: "hover:text-accent-foreground px-0"
+        ghostNoSpace: "hover:text-accent-foreground px-0",
+        trashIcon:
+          "text-[#BABFC8] hover:text-[#DC2626] hover:bg-transparent p-0 h-auto"
       },
       size: {
         default:
           "guru-sm:h-8 guru-md:h-9 guru-lg:h-9 guru-sm:px-2 guru-md:px-4 guru-lg:px-4 py-2 text-sm",
         sm: "h-8 rounded-md px-3 text-xs",
         lg: "h-10 rounded-md px-8 text-sm",
+        lgRounded: "h-10 rounded-full px-4 text-sm",
         icon: "h-9 w-9 text-sm",
         action: "h-12 guru-sm:px-2 guru-md:px-4 guru-lg:px-4 py-2 text-sm",
         action2: "h-12 px-4 py-2 text-sm",
-        action3: "h-12 py-2 text-md"
+        action3: "h-12 py-2 text-md",
+        noSpace: ""
       }
     },
     defaultVariants: {

@@ -1,4 +1,5 @@
 "use client";
+import { useAppNavigation } from "@/lib/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -16,8 +17,7 @@ import {
   Check
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { redirect, useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -144,7 +144,7 @@ export default function NewGuru({
   customGuru,
   isProcessing
 }) {
-  const router = useRouter();
+  const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -153,6 +153,8 @@ export default function NewGuru({
     : useUser();
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+
+  // Add helper function here at the top level
 
   const handleAddWidget = () => {
     setIsWidgetModalVisible(true);
@@ -165,11 +167,11 @@ export default function NewGuru({
   // Modify the auth check effect
   useEffect(() => {
     if (!isSelfHosted && !user && !authLoading) {
-      router.push("/api/auth/login");
+      navigation.push("/api/auth/login");
 
       return;
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -206,6 +208,20 @@ export default function NewGuru({
   // First, add a state to track the GitHub repository source status
   const [githubRepoStatus, setGithubRepoStatus] = useState(null);
 
+  const isSourceProcessing = (source) => {
+    if (typeof source.id === "string") {
+      return false;
+    }
+
+    // For sources with domains (website/youtube), check if any domain is not processed
+    if (source.domains) {
+      return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
+    }
+
+    // For single sources (PDF), check its own status
+    return source.status === "NOT_PROCESSED";
+  };
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -218,6 +234,21 @@ export default function NewGuru({
       websiteUrls: []
     }
   });
+
+  // Add effect to check for unprocessed sources on load - at the top level
+  useEffect(() => {
+    if (customGuru && sources.length > 0) {
+      const hasUnprocessedSources = sources.some((source) =>
+        isSourceProcessing(source)
+      );
+      console.log("sources", sources);
+      if (hasUnprocessedSources) {
+        console.log("hasUnprocessedSources", hasUnprocessedSources);
+        setIsSourcesProcessing(true);
+        pollForGuruReadiness(customGuru);
+      }
+    }
+  }, [customGuru, sources]);
 
   const updateEditorContent = useCallback((sources, type) => {
     // Filter sources by type and status
@@ -326,7 +357,7 @@ export default function NewGuru({
     const response = await deleteGuru(customGuru);
 
     if (response) {
-      router.push("/my-gurus");
+      navigation.push("/my-gurus");
     }
   };
 
@@ -691,7 +722,6 @@ export default function NewGuru({
             }));
 
             setSources(updatedSources);
-            setProcessingSources([]);
 
             // Update form values and reset states
             const newFormValues = {
@@ -716,6 +746,7 @@ export default function NewGuru({
             setDirtyChanges({ sources: [], guruUpdated: false });
             setUrlEditorContent("");
             setYoutubeEditorContent("");
+            setProcessingSources([]);
 
             setIsSourcesProcessing(false);
 
@@ -799,10 +830,9 @@ export default function NewGuru({
         (data.websiteUrls && data.websiteUrls.length > 0);
 
       // Add check for GitHub repo changes
-      const hasGithubChanges =
-        isEditMode
-          ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
-          : !!data.githubRepo;
+      const hasGithubChanges = isEditMode
+        ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
+        : !!data.githubRepo;
 
       if (
         (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
@@ -1017,8 +1047,12 @@ export default function NewGuru({
                 newSource.id === source.id
             )
           ) {
-            // For non-grouped sources (PDFs)
-            ids.push(source.id);
+            // For PDFs, use the file name instead of the temporary ID
+            if (source.type?.toLowerCase() === "pdf") {
+              ids.push(source.name);
+            } else {
+              ids.push(source.id);
+            }
           }
 
           return ids;
@@ -1033,6 +1067,13 @@ export default function NewGuru({
 
         if (sourcesResponse.error) {
           throw new Error(sourcesResponse.message);
+        }
+
+        // If not in edit mode, redirect immediately after guru creation
+        if (!isEditMode) {
+          redirectingRef.current = true;
+          window.location.href = `/guru/${guruSlug}`;
+          return; // Exit early for new guru creation
         }
 
         // Wait for polling to complete before proceeding
@@ -1777,7 +1818,8 @@ export default function NewGuru({
               </FormControl>
               {field.value &&
                 field.value === customGuruData?.github_repo &&
-                githubRepoStatus && index_repo && (
+                githubRepoStatus &&
+                index_repo && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2">
                     {(() => {
                       let badgeProps = {
@@ -1838,11 +1880,12 @@ export default function NewGuru({
   // Modify the form component
   return (
     <>
-      <div className="p-6">
-        <h5 className="text-h5 font-semibold mb-2 text-black-600">
+      <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
+        <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
-        </h5>
-
+        </h1>
+      </section>
+      <div className="p-6 pt-0">
         <Form {...form}>
           <form
             className="space-y-8"
@@ -1861,7 +1904,9 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Name <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Guru Name <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1909,7 +1954,9 @@ export default function NewGuru({
                 render={({ field: { value, onChange, ...rest } }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Guru Logo <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Guru Logo <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -2005,7 +2052,9 @@ export default function NewGuru({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center space-x-2">
-                      <FormLabel>Topics <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Topics <span className="text-red-500">*</span>
+                      </FormLabel>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -2046,78 +2095,6 @@ export default function NewGuru({
                 {renderCodebaseIndexing()}
               </div>
             </div>
-            {/* Widget Id List */}
-            {customGuru && (
-              <div className="max-w-full">
-                <div className="flex flex-col mb-5">
-                  <h3 className="text-lg font-semibold mb-1">Widget</h3>
-                  <div className="flex items-center justify-between">
-                    <p className="text-body2 text-gray-400">
-                      Add {customGuruData?.name} Guru directly to your website.
-                      Here's the guide to{" "}
-                      <Link
-                        className="text-blue-500 hover:text-blue-600"
-                        href="https://github.com/getanteon/gurubase-widget"
-                        target="_blank">
-                        learn more
-                      </Link>
-                      .
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col">
-                  {customGuruData?.widget_ids?.map((widget, index) => (
-                    <WidgetId
-                      key={widget.key}
-                      domainUrl={widget.domain_url}
-                      guruSlug={customGuru}
-                      isFirst={index === 0}
-                      isLast={
-                        !isWidgetModalVisible &&
-                        index === customGuruData.widget_ids.length - 1
-                      }
-                      widgetId={widget.key}
-                    />
-                  ))}
-
-                  {isWidgetModalVisible && (
-                    <>
-                      <CreateWidgetModal
-                        guruSlug={customGuru}
-                        onWidgetCreate={handleWidgetCreate}
-                      />
-                    </>
-                  )}
-                </div>
-                {/* Widget Id Creation */}
-                {!isWidgetModalVisible && (
-                  <Button
-                    className="text-black-600"
-                    size="action3"
-                    type="button"
-                    variant="ghostNoSpace"
-                    onClick={() => {
-                      handleAddWidget();
-                    }}>
-                    <span className="flex items-center text-md">
-                      <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          d="M12 4V20M20 12L4 12"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                      New Widget ID
-                    </span>
-                  </Button>
-                )}
-              </div>
-            )}
 
             {/* Table Area */}
             <div className="max-w-full">
@@ -2292,7 +2269,8 @@ export default function NewGuru({
                           </TableCell>
 
                           <TableCell>
-                            {processingSources.includes(source.id) ? (
+                            {isSourceProcessing(source) &&
+                            isSourcesProcessing ? (
                               <div className="flex items-center gap-2 text-gray-500">
                                 <LoaderCircle className="h-4 w-4 animate-spin" />
                                 <span className="text-sm">

@@ -6,7 +6,7 @@ Gurubase is a scalable RAG (Retrieval Augmented Generation) system built to prov
 
 ## System Components
 
-![Gurubase Architecture](architecture.png)
+![Gurubase Architecture](imgs/architecture.png)
 
 ### Frontend (Next.js)
 - Built with Next.js
@@ -195,7 +195,7 @@ The task is run in three stages:
 
 An example of the summarization process looks like this:
 
-![Data Source Summarization](ds-summarization.png)
+![Data Source Summarization](imgs/ds-summarization.png)
 
 In this example, the red summarizations are the initial summarizations, and the blue summarizations are the recursive summarizations. And summarization 11 is the final summarization of the whole guru type. While the first stage creates summarizations 1-6, the second stage creates summarizations 7 and 8, and the third stage creates summarizations 9-11.
 
@@ -295,7 +295,7 @@ For any questions related to date, remember today's date is {date}.
 
 #### 2. Context Retrieval
 
-![Context Retrieval](context-retrieval.png)
+![Context Retrieval](imgs/context-retrieval.png)
 
 The `vector_db_fetch` function in `backend/core/utils.py` is responsible for context retrieval. It happens in multiple stages:
 

@@ -34,7 +34,8 @@ class APIResponseHandler(BaseResponseHandler):
             'date_updated': format_date_updated(question_obj.date_updated),
             'trust_score': format_trust_score(question_obj.trust_score),
             'references': format_references(question_obj.references, api=True),
-            'session_id': question_obj.binge.id if question_obj.binge else None
+            'session_id': question_obj.binge.id if question_obj.binge else None,
+            'question_url': question_obj.frontend_url
         }
 
     @staticmethod

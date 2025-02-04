@@ -28,11 +28,13 @@ ROOT_EMAIL = config('ROOT_EMAIL', default='root@gurubase.io')
 ROOT_PASSWORD = config('ROOT_PASSWORD', default='ChangeMe')
 
 SENTRY_ENABLED = config('SENTRY_ENABLED', default=False, cast=bool)
-if SENTRY_ENABLED:
+
+if SENTRY_ENABLED or ENV == "selfhosted":
     import sentry_sdk
     from sentry_sdk.integrations.celery import CeleryIntegration
-    from sentry_sdk.integrations.django import DjangoIntegration
-    SENTRY_DSN = config('SENTRY_DSN')
+    from sentry_sdk.integrations.django import DjangoIntegration    
+    # Use the configured DSN or fallback to selfhosted DSN - https://sentry.zendesk.com/hc/en-us/articles/26741783759899-My-DSN-key-is-publicly-visible-is-this-a-security-vulnerability
+    SENTRY_DSN = config('SENTRY_DSN', default="https://004f52d6be335c0087a2c582f238ede2@o1185050.ingest.us.sentry.io/4508715634982912")
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration(monitor_beat_tasks=False)],
@@ -320,7 +322,6 @@ SOURCE_GURU_TOKEN = config('SOURCE_GURU_TOKEN', default='xxx')
 RAW_QUESTIONS_COPY_LOCK = config('RAW_QUESTIONS_COPY_LOCK', default='raw_questions_copy_lock')
 RAW_QUESTIONS_COPY_LOCK_DURATION_SECONDS = config('RAW_QUESTIONS_COPY_LOCK_DURATION_SECONDS', default=1800, cast=int)
 RAW_QUESTIONS_COPY_LAST_PAGE_NUM_KEY = config('RAW_QUESTIONS_COPY_LAST_PAGE_NUM_KEY', default='raw_questions_copy_last_page_num')
-GURUBASE_FRONTEND_BASE_URL = config('GURUBASE_FRONTEND_BASE_URL', default='kubernetesguru-staging.getanteon.com')
 BOT_AUTH_TOKEN = config('BOT_AUTH_TOKEN', default='xxx')
 TITLE_PROCESS_LOCK = config('TITLE_PROCESS_LOCK', default='title_process_lock')
 TITLE_PROCESS_LOCK_DURATION_SECONDS = config('TITLE_PROCESS_LOCK_DURATION_SECONDS', default=1800, cast=int)
@@ -403,5 +404,17 @@ LARGE_GEMINI_MODEL = config('LARGE_GEMINI_MODEL', default='gemini-1.5-pro')
 
 if ENV == "selfhosted":
     NGINX_BASE_URL = config('NGINX_BASE_URL', default='http://gurubase-nginx:8029')
+
+DISCORD_CLIENT_ID = config('DISCORD_CLIENT_ID', default='')
+DISCORD_CLIENT_SECRET = config('DISCORD_CLIENT_SECRET', default='')
+DISCORD_REDIRECT_URI = config('DISCORD_REDIRECT_URI', default='')
+DISCORD_BOT_TOKEN = config('DISCORD_BOT_TOKEN', default='')
+
+SLACK_CLIENT_ID = config('SLACK_CLIENT_ID', default='')
+SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
+PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://api.gurubase.io')
+
+WEBSITE_EXTRACTION = config('WEBSITE_EXTRACTION', default='crawl4ai')
+
 
 API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')

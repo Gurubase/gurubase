@@ -51,8 +51,40 @@ class SearchQuestionTests(TestCase):
             user=self.user2
         )
 
+        # Create Slack and Discord questions
+        self.slack_question = Question.objects.create(
+            question="Slack question",
+            slug="slack-question",
+            guru_type=self.guru_type,
+            source=Question.Source.SLACK.value
+        )
+
+        self.discord_question = Question.objects.create(
+            question="Discord question",
+            slug="discord-question",
+            guru_type=self.guru_type,
+            source=Question.Source.DISCORD.value
+        )
+
+        # Create bot questions (using SLACK and DISCORD sources)
+        self.bot_question_slack = Question.objects.create(
+            question="Bot question via Slack",
+            slug="bot-question-slack",
+            guru_type=self.guru_type,
+            source=Question.Source.SLACK.value,
+            user=self.user1
+        )
+
+        self.bot_question_discord = Question.objects.create(
+            question="Bot question via Discord",
+            slug="bot-question-discord",
+            guru_type=self.guru_type,
+            source=Question.Source.DISCORD.value,
+            user=self.user2
+        )
+
     def test_anonymous_user_regular_search(self):
-        """Test anonymous user can find regular questions but not API/widget questions"""
+        """Test anonymous user can find regular questions, Slack questions, Discord questions but not API/widget questions"""
         # Should find regular question
         result = search_question(
             user=None,
@@ -61,6 +93,24 @@ class SearchQuestionTests(TestCase):
             slug="regular-question"
         )
         self.assertEqual(result, self.regular_question)
+        
+        # Should find Slack question
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="slack-question"
+        )
+        self.assertEqual(result, self.slack_question)
+
+        # Should find Discord question
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="discord-question"
+        )
+        self.assertEqual(result, self.discord_question)
         
         # Should not find widget question
         result = search_question(
@@ -103,7 +153,7 @@ class SearchQuestionTests(TestCase):
         self.assertIsNone(result)
 
     def test_authenticated_user_api_search(self):
-        """Test authenticated user can find their own API questions when include_api=True"""
+        """Test authenticated user can find their own API questions and integration questions when include_api=True"""
         # User1 should find their own API question
         result = search_question(
             user=self.user1,
@@ -123,6 +173,58 @@ class SearchQuestionTests(TestCase):
             include_api=True
         )
         self.assertIsNone(result)
+
+        # User1 should find Slack question with include_api=True
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="slack-question",
+            include_api=True
+        )
+        self.assertEqual(result, self.slack_question)
+
+        # User1 should find Discord question with include_api=True
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="discord-question",
+            include_api=True
+        )
+        self.assertEqual(result, self.discord_question)
+
+    def test_authenticated_user_without_api(self):
+        """Test authenticated user without include_api flag"""
+        # Should not find API questions when include_api=False
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="api-question-user1",
+            include_api=False
+        )
+        self.assertIsNone(result)
+
+        # Should not find widget questions
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="widget-question",
+            include_api=False
+        )
+        self.assertIsNone(result)
+
+        # Should still find regular questions
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="regular-question",
+            include_api=False
+        )
+        self.assertEqual(result, self.regular_question)
 
     def test_admin_user_search(self):
         """Test admin user can find all questions"""
@@ -357,3 +459,91 @@ class SearchQuestionTests(TestCase):
             question="Binge duplicate"
         )
         self.assertEqual(result, binge2_question) 
+
+    def test_bot_questions_accessibility(self):
+        """Test that bot questions (SLACK and DISCORD sources) are accessible by anyone"""
+        
+        # Anonymous user should find bot questions from both sources
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-slack"
+        )
+        self.assertEqual(result, self.bot_question_slack)
+
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-discord"
+        )
+        self.assertEqual(result, self.bot_question_discord)
+
+        # Owner user should find their bot question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-slack"
+        )
+        self.assertEqual(result, self.bot_question_slack)
+
+        # Non-owner user should find other's bot question
+        result = search_question(
+            user=self.user2,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-slack"  # user2 accessing user1's slack bot question
+        )
+        self.assertEqual(result, self.bot_question_slack)
+
+        # Admin should find bot questions
+        result = search_question(
+            user=self.admin_user,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-discord"
+        )
+        self.assertEqual(result, self.bot_question_discord)
+
+        # Test with include_api=False (should still find bot questions)
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-discord",
+            include_api=False
+        )
+        self.assertEqual(result, self.bot_question_discord)
+
+        # Test with only_widget=True (should not find bot questions)
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-slack",
+            only_widget=True
+        )
+        self.assertIsNone(result)
+
+        # Test that both SLACK and DISCORD sources are treated the same way
+        for question in [self.bot_question_slack, self.bot_question_discord]:
+            # Should be accessible by any user
+            result = search_question(
+                user=self.user2,  # different user
+                guru_type_object=self.guru_type,
+                binge=None,
+                slug=question.slug
+            )
+            self.assertEqual(result, question)
+
+            # Should be accessible without API flag
+            result = search_question(
+                user=self.user1,
+                guru_type_object=self.guru_type,
+                binge=None,
+                slug=question.slug,
+                include_api=False
+            )
+            self.assertEqual(result, question) 
