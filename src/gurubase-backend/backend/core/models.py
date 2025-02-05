@@ -148,6 +148,10 @@ class Question(models.Model):
         indexes = [
             Index(fields=["add_to_sitemap"]),
             Index(fields=["guru_type"]),
+            Index(fields=["date_created"]),
+            Index(fields=["source"]),
+            Index(fields=["guru_type", "date_created"]),
+            Index(fields=["guru_type", "source"]),
         ]
 
     @property
@@ -913,6 +917,12 @@ class OutOfContextQuestion(models.Model):
 
     def __str__(self):
         return self.question
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["guru_type", "date_created"]),
+            models.Index(fields=["source"]),
+        ]
 
 
 class Settings(models.Model):
