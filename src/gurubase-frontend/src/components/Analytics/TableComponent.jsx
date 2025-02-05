@@ -470,7 +470,7 @@ export default function TableComponent({
               <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                 {metricType !== METRIC_TYPES.REFERENCED_SOURCES
                   ? "Question"
-                  : "Source"}
+                  : "Title"}
               </TableHead>
               {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
                 <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
@@ -494,9 +494,11 @@ export default function TableComponent({
                   <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <Skeleton className="h-4 w-16" />
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
-                    <Skeleton className="h-4 w-full max-w-[400px]" />
-                  </TableCell>
+                  {!isMobile && (
+                    <TableCell className="font-inter text-xs font-regular px-4 py-2">
+                      <Skeleton className="h-4 w-[80px]" />
+                    </TableCell>
+                  )}
                   {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
                     <TableCell className="font-inter text-xs font-regular px-4 py-2">
                       <Skeleton className="h-4 w-16" />
