@@ -66,7 +66,7 @@ export default function StatsCardComponent({
 
     if (percentageChange === 0) {
       return (
-        <div className="flex items-center text-gray-500">
+        <div className="flex items-center text-gray-500 mb-2">
           <Minus className="h-4 w-4 mr-0.5" />
           <span className="text-sm font-semibold">%{percentageChange}</span>
         </div>
@@ -83,7 +83,7 @@ export default function StatsCardComponent({
           : "text-red-500";
 
     return (
-      <div className={`flex items-center ${color}`}>
+      <div className={`flex items-center ${color} mb-2`}>
         {isPositiveChange ? UpArrow : DownArrow}
         <span className="text-sm font-semibold">
           {isPositiveChange ? "+" : "-"}%{Math.abs(percentageChange)}
@@ -95,13 +95,13 @@ export default function StatsCardComponent({
   if (isLoading) {
     return (
       <Card
-        className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-gray-200 ${inter.className}`}>
+        className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-[#E2E2E2] ${inter.className}`}>
         <div>
           <Skeleton className="h-[14px] w-24" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-end gap-2">
           <Skeleton className="h-[31px] w-16" />
-          <Skeleton className="h-[16px] w-16" />
+          <Skeleton className="h-[16px] w-16 mb-1" />
         </div>
       </Card>
     );
@@ -109,12 +109,12 @@ export default function StatsCardComponent({
 
   return (
     <Card
-      className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-gray-200 ${inter.className}`}>
+      className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-[#E2E2E2] ${inter.className}`}>
       <div>
         <span className="text-[14px] font-medium text-[#6D6D6D]">{title}</span>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-end gap-2">
         <span className="text-[31px] font-semibold text-[#191919]">
           {value}
         </span>
