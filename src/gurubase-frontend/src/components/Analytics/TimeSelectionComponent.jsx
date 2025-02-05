@@ -18,11 +18,13 @@ const periods = [
 export default function TimeSelectionComponent({
   onPeriodChange,
   defaultPeriod = "today",
-  className
+  className,
+  loading = false
 }) {
   const [activePeriod, setActivePeriod] = React.useState(defaultPeriod);
 
   const handlePeriodChange = (period) => {
+    if (loading) return;
     setActivePeriod(period);
     onPeriodChange?.(period);
   };
@@ -34,7 +36,8 @@ export default function TimeSelectionComponent({
       className={cn(
         "inline-flex h-10 md:h-10 h-9 items-center divide-x divide-[#E2E2E2] rounded-lg border border-[#E2E2E2] bg-white text-[13px] md:text-base",
         inter.className,
-        className
+        className,
+        loading && "opacity-60 cursor-not-allowed"
       )}
       role="tablist"
       aria-label="Time period navigation">
@@ -42,6 +45,7 @@ export default function TimeSelectionComponent({
         <button
           key={period.value}
           onClick={() => handlePeriodChange(period.value)}
+          disabled={loading}
           role="tab"
           aria-selected={activePeriod === period.value}
           aria-controls={`panel-${period.value}`}
@@ -51,7 +55,8 @@ export default function TimeSelectionComponent({
             activePeriod === period.value
               ? "bg-[#EFF6FF] text-[#2563EB]"
               : "text-[#6D6D6D]",
-            "first:rounded-l-lg last:rounded-r-lg"
+            "first:rounded-l-lg last:rounded-r-lg",
+            loading && "cursor-not-allowed"
           )}>
           {period.label}
         </button>

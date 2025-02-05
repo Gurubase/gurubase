@@ -135,6 +135,24 @@ const AnalyticsContent = ({ customGuru }) => {
     interval
   );
 
+  // Only fetch histogram data if not referenced sources
+  const { data: histogramData, loading: histogramLoading } = useHistogram(
+    guruType,
+    METRIC_TYPES.QUESTIONS,
+    interval
+  );
+
+  const { data: tableData, loading: tableLoading } = useTableData(
+    guruType,
+    METRIC_TYPES.QUESTIONS,
+    interval,
+    "all",
+    1
+  );
+
+  // Check if any data is loading
+  const isLoading = statCardsLoading || histogramLoading || tableLoading;
+
   return (
     <>
       <IntegrationHeader text="Analytics" />
@@ -145,6 +163,7 @@ const AnalyticsContent = ({ customGuru }) => {
             <TimeSelectionComponent
               onPeriodChange={setInterval}
               defaultPeriod={interval}
+              loading={isLoading}
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
