@@ -141,7 +141,7 @@ const AnalyticsContent = ({ customGuru }) => {
     <>
       <IntegrationHeader text="Analytics" />
       <IntegrationDivider />
-      <div className="grid grid-cols-4 px-6 pt-6">
+      <div className="grid grid-cols-4 p-6">
         <div className="col-span-3 guru-md:col-span-4 space-y-8">
           <div>
             <TimeSelectionComponent

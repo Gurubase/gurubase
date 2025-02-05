@@ -19,7 +19,7 @@ const handleRequestError = (error, context = {}) => {
 export const getStatCards = async (guruType, interval) => {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/analytics/stats?interval=${interval}`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/analytics/${guruType}/stats?interval=${interval}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -43,7 +43,7 @@ export const getStatCards = async (guruType, interval) => {
 export const getHistogram = async (guruType, metricType, interval) => {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/analytics/histogram?metric_type=${metricType}&interval=${interval}`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/analytics/${guruType}/histogram?metric_type=${metricType}&interval=${interval}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -81,7 +81,7 @@ export const getTableData = async (
     });
 
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/analytics/table?${params}`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/analytics/${guruType}/table?${params}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -120,7 +120,7 @@ export const getDataSourceQuestions = async (
     });
 
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/data-source-questions/?${params}`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/analytics/${guruType}/data-source-questions?${params}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
