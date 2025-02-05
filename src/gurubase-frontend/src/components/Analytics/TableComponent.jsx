@@ -129,7 +129,23 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                   <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
                     <div className="flex items-start gap-1 text-xs">
                       <span className="text-[#6D6D6D]">Sources by:</span>
-                      <SelectValue placeholder="All" className="font-medium" />
+                      <SelectValue
+                        placeholder="All"
+                        className="font-medium text-[#191919]"
+                      />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
+                          fill="#6D6D6D"
+                        />
+                      </svg>
                     </div>
                   </SelectTrigger>
                   <SelectContent className="z-[100]">
@@ -149,13 +165,13 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
             <Table>
               <TableHeader className="bg-[#FAFAFA]">
                 <TableRow className="border-b border-[#E2E2E2]">
-                  <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                  <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                     Date
                   </TableHead>
-                  <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                  <TableHead className="w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                     Source
                   </TableHead>
-                  <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                  <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                     Question
                   </TableHead>
                 </TableRow>
@@ -166,13 +182,13 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                     <TableRow
                       key={i}
                       className="hover:bg-transparent border-b border-[#E2E2E2]">
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <Skeleton className="h-4 w-[120px]" />
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <Skeleton className="h-4 w-[80px]" />
                       </TableCell>
                     </TableRow>
@@ -184,7 +200,7 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                         <div className="text-gray-400 mb-2">
                           <Link className="h-12 w-12" />
                         </div>
-                        <h3 className="text-base font-medium text-gray-900 mb-1">
+                        <h3 className="text-base font-regular text-gray-900 mb-1">
                           No questions found
                         </h3>
                         <p className="text-sm text-gray-500">
@@ -198,10 +214,10 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                     <TableRow
                       key={idx}
                       className="hover:bg-gray-50 border-b border-[#E2E2E2]">
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         {formatDate(question.date)}
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <div className="flex items-center gap-2">
                           {(() => {
                             switch (question.source?.toLowerCase()) {
@@ -229,7 +245,7 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                           {question.source}
                         </div>
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-medium">
+                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <a
                           href={question.link}
                           target="_blank"
@@ -248,7 +264,7 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
 
           {/* Pagination */}
           {questions?.total_pages > 1 && (
-            <div className="flex items-center justify-end gap-1 p-2 border-t">
+            <div className="flex items-center justify-end gap-1 p-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -419,7 +435,23 @@ export default function TableComponent({
           <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
             <div className="flex items-start gap-1 text-xs">
               <span className="text-[#6D6D6D]">Sources by:</span>
-              <SelectValue placeholder="All" className="font-medium" />
+              <SelectValue
+                placeholder="All"
+                className="font-medium text-[#191919]"
+              />
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
+                  fill="#6D6D6D"
+                />
+              </svg>
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -437,21 +469,21 @@ export default function TableComponent({
         <Table>
           <TableHeader className="bg-[#FAFAFA]">
             <TableRow className="border-b border-[#E2E2E2]">
-              <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+              <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                 Date
               </TableHead>
-              <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+              <TableHead className="w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                 {metricType !== METRIC_TYPES.REFERENCED_SOURCES
                   ? "Source"
                   : "Type"}
               </TableHead>
-              <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+              <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                 {metricType !== METRIC_TYPES.REFERENCED_SOURCES
                   ? "Question"
                   : "Source"}
               </TableHead>
               {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
-                <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-medium">
+                <TableHead className="w-[100px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                   Referenced
                 </TableHead>
               )}
@@ -463,16 +495,16 @@ export default function TableComponent({
                 <TableRow
                   key={i}
                   className="hover:bg-transparent border-b border-[#E2E2E2]">
-                  <TableCell className="font-inter text-xs font-medium">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <div className="flex items-center gap-2">
                       <Skeleton className="h-4 w-full max-w-[400px]" />
                       <div className="w-3 flex-shrink-0" />
                     </div>
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-medium">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <Skeleton className="h-4 w-16" />
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-medium">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <Skeleton className="h-4 w-full max-w-[400px]" />
                   </TableCell>
                 </TableRow>
@@ -487,7 +519,7 @@ export default function TableComponent({
                     <div className="text-gray-400 mb-2">
                       <Link className="h-12 w-12" />
                     </div>
-                    <h3 className="text-base font-medium text-gray-900 mb-1">
+                    <h3 className="text-base font-regular text-gray-900 mb-1">
                       No data found
                     </h3>
                     <p className="text-sm text-gray-500">
@@ -501,10 +533,10 @@ export default function TableComponent({
                 <TableRow
                   key={i}
                   className="hover:bg-transparent border-b border-[#E2E2E2]">
-                  <TableCell className="font-inter text-xs font-medium">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     {formatDate(item.date)}
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-medium">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <div className="flex items-center gap-2">
                       {(() => {
                         switch (item.type?.toLowerCase()) {
@@ -530,7 +562,7 @@ export default function TableComponent({
                       {item.type}
                     </div>
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-medium max-w-0">
+                  <TableCell className="font-inter text-xs font-regular px-4 py-2 max-w-0">
                     {metricType === METRIC_TYPES.QUESTIONS ||
                     (metricType === METRIC_TYPES.REFERENCED_SOURCES &&
                       item.link) ? (
@@ -551,7 +583,7 @@ export default function TableComponent({
                     )}
                   </TableCell>
                   {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
-                    <TableCell className="font-inter text-xs font-medium flex items-center justify-center">
+                    <TableCell className="font-inter text-xs font-regular px-4 py-2 flex items-center justify-center">
                       <Badge
                         iconColor="text-gray-500"
                         text={
