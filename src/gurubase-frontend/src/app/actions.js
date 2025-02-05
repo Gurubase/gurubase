@@ -48,7 +48,11 @@ const handleRequestError = (error, context = {}) => {
 };
 
 // Helper function for authenticated requests
-export const makeAuthenticatedRequest = async (url, options = {}) => {
+export const makeAuthenticatedRequest = async (
+  url,
+  options = {},
+  decode = false
+) => {
   // Early return for selfhosted mode
   if (shouldUsePublicRequest()) {
     return makePublicRequest(url, options);
@@ -84,6 +88,10 @@ export const makeAuthenticatedRequest = async (url, options = {}) => {
         redirect("/api/auth/login", "replace");
       }
       throw new Error(await response.text());
+    }
+
+    if (decode) {
+      return await response.json();
     }
 
     return response;

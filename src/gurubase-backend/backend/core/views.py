@@ -6,9 +6,10 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Generator
 import re
+from rest_framework.exceptions import NotFound
 
 from accounts.models import User
 from django.conf import settings
@@ -23,7 +24,7 @@ from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, Git
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, OutOfContextQuestion, GithubFile
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -344,6 +345,7 @@ def answer(request, guru_type):
             user_intent, 
             answer_length, 
             user_question, 
+            source,
             parent_question, 
             user
         )
@@ -412,7 +414,8 @@ def question_detail(request, guru_type, slug):
         guru_type_object, 
         binge, 
         slug, 
-        question_text
+        question_text,
+        allow_maintainer_access=True
     )
     if not question:
         return Response({'msg': 'Question does not exist'}, status=status.HTTP_404_NOT_FOUND)
