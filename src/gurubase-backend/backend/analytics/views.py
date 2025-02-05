@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @jwt_auth
 @guru_type_required
 def analytics_stats(request, guru_type):
+    print('Entered analytics_stats')
     """Get analytics stat cards data for a specific time period."""
     endpoint_start = time.time()
     times = {}
@@ -38,6 +39,7 @@ def analytics_stats(request, guru_type):
         
         times['total'] = time.time() - endpoint_start
         logger.info(f"analytics_stats timing: {times}")
+        print('Exiting analytics_stats')
         return Response({'data': stats_data}, status=status.HTTP_200_OK)
     except Exception as e:
         times['total'] = time.time() - endpoint_start
