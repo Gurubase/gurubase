@@ -2868,6 +2868,8 @@ def data_source_questions(request, guru_type):
         
     data_source_url = request.query_params.get('url')
     filter_type = request.query_params.get('filter_type')  # New filter parameter
+    interval = request.query_params.get('interval', 'today')  # Add interval parameter with default 'today'
+    
     if not data_source_url:
         return Response({'msg': 'Data source URL is required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2876,6 +2878,9 @@ def data_source_questions(request, guru_type):
     except ValueError:
         page = 1
     page_size = 10
+
+    # Get date range for the interval
+    start_date, end_date = get_date_range(interval)
 
     # First try to find the data source
     try:
@@ -2893,6 +2898,9 @@ def data_source_questions(request, guru_type):
 
     # Build base query for questions
     base_query = Q(guru_type=guru_type_object)
+    
+    # Add date range filter
+    base_query &= Q(date_created__gte=start_date, date_created__lte=end_date)
 
     # Handle different data source types
     if isinstance(data_source, GithubFile):
