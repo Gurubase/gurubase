@@ -165,10 +165,13 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
             <Table>
               <TableHeader className="bg-[#FAFAFA]">
                 <TableRow className="border-b border-[#E2E2E2]">
-                  <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
+                  <TableHead className="w-[120px] md:w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                     Date
                   </TableHead>
-                  <TableHead className="w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
+                  <TableHead
+                    className={`w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2 ${
+                      isMobile ? "hidden" : ""
+                    }`}>
                     Source
                   </TableHead>
                   <TableHead className="text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
@@ -185,12 +188,16 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                       <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <Skeleton className="h-4 w-[120px]" />
                       </TableCell>
+
                       <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
-                        <Skeleton className="h-4 w-[80px]" />
-                      </TableCell>
+
+                      {!isMobile && (
+                        <TableCell className="font-inter text-xs font-regular px-4 py-2">
+                          <Skeleton className="h-4 w-[80px]" />
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 ) : !questions?.results?.length ? (
@@ -217,31 +224,11 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                       <TableCell className="font-inter text-xs font-regular px-4 py-2">
                         {formatDate(question.date)}
                       </TableCell>
-                      <TableCell className="font-inter text-xs font-regular px-4 py-2">
+                      <TableCell
+                        className={`font-inter text-xs font-regular px-4 py-2 ${
+                          isMobile ? "hidden" : ""
+                        }`}>
                         <div className="flex items-center gap-2">
-                          {(() => {
-                            switch (question.source?.toLowerCase()) {
-                              case "pdf":
-                                return (
-                                  <SolarFileTextBold className="h-4 w-4" />
-                                );
-                              case "youtube":
-                                return (
-                                  <SolarVideoLibraryBold className="h-4 w-4" />
-                                );
-                              case "website":
-                                return <Link className="h-4 w-4" />;
-                              case "codebase":
-                                return (
-                                  <Icon
-                                    icon="simple-icons:github"
-                                    className="h-4 w-4"
-                                  />
-                                );
-                              default:
-                                return null;
-                            }
-                          })()}
                           {question.source}
                         </div>
                       </TableCell>
@@ -469,10 +456,13 @@ export default function TableComponent({
         <Table>
           <TableHeader className="bg-[#FAFAFA]">
             <TableRow className="border-b border-[#E2E2E2]">
-              <TableHead className="w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
+              <TableHead className="w-[120px] md:w-[200px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
                 Date
               </TableHead>
-              <TableHead className="w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2">
+              <TableHead
+                className={`w-[140px] text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2 ${
+                  isMobile ? "hidden" : ""
+                }`}>
                 {metricType !== METRIC_TYPES.REFERENCED_SOURCES
                   ? "Source"
                   : "Type"}
@@ -507,6 +497,11 @@ export default function TableComponent({
                   <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     <Skeleton className="h-4 w-full max-w-[400px]" />
                   </TableCell>
+                  {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
+                    <TableCell className="font-inter text-xs font-regular px-4 py-2">
+                      <Skeleton className="h-4 w-16" />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : !results.length ? (
@@ -536,7 +531,10 @@ export default function TableComponent({
                   <TableCell className="font-inter text-xs font-regular px-4 py-2">
                     {formatDate(item.date)}
                   </TableCell>
-                  <TableCell className="font-inter text-xs font-regular px-4 py-2">
+                  <TableCell
+                    className={`font-inter text-xs font-regular px-4 py-2 ${
+                      isMobile ? "hidden" : ""
+                    }`}>
                     <div className="flex items-center gap-2">
                       {(() => {
                         switch (item.type?.toLowerCase()) {
