@@ -67,10 +67,7 @@ urlpatterns += [
     path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
     path('integrations/create/', core_views.create_integration, name='create_integration'),
     path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
-    path('<str:guru_type>/analytics/table', core_views.analytics_table, name='analytics_table'),
-    path('<str:guru_type>/analytics/histogram', core_views.analytics_histogram, name='analytics_histogram'),
-    path('<str:guru_type>/analytics/stats', core_views.analytics_stats, name='analytics_stats'),
-    path('<str:guru_type>/data-source-questions/', core_views.data_source_questions, name='data_source_questions'),
+    path('analytics/', include('analytics.urls')),
 ]
 
 if settings.STREAM_ENABLED:
