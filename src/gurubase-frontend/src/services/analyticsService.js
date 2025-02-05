@@ -29,7 +29,6 @@ export const getStatCards = async (guruType, interval) => {
 
     if (!response?.data) return null;
 
-    console.log("response", response);
     return response.data;
   } catch (error) {
     return handleRequestError(error, {
@@ -51,7 +50,6 @@ export const getHistogram = async (guruType, metricType, interval) => {
       true
     );
 
-    console.log("response", response);
     if (!response?.data) return null;
 
     return response.data;
