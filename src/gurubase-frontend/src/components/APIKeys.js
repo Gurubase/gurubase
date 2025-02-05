@@ -3,6 +3,7 @@
 import { CopyIcon } from "@radix-ui/react-icons";
 import { format, parseISO } from "date-fns";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -127,7 +128,15 @@ const APIKeys = ({ initialApiKeys = [] }) => {
                       API Keys
                     </h1>
                     <p className="text-[14px] font-normal text-[#6D6D6D] font-inter">
-                      Manage your API keys for accessing the Gurubase API.
+                      Manage your API keys for accessing the{" "}
+                      <Link
+                        className="text-blue-500 hover:text-blue-600"
+                        href="https://docs.gurubase.ai/api-reference/introduction"
+                        rel="noopener noreferrer"
+                        target="_blank">
+                        Gurubase API
+                      </Link>
+                      .
                     </p>
                   </div>
                   <div>

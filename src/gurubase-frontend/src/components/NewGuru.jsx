@@ -241,9 +241,7 @@ export default function NewGuru({
       const hasUnprocessedSources = sources.some((source) =>
         isSourceProcessing(source)
       );
-      console.log("sources", sources);
       if (hasUnprocessedSources) {
-        console.log("hasUnprocessedSources", hasUnprocessedSources);
         setIsSourcesProcessing(true);
         pollForGuruReadiness(customGuru);
       }

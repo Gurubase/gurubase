@@ -37,7 +37,6 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
-    console.log("Will navigate to", path);
     navigation.push(path);
   };
 

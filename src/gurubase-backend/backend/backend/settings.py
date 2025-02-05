@@ -416,5 +416,4 @@ PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://api.gurubase.io')
 
 WEBSITE_EXTRACTION = config('WEBSITE_EXTRACTION', default='crawl4ai')
 
-
 API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')
