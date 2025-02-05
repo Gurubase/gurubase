@@ -1,5 +1,6 @@
 import logging
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
+import time
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -25,12 +26,22 @@ logger = logging.getLogger(__name__)
 @guru_type_required
 def analytics_stats(request, guru_type):
     """Get analytics stat cards data for a specific time period."""
+    endpoint_start = time.time()
+    times = {}
+    
     try:
         interval = request.query_params.get('interval', 'today')
+        
+        stats_start = time.time()
         stats_data = AnalyticsService.get_stats_data(guru_type, interval)
+        times['stats_calculation'] = time.time() - stats_start
+        
+        times['total'] = time.time() - endpoint_start
+        logger.info(f"analytics_stats timing: {times}")
         return Response({'data': stats_data}, status=status.HTTP_200_OK)
     except Exception as e:
-        logger.error(f"Error in analytics_stats: {str(e)}", exc_info=True)
+        times['total'] = time.time() - endpoint_start
+        logger.error(f"Error in analytics_stats: {str(e)}, timing: {times}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -38,6 +49,9 @@ def analytics_stats(request, guru_type):
 @guru_type_required
 def analytics_histogram(request, guru_type):
     """Get analytics histogram data for a specific metric type and time period."""
+    endpoint_start = time.time()
+    times = {}
+    
     try:
         metric_type = request.query_params.get('metric_type')
         interval = request.query_params.get('interval', 'today')
@@ -48,8 +62,10 @@ def analytics_histogram(request, guru_type):
         if metric_type not in ['questions', 'out_of_context']:
             raise ValidationError('Invalid metric type')
         
+        date_range_start = time.time()
         start_date, end_date = get_date_range(interval)
         increment, format_data_point = get_histogram_increment(start_date, end_date, interval)
+        times['date_range_calculation'] = time.time() - date_range_start
         
         result = []
         current = start_date
@@ -60,6 +76,7 @@ def analytics_histogram(request, guru_type):
             'referenced_sources': 2
         }
         
+        histogram_start = time.time()
         while current < end_date:
             next_slot = min(current + increment, end_date)
             slot_stats = AnalyticsService.get_stats_for_period(guru_type, current, next_slot)
@@ -70,12 +87,18 @@ def analytics_histogram(request, guru_type):
             
             result.append(data_point)
             current = next_slot
+        times['histogram_calculation'] = time.time() - histogram_start
         
+        times['total'] = time.time() - endpoint_start
+        logger.info(f"analytics_histogram timing: {times}")
         return Response({'data': result}, status=status.HTTP_200_OK)
     except ValidationError as e:
+        times['total'] = time.time() - endpoint_start
+        logger.error(f"Error in analytics_histogram: {str(e)}, timing: {times}")
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error in analytics_histogram: {str(e)}", exc_info=True)
+        times['total'] = time.time() - endpoint_start
+        logger.error(f"Error in analytics_histogram: {str(e)}, timing: {times}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -83,6 +106,9 @@ def analytics_histogram(request, guru_type):
 @guru_type_required
 def analytics_table(request, guru_type):
     """Get analytics table data for a specific metric type with pagination."""
+    endpoint_start = time.time()
+    times = {}
+    
     try:
         metric_type = request.query_params.get('metric_type')
         interval = request.query_params.get('interval', 'today')
@@ -100,11 +126,16 @@ def analytics_table(request, guru_type):
             raise ValidationError('Invalid metric type')
         
         # Get date range for the interval
+        date_range_start = time.time()
         start_date, end_date = get_date_range(interval)
+        times['date_range_calculation'] = time.time() - date_range_start
         
         # Get available filters for the metric type
+        filters_start = time.time()
         available_filters = AnalyticsService.get_available_filters(metric_type)
+        times['filters_calculation'] = time.time() - filters_start
         
+        query_start = time.time()
         # Build base queryset
         if metric_type == 'questions':
             queryset = Question.objects.filter(
@@ -116,7 +147,6 @@ def analytics_table(request, guru_type):
             if filter_type and filter_type != 'all':
                 # Use helper function to map filter type to source value
                 source_value = map_filter_to_source(filter_type)
-                print(f'source_value: {source_value}')
                 if source_value:
                     queryset = queryset.filter(source__iexact=source_value)
                 
@@ -138,7 +168,9 @@ def analytics_table(request, guru_type):
             )
             
             if filter_type and filter_type != 'all':
-                queryset = queryset.filter(source__iexact=filter_type)
+                source_value = map_filter_to_source(filter_type)
+                if source_value:
+                    queryset = queryset.filter(source__iexact=source_value)
                 
             queryset = queryset.order_by('-date_created')
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
@@ -218,6 +250,7 @@ def analytics_table(request, guru_type):
             # Paginate the sorted results
             paginated_data = AnalyticsService.get_paginated_data(combined_sources, page)
             results = paginated_data['items']
+        times['query_and_processing'] = time.time() - query_start
         
         response_data = {
             'results': results,
@@ -227,11 +260,16 @@ def analytics_table(request, guru_type):
             'available_filters': available_filters
         }
         
+        times['total'] = time.time() - endpoint_start
+        logger.info(f"analytics_table timing: {times}")
         return Response(response_data, status=status.HTTP_200_OK)
     except ValidationError as e:
+        times['total'] = time.time() - endpoint_start
+        logger.error(f"Error in analytics_table: {str(e)}, timing: {times}")
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error in analytics_table: {str(e)}", exc_info=True)
+        times['total'] = time.time() - endpoint_start
+        logger.error(f"Error in analytics_table: {str(e)}, timing: {times}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])

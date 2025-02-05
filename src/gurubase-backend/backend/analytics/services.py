@@ -4,7 +4,7 @@ from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 from .utils import get_date_range, calculate_percentage_change, format_filter_name
 import hashlib
 import json
-
+import time
 class AnalyticsService:
     CACHE_TTL = 300  # 5 minutes cache
 
@@ -23,6 +23,7 @@ class AnalyticsService:
         if cached_data:
             return cached_data
 
+        questions_start = time.time()
         # Optimize queries using annotations and single database hits
         questions = Question.objects.filter(
             guru_type=guru_type,
@@ -31,14 +32,20 @@ class AnalyticsService:
         )
         
         total_questions = questions.count()
+        questions_end = time.time()
+        print(f'questions time: {questions_end - questions_start}')
         
+        out_of_context_start = time.time()
         out_of_context = OutOfContextQuestion.objects.filter(
             guru_type=guru_type,
             date_created__gte=start_date,
             date_created__lte=end_date
         ).count()
+        out_of_context_end = time.time()
+        print(f'out_of_context time: {out_of_context_end - out_of_context_start}')
         
         # Extract unique referenced links in a single pass
+        referenced_links_start = time.time()
         referenced_links = set()
         for refs in questions.values_list('references', flat=True):
             if refs:
@@ -46,7 +53,7 @@ class AnalyticsService:
                     link = ref.get('link')
                     if link:
                         referenced_links.add(link)
-        
+
         # Optimize data source queries using IN clause
         referenced_sources = DataSource.objects.filter(
             guru_type=guru_type,
@@ -56,6 +63,9 @@ class AnalyticsService:
         referenced_github_files = GithubFile.objects.filter(
             link__in=referenced_links
         ).count()
+
+        referenced_links_end = time.time()
+        print(f'referenced_links time: {referenced_links_end - referenced_links_start}')
         
         result = (total_questions, out_of_context, referenced_sources + referenced_github_files)
         cache.set(cache_key, result, AnalyticsService.CACHE_TTL)
