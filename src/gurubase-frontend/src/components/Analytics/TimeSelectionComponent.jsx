@@ -32,7 +32,7 @@ export default function TimeSelectionComponent({
   return (
     <nav
       className={cn(
-        "inline-flex h-10 md:h-10 h-8 items-center divide-x divide-[#E2E2E2] rounded-lg border border-[#E2E2E2] bg-white text-[11px] md:text-base",
+        "inline-flex h-10 md:h-10 h-9 items-center divide-x divide-[#E2E2E2] rounded-lg border border-[#E2E2E2] bg-white text-[13px] md:text-base",
         inter.className,
         className
       )}
@@ -46,8 +46,8 @@ export default function TimeSelectionComponent({
           aria-selected={activePeriod === period.value}
           aria-controls={`panel-${period.value}`}
           className={cn(
-            "relative flex h-full items-center justify-center md:px-3 px-[6px] transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-            "text-[11px] md:text-[14px] font-medium leading-normal",
+            "relative flex h-full items-center justify-center md:px-3 px-[8px] transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+            "text-[13px] md:text-[14px] font-medium leading-normal",
             activePeriod === period.value
               ? "bg-[#EFF6FF] text-[#2563EB]"
               : "text-[#6D6D6D]",
