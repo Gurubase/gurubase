@@ -135,8 +135,6 @@ const AnalyticsContent = ({ customGuru }) => {
     interval
   );
 
-  console.log("statCardsData", statCardsData);
-
   return (
     <>
       <IntegrationHeader text="Analytics" />

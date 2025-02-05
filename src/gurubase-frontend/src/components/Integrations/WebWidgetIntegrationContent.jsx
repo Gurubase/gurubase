@@ -31,8 +31,6 @@ export const WebWidgetIntegrationContent = ({ customGuru, guruData }) => {
     router.refresh();
   };
 
-  console.log(guruData);
-
   return (
     <div className="w-full">
       <IntegrationHeader text="Web Widget" />
