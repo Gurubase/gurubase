@@ -546,4 +546,101 @@ class SearchQuestionTests(TestCase):
                 slug=question.slug,
                 include_api=False
             )
-            self.assertEqual(result, question) 
+            self.assertEqual(result, question)
+
+    def test_maintainer_access(self):
+        """Test that maintainers can access all questions when allow_maintainer_access is True"""
+        # Add user1 as a maintainer
+        self.guru_type.maintainers.add(self.user1)
+
+        # Maintainer should find regular question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="regular-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.regular_question)
+
+        # Maintainer should find widget question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="widget-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.widget_question)
+
+        # Maintainer should find any API question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="api-question-user1",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.api_question_user1)
+
+        # Maintainer should find Slack question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="slack-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.slack_question)
+
+        # Maintainer should find Discord question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="discord-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.discord_question)
+
+        # Maintainer should find bot question via Slack
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-slack",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.bot_question_slack)
+
+        # Maintainer should find bot question via Discord
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-discord",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.bot_question_discord)
+
+        # Maintainer should find binge question
+        from core.models import Binge
+        binge = Binge.objects.create(
+            guru_type=self.guru_type,
+            owner=self.user1
+        )
+        binge_question = Question.objects.create(
+            question="Binge question",
+            slug="binge-question",
+            guru_type=self.guru_type,
+            source=Question.Source.USER.value,
+            binge=binge
+        )
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=binge,
+            slug="binge-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, binge_question) 

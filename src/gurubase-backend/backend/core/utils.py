@@ -2702,7 +2702,17 @@ def check_binge_auth(binge, user):
 
     return binge.owner == user
 
-def search_question(user, guru_type_object, binge, slug=None, question=None, will_check_binge_auth=True, include_api=False, only_widget=False):
+def search_question(
+    user, 
+    guru_type_object, 
+    binge, 
+    slug=None, 
+    question=None, 
+    will_check_binge_auth=True, 
+    include_api=False, 
+    only_widget=False, 
+    allow_maintainer_access=False # Allows maintainer access to all questions
+    ): 
     def get_source_conditions(user):
         """Helper function to get source conditions based on user"""
         if user is None:
@@ -2720,6 +2730,8 @@ def search_question(user, guru_type_object, binge, slug=None, question=None, wil
             # Widget requests are not possible
             # Include non-API/WIDGET questions OR user's own API/WIDGET questions
             if user.is_admin:
+                return Q()
+            elif allow_maintainer_access and user in guru_type_object.maintainers.all():
                 return Q()
             else:
                 if include_api:

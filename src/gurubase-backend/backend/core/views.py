@@ -413,7 +413,8 @@ def question_detail(request, guru_type, slug):
         guru_type_object, 
         binge, 
         slug, 
-        question_text
+        question_text,
+        allow_maintainer_access=True
     )
     if not question:
         return Response({'msg': 'Question does not exist'}, status=status.HTTP_404_NOT_FOUND)
