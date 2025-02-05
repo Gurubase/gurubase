@@ -188,8 +188,7 @@ const QuestionsList = ({ url, guruType, onClose, interval }) => {
                           No questions found
                         </h3>
                         <p className="text-sm text-gray-500">
-                          This source hasn't been referenced in any questions
-                          yet.
+                          No data is available for the selected filters.
                         </p>
                       </div>
                     </TableCell>
@@ -459,95 +458,116 @@ export default function TableComponent({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading
-              ? [...Array(10)].map((_, i) => (
-                  <TableRow
-                    key={i}
-                    className="hover:bg-transparent border-b border-[#E2E2E2]">
-                    <TableCell className="font-inter text-xs font-medium">
-                      <div className="flex items-center gap-2">
-                        <Skeleton className="h-4 w-full max-w-[400px]" />
-                        <div className="w-3 flex-shrink-0" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-inter text-xs font-medium">
-                      <Skeleton className="h-4 w-16" />
-                    </TableCell>
-                    <TableCell className="font-inter text-xs font-medium">
+            {isLoading ? (
+              [...Array(10)].map((_, i) => (
+                <TableRow
+                  key={i}
+                  className="hover:bg-transparent border-b border-[#E2E2E2]">
+                  <TableCell className="font-inter text-xs font-medium">
+                    <div className="flex items-center gap-2">
                       <Skeleton className="h-4 w-full max-w-[400px]" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              : results.map((item, i) => (
-                  <TableRow
-                    key={i}
-                    className="hover:bg-transparent border-b border-[#E2E2E2]">
-                    <TableCell className="font-inter text-xs font-medium">
-                      {formatDate(item.date)}
-                    </TableCell>
-                    <TableCell className="font-inter text-xs font-medium">
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          switch (item.type?.toLowerCase()) {
-                            case "pdf":
-                              return <SolarFileTextBold className="h-4 w-4" />;
-                            case "youtube":
-                              return (
-                                <SolarVideoLibraryBold className="h-4 w-4" />
-                              );
-                            case "website":
-                              return <Link className="h-4 w-4" />;
-                            case "codebase":
-                              return (
-                                <Icon
-                                  icon="simple-icons:github"
-                                  className="h-4 w-4"
-                                />
-                              );
-                            default:
-                              return null;
-                          }
-                        })()}
-                        {item.type}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-inter text-xs font-medium max-w-0">
-                      {metricType === METRIC_TYPES.QUESTIONS ||
-                      (metricType === METRIC_TYPES.REFERENCED_SOURCES &&
-                        item.link) ? (
-                        <a
-                          href={item.link || "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-2 group ${item.link ? "hover:text-blue-600" : "cursor-default"}`}>
-                          <div className="truncate">{item.title}</div>
-                          <ExternalLink
-                            className={`h-3 w-3 flex-shrink-0 transition-opacity ${
-                              item.link ? "opacity-100" : "opacity-0"
-                            }`}
-                          />
-                        </a>
-                      ) : (
+                      <div className="w-3 flex-shrink-0" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-inter text-xs font-medium">
+                    <Skeleton className="h-4 w-16" />
+                  </TableCell>
+                  <TableCell className="font-inter text-xs font-medium">
+                    <Skeleton className="h-4 w-full max-w-[400px]" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : !results.length ? (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    metricType === METRIC_TYPES.REFERENCED_SOURCES ? 4 : 3
+                  }>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="text-gray-400 mb-2">
+                      <Link className="h-12 w-12" />
+                    </div>
+                    <h3 className="text-base font-medium text-gray-900 mb-1">
+                      No data found
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      No data is available for the selected filters.
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              results.map((item, i) => (
+                <TableRow
+                  key={i}
+                  className="hover:bg-transparent border-b border-[#E2E2E2]">
+                  <TableCell className="font-inter text-xs font-medium">
+                    {formatDate(item.date)}
+                  </TableCell>
+                  <TableCell className="font-inter text-xs font-medium">
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        switch (item.type?.toLowerCase()) {
+                          case "pdf":
+                            return <SolarFileTextBold className="h-4 w-4" />;
+                          case "youtube":
+                            return (
+                              <SolarVideoLibraryBold className="h-4 w-4" />
+                            );
+                          case "website":
+                            return <Link className="h-4 w-4" />;
+                          case "codebase":
+                            return (
+                              <Icon
+                                icon="simple-icons:github"
+                                className="h-4 w-4"
+                              />
+                            );
+                          default:
+                            return null;
+                        }
+                      })()}
+                      {item.type}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-inter text-xs font-medium max-w-0">
+                    {metricType === METRIC_TYPES.QUESTIONS ||
+                    (metricType === METRIC_TYPES.REFERENCED_SOURCES &&
+                      item.link) ? (
+                      <a
+                        href={item.link || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-2 group ${item.link ? "hover:text-blue-600" : "cursor-default"}`}>
                         <div className="truncate">{item.title}</div>
-                      )}
-                    </TableCell>
-                    {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
-                      <TableCell className="font-inter text-xs font-medium flex items-center justify-center">
-                        <Badge
-                          iconColor="text-gray-500"
-                          text={
-                            <div className="flex items-center gap-1">
-                              <Link className="h-3 w-3 text-gray-500" />
-                              <span>{item.reference_count}</span>
-                            </div>
-                          }
-                          variant="secondary"
-                          className="cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleReferenceClick(item)}></Badge>
-                      </TableCell>
+                        <ExternalLink
+                          className={`h-3 w-3 flex-shrink-0 transition-opacity ${
+                            item.link ? "opacity-100" : "opacity-0"
+                          }`}
+                        />
+                      </a>
+                    ) : (
+                      <div className="truncate">{item.title}</div>
                     )}
-                  </TableRow>
-                ))}
+                  </TableCell>
+                  {metricType === METRIC_TYPES.REFERENCED_SOURCES && (
+                    <TableCell className="font-inter text-xs font-medium flex items-center justify-center">
+                      <Badge
+                        iconColor="text-gray-500"
+                        text={
+                          <div className="flex items-center gap-1">
+                            <Link className="h-3 w-3 text-gray-500" />
+                            <span>{item.reference_count}</span>
+                          </div>
+                        }
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleReferenceClick(item)}></Badge>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
         <div className="flex items-center justify-end gap-1 p-2">
