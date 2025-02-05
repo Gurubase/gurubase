@@ -75,4 +75,30 @@ def get_histogram_increment(start_date, end_date, interval):
             }
         return {'date_point': current.isoformat()}
     
-    return increment, format_range 
+    return increment, format_range
+
+def map_filter_to_source(filter_type):
+    """
+    Maps a filter type to its corresponding Question source value.
+    
+    Args:
+        filter_type (str): The filter type from the request (e.g., 'widget', 'discord', 'api')
+        
+    Returns:
+        str: The corresponding Question.Source value
+    """
+    if not filter_type or filter_type == 'all':
+        return None
+        
+    source_map = {
+        'widget': 'WIDGET QUESTION',
+        'summary': 'SUMMARY QUESTION',
+        'raw': 'RAW_QUESTION',
+        'user': 'USER',
+        'reddit': 'REDDIT',
+        'api': 'API',
+        'discord': 'DISCORD',
+        'slack': 'SLACK'
+    }
+    
+    return source_map.get(filter_type.lower(), filter_type.upper()) 

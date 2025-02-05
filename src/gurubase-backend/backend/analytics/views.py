@@ -15,7 +15,7 @@ from core.models import (
 )
 from .decorators import guru_type_required
 from .services import AnalyticsService
-from .utils import get_date_range, get_histogram_increment, format_filter_name
+from .utils import get_date_range, get_histogram_increment, format_filter_name, map_filter_to_source
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,11 @@ def analytics_table(request, guru_type):
             )
             
             if filter_type and filter_type != 'all':
-                queryset = queryset.filter(source__iexact=filter_type)
+                # Use helper function to map filter type to source value
+                source_value = map_filter_to_source(filter_type)
+                print(f'source_value: {source_value}')
+                if source_value:
+                    queryset = queryset.filter(source__iexact=source_value)
                 
             queryset = queryset.order_by('-date_created')
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
