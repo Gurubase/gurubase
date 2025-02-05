@@ -120,6 +120,7 @@ const MetricSection = ({
         currentPage={page}
         isLoading={tableLoading}
         guruType={guruType}
+        interval={interval}
       />
     </div>
   );

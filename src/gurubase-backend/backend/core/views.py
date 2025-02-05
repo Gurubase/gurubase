@@ -2867,6 +2867,7 @@ def data_source_questions(request, guru_type):
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
         
     data_source_url = request.query_params.get('url')
+    filter_type = request.query_params.get('filter_type')  # New filter parameter
     if not data_source_url:
         return Response({'msg': 'Data source URL is required'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -2907,6 +2908,10 @@ def data_source_questions(request, guru_type):
     # Get questions matching our query
     queryset = Question.objects.filter(base_query).order_by('-date_created')
 
+    # Apply source filter if provided and not 'all'
+    if filter_type and filter_type != 'all':
+        queryset = queryset.filter(source__iexact=filter_type)
+
     # Get total count before pagination
     total_items = queryset.count()
     total_pages = (total_items + page_size - 1) // page_size
@@ -2934,7 +2939,15 @@ def data_source_questions(request, guru_type):
         'results': results,
         'total_pages': total_pages,
         'current_page': page,
-        'total_items': total_items
+        'total_items': total_items,
+        'available_filters': [
+            {'value': 'all', 'label': 'All'},
+            {'value': 'user', 'label': 'Gurubase UI'},
+            {'value': 'widget', 'label': 'Widget'},
+            {'value': 'api', 'label': 'API'},
+            {'value': 'discord', 'label': 'Discord'},
+            {'value': 'slack', 'label': 'Slack'},
+        ]
     }
     
     return Response(response_data, status=status.HTTP_200_OK)

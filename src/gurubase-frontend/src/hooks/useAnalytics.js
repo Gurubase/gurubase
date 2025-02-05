@@ -100,22 +100,30 @@ export const useTableData = (
   return { data, loading, error };
 };
 
-export const useDataSourceQuestions = (guruType, url, initialPage = 1) => {
+export const useDataSourceQuestions = (
+  guruType,
+  url,
+  filterType,
+  interval,
+  initialPage = 1
+) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(initialPage);
-
-  console.log("guruType", guruType);
-  console.log("url", url);
-  console.log("page", page);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         console.log("fetching data");
-        const result = await getDataSourceQuestions(guruType, url, page);
+        const result = await getDataSourceQuestions(
+          guruType,
+          url,
+          filterType,
+          interval,
+          page
+        );
 
         console.log("result", result);
         setData(result);
@@ -130,7 +138,7 @@ export const useDataSourceQuestions = (guruType, url, initialPage = 1) => {
     if (url && guruType) {
       fetchData();
     }
-  }, [guruType, url, page]);
+  }, [guruType, url, filterType, interval, page]);
 
   return {
     data,

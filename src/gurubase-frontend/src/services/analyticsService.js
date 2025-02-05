@@ -104,10 +104,18 @@ export const getTableData = async (
   }
 };
 
-export const getDataSourceQuestions = async (guruType, url, page = 1) => {
+export const getDataSourceQuestions = async (
+  guruType,
+  url,
+  filterType,
+  interval,
+  page
+) => {
   try {
     const params = new URLSearchParams({
       url: url,
+      filter_type: filterType,
+      interval: interval,
       page: page.toString()
     });
 
@@ -128,6 +136,8 @@ export const getDataSourceQuestions = async (guruType, url, page = 1) => {
       context: "getDataSourceQuestions",
       guruType,
       url,
+      filterType,
+      interval,
       page
     });
   }

@@ -39,14 +39,14 @@ import * as React from "react";
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-[49] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed z-[100] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "fixed z-[50] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           isMobile
-            ? "inset-x-0 bottom-0 z-[100] h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
-            : "right-0 top-0 z-[100] h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+            ? "inset-x-0 bottom-0 h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
+            : "right-0 top-0 h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
         )}
         {...props}>
         {children}
@@ -57,13 +57,14 @@ const StyledDialogContent = React.forwardRef(
 
 StyledDialogContent.displayName = "StyledDialogContent";
 
-const QuestionsList = ({ url, guruType, onClose }) => {
+const QuestionsList = ({ url, guruType, onClose, interval }) => {
+  const [filterType, setFilterType] = useState("all");
   const {
     data: questions,
     loading,
     page,
     setPage
-  } = useDataSourceQuestions(guruType, url);
+  } = useDataSourceQuestions(guruType, url, filterType, interval);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -92,6 +93,13 @@ const QuestionsList = ({ url, guruType, onClose }) => {
     return [current - 1, current, current + 1];
   };
 
+  const handleFilterChange = (value) => {
+    setFilterType(value);
+  };
+
+  console.log("QuestionsList", questions);
+  console.log("Available filters", questions?.available_filters);
+
   return (
     <DialogPrimitive.Root open={true} onOpenChange={onClose}>
       <StyledDialogContent isMobile={isMobile}>
@@ -110,7 +118,34 @@ const QuestionsList = ({ url, guruType, onClose }) => {
             </DialogPrimitive.Close>
           </div>
 
-          <div className="flex-1 overflow-auto py-4 px-8">
+          <div className="flex-2 overflow-auto py-4 px-8">
+            {/* Filter Section */}
+            <div className="flex items-center justify-between space-x-4 mb-3">
+              {questions?.available_filters?.length > 0 && (
+                <Select
+                  defaultValue={"all"}
+                  onValueChange={handleFilterChange}
+                  disabled={!questions?.available_filters?.length}>
+                  <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
+                    <div className="flex items-start gap-1 text-xs">
+                      <span className="text-[#6D6D6D]">Sources by:</span>
+                      <SelectValue placeholder="All" className="font-medium" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="z-[100]">
+                    {questions?.available_filters?.map((filter) => (
+                      <SelectItem key={filter.label} value={filter.value}>
+                        {filter.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="text-xs text-[#6D6D6D]">
+                Total items: {questions?.total_items || 0}
+              </div>
+            </div>
+
             <Table>
               <TableHeader className="bg-[#FAFAFA]">
                 <TableRow className="border-b border-[#E2E2E2]">
@@ -168,7 +203,32 @@ const QuestionsList = ({ url, guruType, onClose }) => {
                         {formatDate(question.date)}
                       </TableCell>
                       <TableCell className="font-inter text-xs font-medium">
-                        {question.source}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            switch (question.source?.toLowerCase()) {
+                              case "pdf":
+                                return (
+                                  <SolarFileTextBold className="h-4 w-4" />
+                                );
+                              case "youtube":
+                                return (
+                                  <SolarVideoLibraryBold className="h-4 w-4" />
+                                );
+                              case "website":
+                                return <Link className="h-4 w-4" />;
+                              case "codebase":
+                                return (
+                                  <Icon
+                                    icon="simple-icons:github"
+                                    className="h-4 w-4"
+                                  />
+                                );
+                              default:
+                                return null;
+                            }
+                          })()}
+                          {question.source}
+                        </div>
                       </TableCell>
                       <TableCell className="font-inter text-xs font-medium">
                         <a
@@ -280,7 +340,8 @@ export default function TableComponent({
   currentPage = 1,
   isLoading = false,
   metricType,
-  guruType
+  guruType,
+  interval
 }) {
   const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
   const [clickedSource, setClickedSource] = useState([]);
@@ -572,6 +633,7 @@ export default function TableComponent({
         <QuestionsList
           url={clickedSource[0]?.link}
           guruType={guruType}
+          interval={interval}
           onClose={() => setIsUrlSidebarOpen(false)}
         />
       )}
