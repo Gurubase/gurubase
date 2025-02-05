@@ -11,7 +11,7 @@ import AnalyticsContent from "./AnalyticsContent";
 export const AnalyticsPageLayout = ({ customGuru, guruTypes }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
-      <Header />
+      <Header sidebarExists={true} />
       <CommonContentLayout
         sidebar={
           <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />

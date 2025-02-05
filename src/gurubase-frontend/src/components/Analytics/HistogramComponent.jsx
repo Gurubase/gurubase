@@ -92,7 +92,6 @@ export default function HistogramComponent({
           <>
             <style jsx global>{`
               .recharts-bar-rectangle {
-                cursor: pointer;
               }
             `}</style>
             {tooltip && (

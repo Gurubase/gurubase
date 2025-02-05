@@ -55,7 +55,7 @@ export const makeAuthenticatedRequest = async (
 ) => {
   // Early return for selfhosted mode
   if (shouldUsePublicRequest()) {
-    return makePublicRequest(url, options);
+    return makePublicRequest(url, options, decode);
   }
 
   try {
@@ -111,7 +111,7 @@ export const makeAuthenticatedRequest = async (
 };
 
 // Helper for public API requests
-export const makePublicRequest = async (url, options = {}) => {
+export const makePublicRequest = async (url, options = {}, decode = false) => {
   const headers = {
     // "Content-Type": "application/json",
     Authorization: process.env.NEXT_PUBLIC_BACKEND_AUTH_TOKEN,
@@ -146,6 +146,10 @@ export const makePublicRequest = async (url, options = {}) => {
     }
 
     throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  if (decode) {
+    return await response.json();
   }
 
   return response;
