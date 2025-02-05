@@ -7,7 +7,7 @@
     slack: {
       name: "Slack",
       description:
-        "By connecting your account, you can easily share all your posts and invite your friends.",
+        "By connecting your account, you can ask your Guru directly in Slack.",
       iconSize: "w-5 h-5",
       url: `https://slack.com/oauth/v2/authorize?client_id=8327841447732.8318709976774&scope=channels:history,channels:join,channels:read,chat:write,groups:history,im:history,groups:read,mpim:read,im:read&user_scope=channels:history,chat:write,channels:read,groups:read,groups:history,im:history`,
       icon: SlackIcon
@@ -15,7 +15,7 @@
     discord: {
       name: "Discord",
       description:
-        "Connect your Discord account to share content and interact with your community.",
+        "By connecting your account, you can ask your Guru directly in Discord.",
       bgColor: "bg-[#5865F2]",
       iconSize: "w-5 h-5",
       url: `https://discord.com/oauth2/authorize?client_id=1331218460075757649&permissions=8&response_type=code&redirect_uri=https%3A%2F%2Fe306-34-32-48-186.ngrok-free.app%2FOAuth&integration_type=0&scope=identify+bot`,
@@ -32,24 +32,24 @@
 2. Click "New Application" and follow up
 3. Go to Bot and set these as backend envs:
     - `DISCORD_BOT_TOKEN`
+    - Enable `Message Content Intent` under Privileged Gateway Intents.
 4. Go to OAuth2 and set these as backend envs:
     - `DISCORD_CLIENT_ID`
     - `DISCORD_CLIENT_SECRET`
-5. Add the following to Redirects:
-    - `${frontend_url}/OAuth`
-6. Then, pick the appropriate scopes and permissions
-    - Identify
-    - Bot
-        - Send Messages
+    - Add the following to Redirects:
+        - `${frontend_url}/OAuth`
+    - Then, pick the appropriate scopes and permissions
+        - Identify
+        - Bot
+            - Send Messages
 
-    ![alt text](discord-bot-permissions.png)
-    ![alt text](discord-bot-permissions-2.png)
-7. Select your redirect url
-    - `${frontend_url}/OAuth`
-8. Pick appropriate bot permissions
-    - The minimum set is currently untested. You can pick Administrator for now.
-9. Pick Guild Install as Integration Type
-10. Copy the generated url as the Discord integration button url 
+        ![alt text](discord-bot-permissions.png)
+        ![alt text](discord-bot-permissions-2.png)
+    - Select your redirect url
+        - `${frontend_url}/OAuth`
+    - Pick appropriate bot permissions
+    - Pick Guild Install as Integration Type
+    - Copy the generated url as the Discord integration button url 
 
 
 ## Envs

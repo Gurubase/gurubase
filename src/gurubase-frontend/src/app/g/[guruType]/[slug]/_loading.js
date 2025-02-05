@@ -1,15 +1,17 @@
 "use client";
+import { useParams } from "next/navigation";
+import { useEffect } from "react";
+
 import Content from "@/components/Content";
+import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
-import { useEffect } from "react";
 import { useAppDispatch } from "@/redux/hooks";
 import { setIsLoading } from "@/redux/slices/mainFormSlice";
-import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
-import { useParams } from "next/navigation";
 
 export default function Loading() {
   const dispatch = useAppDispatch();
+
   useEffect(() => {
     dispatch(setIsLoading(true)); // to give loading skeleton
   }, [dispatch]);
@@ -20,7 +22,7 @@ export default function Loading() {
   return (
     // Keep same UI while getting data from the server for instant questions
     <main className="flex flex-col bg-white h-screen">
-      <Header guruType={guruType} />
+      <Header guruType={guruType} sidebarExists={true} />
       <main className="z-10 flex justify-center items-center px-16 xs:px-0 w-full flex-grow xs:max-w-full polygon-fill">
         <section className="container mx-auto max-w-[1180px] shadow-md bg-white h-full xs:border-none border-l border-r border-solid border-neutral-200">
           <section className="flex flex-col flex-grow w-full xs:ml-0">
@@ -28,7 +30,7 @@ export default function Loading() {
           </section>
         </section>
       </main>
-      <Footer />
+      <Footer sidebarExists={true} />
     </main>
   );
 }

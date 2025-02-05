@@ -1097,6 +1097,9 @@ class Binge(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     last_used = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"{self.id} - {self.guru_type.slug}"
+
 
 class Thread(models.Model):
     thread_id = models.CharField(max_length=100)  # Discord thread ID

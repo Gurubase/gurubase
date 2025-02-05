@@ -3,6 +3,7 @@
 import { CopyIcon } from "@radix-ui/react-icons";
 import { format, parseISO } from "date-fns";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -112,7 +113,7 @@ const APIKeys = ({ initialApiKeys = [] }) => {
 
   return (
     <main className="flex justify-center items-center px-16 guru-sm:px-0 w-full flex-grow guru-sm:max-w-full polygon-fill">
-      <div className="max-w-[1440px] w-full gap-4 h-full">
+      <div className="guru-md:max-w-[870px] guru-lg:max-w-[1180px] w-full gap-4 h-full">
         <div className="grid grid-cols-1 h-full">
           <div className="bg-white shadow-md guru-sm:border-none border-l border-r guru-lg:border-r-0 border-solid border-neutral-200">
             <div className="block guru-sm:hidden border-r border-gray-200">
@@ -127,7 +128,15 @@ const APIKeys = ({ initialApiKeys = [] }) => {
                       API Keys
                     </h1>
                     <p className="text-[14px] font-normal text-[#6D6D6D] font-inter">
-                      Manage your API keys for accessing the Gurubase API.
+                      Manage your API keys for accessing the{" "}
+                      <Link
+                        className="text-blue-500 hover:text-blue-600"
+                        href="https://docs.gurubase.ai/api-reference/introduction"
+                        rel="noopener noreferrer"
+                        target="_blank">
+                        Gurubase API
+                      </Link>
+                      .
                     </p>
                   </div>
                   <div>

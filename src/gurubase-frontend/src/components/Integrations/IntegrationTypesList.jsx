@@ -1,16 +1,15 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { getIntegrationsList } from "@/app/actions";
 import {
+  ConnectedIntegrationIcon,
   DiscordIcon,
   SlackIcon,
-  WebWidgetIcon,
-  ConnectedIntegrationIcon
+  WebWidgetIcon
 } from "@/components/Icons";
-import Link from "next/link";
+import { Link } from "@/components/Link";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
-import { getIntegrationsList } from "@/app/actions";
 
 const IntegrationTypesList = ({ customGuru }) => {
   const [connectedIntegrations, setConnectedIntegrations] = useState([]);
@@ -43,16 +42,14 @@ const IntegrationTypesList = ({ customGuru }) => {
           {
             id: "slack",
             name: "Slack Bot",
-            description:
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+            description: "Ask your Guru directly in Slack.",
             icon: SlackIcon,
             type: "SLACK"
           },
           {
             id: "discord",
             name: "Discord Bot",
-            description:
-              "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+            description: "Instant access to your guru, right in Discord.",
             icon: DiscordIcon,
             type: "DISCORD"
           }
@@ -60,8 +57,7 @@ const IntegrationTypesList = ({ customGuru }) => {
     {
       id: "web_widget",
       name: "Web Widget",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+      description: "Easily integrate your Guru into your website.",
       icon: WebWidgetIcon,
       type: "WEB_WIDGET"
     }
@@ -75,11 +71,9 @@ const IntegrationTypesList = ({ customGuru }) => {
 
   return (
     <main className="flex justify-center items-center w-full flex-grow">
-      <section className="container mx-auto guru-md:max-w-[870px] guru-lg:max-w-[1180px] bg-white h-full">
-        <section className="flex flex-col flex-grow w-full p-6 border-b border-[#E5E7EB]">
-          <h1 className="font-inter text-[20px] font-medium text-[#191919]">
-            Integrations
-          </h1>
+      <section className="container mx-auto guru-lg:max-w-[1180px] bg-white h-full">
+        <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
+          <h1 className="text-h5 font-semibold text-black-600">Integrations</h1>
         </section>
         <section className="flex flex-col flex-grow w-full guru-sm:px-4 px-6 py-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">

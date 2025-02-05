@@ -1,9 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import React from "react";
 
 import stars from "@/assets/images/stars.svg";
+import { Link } from "@/components/Link";
 
 function QuestionItem({ text, slug, isLast, isMobile }) {
   const { guruType } = useParams(); // Use useParams to get the dynamic route parameters

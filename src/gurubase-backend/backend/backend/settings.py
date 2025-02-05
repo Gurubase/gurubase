@@ -322,7 +322,6 @@ SOURCE_GURU_TOKEN = config('SOURCE_GURU_TOKEN', default='xxx')
 RAW_QUESTIONS_COPY_LOCK = config('RAW_QUESTIONS_COPY_LOCK', default='raw_questions_copy_lock')
 RAW_QUESTIONS_COPY_LOCK_DURATION_SECONDS = config('RAW_QUESTIONS_COPY_LOCK_DURATION_SECONDS', default=1800, cast=int)
 RAW_QUESTIONS_COPY_LAST_PAGE_NUM_KEY = config('RAW_QUESTIONS_COPY_LAST_PAGE_NUM_KEY', default='raw_questions_copy_last_page_num')
-GURUBASE_FRONTEND_BASE_URL = config('GURUBASE_FRONTEND_BASE_URL', default='kubernetesguru-staging.getanteon.com')
 BOT_AUTH_TOKEN = config('BOT_AUTH_TOKEN', default='xxx')
 TITLE_PROCESS_LOCK = config('TITLE_PROCESS_LOCK', default='title_process_lock')
 TITLE_PROCESS_LOCK_DURATION_SECONDS = config('TITLE_PROCESS_LOCK_DURATION_SECONDS', default=1800, cast=int)
@@ -416,6 +415,5 @@ SLACK_CLIENT_SECRET = config('SLACK_CLIENT_SECRET', default='')
 PROD_BACKEND_URL = config('PROD_BACKEND_URL', default='https://api.gurubase.io')
 
 WEBSITE_EXTRACTION = config('WEBSITE_EXTRACTION', default='crawl4ai')
-
 
 API_CONCURRENCY_THROTTLE_RATE = config('API_CONCURRENCY_THROTTLE_RATE', default='10/m')

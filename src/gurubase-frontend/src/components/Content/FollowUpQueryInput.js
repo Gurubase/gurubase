@@ -354,16 +354,6 @@ const FollowUpQueryInput = ({
     };
   }, [onSubmit, dispatch, inputId]);
 
-  const handleRedirectToSlugPage = (slug) => {
-    setTypesenseLoading(true);
-    dispatch(setResetMainForm());
-
-    // redirect after 3 sec
-    setTimeout(() => {
-      router.push(`/g/${guruType}/${slug}`);
-    }, 100);
-  };
-
   const handleSearchValueChange = (value) => {
     dispatch(setInputValue(value));
   };
