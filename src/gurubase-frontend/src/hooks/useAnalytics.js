@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   getDataSourceQuestions,
@@ -11,20 +11,30 @@ export const useStatCards = (guruType, interval) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestCounter = useRef(0);
 
   useEffect(() => {
+    const currentRequestId = ++requestCounter.current;
+
     const fetchData = async () => {
       try {
         setLoading(true);
         const result = await getStatCards(guruType, interval);
 
-        setData(result);
-        setError(null);
+        // Only update state if this is still the most recent request
+        if (currentRequestId === requestCounter.current && result) {
+          setData(result);
+          setError(null);
+        }
       } catch (err) {
-        console.log("Error fetching data", err);
-        setError(err.message);
+        if (currentRequestId === requestCounter.current) {
+          console.log("Error fetching data", err);
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (currentRequestId === requestCounter.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -38,21 +48,31 @@ export const useHistogram = (guruType, metricType, interval) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestCounter = useRef(0);
 
   if (metricType === null) return { data: null, loading: false, error: null };
 
   useEffect(() => {
+    const currentRequestId = ++requestCounter.current;
+
     const fetchData = async () => {
       try {
         setLoading(true);
         const result = await getHistogram(guruType, metricType, interval);
 
-        setData(result);
-        setError(null);
+        // Only update state if this is still the most recent request
+        if (currentRequestId === requestCounter.current && result) {
+          setData(result);
+          setError(null);
+        }
       } catch (err) {
-        setError(err.message);
+        if (currentRequestId === requestCounter.current) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (currentRequestId === requestCounter.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -72,8 +92,11 @@ export const useTableData = (
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestCounter = useRef(0);
 
   useEffect(() => {
+    const currentRequestId = ++requestCounter.current;
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -85,12 +108,19 @@ export const useTableData = (
           page
         );
 
-        setData(result);
-        setError(null);
+        // Only update state if this is still the most recent request
+        if (currentRequestId === requestCounter.current && result) {
+          setData(result);
+          setError(null);
+        }
       } catch (err) {
-        setError(err.message);
+        if (currentRequestId === requestCounter.current) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (currentRequestId === requestCounter.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -111,8 +141,11 @@ export const useDataSourceQuestions = (
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(initialPage);
+  const requestCounter = useRef(0);
 
   useEffect(() => {
+    const currentRequestId = ++requestCounter.current;
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -125,13 +158,20 @@ export const useDataSourceQuestions = (
           page
         );
 
-        console.log("result", result);
-        setData(result);
-        setError(null);
+        // Only update state if this is still the most recent request
+        if (currentRequestId === requestCounter.current && result) {
+          console.log("result", result);
+          setData(result);
+          setError(null);
+        }
       } catch (err) {
-        setError(err.message);
+        if (currentRequestId === requestCounter.current) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (currentRequestId === requestCounter.current) {
+          setLoading(false);
+        }
       }
     };
 
