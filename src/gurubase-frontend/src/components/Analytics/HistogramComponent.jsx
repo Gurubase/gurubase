@@ -97,18 +97,18 @@ export default function HistogramComponent({
             `}</style>
             {tooltip && (
               <div
-                className="absolute bg-white shadow-lg rounded-lg p-4 border z-50 pointer-events-none min-w-[180px]"
+                className="absolute bg-white shadow-lg rounded-lg p-4 border z-50 pointer-events-none min-w-[140px]"
                 style={{
                   left: tooltip.x,
                   top: Math.max(40, tooltip.y),
                   transform: "translate(-50%, -100%)",
                   marginTop: "-10px"
                 }}>
-                <div className="text-sm font-medium">
+                <div className="text-sm text-[#6D6D6D]">
                   {formatTooltipDate(tooltip.data)}
                 </div>
                 <Separator className="my-2" />
-                <div className="flex items-center gap-1">
+                <div className="flex items-end justify-between">
                   <span className="text-sm text-muted-foreground">Count:</span>
                   <span className="text-sm font-medium">{tooltip.value}</span>
                 </div>
@@ -124,7 +124,8 @@ export default function HistogramComponent({
                 margin={{
                   top: 30,
                   right: 10,
-                  left: -10
+                  left: -10,
+                  bottom: 5
                 }}>
                 <CartesianGrid
                   horizontal={true}
