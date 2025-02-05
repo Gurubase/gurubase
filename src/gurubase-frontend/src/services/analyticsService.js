@@ -7,11 +7,11 @@ export const METRIC_TYPES = {
 };
 
 const handleRequestError = (error, context = {}) => {
-  console.error("Analytics request failed:", {
-    error: error.message,
-    stack: error.stack,
-    ...context
-  });
+  // console.error("Analytics request failed:", {
+  //   error: error.message,
+  //   stack: error.stack,
+  //   ...context
+  // });
 
   return { error: true, message: error.message };
 };

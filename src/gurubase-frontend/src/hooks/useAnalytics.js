@@ -28,7 +28,6 @@ export const useStatCards = (guruType, interval) => {
         }
       } catch (err) {
         if (currentRequestId === requestCounter.current) {
-          console.log("Error fetching data", err);
           setError(err.message);
         }
       } finally {
@@ -149,7 +148,6 @@ export const useDataSourceQuestions = (
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log("fetching data");
         const result = await getDataSourceQuestions(
           guruType,
           url,
@@ -160,7 +158,6 @@ export const useDataSourceQuestions = (
 
         // Only update state if this is still the most recent request
         if (currentRequestId === requestCounter.current && result) {
-          console.log("result", result);
           setData(result);
           setError(null);
         }
