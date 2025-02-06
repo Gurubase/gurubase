@@ -264,7 +264,6 @@ export async function getAnalyticsTable(
   const startTime = timeRange ? timeRange.startTime : null;
   const endTime = timeRange ? timeRange.endTime : null;
 
-  console.log("timeRange", timeRange);
   const params = new URLSearchParams({
     metric_type: metricType,
     interval,
