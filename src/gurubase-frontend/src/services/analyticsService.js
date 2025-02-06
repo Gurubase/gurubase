@@ -70,7 +70,8 @@ export const getDataSourceQuestions = async (
   url,
   filterType,
   interval,
-  page
+  page,
+  searchQuery = ""
 ) => {
   try {
     const data = await getAnalyticsDataSourceQuestions(
@@ -78,7 +79,8 @@ export const getDataSourceQuestions = async (
       url,
       filterType,
       interval,
-      page
+      page,
+      searchQuery
     );
 
     return data;

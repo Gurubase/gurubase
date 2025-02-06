@@ -136,7 +136,8 @@ export const useDataSourceQuestions = (
   url,
   filterType,
   interval,
-  initialPage = 1
+  initialPage = 1,
+  searchQuery = ""
 ) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -155,10 +156,10 @@ export const useDataSourceQuestions = (
           url,
           filterType,
           interval,
-          page
+          page,
+          searchQuery
         );
 
-        // Only update state if this is still the most recent request
         if (currentRequestId === requestCounter.current && result) {
           setData(result);
           setError(null);
@@ -177,7 +178,7 @@ export const useDataSourceQuestions = (
     if (url && guruType) {
       fetchData();
     }
-  }, [guruType, url, filterType, interval, page]);
+  }, [guruType, url, filterType, interval, page, searchQuery]);
 
   return {
     data,

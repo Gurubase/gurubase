@@ -260,6 +260,7 @@ def data_source_questions(request, guru_type):
         data_source_url = request.query_params.get('url')
         filter_type = request.query_params.get('filter_type')
         interval = request.query_params.get('interval', 'today')
+        search_query = request.query_params.get('search', '').strip()
         
         if not data_source_url:
             raise ValidationError('Data source URL is required')
@@ -270,7 +271,12 @@ def data_source_questions(request, guru_type):
             page = 1
             
         result = AnalyticsService.get_data_source_questions(
-            guru_type, data_source_url, filter_type, interval, page
+            guru_type, 
+            data_source_url, 
+            filter_type, 
+            interval, 
+            page,
+            search_query
         )
         
         if result is None:

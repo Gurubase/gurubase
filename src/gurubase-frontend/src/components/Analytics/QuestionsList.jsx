@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, ExternalLink, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
@@ -69,14 +70,46 @@ const questionsTableColumns = [
 
 export function QuestionsList({ url, guruType, onClose, interval }) {
   const [filterType, setFilterType] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
   const {
     data: questions,
     loading,
     page,
     setPage
-  } = useDataSourceQuestions(guruType, url, filterType, interval);
+  } = useDataSourceQuestions(
+    guruType,
+    url,
+    filterType,
+    interval,
+    1,
+    searchQuery
+  );
 
   const isMobile = useMediaQuery("(max-width: 915px)");
+
+  const handleSearch = (e) => {
+    if (e.key === "Enter") {
+      if (searchTerm !== searchQuery) {
+        setSearchQuery(searchTerm);
+        setPage(1);
+      }
+    }
+  };
+
+  // Reset filters when interval changes
+  useEffect(() => {
+    setFilterType("all");
+    setPage(1);
+    setSearchQuery("");
+    setSearchTerm("");
+  }, [interval]);
+
+  const handleFilterChange = (newFilter) => {
+    setFilterType(newFilter);
+    setPage(1);
+  };
 
   return (
     <DialogPrimitive.Root open={true} onOpenChange={onClose}>
@@ -97,60 +130,92 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
           </div>
 
           <div className="flex-2 overflow-auto py-4 px-8">
-            {/* Filter Section */}
-            <div className="flex items-center justify-between space-x-4 mb-3">
-              {
-                <Select
-                  defaultValue={"all"}
-                  onValueChange={setFilterType}
-                  disabled={!questions?.available_filters?.length}>
-                  <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
-                    <div className="flex items-start gap-1 text-xs">
-                      <span className="text-[#6D6D6D]">Sources by:</span>
-                      <SelectValue
-                        placeholder="All"
-                        className="font-medium text-[#191919]"
-                      />
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
-                          fill="#6D6D6D"
+            <div className="flex flex-col gap-4">
+              {/* Filter and Total Items Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <Select
+                    value={filterType}
+                    onValueChange={handleFilterChange}
+                    disabled={!questions?.available_filters?.length}>
+                    <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
+                      <div className="flex items-start gap-1 text-xs">
+                        <span className="text-[#6D6D6D]">Sources by:</span>
+                        <SelectValue
+                          placeholder="All"
+                          className="font-medium text-[#191919]"
                         />
-                      </svg>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {questions?.available_filters?.map((filter) => (
-                      <SelectItem key={filter.label} value={filter.value}>
-                        {filter.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              }
-              <div className="text-xs text-[#6D6D6D]">
-                Total items: {questions?.total_items || 0}
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg">
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M3.69198 7.09327C3.91662 6.83119 4.31118 6.80084 4.57326 7.02548L9.99985 11.6768L15.4264 7.02548C15.6885 6.80084 16.0831 6.83119 16.3077 7.09327C16.5324 7.35535 16.502 7.74991 16.2399 7.97455L10.4066 12.9745C10.1725 13.1752 9.82716 13.1752 9.5931 12.9745L3.75977 7.97455C3.49769 7.74991 3.46734 7.35535 3.69198 7.09327Z"
+                            fill="#6D6D6D"
+                          />
+                        </svg>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {questions?.available_filters?.map((filter) => (
+                        <SelectItem key={filter.label} value={filter.value}>
+                          {filter.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="relative hidden sm:block">
+                    <Input
+                      className="w-[250px] h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white"
+                      placeholder="Search..."
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={handleSearch}
+                      disabled={loading}
+                    />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+
+                <div className="text-xs text-[#6D6D6D]">
+                  Total items: {questions?.total_items || 0}
+                </div>
+              </div>
+
+              {/* Search bar for mobile */}
+              <div className="relative sm:hidden">
+                <Input
+                  className="w-full h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white"
+                  placeholder="Search..."
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearch}
+                  disabled={loading}
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               </div>
             </div>
 
-            <DataTable
-              columns={questionsTableColumns}
-              data={questions?.results}
-              isLoading={loading}
-            />
-            <TablePagination
-              currentPage={page}
-              totalPages={questions?.total_pages || 1}
-              onPageChange={setPage}
-              isLoading={loading}
-            />
+            <div className="mt-4">
+              <DataTable
+                columns={questionsTableColumns}
+                data={questions?.results}
+                isLoading={loading}
+              />
+              <TablePagination
+                currentPage={page}
+                totalPages={questions?.total_pages || 1}
+                onPageChange={setPage}
+                isLoading={loading}
+              />
+            </div>
           </div>
         </div>
       </StyledDialogContent>

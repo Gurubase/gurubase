@@ -304,7 +304,8 @@ export async function getAnalyticsDataSourceQuestions(
   url,
   filterType,
   interval,
-  page
+  page,
+  searchQuery = ""
 ) {
   "use client";
   const token = await getAuthTokenForStream();
@@ -315,7 +316,8 @@ export async function getAnalyticsDataSourceQuestions(
     url: url,
     filter_type: filterType,
     interval: interval,
-    page: page.toString()
+    page: page.toString(),
+    search: searchQuery
   });
 
   let response;
