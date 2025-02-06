@@ -73,7 +73,9 @@ export default function TableComponent({
   guruType,
   interval,
   onSearch,
-  searchQuery = ""
+  searchQuery = "",
+  onSortChange,
+  sortOrder
 }) {
   const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
   const [clickedSource, setClickedSource] = useState(null);
@@ -104,6 +106,14 @@ export default function TableComponent({
   const handleSearch = (e) => {
     if (e.key === "Enter") {
       onSearch(searchTerm);
+    }
+  };
+
+  const handleSort = (column) => {
+    if (column.sortable) {
+      const newSortOrder = sortOrder === "desc" ? "asc" : "desc";
+      onPageChange(1);
+      onSortChange(newSortOrder);
     }
   };
 
@@ -187,6 +197,8 @@ export default function TableComponent({
           data={results}
           isLoading={isLoading}
           renderActions={{ onReferenceClick: handleReferenceClick }}
+          onSort={handleSort}
+          sortOrder={sortOrder}
         />
         <TablePagination
           currentPage={pageNum}

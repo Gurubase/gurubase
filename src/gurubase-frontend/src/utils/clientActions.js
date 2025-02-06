@@ -252,7 +252,8 @@ export async function getAnalyticsTable(
   interval,
   filterType,
   page,
-  searchQuery = ""
+  searchQuery = "",
+  sortOrder = "desc"
 ) {
   "use client";
   const token = await getAuthTokenForStream();
@@ -264,7 +265,8 @@ export async function getAnalyticsTable(
     interval,
     filter_type: filterType,
     page: page.toString(),
-    search: searchQuery
+    search: searchQuery,
+    sort_order: sortOrder
   });
 
   let response;
@@ -305,7 +307,8 @@ export async function getAnalyticsDataSourceQuestions(
   filterType,
   interval,
   page,
-  searchQuery = ""
+  searchQuery = "",
+  sortOrder = "desc"
 ) {
   "use client";
   const token = await getAuthTokenForStream();
@@ -317,7 +320,8 @@ export async function getAnalyticsDataSourceQuestions(
     filter_type: filterType,
     interval: interval,
     page: page.toString(),
-    search: searchQuery
+    search: searchQuery,
+    sort_order: sortOrder
   });
 
   let response;

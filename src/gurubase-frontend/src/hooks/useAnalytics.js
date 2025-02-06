@@ -87,7 +87,8 @@ export const useTableData = (
   interval,
   filterType,
   page,
-  searchQuery = ""
+  searchQuery = "",
+  sortOrder
 ) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,8 @@ export const useTableData = (
           interval,
           filterType,
           page,
-          searchQuery
+          searchQuery,
+          sortOrder
         );
 
         // Only update state if this is still the most recent request
@@ -126,9 +128,22 @@ export const useTableData = (
     };
 
     fetchData();
-  }, [guruType, metricType, interval, filterType, page, searchQuery]);
+  }, [
+    guruType,
+    metricType,
+    interval,
+    filterType,
+    page,
+    searchQuery,
+    sortOrder
+  ]);
 
-  return { data, loading, error };
+  return {
+    data,
+    loading,
+    error,
+    sortOrder
+  };
 };
 
 export const useDataSourceQuestions = (
@@ -137,12 +152,14 @@ export const useDataSourceQuestions = (
   filterType,
   interval,
   initialPage = 1,
-  searchQuery = ""
+  searchQuery = "",
+  initialSortOrder = "desc"
 ) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(initialPage);
+  const [sortOrder, setSortOrder] = useState(initialSortOrder);
   const requestCounter = useRef(0);
 
   useEffect(() => {
@@ -157,7 +174,8 @@ export const useDataSourceQuestions = (
           filterType,
           interval,
           page,
-          searchQuery
+          searchQuery,
+          sortOrder
         );
 
         if (currentRequestId === requestCounter.current && result) {
@@ -178,13 +196,15 @@ export const useDataSourceQuestions = (
     if (url && guruType) {
       fetchData();
     }
-  }, [guruType, url, filterType, interval, page, searchQuery]);
+  }, [guruType, url, filterType, interval, page, searchQuery, sortOrder]);
 
   return {
     data,
     loading,
     error,
     page,
-    setPage
+    setPage,
+    sortOrder,
+    setSortOrder
   };
 };

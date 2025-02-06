@@ -83,12 +83,14 @@ const MetricSection = ({
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   // Reset filters when interval changes
   useEffect(() => {
     setFilterType("all");
     setPage(1);
     setSearchQuery("");
+    setSortOrder("desc");
   }, [interval]);
 
   const handleFilterChange = (newFilter) => {
@@ -109,7 +111,8 @@ const MetricSection = ({
     interval,
     filterType,
     page,
-    searchQuery
+    searchQuery,
+    sortOrder
   );
 
   const { data: histogramData, loading: histogramLoading } = useHistogram(
@@ -144,6 +147,8 @@ const MetricSection = ({
         isLoading={tableLoading}
         guruType={guruType}
         interval={interval}
+        onSortChange={setSortOrder}
+        sortOrder={sortOrder}
       />
     </div>
   );
@@ -154,6 +159,11 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState(initialInterval);
   const guruType = customGuru;
+  const [metricType, setMetricType] = useState(METRIC_TYPES.QUESTIONS);
+  const [currentFilter, setCurrentFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
@@ -176,14 +186,32 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
-    METRIC_TYPES.QUESTIONS,
+    metricType,
     interval,
-    "all",
-    1
+    currentFilter,
+    currentPage,
+    searchQuery,
+    sortOrder
   );
 
   // Check if any data is loading
   const isLoading = statCardsLoading || histogramLoading || tableLoading;
+
+  const handleFilterChange = (newFilter) => {
+    setCurrentFilter(newFilter);
+    setCurrentPage(1); // Reset page when filter changes
+  };
+
+  const handleSearch = (term) => {
+    if (term !== searchQuery) {
+      setSearchQuery(term);
+      setCurrentPage(1);
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
 
   return (
     <>

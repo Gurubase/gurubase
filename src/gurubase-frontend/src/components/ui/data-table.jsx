@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { formatDate } from "@/utils/dateUtils";
+import { cn } from "@/lib/utils";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 export function DataTable({
   columns,
@@ -22,28 +24,42 @@ export function DataTable({
     icon: Link,
     title: "No data found",
     description: "No data is available for the selected filters."
-  }
+  },
+  onSort,
+  sortOrder
 }) {
   const isMobile = useMediaQuery("(max-width: 915px)");
+  console.log(sortOrder);
 
   return (
     <div className={isMobile ? "overflow-x-auto" : "overflow-hidden"}>
       <Table>
         <TableHeader className="bg-[#FAFAFA]">
           <TableRow className="border-b border-[#E2E2E2]">
-            {columns.map(
-              (column) =>
-                (!column.hideOnMobile || !isMobile) && (
-                  <TableHead
-                    key={column.key}
-                    style={{ minWidth: column.minWidth }}
-                    className={`text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2 ${
-                      column.width || ""
-                    }`}>
-                    {column.header}
-                  </TableHead>
-                )
-            )}
+            {columns.map((column) => (
+              <TableHead
+                key={column.key}
+                className={cn(
+                  "text-ellipsis overflow-hidden text-[#6D6D6D] font-inter text-xs font-regular px-4 py-2",
+                  column.width,
+                  column.sortable && "cursor-pointer hover:bg-gray-50",
+                  "transition-colors"
+                )}
+                onClick={() => column.sortable && onSort?.(column)}>
+                <div className="flex items-center gap-2">
+                  {column.header}
+                  {column.sortable && (
+                    <div className="flex items-center">
+                      {sortOrder === "asc" ? (
+                        <ChevronUp className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 text-primary" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>

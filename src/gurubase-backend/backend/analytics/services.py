@@ -164,10 +164,10 @@ class AnalyticsService:
         return filters
 
     @staticmethod
-    def get_data_source_questions(guru_type, data_source_url, filter_type, interval, page, search_query=None):
-        """Get questions that reference a specific data source with search functionality."""
+    def get_data_source_questions(guru_type, data_source_url, filter_type, interval, page, search_query=None, sort_order='desc'):
+        """Get questions that reference a specific data source with search and sort functionality."""
         cache_key = AnalyticsService._get_cache_key('data_source_questions', 
-            guru_type.id, data_source_url, filter_type or 'all', interval, page, search_query)
+            guru_type.id, data_source_url, filter_type or 'all', interval, page, search_query, sort_order)
         cached_data = cache.get(cache_key)
         
         if cached_data:
@@ -202,6 +202,10 @@ class AnalyticsService:
         # Apply search filter if query exists
         if search_query:
             queryset = queryset.filter(question__icontains=search_query)
+        
+        # Apply sorting
+        order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+        queryset = queryset.order_by(order_by)
         
         paginated_data = AnalyticsService.get_paginated_data(queryset, page)
         

@@ -44,7 +44,8 @@ const questionsTableColumns = [
   {
     key: "date",
     header: "Date",
-    width: "w-[120px] md:w-[200px]"
+    width: "w-[120px] md:w-[200px]",
+    sortable: true
   },
   {
     key: "source",
@@ -72,19 +73,22 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
   const [filterType, setFilterType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const {
     data: questions,
     loading,
     page,
-    setPage
+    setPage,
+    setSortOrder: setQuestionsSortOrder
   } = useDataSourceQuestions(
     guruType,
     url,
     filterType,
     interval,
     1,
-    searchQuery
+    searchQuery,
+    sortOrder
   );
 
   const isMobile = useMediaQuery("(max-width: 915px)");
@@ -98,12 +102,22 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
     }
   };
 
+  const handleSort = (column) => {
+    if (column.sortable) {
+      const newSortOrder = sortOrder === "desc" ? "asc" : "desc";
+      setSortOrder(newSortOrder);
+      setQuestionsSortOrder(newSortOrder);
+      setPage(1);
+    }
+  };
+
   // Reset filters when interval changes
   useEffect(() => {
     setFilterType("all");
     setPage(1);
     setSearchQuery("");
     setSearchTerm("");
+    setSortOrder("desc");
   }, [interval]);
 
   const handleFilterChange = (newFilter) => {
@@ -137,7 +151,7 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                   <Select
                     value={filterType}
                     onValueChange={handleFilterChange}
-                    disabled={!questions?.available_filters?.length}>
+                    disabled={loading || !questions?.available_filters?.length}>
                     <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
                       <div className="flex items-start gap-1 text-xs">
                         <span className="text-[#6D6D6D]">Sources by:</span>
@@ -208,6 +222,8 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                 columns={questionsTableColumns}
                 data={questions?.results}
                 isLoading={loading}
+                onSort={handleSort}
+                sortOrder={sortOrder}
               />
               <TablePagination
                 currentPage={page}

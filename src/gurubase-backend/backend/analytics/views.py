@@ -92,6 +92,10 @@ def analytics_table(request, guru_type):
         interval = request.query_params.get('interval', 'today')
         filter_type = request.query_params.get('filter_type')
         search_query = request.query_params.get('search', '').strip()
+        sort_order = request.query_params.get('sort_order', 'desc').lower()
+        
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
         
         try:
             page = max(1, int(request.query_params.get('page', 1)))
@@ -126,7 +130,9 @@ def analytics_table(request, guru_type):
             if search_query:
                 queryset = queryset.filter(question__icontains=search_query)
                 
-            queryset = queryset.order_by('-date_created')
+            order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+            queryset = queryset.order_by(order_by)
+            
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
             
             results = [{
@@ -151,7 +157,9 @@ def analytics_table(request, guru_type):
             if search_query:
                 queryset = queryset.filter(question__icontains=search_query)
                 
-            queryset = queryset.order_by('-date_created')
+            order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+            queryset = queryset.order_by(order_by)
+            
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
             
             results = [{
@@ -223,8 +231,11 @@ def analytics_table(request, guru_type):
                     'reference_count': reference_counts.get(gf.link, 0)
                 })
             
-            # Sort by reference count
-            combined_sources.sort(key=lambda x: x['reference_count'], reverse=True)
+            # Sort by reference count and then by date
+            if sort_order == 'asc':
+                combined_sources.sort(key=lambda x: (x['reference_count'], x['date']))
+            else:
+                combined_sources.sort(key=lambda x: (x['reference_count'], x['date']), reverse=True)
             
             # Apply search filter to titles if search query exists
             if search_query:
@@ -261,6 +272,10 @@ def data_source_questions(request, guru_type):
         filter_type = request.query_params.get('filter_type')
         interval = request.query_params.get('interval', 'today')
         search_query = request.query_params.get('search', '').strip()
+        sort_order = request.query_params.get('sort_order', 'desc').lower()
+        
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
         
         if not data_source_url:
             raise ValidationError('Data source URL is required')
@@ -276,7 +291,8 @@ def data_source_questions(request, guru_type):
             filter_type, 
             interval, 
             page,
-            search_query
+            search_query,
+            sort_order
         )
         
         if result is None:
