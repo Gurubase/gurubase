@@ -119,7 +119,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
   // Include times in the payload if it exists
   const requestPayload = {
     ...payload,
-    times: payload.times || undefined  // Only include times if it exists
+    times: payload.times || undefined // Only include times if it exists
   };
 
   let response;
@@ -139,7 +139,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
     response = await fetch(streamURL, {
       method: "POST",
       headers,
-      body: JSON.stringify(requestPayload)  // Use the modified payload
+      body: JSON.stringify(requestPayload) // Use the modified payload
     });
   } else if (authenticated) {
     response = await fetch(streamURL, {
@@ -148,7 +148,7 @@ export async function getStream(payload, guruType, jwtToken = null) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify(requestPayload),  // Use the modified payload
+      body: JSON.stringify(requestPayload), // Use the modified payload
       cache: "no-store"
     });
   } else {
@@ -158,9 +158,212 @@ export async function getStream(payload, guruType, jwtToken = null) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${jwtToken}`
       },
-      body: JSON.stringify(requestPayload)  // Use the modified payload
+      body: JSON.stringify(requestPayload) // Use the modified payload
     });
   }
 
   return response;
+}
+
+// Analytics Functions
+export async function getAnalyticsStats(guruType, interval) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  let response;
+  const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/stats?interval=${interval}`;
+
+  if (isSelfHosted) {
+    const cookies = document.cookie.split("; ");
+    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
+    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken })
+    };
+
+    response = await fetch(url, {
+      method: "GET",
+      headers
+    });
+  } else if (authenticated) {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return data.data;
+}
+
+export async function getAnalyticsHistogram(guruType, metricType, interval) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  let response;
+  const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/histogram?metric_type=${metricType}&interval=${interval}`;
+
+  if (isSelfHosted) {
+    const cookies = document.cookie.split("; ");
+    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
+    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken })
+    };
+
+    response = await fetch(url, {
+      method: "GET",
+      headers
+    });
+  } else if (authenticated) {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return data.data;
+}
+
+export async function getAnalyticsTable(
+  guruType,
+  metricType,
+  interval,
+  filterType,
+  page
+) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  const params = new URLSearchParams({
+    metric_type: metricType,
+    interval,
+    filter_type: filterType,
+    page: page.toString()
+  });
+
+  let response;
+  const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/table?${params}`;
+
+  if (isSelfHosted) {
+    const cookies = document.cookie.split("; ");
+    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
+    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken })
+    };
+
+    response = await fetch(url, {
+      method: "GET",
+      headers
+    });
+  } else if (authenticated) {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+export async function getAnalyticsDataSourceQuestions(
+  guruType,
+  url,
+  filterType,
+  interval,
+  page
+) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  const params = new URLSearchParams({
+    url: url,
+    filter_type: filterType,
+    interval: interval,
+    page: page.toString()
+  });
+
+  let response;
+  const apiUrl = `${BACKEND_FETCH_URL}/analytics/${guruType}/data-source-questions?${params}`;
+
+  if (isSelfHosted) {
+    const cookies = document.cookie.split("; ");
+    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
+    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRFToken": csrfToken })
+    };
+
+    response = await fetch(apiUrl, {
+      method: "GET",
+      headers
+    });
+  } else if (authenticated) {
+    response = await fetch(apiUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
 }
