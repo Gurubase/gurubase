@@ -5,8 +5,15 @@ import AnalyticsPageLayout from "@/components/Analytics/AnalyticsPageLayout";
 
 export default async function AnalyticsPage({ params, searchParams }) {
   const { customGuru } = params;
+  const interval = searchParams.interval || "today";
 
   const guruTypes = await getMyGurus();
 
-  return <AnalyticsPageLayout customGuru={customGuru} guruTypes={guruTypes} />;
+  return (
+    <AnalyticsPageLayout
+      customGuru={customGuru}
+      guruTypes={guruTypes}
+      initialInterval={interval}
+    />
+  );
 }

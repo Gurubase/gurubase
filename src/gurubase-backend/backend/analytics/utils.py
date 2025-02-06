@@ -39,14 +39,15 @@ def calculate_percentage_change(current_value, previous_value):
         return 0 if current_value == 0 else 100
     return round(((current_value - previous_value) / previous_value) * 100, 2)
 
-def format_filter_name(name):
+def format_filter_name_for_display(name):
     """Format filter name to be Title Case."""
     name_mapping = {
         'user': 'Gurubase UI',
         'github_repo': 'Codebase',
         'pdf': 'PDF',
         'website': 'Website',
-        'youtube': 'YouTube'
+        'youtube': 'YouTube',
+        'widget question': 'Widget'
     }
     
     return name_mapping.get(name.lower(), name.lower().replace('_', ' ').title())

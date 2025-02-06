@@ -1,3 +1,5 @@
+"use client";
+
 import HistogramComponent from "./HistogramComponent";
 import TimeSelectionComponent from "./TimeSelectionComponent";
 import StatsCardComponent, { STAT_TYPES } from "./StatsCardComponent";
@@ -10,6 +12,7 @@ import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const HeaderTooltip = ({ text }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -81,20 +84,61 @@ const MetricSection = ({
 }) => {
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [selectedTimeRange, setSelectedTimeRange] = useState(null);
 
-  // Only fetch histogram data if not referenced sources
-  const { data: histogramData, loading: histogramLoading } = useHistogram(
-    guruType,
-    metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
-    interval
-  );
+  // Add effect to reset time range when interval changes
+  useEffect(() => {
+    setSelectedTimeRange(null);
+    setFilterType("all");
+    setPage(1);
+    setSearchQuery("");
+    setSortOrder("desc");
+  }, [interval]);
+
+  const handleBarClick = (timeRange) => {
+    setSelectedTimeRange(timeRange);
+    // Reset filters when a bar is clicked
+    setFilterType("all");
+    setPage(1);
+    setSearchQuery("");
+    setSortOrder("desc");
+  };
+
+  const handleTimeRangeChange = (newTimeRange) => {
+    setSelectedTimeRange(newTimeRange);
+  };
+
+  // Remove the useEffect for click outside handling
+
+  const handleFilterChange = (newFilter) => {
+    setFilterType(newFilter);
+    setPage(1); // Reset page when filter changes
+  };
+
+  const handleSearch = (term) => {
+    if (term !== searchQuery) {
+      setSearchQuery(term);
+      setPage(1);
+    }
+  };
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
     metricType,
     interval,
     filterType,
-    page
+    page,
+    searchQuery,
+    sortOrder,
+    selectedTimeRange
+  );
+
+  const { data: histogramData, loading: histogramLoading } = useHistogram(
+    guruType,
+    metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
+    interval
   );
 
   return (
@@ -108,27 +152,48 @@ const MetricSection = ({
           interval={interval}
           data={histogramData}
           isLoading={histogramLoading}
+          onBarClick={handleBarClick}
         />
       )}
       <div className="mt-6"></div>
       <TableComponent
         metricType={metricType}
         data={tableData}
-        onFilterChange={setFilterType}
+        onFilterChange={handleFilterChange}
         onPageChange={setPage}
+        onSearch={handleSearch}
         currentFilter={filterType}
         currentPage={page}
+        searchQuery={searchQuery}
         isLoading={tableLoading}
         guruType={guruType}
         interval={interval}
+        onSortChange={setSortOrder}
+        sortOrder={sortOrder}
+        timeRange={selectedTimeRange}
+        onTimeRangeChange={handleTimeRangeChange}
       />
     </div>
   );
 };
 
-const AnalyticsContent = ({ customGuru }) => {
-  const [interval, setInterval] = useState("today");
+const AnalyticsContent = ({ customGuru, initialInterval }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [interval, setInterval] = useState(initialInterval);
   const guruType = customGuru;
+  const [metricType, setMetricType] = useState(METRIC_TYPES.QUESTIONS);
+  const [currentFilter, setCurrentFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  const handleIntervalChange = (newInterval) => {
+    setInterval(newInterval);
+    const params = new URLSearchParams(searchParams);
+    params.set("interval", newInterval);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   const { data: statCardsData, loading: statCardsLoading } = useStatCards(
     guruType,
@@ -144,14 +209,32 @@ const AnalyticsContent = ({ customGuru }) => {
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
-    METRIC_TYPES.QUESTIONS,
+    metricType,
     interval,
-    "all",
-    1
+    currentFilter,
+    currentPage,
+    searchQuery,
+    sortOrder
   );
 
   // Check if any data is loading
   const isLoading = statCardsLoading || histogramLoading || tableLoading;
+
+  const handleFilterChange = (newFilter) => {
+    setCurrentFilter(newFilter);
+    setCurrentPage(1); // Reset page when filter changes
+  };
+
+  const handleSearch = (term) => {
+    if (term !== searchQuery) {
+      setSearchQuery(term);
+      setCurrentPage(1);
+    }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
 
   return (
     <>
@@ -161,7 +244,7 @@ const AnalyticsContent = ({ customGuru }) => {
         <div className="col-span-3 guru-md:col-span-4 space-y-6">
           <div>
             <TimeSelectionComponent
-              onPeriodChange={setInterval}
+              onPeriodChange={handleIntervalChange}
               defaultPeriod={interval}
               loading={isLoading}
             />

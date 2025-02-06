@@ -46,7 +46,10 @@ export const getTableData = async (
   metricType,
   interval,
   filterType,
-  page
+  page,
+  searchQuery = "",
+  sortOrder = "desc",
+  timeRange = null
 ) => {
   try {
     const data = await getAnalyticsTable(
@@ -54,7 +57,10 @@ export const getTableData = async (
       metricType,
       interval,
       filterType,
-      page
+      page,
+      searchQuery,
+      sortOrder,
+      timeRange
     );
 
     return data;
@@ -68,7 +74,9 @@ export const getDataSourceQuestions = async (
   url,
   filterType,
   interval,
-  page
+  page,
+  searchQuery = "",
+  sortOrder = "desc"
 ) => {
   try {
     const data = await getAnalyticsDataSourceQuestions(
@@ -76,7 +84,9 @@ export const getDataSourceQuestions = async (
       url,
       filterType,
       interval,
-      page
+      page,
+      searchQuery,
+      sortOrder
     );
 
     return data;

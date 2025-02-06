@@ -176,13 +176,8 @@ export async function getAnalyticsStats(guruType, interval) {
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/stats?interval=${interval}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -221,13 +216,8 @@ export async function getAnalyticsHistogram(guruType, metricType, interval) {
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/histogram?metric_type=${metricType}&interval=${interval}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -261,31 +251,41 @@ export async function getAnalyticsTable(
   metricType,
   interval,
   filterType,
-  page
+  page,
+  searchQuery = "",
+  sortOrder = "desc",
+  timeRange = null
 ) {
   "use client";
   const token = await getAuthTokenForStream();
   const authenticated = token ? token.trim().length > 0 : false;
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
+  const startTime = timeRange ? timeRange.startTime : null;
+  const endTime = timeRange ? timeRange.endTime : null;
+
   const params = new URLSearchParams({
     metric_type: metricType,
     interval,
     filter_type: filterType,
-    page: page.toString()
+    page: page.toString(),
+    search: searchQuery,
+    sort_order: sortOrder
   });
+
+  if (startTime) {
+    params.append("start_time", startTime);
+  }
+  if (endTime) {
+    params.append("end_time", endTime);
+  }
 
   let response;
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/table?${params}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -317,7 +317,9 @@ export async function getAnalyticsDataSourceQuestions(
   url,
   filterType,
   interval,
-  page
+  page,
+  searchQuery = "",
+  sortOrder = "desc"
 ) {
   "use client";
   const token = await getAuthTokenForStream();
@@ -328,20 +330,17 @@ export async function getAnalyticsDataSourceQuestions(
     url: url,
     filter_type: filterType,
     interval: interval,
-    page: page.toString()
+    page: page.toString(),
+    search: searchQuery,
+    sort_order: sortOrder
   });
 
   let response;
   const apiUrl = `${BACKEND_FETCH_URL}/analytics/${guruType}/data-source-questions?${params}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(apiUrl, {

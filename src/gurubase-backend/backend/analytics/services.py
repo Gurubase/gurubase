@@ -1,7 +1,7 @@
 from django.db.models import Q, Count, Prefetch
 from django.core.cache import cache
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
-from .utils import get_date_range, calculate_percentage_change, format_filter_name
+from .utils import get_date_range, calculate_percentage_change, format_filter_name_for_display, map_filter_to_source
 import hashlib
 import json
 import time
@@ -164,10 +164,10 @@ class AnalyticsService:
         return filters
 
     @staticmethod
-    def get_data_source_questions(guru_type, data_source_url, filter_type=None, interval='today', page=1):
-        """Get questions that reference a specific data source with optimized queries."""
+    def get_data_source_questions(guru_type, data_source_url, filter_type, interval, page, search_query=None, sort_order='desc'):
+        """Get questions that reference a specific data source with search and sort functionality."""
         cache_key = AnalyticsService._get_cache_key('data_source_questions', 
-            guru_type.id, data_source_url, filter_type or 'all', interval, page)
+            guru_type.id, data_source_url, filter_type or 'all', interval, page, search_query, sort_order)
         cached_data = cache.get(cache_key)
         
         if cached_data:
@@ -185,29 +185,35 @@ class AnalyticsService:
             except GithubFile.DoesNotExist:
                 return None
         
-        base_query = Q(
+        # Build the base queryset
+        queryset = Question.objects.filter(
             guru_type=guru_type,
             date_created__gte=start_date,
-            date_created__lte=end_date
+            date_created__lte=end_date,
+            references__contains=[{'link': data_source_url}]
         )
         
-        if is_github:
-            base_query &= Q(references__contains=[{'link': data_source.link}])
-        else:
-            base_query &= Q(references__contains=[{'link': data_source_url}])
-            
-        queryset = Question.objects.filter(base_query).order_by('-date_created')
-        
+        # Apply filter type if specified
         if filter_type and filter_type != 'all':
-            queryset = queryset.filter(source__iexact=filter_type)
-            
+            source_value = map_filter_to_source(filter_type)
+            if source_value:
+                queryset = queryset.filter(source__iexact=source_value)
+        
+        # Apply search filter if query exists
+        if search_query:
+            queryset = queryset.filter(question__icontains=search_query)
+        
+        # Apply sorting
+        order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+        queryset = queryset.order_by(order_by)
+        
         paginated_data = AnalyticsService.get_paginated_data(queryset, page)
         
         results = [{
             'date': item.date_created.isoformat(),
             'title': item.question,
             'link': item.frontend_url,
-            'source': format_filter_name(item.source)
+            'source': format_filter_name_for_display(item.source)
         } for item in paginated_data['items']]
         
         result = {

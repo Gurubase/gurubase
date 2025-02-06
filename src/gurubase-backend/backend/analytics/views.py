@@ -1,6 +1,7 @@
 import logging
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
+from datetime import datetime
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -16,7 +17,7 @@ from core.models import (
 )
 from .decorators import guru_type_required
 from .services import AnalyticsService
-from .utils import get_date_range, get_histogram_increment, format_filter_name, map_filter_to_source
+from .utils import get_date_range, get_histogram_increment, format_filter_name_for_display, map_filter_to_source
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,17 @@ def analytics_histogram(request, guru_type):
             raise ValidationError('Invalid metric type')
         
         start_date, end_date = get_date_range(interval)
+        
+        # Truncate timestamps based on interval
+        if interval in ['today', 'yesterday']:
+            # Truncate to hour
+            start_date = start_date.replace(minute=0, second=0, microsecond=0)
+            end_date = end_date.replace(minute=0, second=0, microsecond=0)
+        else:
+            # Truncate to day
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
         increment, format_data_point = get_histogram_increment(start_date, end_date, interval)
         
         result = []
@@ -91,6 +103,13 @@ def analytics_table(request, guru_type):
         metric_type = request.query_params.get('metric_type')
         interval = request.query_params.get('interval', 'today')
         filter_type = request.query_params.get('filter_type')
+        search_query = request.query_params.get('search', '').strip()
+        sort_order = request.query_params.get('sort_order', 'desc').lower()
+        start_time = request.query_params.get('start_time', '').strip()
+        end_time = request.query_params.get('end_time', '').strip()
+        
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
         
         try:
             page = max(1, int(request.query_params.get('page', 1)))
@@ -103,8 +122,17 @@ def analytics_table(request, guru_type):
         if metric_type not in ['questions', 'out_of_context', 'referenced_sources']:
             raise ValidationError('Invalid metric type')
         
-        # Get date range for the interval
-        start_date, end_date = get_date_range(interval)
+        # Get date range - use custom range if provided, otherwise use interval
+        if start_time and end_time:
+            try:
+                start_date = datetime.fromisoformat(start_time)
+                end_date = datetime.fromisoformat(end_time)
+                if start_date > end_date:
+                    raise ValidationError('Start time must be before end time')
+            except ValueError:
+                raise ValidationError('Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)')
+        else:
+            start_date, end_date = get_date_range(interval)
         
         # Get available filters for the metric type
         available_filters = AnalyticsService.get_available_filters(metric_type)
@@ -118,17 +146,21 @@ def analytics_table(request, guru_type):
             )
             
             if filter_type and filter_type != 'all':
-                # Use helper function to map filter type to source value
                 source_value = map_filter_to_source(filter_type)
                 if source_value:
                     queryset = queryset.filter(source__iexact=source_value)
+                    
+            if search_query:
+                queryset = queryset.filter(question__icontains=search_query)
                 
-            queryset = queryset.order_by('-date_created')
+            order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+            queryset = queryset.order_by(order_by)
+            
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
             
             results = [{
                 'date': item.date_created.isoformat(),
-                'type': format_filter_name(item.source),
+                'type': format_filter_name_for_display(item.source),
                 'title': item.question,
                 'link': item.frontend_url
             } for item in paginated_data['items']]
@@ -144,13 +176,18 @@ def analytics_table(request, guru_type):
                 source_value = map_filter_to_source(filter_type)
                 if source_value:
                     queryset = queryset.filter(source__iexact=source_value)
+                    
+            if search_query:
+                queryset = queryset.filter(question__icontains=search_query)
                 
-            queryset = queryset.order_by('-date_created')
+            order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+            queryset = queryset.order_by(order_by)
+            
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
             
             results = [{
                 'date': item.date_created.isoformat(),
-                'type': format_filter_name(item.source),
+                'type': format_filter_name_for_display(item.source),
                 'title': item.question,
             } for item in paginated_data['items']]
             
@@ -202,7 +239,7 @@ def analytics_table(request, guru_type):
             for ds in data_sources:
                 combined_sources.append({
                     'date': ds.date_created.isoformat(),
-                    'type': format_filter_name(ds.type),
+                    'type': format_filter_name_for_display(ds.type),
                     'title': ds.title or ds.url,
                     'link': ds.url,
                     'reference_count': reference_counts.get(ds.url, 0)
@@ -217,8 +254,18 @@ def analytics_table(request, guru_type):
                     'reference_count': reference_counts.get(gf.link, 0)
                 })
             
-            # Sort by reference count
-            combined_sources.sort(key=lambda x: x['reference_count'], reverse=True)
+            # Sort by reference count and then by date
+            if sort_order == 'asc':
+                combined_sources.sort(key=lambda x: (x['reference_count'], x['date']))
+            else:
+                combined_sources.sort(key=lambda x: (x['reference_count'], x['date']), reverse=True)
+            
+            # Apply search filter to titles if search query exists
+            if search_query:
+                combined_sources = [
+                    source for source in combined_sources 
+                    if search_query.lower() in source['title'].lower()
+                ]
             
             # Paginate the sorted results
             paginated_data = AnalyticsService.get_paginated_data(combined_sources, page)
@@ -247,6 +294,11 @@ def data_source_questions(request, guru_type):
         data_source_url = request.query_params.get('url')
         filter_type = request.query_params.get('filter_type')
         interval = request.query_params.get('interval', 'today')
+        search_query = request.query_params.get('search', '').strip()
+        sort_order = request.query_params.get('sort_order', 'desc').lower()
+        
+        if sort_order not in ['asc', 'desc']:
+            sort_order = 'desc'
         
         if not data_source_url:
             raise ValidationError('Data source URL is required')
@@ -257,7 +309,13 @@ def data_source_questions(request, guru_type):
             page = 1
             
         result = AnalyticsService.get_data_source_questions(
-            guru_type, data_source_url, filter_type, interval, page
+            guru_type, 
+            data_source_url, 
+            filter_type, 
+            interval, 
+            page,
+            search_query,
+            sort_order
         )
         
         if result is None:

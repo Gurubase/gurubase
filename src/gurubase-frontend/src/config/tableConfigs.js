@@ -17,8 +17,8 @@ export const tableConfigs = {
       {
         key: "date",
         header: "Date",
-        width: "w-[160px] flex-shrink-0",
-        minWidth: "80px"
+        width: "w-[120px] md:w-[200px]",
+        sortable: true
       },
       {
         key: "source",
@@ -52,7 +52,8 @@ export const tableConfigs = {
         key: "date",
         header: "Date",
         width: "w-[160px] flex-shrink-0",
-        minWidth: "80px"
+        minWidth: "80px",
+        sortable: true
       },
       {
         key: "source",

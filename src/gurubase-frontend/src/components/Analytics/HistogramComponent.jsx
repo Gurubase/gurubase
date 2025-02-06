@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function HistogramComponent({
   data = [],
   interval,
-  isLoading = false
+  isLoading = false,
+  onBarClick
 }) {
   const [tooltip, setTooltip] = useState(null);
 
@@ -35,8 +36,10 @@ export default function HistogramComponent({
     });
   };
 
-  // Add tooltip date formatting
+  // Keep the original tooltip date formatting
   const formatTooltipDate = (dataPoint) => {
+    if (!dataPoint) return "";
+
     if ("date_point" in dataPoint) {
       const date = new Date(dataPoint.date_point);
       return date.toLocaleString([], {
@@ -67,6 +70,35 @@ export default function HistogramComponent({
     return Math.max(1, Math.floor(data.length / 6));
   };
 
+  const calculateEndTime = (clickedData, interval) => {
+    console.log("Will calculate end time. Clicked data:", clickedData);
+    if (clickedData.date_point) {
+      let secondsToAdd = 0;
+      switch (interval) {
+        case "today":
+          secondsToAdd = 3600;
+          break;
+        case "yesterday":
+          secondsToAdd = -3600;
+          break;
+        case "7d":
+          secondsToAdd = 3600 * 24;
+          break;
+        case "30d":
+          secondsToAdd = 3600 * 24;
+          break;
+        default:
+          secondsToAdd = 0;
+      }
+      return new Date(
+        new Date(clickedData.date_point).getTime() + secondsToAdd * 1000
+      ).toISOString();
+    } else if (clickedData.date_end) {
+      // For range data use the end date
+      return clickedData.date_end;
+    }
+  };
+
   const chartConfig = {
     questions: {
       label: "Question",
@@ -75,7 +107,9 @@ export default function HistogramComponent({
   };
 
   return (
-    <div className="rounded-xl border border-[#E2E2E2]">
+    <div
+      className="rounded-xl border border-[#E2E2E2]"
+      onClick={(e) => e.stopPropagation()}>
       <div className="w-full relative">
         {isLoading ? (
           <div className="aspect-[3/1] p-8">
@@ -117,7 +151,6 @@ export default function HistogramComponent({
               <BarChart
                 data={data.map((item) => ({
                   ...item,
-                  // Use date_point if available, otherwise date_start for x-axis
                   date: item.date_point || item.date_start
                 }))}
                 margin={{
@@ -150,8 +183,16 @@ export default function HistogramComponent({
                   fill="#CCE2FF"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
+                  cursor="pointer"
                   style={{
                     transition: "fill 0.2s ease"
+                  }}
+                  onClick={(data) => {
+                    onBarClick &&
+                      onBarClick({
+                        startTime: data.date_point || data.date_start,
+                        endTime: calculateEndTime(data, interval)
+                      });
                   }}
                   onMouseOver={(data, index, event) => {
                     const rect = event.target.getBoundingClientRect();
