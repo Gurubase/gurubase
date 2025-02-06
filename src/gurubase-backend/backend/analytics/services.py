@@ -1,7 +1,7 @@
 from django.db.models import Q, Count, Prefetch
 from django.core.cache import cache
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
-from .utils import get_date_range, calculate_percentage_change, format_filter_name, map_filter_to_source
+from .utils import get_date_range, calculate_percentage_change, format_filter_name_for_display, map_filter_to_source
 import hashlib
 import json
 import time
@@ -209,7 +209,7 @@ class AnalyticsService:
             'date': item.date_created.isoformat(),
             'title': item.question,
             'link': item.frontend_url,
-            'source': format_filter_name(item.source)
+            'source': format_filter_name_for_display(item.source)
         } for item in paginated_data['items']]
         
         result = {

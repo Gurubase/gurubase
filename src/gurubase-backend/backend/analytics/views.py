@@ -16,7 +16,7 @@ from core.models import (
 )
 from .decorators import guru_type_required
 from .services import AnalyticsService
-from .utils import get_date_range, get_histogram_increment, format_filter_name, map_filter_to_source
+from .utils import get_date_range, get_histogram_increment, format_filter_name_for_display, map_filter_to_source
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ def analytics_table(request, guru_type):
             
             results = [{
                 'date': item.date_created.isoformat(),
-                'type': format_filter_name(item.source),
+                'type': format_filter_name_for_display(item.source),
                 'title': item.question,
                 'link': item.frontend_url
             } for item in paginated_data['items']]
@@ -156,7 +156,7 @@ def analytics_table(request, guru_type):
             
             results = [{
                 'date': item.date_created.isoformat(),
-                'type': format_filter_name(item.source),
+                'type': format_filter_name_for_display(item.source),
                 'title': item.question,
             } for item in paginated_data['items']]
             
@@ -208,7 +208,7 @@ def analytics_table(request, guru_type):
             for ds in data_sources:
                 combined_sources.append({
                     'date': ds.date_created.isoformat(),
-                    'type': format_filter_name(ds.type),
+                    'type': format_filter_name_for_display(ds.type),
                     'title': ds.title or ds.url,
                     'link': ds.url,
                     'reference_count': reference_counts.get(ds.url, 0)
