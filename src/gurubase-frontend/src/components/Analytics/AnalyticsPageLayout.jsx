@@ -8,7 +8,11 @@ import AnalyticsContent from "./AnalyticsContent";
 
 // TODO: This can be merged with IntegrationPageLayout
 
-export const AnalyticsPageLayout = ({ customGuru, guruTypes }) => {
+export const AnalyticsPageLayout = ({
+  customGuru,
+  guruTypes,
+  initialInterval
+}) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
       <Header sidebarExists={true} />
@@ -18,7 +22,10 @@ export const AnalyticsPageLayout = ({ customGuru, guruTypes }) => {
         }>
         <div className="flex gap-6">
           <div className="flex-1">
-            <AnalyticsContent customGuru={customGuru} />
+            <AnalyticsContent
+              customGuru={customGuru}
+              initialInterval={initialInterval}
+            />
           </div>
         </div>
       </CommonContentLayout>

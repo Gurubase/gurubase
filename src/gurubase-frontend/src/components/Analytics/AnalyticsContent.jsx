@@ -10,6 +10,7 @@ import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const HeaderTooltip = ({ text }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -126,9 +127,18 @@ const MetricSection = ({
   );
 };
 
-const AnalyticsContent = ({ customGuru }) => {
-  const [interval, setInterval] = useState("today");
+const AnalyticsContent = ({ customGuru, initialInterval }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [interval, setInterval] = useState(initialInterval);
   const guruType = customGuru;
+
+  const handleIntervalChange = (newInterval) => {
+    setInterval(newInterval);
+    const params = new URLSearchParams(searchParams);
+    params.set("interval", newInterval);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   const { data: statCardsData, loading: statCardsLoading } = useStatCards(
     guruType,
@@ -161,7 +171,7 @@ const AnalyticsContent = ({ customGuru }) => {
         <div className="col-span-3 guru-md:col-span-4 space-y-6">
           <div>
             <TimeSelectionComponent
-              onPeriodChange={setInterval}
+              onPeriodChange={handleIntervalChange}
               defaultPeriod={interval}
               loading={isLoading}
             />
