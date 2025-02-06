@@ -91,6 +91,18 @@ const MetricSection = ({
     setSearchQuery("");
   }, [interval]);
 
+  const handleFilterChange = (newFilter) => {
+    setFilterType(newFilter);
+    setPage(1); // Reset page when filter changes
+  };
+
+  const handleSearch = (term) => {
+    if (term !== searchQuery) {
+      setSearchQuery(term);
+      setPage(1);
+    }
+  };
+
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
     metricType,
@@ -105,13 +117,6 @@ const MetricSection = ({
     metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
     interval
   );
-
-  const handleSearch = (term) => {
-    if (term !== searchQuery) {
-      setSearchQuery(term);
-      setPage(1);
-    }
-  };
 
   return (
     <div>
@@ -130,7 +135,7 @@ const MetricSection = ({
       <TableComponent
         metricType={metricType}
         data={tableData}
-        onFilterChange={setFilterType}
+        onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onSearch={handleSearch}
         currentFilter={filterType}
