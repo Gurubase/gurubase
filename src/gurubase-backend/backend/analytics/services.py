@@ -33,7 +33,6 @@ class AnalyticsService:
         
         total_questions = questions.count()
         questions_end = time.time()
-        print(f'questions time: {questions_end - questions_start}')
         
         out_of_context_start = time.time()
         out_of_context = OutOfContextQuestion.objects.filter(
@@ -42,7 +41,6 @@ class AnalyticsService:
             date_created__lte=end_date
         ).count()
         out_of_context_end = time.time()
-        print(f'out_of_context time: {out_of_context_end - out_of_context_start}')
         
         # Extract unique referenced links in a single pass
         referenced_links_start = time.time()
@@ -65,7 +63,6 @@ class AnalyticsService:
         ).count()
 
         referenced_links_end = time.time()
-        print(f'referenced_links time: {referenced_links_end - referenced_links_start}')
         
         result = (total_questions, out_of_context, referenced_sources + referenced_github_files)
         cache.set(cache_key, result, AnalyticsService.CACHE_TTL)
