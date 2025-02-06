@@ -1,7 +1,7 @@
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Icon } from "@iconify/react";
 import clsx from "clsx";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { memo, useState } from "react";
 
 import GuruBaseLogo from "@/components/GuruBaseLogo";
@@ -79,11 +79,12 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
     (state) => state.mainForm.postContentExist
   );
   const navigation = useAppNavigation();
+  const router = useRouter();
 
   const handleNavigate = (path) => {
     const returnTo = encodeURIComponent(pathname);
 
-    navigation.push(`${path}?returnTo=${returnTo}`);
+    router.push(`${path}?returnTo=${returnTo}`);
   };
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
