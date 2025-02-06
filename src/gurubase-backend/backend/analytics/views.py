@@ -91,6 +91,7 @@ def analytics_table(request, guru_type):
         metric_type = request.query_params.get('metric_type')
         interval = request.query_params.get('interval', 'today')
         filter_type = request.query_params.get('filter_type')
+        search_query = request.query_params.get('search', '').strip()
         
         try:
             page = max(1, int(request.query_params.get('page', 1)))
@@ -118,10 +119,12 @@ def analytics_table(request, guru_type):
             )
             
             if filter_type and filter_type != 'all':
-                # Use helper function to map filter type to source value
                 source_value = map_filter_to_source(filter_type)
                 if source_value:
                     queryset = queryset.filter(source__iexact=source_value)
+                    
+            if search_query:
+                queryset = queryset.filter(question__icontains=search_query)
                 
             queryset = queryset.order_by('-date_created')
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
@@ -144,6 +147,9 @@ def analytics_table(request, guru_type):
                 source_value = map_filter_to_source(filter_type)
                 if source_value:
                     queryset = queryset.filter(source__iexact=source_value)
+                    
+            if search_query:
+                queryset = queryset.filter(question__icontains=search_query)
                 
             queryset = queryset.order_by('-date_created')
             paginated_data = AnalyticsService.get_paginated_data(queryset, page)
@@ -219,6 +225,13 @@ def analytics_table(request, guru_type):
             
             # Sort by reference count
             combined_sources.sort(key=lambda x: x['reference_count'], reverse=True)
+            
+            # Apply search filter to titles if search query exists
+            if search_query:
+                combined_sources = [
+                    source for source in combined_sources 
+                    if search_query.lower() in source['title'].lower()
+                ]
             
             # Paginate the sorted results
             paginated_data = AnalyticsService.get_paginated_data(combined_sources, page)

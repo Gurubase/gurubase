@@ -46,7 +46,8 @@ export const getTableData = async (
   metricType,
   interval,
   filterType,
-  page
+  page,
+  searchQuery = ""
 ) => {
   try {
     const data = await getAnalyticsTable(
@@ -54,7 +55,8 @@ export const getTableData = async (
       metricType,
       interval,
       filterType,
-      page
+      page,
+      searchQuery
     );
 
     return data;

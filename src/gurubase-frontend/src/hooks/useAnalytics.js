@@ -86,7 +86,8 @@ export const useTableData = (
   metricType,
   interval,
   filterType,
-  page
+  page,
+  searchQuery = ""
 ) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +105,8 @@ export const useTableData = (
           metricType,
           interval,
           filterType,
-          page
+          page,
+          searchQuery
         );
 
         // Only update state if this is still the most recent request
@@ -124,7 +126,7 @@ export const useTableData = (
     };
 
     fetchData();
-  }, [guruType, metricType, interval, filterType, page]);
+  }, [guruType, metricType, interval, filterType, page, searchQuery]);
 
   return { data, loading, error };
 };

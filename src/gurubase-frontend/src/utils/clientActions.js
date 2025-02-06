@@ -251,7 +251,8 @@ export async function getAnalyticsTable(
   metricType,
   interval,
   filterType,
-  page
+  page,
+  searchQuery = ""
 ) {
   "use client";
   const token = await getAuthTokenForStream();
@@ -262,7 +263,8 @@ export async function getAnalyticsTable(
     metric_type: metricType,
     interval,
     filter_type: filterType,
-    page: page.toString()
+    page: page.toString(),
+    search: searchQuery
   });
 
   let response;

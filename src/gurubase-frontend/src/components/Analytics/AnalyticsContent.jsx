@@ -82,21 +82,36 @@ const MetricSection = ({
 }) => {
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Only fetch histogram data if not referenced sources
-  const { data: histogramData, loading: histogramLoading } = useHistogram(
-    guruType,
-    metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
-    interval
-  );
+  // Reset filters when interval changes
+  useEffect(() => {
+    setFilterType("all");
+    setPage(1);
+    setSearchQuery("");
+  }, [interval]);
 
   const { data: tableData, loading: tableLoading } = useTableData(
     guruType,
     metricType,
     interval,
     filterType,
-    page
+    page,
+    searchQuery
   );
+
+  const { data: histogramData, loading: histogramLoading } = useHistogram(
+    guruType,
+    metricType !== METRIC_TYPES.REFERENCED_SOURCES ? metricType : null,
+    interval
+  );
+
+  const handleSearch = (term) => {
+    if (term !== searchQuery) {
+      setSearchQuery(term);
+      setPage(1);
+    }
+  };
 
   return (
     <div>
@@ -117,8 +132,10 @@ const MetricSection = ({
         data={tableData}
         onFilterChange={setFilterType}
         onPageChange={setPage}
+        onSearch={handleSearch}
         currentFilter={filterType}
         currentPage={page}
+        searchQuery={searchQuery}
         isLoading={tableLoading}
         guruType={guruType}
         interval={interval}
