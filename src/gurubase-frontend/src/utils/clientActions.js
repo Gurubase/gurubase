@@ -176,13 +176,8 @@ export async function getAnalyticsStats(guruType, interval) {
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/stats?interval=${interval}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -221,13 +216,8 @@ export async function getAnalyticsHistogram(guruType, metricType, interval) {
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/histogram?metric_type=${metricType}&interval=${interval}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -279,13 +269,8 @@ export async function getAnalyticsTable(
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/table?${params}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(url, {
@@ -335,13 +320,8 @@ export async function getAnalyticsDataSourceQuestions(
   const apiUrl = `${BACKEND_FETCH_URL}/analytics/${guruType}/data-source-questions?${params}`;
 
   if (isSelfHosted) {
-    const cookies = document.cookie.split("; ");
-    const csrfCookie = cookies.find((row) => row.startsWith("csrftoken="));
-    const csrfToken = csrfCookie ? csrfCookie.split("=")[1] : null;
-
     const headers = {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRFToken": csrfToken })
+      "Content-Type": "application/json"
     };
 
     response = await fetch(apiUrl, {
