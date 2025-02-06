@@ -48,7 +48,8 @@ export const getTableData = async (
   filterType,
   page,
   searchQuery = "",
-  sortOrder = "desc"
+  sortOrder = "desc",
+  timeRange = null
 ) => {
   try {
     const data = await getAnalyticsTable(
@@ -58,7 +59,8 @@ export const getTableData = async (
       filterType,
       page,
       searchQuery,
-      sortOrder
+      sortOrder,
+      timeRange
     );
 
     return data;

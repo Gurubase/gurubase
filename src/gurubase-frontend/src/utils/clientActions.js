@@ -253,13 +253,18 @@ export async function getAnalyticsTable(
   filterType,
   page,
   searchQuery = "",
-  sortOrder = "desc"
+  sortOrder = "desc",
+  timeRange = null
 ) {
   "use client";
   const token = await getAuthTokenForStream();
   const authenticated = token ? token.trim().length > 0 : false;
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
+  const startTime = timeRange ? timeRange.startTime : null;
+  const endTime = timeRange ? timeRange.endTime : null;
+
+  console.log("timeRange", timeRange);
   const params = new URLSearchParams({
     metric_type: metricType,
     interval,
@@ -268,6 +273,13 @@ export async function getAnalyticsTable(
     search: searchQuery,
     sort_order: sortOrder
   });
+
+  if (startTime) {
+    params.append("start_time", startTime);
+  }
+  if (endTime) {
+    params.append("end_time", endTime);
+  }
 
   let response;
   const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/table?${params}`;

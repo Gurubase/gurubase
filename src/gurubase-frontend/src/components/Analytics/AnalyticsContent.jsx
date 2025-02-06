@@ -1,3 +1,5 @@
+"use client";
+
 import HistogramComponent from "./HistogramComponent";
 import TimeSelectionComponent from "./TimeSelectionComponent";
 import StatsCardComponent, { STAT_TYPES } from "./StatsCardComponent";
@@ -84,14 +86,31 @@ const MetricSection = ({
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [selectedTimeRange, setSelectedTimeRange] = useState(null);
 
-  // Reset filters when interval changes
+  // Add effect to reset time range when interval changes
   useEffect(() => {
+    setSelectedTimeRange(null);
     setFilterType("all");
     setPage(1);
     setSearchQuery("");
     setSortOrder("desc");
   }, [interval]);
+
+  const handleBarClick = (timeRange) => {
+    setSelectedTimeRange(timeRange);
+    // Reset filters when a bar is clicked
+    setFilterType("all");
+    setPage(1);
+    setSearchQuery("");
+    setSortOrder("desc");
+  };
+
+  const handleTimeRangeChange = (newTimeRange) => {
+    setSelectedTimeRange(newTimeRange);
+  };
+
+  // Remove the useEffect for click outside handling
 
   const handleFilterChange = (newFilter) => {
     setFilterType(newFilter);
@@ -112,7 +131,8 @@ const MetricSection = ({
     filterType,
     page,
     searchQuery,
-    sortOrder
+    sortOrder,
+    selectedTimeRange
   );
 
   const { data: histogramData, loading: histogramLoading } = useHistogram(
@@ -132,6 +152,7 @@ const MetricSection = ({
           interval={interval}
           data={histogramData}
           isLoading={histogramLoading}
+          onBarClick={handleBarClick}
         />
       )}
       <div className="mt-6"></div>
@@ -149,6 +170,8 @@ const MetricSection = ({
         interval={interval}
         onSortChange={setSortOrder}
         sortOrder={sortOrder}
+        timeRange={selectedTimeRange}
+        onTimeRangeChange={handleTimeRangeChange}
       />
     </div>
   );

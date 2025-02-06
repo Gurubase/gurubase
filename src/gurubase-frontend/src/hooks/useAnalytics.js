@@ -88,7 +88,8 @@ export const useTableData = (
   filterType,
   page,
   searchQuery = "",
-  sortOrder
+  sortOrder,
+  timeRange
 ) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +109,8 @@ export const useTableData = (
           filterType,
           page,
           searchQuery,
-          sortOrder
+          sortOrder,
+          timeRange
         );
 
         // Only update state if this is still the most recent request
@@ -135,7 +137,8 @@ export const useTableData = (
     filterType,
     page,
     searchQuery,
-    sortOrder
+    sortOrder,
+    timeRange
   ]);
 
   return {

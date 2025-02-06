@@ -1,6 +1,7 @@
 import logging
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
+from datetime import datetime
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -53,6 +54,17 @@ def analytics_histogram(request, guru_type):
             raise ValidationError('Invalid metric type')
         
         start_date, end_date = get_date_range(interval)
+        
+        # Truncate timestamps based on interval
+        if interval in ['today', 'yesterday']:
+            # Truncate to hour
+            start_date = start_date.replace(minute=0, second=0, microsecond=0)
+            end_date = end_date.replace(minute=0, second=0, microsecond=0)
+        else:
+            # Truncate to day
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
         increment, format_data_point = get_histogram_increment(start_date, end_date, interval)
         
         result = []
@@ -93,6 +105,8 @@ def analytics_table(request, guru_type):
         filter_type = request.query_params.get('filter_type')
         search_query = request.query_params.get('search', '').strip()
         sort_order = request.query_params.get('sort_order', 'desc').lower()
+        start_time = request.query_params.get('start_time', '').strip()
+        end_time = request.query_params.get('end_time', '').strip()
         
         if sort_order not in ['asc', 'desc']:
             sort_order = 'desc'
@@ -108,8 +122,17 @@ def analytics_table(request, guru_type):
         if metric_type not in ['questions', 'out_of_context', 'referenced_sources']:
             raise ValidationError('Invalid metric type')
         
-        # Get date range for the interval
-        start_date, end_date = get_date_range(interval)
+        # Get date range - use custom range if provided, otherwise use interval
+        if start_time and end_time:
+            try:
+                start_date = datetime.fromisoformat(start_time)
+                end_date = datetime.fromisoformat(end_time)
+                if start_date > end_date:
+                    raise ValidationError('Start time must be before end time')
+            except ValueError:
+                raise ValidationError('Invalid date format. Use ISO format (YYYY-MM-DDTHH:MM:SS)')
+        else:
+            start_date, end_date = get_date_range(interval)
         
         # Get available filters for the metric type
         available_filters = AnalyticsService.get_available_filters(metric_type)
