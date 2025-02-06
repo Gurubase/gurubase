@@ -5,11 +5,9 @@ import { useEffect } from "react";
 import GuruBaseLogo from "@/components/GuruBaseLogo";
 import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useAppNavigation } from "@/lib/navigation";
 
 const MobileSidebar = ({ isOpen, onClose, user }) => {
   const pathname = usePathname();
-  const navigation = useAppNavigation();
 
   useEffect(() => {
     if (isOpen) {
@@ -22,12 +20,6 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
       document.body.style.overflow = "";
     };
   }, [isOpen]);
-
-  const handleNavigate = (path) => {
-    const returnTo = encodeURIComponent(pathname);
-
-    navigation.push(`${path}?returnTo=${returnTo}`);
-  };
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
@@ -129,16 +121,16 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
               </>
             ) : (
               <div className="flex flex-col justify-center items-start gap-3">
-                <button
+                <a
                   className="flex h-9 justify-center items-center rounded-full bg-[#1B242D] text-sm text-white hover:bg-[#2C3642] transition-colors py-2 w-full"
-                  onClick={() => handleNavigate("/api/auth/login")}>
+                  href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
                   Sign Up
-                </button>
-                <button
+                </a>
+                <a
                   className="flex h-9 justify-center items-center rounded-full border border-[#E2E2E2] bg-white text-sm text-black hover:bg-gray-50 transition-colors py-2 w-full"
-                  onClick={() => handleNavigate("/api/auth/login")}>
+                  href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
                   Log in
-                </button>
+                </a>
               </div>
             )}
           </div>
