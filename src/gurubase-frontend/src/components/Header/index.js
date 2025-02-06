@@ -1,7 +1,7 @@
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { Icon } from "@iconify/react";
 import clsx from "clsx";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { memo, useState } from "react";
 
 import GuruBaseLogo from "@/components/GuruBaseLogo";
@@ -79,13 +79,6 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
     (state) => state.mainForm.postContentExist
   );
   const navigation = useAppNavigation();
-  const router = useRouter();
-
-  const handleNavigate = (path) => {
-    const returnTo = encodeURIComponent(pathname);
-
-    router.push(`${path}?returnTo=${returnTo}`);
-  };
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user, isLoading: isUserLoading } = isSelfHosted
@@ -227,16 +220,16 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
 
     return (
       <div className="flex items-center gap-3 guru-sm:hidden">
-        <button
+        <a
           className="flex h-9 px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white text-sm font-medium text-black hover:bg-gray-50 transition-colors"
-          onClick={() => handleNavigate("/api/auth/login")}>
+          href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
           Log in
-        </button>
-        <button
+        </a>
+        <a
           className="flex h-9 px-4 items-center gap-1.5 rounded-full bg-[#1B242D] text-sm font-medium text-white hover:bg-[#2C3642] transition-colors"
-          onClick={() => handleNavigate("/api/auth/login")}>
+          href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
           Sign Up
-        </button>
+        </a>
       </div>
     );
   };
