@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 export const getPaginationGroup = (current, total) => {
-  if (total <= 3) {
+  if (total <= 4) {
     return Array.from({ length: total }, (_, i) => i + 1);
   }
 
@@ -40,7 +40,7 @@ export function TablePagination({
         </div>
       </Button>
       <div className="flex items-center gap-2 md:gap-2 gap-1">
-        {currentPage > 2 && totalPages > 3 && (
+        {currentPage > 2 && totalPages > 4 && (
           <>
             <Button
               variant="ghost"
@@ -70,7 +70,7 @@ export function TablePagination({
             {number}
           </Button>
         ))}
-        {currentPage < totalPages - 1 && totalPages > 3 && (
+        {currentPage < totalPages - 1 && totalPages > 4 && (
           <>
             {currentPage < totalPages - 2 && (
               <span>
