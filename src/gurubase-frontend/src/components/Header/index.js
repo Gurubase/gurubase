@@ -183,13 +183,30 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                   </Link>
                 </div>
               </DropdownMenuItem>
-              {!isSelfHosted && (
-                <DropdownMenuItem className="p-0.5 mb-0.5">
+              {isSelfHosted && (
+                <DropdownMenuItem className="p-0.5">
                   <div className="w-full">
                     <Link
                       className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                      href="/api/auth/logout"
+                      href="/settings"
                       prefetch={false}>
+                      <Icon
+                        className="w-4 h-4 text-[#6D6D6D]"
+                        icon="solar:settings-linear"
+                      />
+                      <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
+                        Settings
+                      </span>
+                    </Link>
+                  </div>
+                </DropdownMenuItem>
+              )}
+              {!isSelfHosted && (
+                <DropdownMenuItem className="p-0.5 mb-0.5">
+                  <div className="w-full">
+                    <a
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+                      href="/api/auth/logout">
                       <Icon
                         className="w-4 h-4 shrink-0 text-[#DC2626]"
                         icon="solar:logout-outline"
@@ -197,7 +214,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                       <span className="flex-1 text-sm font-medium text-[#DC2626] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
                         Log out
                       </span>
-                    </Link>
+                    </a>
                   </div>
                 </DropdownMenuItem>
               )}
