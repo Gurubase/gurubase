@@ -25,11 +25,11 @@ import { renderCellWithTooltip } from "@/components/ui/data-table";
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-[49] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-[51] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed z-[50] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "fixed z-[52] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           isMobile
             ? "inset-x-0 bottom-0 h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
             : "right-0 top-0 h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
@@ -151,7 +151,7 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                         </svg>
                       </div>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[60]">
                       {questions?.available_filters?.map((filter) => (
                         <SelectItem key={filter.label} value={filter.value}>
                           {filter.label}
