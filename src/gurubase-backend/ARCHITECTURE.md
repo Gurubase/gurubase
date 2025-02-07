@@ -557,7 +557,9 @@ The following integrations are available:
 
 #### Slack
 
-<img src="imgs/slack-bot.png" width="400" alt="Slack Bot"/>
+<img src="imgs/slack-bot.png" width="500" alt="Slack Bot"/>
+
+##### Installation
 
 Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
@@ -571,13 +573,15 @@ Slack integration on the cloud is straightforward. You just have to go through t
 
 #### Discord
 
-<img src="imgs/discord-bot.png" width="400" alt="Discord Bot"/>
+<img src="imgs/discord-bot.png" width="500" alt="Discord Bot"/>
+
+##### Installation
 
 Discord integration is similar to Slack. You need to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
-<img src="imgs/empty-discord-integration.png" width="500" alt="Empty Discord Integration"/>
+<img src="imgs/empty-discord-integration.png" alt="Empty Discord Integration"/>
 
-<img src="imgs/discord-integration.png" width="500" alt="Discord Integration"/>
+<img src="imgs/discord-integration.png" alt="Discord Integration"/>
 
 > You can also click on the "Send Test Message" button to test if the integration is working.
 
@@ -586,6 +590,8 @@ Discord integration is similar to Slack. You need to go through the installation
 #### Web Widget
 
 ![Web Widget](imgs/web-widget.png)
+
+##### Installation
 
 Web widget allows you to embed Gurubase to your own website. You need to create a widget id from the dashboard by providing the domain of your website. Then, the embedding html is available in the page. You can embed it to your website by just pasting the html to the page. For other installation methods or further details, you can check the [Github README](https://github.com/Gurubase/gurubase-widget).
 
