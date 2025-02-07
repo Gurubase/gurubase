@@ -103,6 +103,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "./ui/tooltip";
+import { HeaderTooltip } from "@/components/ui/header-tooltip";
 
 const formSchema = z.object({
   guruName: z
@@ -1771,22 +1772,11 @@ export default function NewGuru({
           <FormItem className="flex-1">
             <div className="flex items-center space-x-2">
               <FormLabel>Codebase Indexing</FormLabel>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Provide a link to a GitHub repository to index its
-                      codebase. The Guru can then use this codebase to generate
-                      answers based on it.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <HeaderTooltip
+                text={
+                  "Provide a link to a GitHub repository to index its codebase. The Guru can then use this codebase to generate answers based on it."
+                }
+              />
             </div>
             <div className="relative">
               <FormControl>
@@ -1905,22 +1895,13 @@ export default function NewGuru({
                       <FormLabel>
                         Guru Name <span className="text-red-500">*</span>
                       </FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {isEditMode
-                                ? "Guru name cannot be changed"
-                                : "Enter the name of your AI guru"}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <HeaderTooltip
+                        text={
+                          isEditMode
+                            ? "Guru name cannot be changed"
+                            : "Enter the name of your AI guru"
+                        }
+                      />
                     </div>
                     <FormControl>
                       <Input
@@ -1955,18 +1936,7 @@ export default function NewGuru({
                       <FormLabel>
                         Guru Logo <span className="text-red-500">*</span>
                       </FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{"Guru logo"}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <HeaderTooltip text={"Guru logo"} />
                     </div>
                     <FormControl>
                       <div className="flex items-center space-x-4">
@@ -2053,23 +2023,11 @@ export default function NewGuru({
                       <FormLabel>
                         Topics <span className="text-red-500">*</span>
                       </FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div>
-                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-[280px]">
-                            <p>
-                              Add comma-separated topics related to this Guru,
-                              e.g., &quot;programming, microservices,
-                              containers&quot;. This helps the AI understand the
-                              Guru&apos;s expertise and context.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <HeaderTooltip
+                        text={
+                          'Add comma-separated topics related to this Guru, e.g., "programming, microservices, containers". This helps the AI understand the Guru\'s expertise and context.'
+                        }
+                      />
                     </div>
                     <FormControl>
                       <Input

@@ -13,32 +13,7 @@ import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
-import { SolarInfoCircleBold } from "@/components/Icons";
-
-const HeaderTooltip = ({ text }) => {
-  return (
-    <div className="ml-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="cursor-pointer">
-              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-[12px] font-medium">{text}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-};
+import { HeaderTooltip } from "@/components/ui/header-tooltip";
 
 const MetricSection = ({
   title,
@@ -218,7 +193,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Unable to Answers"
-            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru’s data source is insufficient to generate an answer."
+            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru's data source is insufficient to generate an answer."
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
