@@ -1,15 +1,5 @@
 "use client";
-import {
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal,
-  ExternalLink,
-  Link,
-  X,
-  Search
-} from "lucide-react";
-import { SolarFileTextBold, SolarVideoLibraryBold } from "@/components/Icons";
-import { Icon } from "@iconify/react";
+import { X, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,20 +9,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { METRIC_TYPES } from "@/services/analyticsService";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useState, useEffect, useRef } from "react";
-import { useDataSourceQuestions } from "@/hooks/useAnalytics";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { DataTable } from "@/components/ui/data-table";
@@ -40,12 +17,8 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { tableConfigs } from "@/config/tableConfigs";
 import { QuestionsList } from "./QuestionsList";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
+
+import { renderCellWithTooltip } from "@/components/ui/data-table";
 
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
@@ -171,24 +144,6 @@ export default function TableComponent({
         day: "numeric"
       })}`;
     }
-  };
-
-  const renderCellWithTooltip = (value, row) => {
-    if (row.title && row.title !== value) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="truncate">{value}</div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-[300px] break-words">{row.title}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-    return <div className="truncate">{value}</div>;
   };
 
   return (

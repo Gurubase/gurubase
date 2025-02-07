@@ -201,7 +201,7 @@ class AnalyticsService:
         
         # Apply search filter if query exists
         if search_query:
-            queryset = queryset.filter(question__icontains=search_query)
+            queryset = queryset.filter(user_question__icontains=search_query)
         
         # Apply sorting
         order_by = 'date_created' if sort_order == 'asc' else '-date_created'
@@ -211,7 +211,8 @@ class AnalyticsService:
         
         results = [{
             'date': item.date_created.isoformat(),
-            'title': item.question,
+            'title': item.user_question,
+            'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
             'link': item.frontend_url,
             'source': format_filter_name_for_display(item.source)
         } for item in paginated_data['items']]

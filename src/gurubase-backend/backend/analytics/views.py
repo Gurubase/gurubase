@@ -151,7 +151,7 @@ def analytics_table(request, guru_type):
                     queryset = queryset.filter(source__iexact=source_value)
                     
             if search_query:
-                queryset = queryset.filter(question__icontains=search_query)
+                queryset = queryset.filter(user_question__icontains=search_query)
                 
             order_by = 'date_created' if sort_order == 'asc' else '-date_created'
             queryset = queryset.order_by(order_by)
@@ -179,7 +179,7 @@ def analytics_table(request, guru_type):
                     queryset = queryset.filter(source__iexact=source_value)
                     
             if search_query:
-                queryset = queryset.filter(question__icontains=search_query)
+                queryset = queryset.filter(user_question__icontains=search_query)
                 
             order_by = 'date_created' if sort_order == 'asc' else '-date_created'
             queryset = queryset.order_by(order_by)

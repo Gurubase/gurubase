@@ -151,5 +151,39 @@ export const tableConfigs = {
         )
       }
     ]
+  },
+  [METRIC_TYPES.QUESTIONS_LIST]: {
+    columns: [
+      {
+        key: "date",
+        header: "Date",
+        width: "w-[120px] md:w-[200px]",
+        sortable: true
+      },
+      {
+        key: "source",
+        header: "Source",
+        width: "w-[140px]",
+        hideOnMobile: false
+      },
+      {
+        key: "title",
+        header: "Question",
+        render: (item, { renderCellWithTooltip }) => (
+          <a
+            href={item.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 group hover:text-blue-600">
+            <div className="cursor-pointer">
+              {renderCellWithTooltip(item.truncated_title || item.title, {
+                title: item.title
+              })}
+            </div>
+            <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
+          </a>
+        )
+      }
+    ]
   }
 };

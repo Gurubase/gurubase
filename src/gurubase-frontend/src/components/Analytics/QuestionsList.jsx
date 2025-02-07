@@ -18,6 +18,9 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { tableConfigs } from "@/config/tableConfigs";
+import { METRIC_TYPES } from "@/services/analyticsService";
+import { renderCellWithTooltip } from "@/components/ui/data-table";
 
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
@@ -40,34 +43,7 @@ const StyledDialogContent = React.forwardRef(
 
 StyledDialogContent.displayName = "StyledDialogContent";
 
-const questionsTableColumns = [
-  {
-    key: "date",
-    header: "Date",
-    width: "w-[120px] md:w-[200px]",
-    sortable: true
-  },
-  {
-    key: "source",
-    header: "Source",
-    width: "w-[140px]",
-    hideOnMobile: false
-  },
-  {
-    key: "title",
-    header: "Question",
-    render: (item) => (
-      <a
-        href={item.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 group hover:text-blue-600">
-        <div className="truncate">{item.title}</div>
-        <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
-      </a>
-    )
-  }
-];
+const questionsTableColumns = tableConfigs[METRIC_TYPES.QUESTIONS_LIST].columns;
 
 export function QuestionsList({ url, guruType, onClose, interval }) {
   const [filterType, setFilterType] = useState("all");
@@ -151,7 +127,8 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                   <Select
                     value={filterType}
                     onValueChange={handleFilterChange}
-                    disabled={loading || !questions?.available_filters?.length}>
+                    disabled={loading || !questions?.available_filters?.length}
+                    portalRoot={document.querySelector('[role="dialog"]')}>
                     <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
                       <div className="flex items-start gap-1 text-xs">
                         <span className="text-[#6D6D6D]">Sources by:</span>
@@ -224,6 +201,9 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                 isLoading={loading}
                 onSort={handleSort}
                 sortOrder={sortOrder}
+                renderActions={{
+                  renderCellWithTooltip: renderCellWithTooltip
+                }}
               />
               <TablePagination
                 currentPage={page}
