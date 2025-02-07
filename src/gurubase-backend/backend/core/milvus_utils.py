@@ -121,6 +121,9 @@ def create_context_collection(collection_name):
     print(f'Created collection {collection_name}')
 
 def create_code_context_collection(collection_name):
+
+    if client.has_collection(collection_name):
+        return
     # 1. Create schema
     schema = MilvusClient.create_schema(
         auto_id=True,
