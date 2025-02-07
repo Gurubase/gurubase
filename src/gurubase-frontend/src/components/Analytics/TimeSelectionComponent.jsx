@@ -17,11 +17,12 @@ const periods = [
 
 export default function TimeSelectionComponent({
   onPeriodChange,
-  defaultPeriod = "30d",
+  defaultPeriod,
   className,
   loading = false
 }) {
   const [activePeriod, setActivePeriod] = React.useState(defaultPeriod);
+  console.log("activePeriod", activePeriod);
 
   const handlePeriodChange = (period) => {
     if (loading) return;
