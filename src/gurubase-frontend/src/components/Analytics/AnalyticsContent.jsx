@@ -22,11 +22,35 @@ import {
 import { SolarInfoCircleBold } from "@/components/Icons";
 
 const HeaderTooltip = ({ text }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    // Handle clicks outside the tooltip on mobile
+    const handleClickOutside = (event) => {
+      if (!event.target.closest("[data-tooltip-trigger]")) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   return (
     <div className="ml-2">
       <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <Tooltip open={isOpen} onOpenChange={setIsOpen}>
+          <TooltipTrigger
+            asChild
+            data-tooltip-trigger
+            onClick={(e) => {
+              // Prevent click from bubbling to document
+              e.stopPropagation();
+              // Toggle on mobile
+              if (window.matchMedia("(max-width: 768px)").matches) {
+                setIsOpen(!isOpen);
+              }
+            }}>
             <div>
               <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
             </div>
@@ -218,7 +242,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Unable to Answers"
-            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru’s data source is insufficient to generate an answer."
+            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru's data source is insufficient to generate an answer."
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
