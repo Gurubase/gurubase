@@ -134,12 +134,11 @@ Creating and updating guru types also syncs their Milvus collection accordingly 
 
 ### Managing Data Sources
 
-Three types of data sources are supported:
+Four types of data sources are supported:
 - YouTube videos
 - Websites
 - PDFs
-
-The task `data_source_retrieval` in `backend/core/tasks.py` is responsible for processing data sources. It goes through all data sources that have the status `NOT_PROCESSED` and writes them to Milvus, marking them as `PROCESSED` and `in_milvus=True` when done. This tasks locks each guru type to prevent multiple tasks from processing the same guru type at the same time. However, it does not lock the data sources themselves to allow multiple guru types to be processed in parallel.
+- Codebases
 
 #### YouTube videos
 
@@ -154,6 +153,38 @@ The system uses `firecrawl` to extract content from websites. It scrapes the web
 #### PDFs
 
 The system uses `PyPDFLoader` from `langchain_community.document_loaders` to extract content from PDFs. It formats the content, and transfers it to Milvus. The PDF files are also saved to the local storage in self-hosted version.
+
+#### Codebases
+
+You can also provide a Github repository URL to index your codebase. The system will use the codebase as a data source while answering questions. You can only provide one Github repository URL per guru type.
+
+#### Data Retrieval
+
+The task `data_source_retrieval` in `backend/core/tasks.py` is responsible for processing data sources. It goes through all data sources that have the status `NOT_PROCESSED` and writes them to Milvus, marking them as `PROCESSED` and `in_milvus=True` when done. 
+- This task locks each guru type to prevent multiple tasks from processing the same guru type at the same time. This allows multiple guru types to be processed in parallel. 
+- It also allows Github repositories and other data sources to be processed in parallel.
+
+##### Codebases
+
+The task `process_github_repository` in `backend/core/github_handler.py` is responsible for Github repository retrieval. It does the following:
+- Clones the repository
+- Extracts default branch name
+- Goes through the files, picks the valid ones
+- Saves the valid files as `GithubFile` objects in the database
+
+The file validity is determined through the steps:
+
+1. Skip the common build/cache/env directories (like bin, obj, target, etc.)
+2. Only process files if they are code files or package manifest files
+  - The rules for these are determined in `code_file_extensions` and `package_manifest_file_extensions` dictionaries in `backend/core/github_handler.py`
+3. Skip files larger than 10MB
+
+> On cloud: After these steps, a total file count and size limit is applied. And the repository is rejected if it exceeds these limits.
+
+> On self-hosted: The repository is processed without any limits.
+
+Then the data is written to Milvus.
+
 
 #### Writing to Milvus
 
@@ -173,6 +204,10 @@ Deleting a data source from the database is handled by the `clear_data_source` s
 #### Reindexing a Data Source
 
 Reindexing a data source allows users to update the data source in Milvus without deleting and re-uploading it. This is useful for cases where the data source has been updated.
+
+##### Codebases
+
+Reindexing codebases is done automatically by the task `update_github_repositories`. It clones the repository again, and syncs updates like file updates, creations, deletions, etc. to the database through the `GithubFile` model. It still applies a file count and size limit check.
 
 #### Data Source Summarization
 
