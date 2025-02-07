@@ -182,7 +182,7 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
               {/* Search bar for mobile */}
               <div className="relative sm:hidden">
                 <Input
-                  className="w-full h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white"
+                  className="w-full h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white sm:text-xs text-[16px]"
                   placeholder="Search..."
                   type="text"
                   value={searchTerm}
