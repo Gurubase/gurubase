@@ -546,3 +546,65 @@ And the answer to the last question is:
 </last_answer>
 Now, the user asked another question.
 ```
+
+### Integrations
+Integrations allow users to use Gurubase in their own platforms. They are basically wrappers around the `/summary` and `/answer` endpoints. They can be managed in the `Integrations` page in the Guru dashboard.
+
+The following integrations are available:
+- Slack
+- Discord
+- Web Widget
+
+#### Slack
+
+![Slack Bot](imgs/slack-bot.png)
+
+##### Cloud
+
+
+Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
+
+![Empty Slack Integration](imgs/empty-slack-integration.png)
+
+![Slack Integration](imgs/slack-integration.png)
+
+> You can click on the "Send Test Message" button to test if the integration is working.
+
+##### Self-Hosted
+
+TODO:
+
+> For private channels, you need to invite the bot to the channel manually.
+
+#### Discord
+
+![Discord Bot](imgs/discord-bot.png)
+
+##### Cloud
+
+Discord integration is similar to Slack. You need to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
+
+![Empty Discord Integration](imgs/empty-discord-integration.png)
+
+![Discord Integration](imgs/discord-integration.png)
+
+> You can also click on the "Send Test Message" button to test if the integration is working.
+
+
+##### Self-Hosted
+
+TODO:
+
+> For private channels, you need to invite the bot to the channel manually.
+
+#### Web Widget
+
+![Web Widget](imgs/web-widget.png)
+
+Web widget allows you to embed Gurubase to your own website. You need to create a widget id from the dashboard by providing the domain of your website. Then, the embedding html is available in the page. You can embed it to your website by just pasting the html to the page. For other installation methods or further details, you can check the [Github README](https://github.com/Gurubase/gurubase-widget).
+
+![Empty Web Widget Integration](imgs/empty-web-widget-integration.png)
+
+![Web Widget Integration](imgs/web-widget-integration.png)
+
+![Web Widget Integration Modal](imgs/web-widget-integration-modal.png)
