@@ -27,7 +27,7 @@ const HeaderTooltip = ({ text }) => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="cursor-pointer">
+            <div>
               <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
             </div>
           </TooltipTrigger>
