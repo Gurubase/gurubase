@@ -17,7 +17,7 @@ const periods = [
 
 export default function TimeSelectionComponent({
   onPeriodChange,
-  defaultPeriod = "today",
+  defaultPeriod = "30d",
   className,
   loading = false
 }) {

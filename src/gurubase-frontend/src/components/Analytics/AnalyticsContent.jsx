@@ -183,11 +183,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState(initialInterval);
   const guruType = customGuru;
-  const [metricType, setMetricType] = useState(METRIC_TYPES.QUESTIONS);
-  const [currentFilter, setCurrentFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState("desc");
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
@@ -201,41 +197,8 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
     interval
   );
 
-  // Only fetch histogram data if not referenced sources
-  const { data: histogramData, loading: histogramLoading } = useHistogram(
-    guruType,
-    METRIC_TYPES.QUESTIONS,
-    interval
-  );
-
-  const { data: tableData, loading: tableLoading } = useTableData(
-    guruType,
-    metricType,
-    interval,
-    currentFilter,
-    currentPage,
-    searchQuery,
-    sortOrder
-  );
-
   // Check if any data is loading
-  const isLoading = statCardsLoading || histogramLoading || tableLoading;
-
-  const handleFilterChange = (newFilter) => {
-    setCurrentFilter(newFilter);
-    setCurrentPage(1); // Reset page when filter changes
-  };
-
-  const handleSearch = (term) => {
-    if (term !== searchQuery) {
-      setSearchQuery(term);
-      setCurrentPage(1);
-    }
-  };
-
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-  };
+  const isLoading = statCardsLoading;
 
   return (
     <>
