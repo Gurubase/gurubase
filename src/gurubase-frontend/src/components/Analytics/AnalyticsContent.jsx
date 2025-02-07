@@ -210,7 +210,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Questions"
-            tooltipText="Total questions asked by users"
+            tooltipText="Total questions asked by users."
             metricType={METRIC_TYPES.QUESTIONS}
             interval={interval}
             guruType={guruType}
@@ -218,7 +218,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Unable to Answers"
-            tooltipText="Questions without satisfactory answers"
+            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru’s data source is insufficient to generate an answer."
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
@@ -226,7 +226,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Referenced Data Sources"
-            tooltipText="Most referenced data sources"
+            tooltipText="Most referenced data sources."
             metricType={METRIC_TYPES.REFERENCED_SOURCES}
             interval={interval}
             guruType={guruType}
