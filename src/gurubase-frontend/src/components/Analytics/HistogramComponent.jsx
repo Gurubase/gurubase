@@ -167,7 +167,9 @@ export default function HistogramComponent({
                 </div>
               </div>
             )}
-            <ChartContainer config={chartConfig} className="aspect-[3/1]">
+            <ChartContainer
+              config={chartConfig}
+              className="aspect-[3/2] md:aspect-[3/1]">
               <BarChart
                 data={data.map((item) => ({
                   ...item,
