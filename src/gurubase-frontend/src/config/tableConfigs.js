@@ -40,7 +40,7 @@ export const tableConfigs = {
             rel="noopener noreferrer"
             className="flex items-center gap-2 group hover:text-blue-600">
             <div className="cursor-pointer">
-              {renderCellWithTooltip(item.truncated_title, {
+              {renderCellWithTooltip(item.truncated_title || item.title, {
                 title: item.title
               })}
             </div>
@@ -78,8 +78,13 @@ export const tableConfigs = {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 group">
-            <div className="cursor-help">
-              {renderCellWithTooltip(item.truncated_title, {
+            <div
+              className={
+                item.truncated_title && item.truncated_title !== item.title
+                  ? "cursor-help"
+                  : ""
+              }>
+              {renderCellWithTooltip(item.truncated_title || item.title, {
                 title: item.title
               })}
             </div>

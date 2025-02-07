@@ -174,7 +174,7 @@ export default function TableComponent({
   };
 
   const renderCellWithTooltip = (value, row) => {
-    if (row.title) {
+    if (row.title && row.title !== value) {
       return (
         <TooltipProvider>
           <Tooltip>
@@ -188,7 +188,7 @@ export default function TableComponent({
         </TooltipProvider>
       );
     }
-    return value;
+    return <div className="truncate">{value}</div>;
   };
 
   return (
