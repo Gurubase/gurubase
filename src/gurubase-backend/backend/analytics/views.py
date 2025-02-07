@@ -161,7 +161,8 @@ def analytics_table(request, guru_type):
             results = [{
                 'date': item.date_created.isoformat(),
                 'type': format_filter_name_for_display(item.source),
-                'title': item.question,
+                'title': item.user_question,
+                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
                 'link': item.frontend_url
             } for item in paginated_data['items']]
             
@@ -188,7 +189,8 @@ def analytics_table(request, guru_type):
             results = [{
                 'date': item.date_created.isoformat(),
                 'type': format_filter_name_for_display(item.source),
-                'title': item.question,
+                'title': item.user_question,
+                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question
             } for item in paginated_data['items']]
             
         else:  # referenced_sources

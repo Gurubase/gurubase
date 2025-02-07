@@ -33,13 +33,17 @@ export const tableConfigs = {
         key: "title",
         header: "Question",
         width: "min-w-[300px] md:w-[400px] xl:w-[600px]",
-        render: (item) => (
+        render: (item, { renderCellWithTooltip }) => (
           <a
             href={item.link}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 group hover:text-blue-600">
-            <div className="">{item.title}</div>
+            <div className="cursor-pointer">
+              {renderCellWithTooltip(item.truncated_title, {
+                title: item.title
+              })}
+            </div>
             <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
           </a>
         )
@@ -68,13 +72,17 @@ export const tableConfigs = {
         key: "title",
         header: "Question",
         width: "min-w-[300px] md:w-[400px] xl:w-[600px]",
-        render: (item) => (
+        render: (item, { renderCellWithTooltip }) => (
           <a
             href={item.link}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 group">
-            <div className="">{item.title}</div>
+            <div className="cursor-help">
+              {renderCellWithTooltip(item.truncated_title, {
+                title: item.title
+              })}
+            </div>
           </a>
         )
       }

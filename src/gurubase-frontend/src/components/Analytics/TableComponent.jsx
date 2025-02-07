@@ -40,6 +40,12 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { tableConfigs } from "@/config/tableConfigs";
 import { QuestionsList } from "./QuestionsList";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
 
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
@@ -167,6 +173,24 @@ export default function TableComponent({
     }
   };
 
+  const renderCellWithTooltip = (value, row) => {
+    if (row.title) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="truncate">{value}</div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-[300px] break-words">{row.title}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return value;
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-4">
@@ -263,7 +287,10 @@ export default function TableComponent({
           columns={tableConfig.columns}
           data={results}
           isLoading={isLoading}
-          renderActions={{ onReferenceClick: handleReferenceClick }}
+          renderActions={{
+            onReferenceClick: handleReferenceClick,
+            renderCellWithTooltip: renderCellWithTooltip
+          }}
           onSort={handleSort}
           sortOrder={sortOrder}
         />
