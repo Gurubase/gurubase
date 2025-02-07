@@ -113,15 +113,17 @@ const MetricSection = ({
         <HeaderTooltip text={tooltipText} />
       </div>
       {metricType !== METRIC_TYPES.REFERENCED_SOURCES && (
-        <HistogramComponent
-          interval={interval}
-          data={histogramData}
-          isLoading={histogramLoading}
-          onBarClick={handleBarClick}
-          timeRange={selectedTimeRange}
-        />
+        <>
+          <HistogramComponent
+            interval={interval}
+            data={histogramData}
+            isLoading={histogramLoading}
+            onBarClick={handleBarClick}
+            timeRange={selectedTimeRange}
+          />
+          <div className="mt-6"></div>
+        </>
       )}
-      <div className="mt-6"></div>
       <TableComponent
         metricType={metricType}
         data={tableData}
