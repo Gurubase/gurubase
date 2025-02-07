@@ -559,6 +559,36 @@ The following integrations are available:
 
 <img src="imgs/slack-bot.png" width="500" alt="Slack Bot"/>
 
+The slack integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoints (for details, see the [API Support](#api-support) section).
+
+The Slack integration works as following:
+
+1. Upon a message in the selected channel, Slack sends a callback request to the `slack/events` endpoint.
+2. This endpoint returns a `200 OK` response to Slack immediately. This is to prevent Slack from sending the same message again in case of a timeout.
+3. A new thread is started in the backend to process the message.
+3. It checks if the message is valid for the bot.
+  - The bot needs to be mentioned.
+  - The channel should be added in the integration settings for listening. If this is not satisfied, the bot prompts the user to add the channel to the integration.
+5. If it is valid, it retrieves the integration details of the workspace. It normally uses a cache. But its ttl is currently 0 to ensure the latest data is used. As a todo, this can be re-introduced with the proper cache invalidations with integration updates.
+6. It then checks if the message is in a thread or not. If not, it creates a new thread. If yes, it uses the existing thread.
+7. For the current thread, it checks if there is a binge session. If not, it creates a new one. If yes, it uses the existing binge session. It uses the `Thread` model to link threads to binges.
+8. After the validations, it first responds by saying `"Thinking..."`. Then it sends a request to the backend (itself) to answer the question and stream the response. It updates the message with the response as it comes.
+9. Once the stream is done, it sends another request to itself to fetch the final data. It then formats the data, and updates the message with the final response.
+
+> It removes the initial header from the message during streaming and after the stream is done.
+
+Here are the functions used and their purposes:
+
+- `slack_events`: Handles the callback request from Slack.
+- `handle_slack_message`: Handles the message processing.
+- `send_channel_unauthorized_message`: Sends a message to the channel if the bot is not authorized.
+- `get_or_create_thread_binge`: Gets or creates a binge session for the current thread.
+- `strip_first_header`: Removes the initial header from the message.
+- `convert_markdown_to_slack`: Slack does not use markdown. This function converts the markdown to Slack appropriate formatting.
+- `format_slack_response`: Formats the references, trust score, etc. of the final response.
+- `get_final_response`: Gets and sends the final formatted response.
+
+
 ##### Installation
 
 Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
@@ -574,6 +604,40 @@ Slack integration on the cloud is straightforward. You just have to go through t
 #### Discord
 
 <img src="imgs/discord-bot.png" width="500" alt="Discord Bot"/>
+
+The Discord integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoints (for details, see the [API Support](#api-support) section).
+
+The Discord integration works as following:
+
+1. Discord Listener needs to be up. It can be started by running `python manage.py discordListener`.
+2. It uses `discord.py` to listen to the messages. The implementation is inside the `discordListener.py` management command.
+3. When a new message is detected, it invokes the `on_message` function.
+4. This function checks if the message is valid for the bot.
+  - The bot needs to be mentioned.
+  - The author is different from the bot.
+  - The channel should be added in the integration settings for listening. If this is not satisfied, the bot prompts the user to add the channel to the integration.
+5. If it is valid, it retrieves the integration details of the workspace. It normally uses a cache. But its ttl is currently 0 to ensure the latest data is used. As a todo, this can be re-introduced with the proper cache invalidations with integration updates.
+6. It then checks if the message is in a thread or not. If not, it creates a new thread. If yes, it uses the existing thread.
+7. It then checks if there is a binge session. If not, it creates a new one. If yes, it uses the existing binge session. It uses the `Thread` model to link threads to binges.
+8. After the validations, it first responds by saying `"Thinking..."`. Then it sends a request to the backend (itself) to answer the question and stream the response. It updates the message with the response as it comes.
+9. Once the stream is done, it sends another request to itself to fetch the final data. It then formats the data, and updates the message with the final response.
+
+> It removes the initial header from the message during streaming and after the stream is done.
+
+Here are the functions used and their purposes:
+
+- `handle`: Sets up and starts the discord listener.
+- `setup_discord_client`: Sets up the discord client. Defines the event handlers that to the message validations.
+- `send_channel_unauthorized_message`: Sends a message to the channel if the bot is not authorized.
+- `get_or_create_thread_binge`: Gets or creates a binge session for the current thread.
+- `stream_answer`: Streams the answer to the question.
+- `get_finalized_answer`: Gets and sends the final formatted response.
+- `get_guild_integration`: Gets the integration details of the workspace.
+- `get_trust_score_emoji`: Gets the trust score emoji.
+- `strip_first_header`: Removes the initial header from the message.
+- `format_response`: Formats the references, trust score, etc. of the final response.
+- `get_guru_type_slug`: Gets the guru type slug.
+- `get_api_key`: Gets the api key.
 
 ##### Installation
 
