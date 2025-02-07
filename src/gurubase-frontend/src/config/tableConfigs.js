@@ -174,6 +174,7 @@ export const tableConfigs = {
       {
         key: "title",
         header: "Question",
+        width: "min-w-[300px] md:w-[400px] xl:w-[600px]",
         render: (item, { renderCellWithTooltip }) => (
           <a
             href={item.link}
