@@ -32,7 +32,7 @@ const HeaderTooltip = ({ text }) => {
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p className="text-[12px] font-medium">{text}</p>
+            <p className="text-[12px] font-medium max-w-[400px]">{text}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
