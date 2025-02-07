@@ -13,56 +13,7 @@ import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
-import { SolarInfoCircleBold } from "@/components/Icons";
-
-const HeaderTooltip = ({ text }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    // Handle clicks outside the tooltip on mobile
-    const handleClickOutside = (event) => {
-      if (!event.target.closest("[data-tooltip-trigger]")) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  return (
-    <div className="ml-2">
-      <TooltipProvider>
-        <Tooltip open={isOpen} onOpenChange={setIsOpen}>
-          <TooltipTrigger
-            asChild
-            data-tooltip-trigger
-            onClick={(e) => {
-              // Prevent click from bubbling to document
-              e.stopPropagation();
-              // Toggle on mobile
-              if (window.matchMedia("(max-width: 768px)").matches) {
-                setIsOpen(!isOpen);
-              }
-            }}>
-            <div>
-              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="text-[12px] font-medium max-w-[400px]">{text}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-};
+import { HeaderTooltip } from "@/components/ui/header-tooltip";
 
 const MetricSection = ({
   title,
