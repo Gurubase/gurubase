@@ -559,9 +559,6 @@ The following integrations are available:
 
 ![Slack Bot](imgs/slack-bot.png)
 
-##### Cloud
-
-
 Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
 ![Empty Slack Integration](imgs/empty-slack-integration.png)
@@ -570,17 +567,11 @@ Slack integration on the cloud is straightforward. You just have to go through t
 
 > You can click on the "Send Test Message" button to test if the integration is working.
 
-##### Self-Hosted
-
-TODO:
-
 > For private channels, you need to invite the bot to the channel manually.
 
 #### Discord
 
 ![Discord Bot](imgs/discord-bot.png)
-
-##### Cloud
 
 Discord integration is similar to Slack. You need to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
@@ -589,11 +580,6 @@ Discord integration is similar to Slack. You need to go through the installation
 ![Discord Integration](imgs/discord-integration.png)
 
 > You can also click on the "Send Test Message" button to test if the integration is working.
-
-
-##### Self-Hosted
-
-TODO:
 
 > For private channels, you need to invite the bot to the channel manually.
 
