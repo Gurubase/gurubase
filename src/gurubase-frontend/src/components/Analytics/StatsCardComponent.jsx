@@ -97,11 +97,11 @@ export default function StatsCardComponent({
       <Card
         className={`w-full p-4 space-y-2 bg-[#FBFBFB] rounded-xl border border-[#E2E2E2] ${inter.className}`}>
         <div>
-          <Skeleton className="h-[14px] w-24" />
+          <Skeleton className="h-[17px] w-[120px] mt-1" />
         </div>
         <div className="flex items-end gap-2">
-          <Skeleton className="h-[31px] w-16" />
-          <Skeleton className="h-[16px] w-16 mb-1" />
+          <Skeleton className="h-[46.5px] w-[60px]" />
+          <Skeleton className="h-[20px] w-[48px] mb-[2px]" />
         </div>
       </Card>
     );
