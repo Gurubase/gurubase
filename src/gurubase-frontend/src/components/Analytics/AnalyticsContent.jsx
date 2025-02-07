@@ -13,64 +13,29 @@ import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
+import { SolarInfoCircleBold } from "@/components/Icons";
 
 const HeaderTooltip = ({ text }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Add useEffect to handle clicks outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if the click was outside the tooltip area
-      if (isHovered && !event.target.closest(".tooltip-container")) {
-        setIsHovered(false);
-      }
-    };
-
-    // Add the event listener
-    document.addEventListener("click", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-
-    // Clean up
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [isHovered]); // Only re-run if isHovered changes
-
   return (
-    <div className="relative inline-block tooltip-container">
-      <div
-        className="ml-2 cursor-pointer"
-        onMouseEnter={() => setIsHovered(true)}
-        onClick={(e) => {
-          e.stopPropagation(); // Prevent the document click from immediately closing it
-          setIsHovered(!isHovered);
-        }}
-        onMouseLeave={() => setIsHovered(false)}>
-        <Icon
-          icon="solar:info-circle-linear"
-          className="w-4 h-4 text-gray-400"
-        />
-        {isHovered && (
-          <div
-            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 rounded-lg shadow-lg border bg-[#1B242D] text-white"
-            style={{ minWidth: "200px", left: "calc(50% + 4px)" }}>
-            {/* Triangle pointer */}
-            <div
-              className="absolute w-4 h-4 border-l border-t bg-[#1B242D]"
-              style={{
-                bottom: "-8px",
-                left: "calc(50%)",
-                transform: "translateX(-50%) rotate(225deg)",
-                borderColor: "inherit"
-              }}
-            />
-            <p className="text-center relative font-inter text-[12px] font-medium leading-normal px-2">
-              {text}
-            </p>
-          </div>
-        )}
-      </div>
+    <div className="ml-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-pointer">
+              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-[12px] font-medium">{text}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };
@@ -148,14 +113,17 @@ const MetricSection = ({
         <HeaderTooltip text={tooltipText} />
       </div>
       {metricType !== METRIC_TYPES.REFERENCED_SOURCES && (
-        <HistogramComponent
-          interval={interval}
-          data={histogramData}
-          isLoading={histogramLoading}
-          onBarClick={handleBarClick}
-        />
+        <>
+          <HistogramComponent
+            interval={interval}
+            data={histogramData}
+            isLoading={histogramLoading}
+            onBarClick={handleBarClick}
+            timeRange={selectedTimeRange}
+          />
+          <div className="mt-6"></div>
+        </>
       )}
-      <div className="mt-6"></div>
       <TableComponent
         metricType={metricType}
         data={tableData}
@@ -182,11 +150,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState(initialInterval);
   const guruType = customGuru;
-  const [metricType, setMetricType] = useState(METRIC_TYPES.QUESTIONS);
-  const [currentFilter, setCurrentFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState("desc");
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
@@ -200,41 +164,8 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
     interval
   );
 
-  // Only fetch histogram data if not referenced sources
-  const { data: histogramData, loading: histogramLoading } = useHistogram(
-    guruType,
-    METRIC_TYPES.QUESTIONS,
-    interval
-  );
-
-  const { data: tableData, loading: tableLoading } = useTableData(
-    guruType,
-    metricType,
-    interval,
-    currentFilter,
-    currentPage,
-    searchQuery,
-    sortOrder
-  );
-
   // Check if any data is loading
-  const isLoading = statCardsLoading || histogramLoading || tableLoading;
-
-  const handleFilterChange = (newFilter) => {
-    setCurrentFilter(newFilter);
-    setCurrentPage(1); // Reset page when filter changes
-  };
-
-  const handleSearch = (term) => {
-    if (term !== searchQuery) {
-      setSearchQuery(term);
-      setCurrentPage(1);
-    }
-  };
-
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-  };
+  const isLoading = statCardsLoading;
 
   return (
     <>
@@ -279,7 +210,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Questions"
-            tooltipText="Total questions asked by users"
+            tooltipText="Total questions asked by users."
             metricType={METRIC_TYPES.QUESTIONS}
             interval={interval}
             guruType={guruType}
@@ -287,7 +218,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Unable to Answers"
-            tooltipText="Questions without satisfactory answers"
+            tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru’s data source is insufficient to generate an answer."
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
@@ -295,7 +226,7 @@ const AnalyticsContent = ({ customGuru, initialInterval }) => {
 
           <MetricSection
             title="Referenced Data Sources"
-            tooltipText="Most referenced data sources"
+            tooltipText="Most referenced data sources."
             metricType={METRIC_TYPES.REFERENCED_SOURCES}
             interval={interval}
             guruType={guruType}

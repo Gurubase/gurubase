@@ -14,6 +14,30 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { formatDate } from "@/utils/dateUtils";
 import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
+
+export const renderCellWithTooltip = (value, row) => {
+  if (row.title && row.title !== value) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="truncate">{value}</div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-[300px] break-words">{row.title}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+  return <div className="truncate">{value}</div>;
+};
 
 export function DataTable({
   columns,
@@ -29,7 +53,6 @@ export function DataTable({
   sortOrder
 }) {
   const isMobile = useMediaQuery("(max-width: 915px)");
-  console.log(sortOrder);
 
   return (
     <div className={isMobile ? "overflow-x-auto" : "overflow-hidden"}>

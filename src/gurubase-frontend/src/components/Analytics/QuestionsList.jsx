@@ -18,15 +18,18 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { tableConfigs } from "@/config/tableConfigs";
+import { METRIC_TYPES } from "@/services/analyticsService";
+import { renderCellWithTooltip } from "@/components/ui/data-table";
 
 const StyledDialogContent = React.forwardRef(
   ({ children, isMobile, ...props }, ref) => (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-[49] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-[51] bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed z-[50] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "fixed z-[52] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           isMobile
             ? "inset-x-0 bottom-0 h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
             : "right-0 top-0 h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
@@ -40,34 +43,7 @@ const StyledDialogContent = React.forwardRef(
 
 StyledDialogContent.displayName = "StyledDialogContent";
 
-const questionsTableColumns = [
-  {
-    key: "date",
-    header: "Date",
-    width: "w-[120px] md:w-[200px]",
-    sortable: true
-  },
-  {
-    key: "source",
-    header: "Source",
-    width: "w-[140px]",
-    hideOnMobile: false
-  },
-  {
-    key: "title",
-    header: "Question",
-    render: (item) => (
-      <a
-        href={item.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 group hover:text-blue-600">
-        <div className="truncate">{item.title}</div>
-        <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
-      </a>
-    )
-  }
-];
+const questionsTableColumns = tableConfigs[METRIC_TYPES.QUESTIONS_LIST].columns;
 
 export function QuestionsList({ url, guruType, onClose, interval }) {
   const [filterType, setFilterType] = useState("all");
@@ -151,7 +127,8 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                   <Select
                     value={filterType}
                     onValueChange={handleFilterChange}
-                    disabled={loading || !questions?.available_filters?.length}>
+                    disabled={loading || !questions?.available_filters?.length}
+                    portalRoot={document.querySelector('[role="dialog"]')}>
                     <SelectTrigger className="max-w-[280px] w-fit h-8 px-3 flex justify-start items-center gap-2 rounded-[11000px] border-[#E2E2E2] bg-white">
                       <div className="flex items-start gap-1 text-xs">
                         <span className="text-[#6D6D6D]">Sources by:</span>
@@ -174,7 +151,7 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                         </svg>
                       </div>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[60]">
                       {questions?.available_filters?.map((filter) => (
                         <SelectItem key={filter.label} value={filter.value}>
                           {filter.label}
@@ -205,7 +182,7 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
               {/* Search bar for mobile */}
               <div className="relative sm:hidden">
                 <Input
-                  className="w-full h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white"
+                  className="w-full h-[32px] px-3 py-[14px] pl-9 rounded-[8px] border border-[#E2E2E2] bg-white sm:text-xs text-[16px]"
                   placeholder="Search..."
                   type="text"
                   value={searchTerm}
@@ -224,6 +201,9 @@ export function QuestionsList({ url, guruType, onClose, interval }) {
                 isLoading={loading}
                 onSort={handleSort}
                 sortOrder={sortOrder}
+                renderActions={{
+                  renderCellWithTooltip: renderCellWithTooltip
+                }}
               />
               <TablePagination
                 currentPage={page}

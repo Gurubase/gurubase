@@ -151,7 +151,7 @@ def analytics_table(request, guru_type):
                     queryset = queryset.filter(source__iexact=source_value)
                     
             if search_query:
-                queryset = queryset.filter(question__icontains=search_query)
+                queryset = queryset.filter(user_question__icontains=search_query)
                 
             order_by = 'date_created' if sort_order == 'asc' else '-date_created'
             queryset = queryset.order_by(order_by)
@@ -161,7 +161,8 @@ def analytics_table(request, guru_type):
             results = [{
                 'date': item.date_created.isoformat(),
                 'type': format_filter_name_for_display(item.source),
-                'title': item.question,
+                'title': item.user_question,
+                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
                 'link': item.frontend_url
             } for item in paginated_data['items']]
             
@@ -178,7 +179,7 @@ def analytics_table(request, guru_type):
                     queryset = queryset.filter(source__iexact=source_value)
                     
             if search_query:
-                queryset = queryset.filter(question__icontains=search_query)
+                queryset = queryset.filter(user_question__icontains=search_query)
                 
             order_by = 'date_created' if sort_order == 'asc' else '-date_created'
             queryset = queryset.order_by(order_by)
@@ -188,7 +189,8 @@ def analytics_table(request, guru_type):
             results = [{
                 'date': item.date_created.isoformat(),
                 'type': format_filter_name_for_display(item.source),
-                'title': item.question,
+                'title': item.user_question,
+                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question
             } for item in paginated_data['items']]
             
         else:  # referenced_sources
@@ -241,6 +243,7 @@ def analytics_table(request, guru_type):
                     'date': ds.date_created.isoformat(),
                     'type': format_filter_name_for_display(ds.type),
                     'title': ds.title or ds.url,
+                    'truncated_title': ds.title[:60] + '...' if len(ds.title) > 60 else ds.title,
                     'link': ds.url,
                     'reference_count': reference_counts.get(ds.url, 0)
                 })
@@ -250,6 +253,7 @@ def analytics_table(request, guru_type):
                     'date': gf.data_source.date_created.isoformat(),
                     'type': 'Codebase',
                     'title': gf.title,
+                    'truncated_title': gf.title[:60] + '...' if len(gf.title) > 60 else gf.title,
                     'link': gf.link,
                     'reference_count': reference_counts.get(gf.link, 0)
                 })
