@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
@@ -10,9 +10,11 @@ export default function HistogramComponent({
   data = [],
   interval,
   isLoading = false,
-  onBarClick
+  onBarClick,
+  timeRange = null
 }) {
   const [tooltip, setTooltip] = useState(null);
+  const [hoveredBar, setHoveredBar] = useState(null);
 
   const isHourly = interval === "today" || interval === "yesterday";
 
@@ -71,7 +73,6 @@ export default function HistogramComponent({
   };
 
   const calculateEndTime = (clickedData, interval) => {
-    console.log("Will calculate end time. Clicked data:", clickedData);
     if (clickedData.date_point) {
       let secondsToAdd = 0;
       switch (interval) {
@@ -106,6 +107,18 @@ export default function HistogramComponent({
     }
   };
 
+  // Add useEffect to watch timeRange changes
+  useEffect(() => {
+    if (!timeRange) {
+      // Reset all bars to default color when timeRange is cleared
+      const allBars = document.querySelectorAll(".recharts-bar-rectangle path");
+      allBars.forEach((bar) => {
+        bar.style.transition = "fill 0.2s ease";
+        bar.style.fill = "#CCE2FF";
+      });
+    }
+  }, [timeRange]);
+
   return (
     <div
       className="rounded-xl border border-[#E2E2E2]"
@@ -126,6 +139,13 @@ export default function HistogramComponent({
           <>
             <style jsx global>{`
               .recharts-bar-rectangle {
+                transition: fill 0.2s ease;
+              }
+              .recharts-bar-rectangle:hover path {
+                fill: #2563eb !important;
+              }
+              .selected-bar path {
+                fill: #2563eb !important;
               }
             `}</style>
             {tooltip && (
@@ -184,17 +204,37 @@ export default function HistogramComponent({
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                   cursor="pointer"
-                  style={{
-                    transition: "fill 0.2s ease"
-                  }}
-                  onClick={(data) => {
-                    onBarClick &&
-                      onBarClick({
-                        startTime: data.date_point || data.date_start,
-                        endTime: calculateEndTime(data, interval)
-                      });
+                  onClick={(data, index, event) => {
+                    // First reset all bars to default color
+                    const allBars = event.target
+                      .closest("svg")
+                      .querySelectorAll(".recharts-bar-rectangle path");
+                    allBars.forEach((bar) => {
+                      bar.style.transition = "fill 0.2s ease";
+                      bar.style.fill = "#CCE2FF";
+                    });
+
+                    // If we're selecting a new bar
+                    if (
+                      timeRange?.startTime !==
+                      (data.date_point || data.date_start)
+                    ) {
+                      // Highlight the clicked bar
+                      event.target.style.transition = "fill 0.2s ease";
+                      event.target.style.fill = "#2563eb";
+                      onBarClick &&
+                        onBarClick({
+                          startTime: data.date_point || data.date_start,
+                          endTime: calculateEndTime(data, interval)
+                        });
+                    } else {
+                      // If clicking the same bar, it's a deselection
+                      onBarClick && onBarClick(null);
+                    }
                   }}
                   onMouseOver={(data, index, event) => {
+                    event.target.style.transition = "fill 0.2s ease";
+                    event.target.style.fill = "#2563eb";
                     const rect = event.target.getBoundingClientRect();
                     const chartRect = event.target
                       .closest("svg")
@@ -203,7 +243,6 @@ export default function HistogramComponent({
                     const x = rect.left + rect.width / 2 - chartRect.left;
                     const y = rect.top - chartRect.top;
 
-                    event.target.style.fill = "#2563EB";
                     setTooltip({
                       x,
                       y,
@@ -212,7 +251,14 @@ export default function HistogramComponent({
                     });
                   }}
                   onMouseLeave={(data, index, event) => {
-                    event.target.style.fill = "#CCE2FF";
+                    if (
+                      !timeRange ||
+                      (data.date_point || data.date_start) !==
+                        timeRange.startTime
+                    ) {
+                      event.target.style.transition = "fill 0.2s ease";
+                      event.target.style.fill = "#CCE2FF";
+                    }
                     setTooltip(null);
                   }}
                 />

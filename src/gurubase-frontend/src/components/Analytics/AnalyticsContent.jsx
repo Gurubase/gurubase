@@ -153,6 +153,7 @@ const MetricSection = ({
           data={histogramData}
           isLoading={histogramLoading}
           onBarClick={handleBarClick}
+          timeRange={selectedTimeRange}
         />
       )}
       <div className="mt-6"></div>

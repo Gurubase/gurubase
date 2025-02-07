@@ -29,7 +29,6 @@ export function DataTable({
   sortOrder
 }) {
   const isMobile = useMediaQuery("(max-width: 915px)");
-  console.log(sortOrder);
 
   return (
     <div className={isMobile ? "overflow-x-auto" : "overflow-hidden"}>
