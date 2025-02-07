@@ -22,7 +22,6 @@ export default function TimeSelectionComponent({
   loading = false
 }) {
   const [activePeriod, setActivePeriod] = React.useState(defaultPeriod);
-  console.log("activePeriod", activePeriod);
 
   const handlePeriodChange = (period) => {
     if (loading) return;
