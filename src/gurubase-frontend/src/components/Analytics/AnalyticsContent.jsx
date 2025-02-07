@@ -13,64 +13,29 @@ import { useState, useEffect } from "react";
 import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
+import { SolarInfoCircleBold } from "@/components/Icons";
 
 const HeaderTooltip = ({ text }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Add useEffect to handle clicks outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if the click was outside the tooltip area
-      if (isHovered && !event.target.closest(".tooltip-container")) {
-        setIsHovered(false);
-      }
-    };
-
-    // Add the event listener
-    document.addEventListener("click", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-
-    // Clean up
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [isHovered]); // Only re-run if isHovered changes
-
   return (
-    <div className="relative inline-block tooltip-container">
-      <div
-        className="ml-2 cursor-pointer"
-        onMouseEnter={() => setIsHovered(true)}
-        onClick={(e) => {
-          e.stopPropagation(); // Prevent the document click from immediately closing it
-          setIsHovered(!isHovered);
-        }}
-        onMouseLeave={() => setIsHovered(false)}>
-        <Icon
-          icon="solar:info-circle-linear"
-          className="w-4 h-4 text-gray-400"
-        />
-        {isHovered && (
-          <div
-            className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 rounded-lg shadow-lg border bg-[#1B242D] text-white"
-            style={{ minWidth: "200px", left: "calc(50% + 4px)" }}>
-            {/* Triangle pointer */}
-            <div
-              className="absolute w-4 h-4 border-l border-t bg-[#1B242D]"
-              style={{
-                bottom: "-8px",
-                left: "calc(50%)",
-                transform: "translateX(-50%) rotate(225deg)",
-                borderColor: "inherit"
-              }}
-            />
-            <p className="text-center relative font-inter text-[12px] font-medium leading-normal px-2">
-              {text}
-            </p>
-          </div>
-        )}
-      </div>
+    <div className="ml-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-pointer">
+              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-[12px] font-medium">{text}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };
