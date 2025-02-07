@@ -557,7 +557,7 @@ The following integrations are available:
 
 #### Slack
 
-![Slack Bot](imgs/slack-bot.png)
+<img src="imgs/slack-bot.png" width="400" alt="Slack Bot"/>
 
 Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
@@ -571,13 +571,13 @@ Slack integration on the cloud is straightforward. You just have to go through t
 
 #### Discord
 
-![Discord Bot](imgs/discord-bot.png)
+<img src="imgs/discord-bot.png" width="400" alt="Discord Bot"/>
 
 Discord integration is similar to Slack. You need to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
 
-![Empty Discord Integration](imgs/empty-discord-integration.png)
+<img src="imgs/empty-discord-integration.png" width="500" alt="Empty Discord Integration"/>
 
-![Discord Integration](imgs/discord-integration.png)
+<img src="imgs/discord-integration.png" width="500" alt="Discord Integration"/>
 
 > You can also click on the "Send Test Message" button to test if the integration is working.
 
@@ -594,3 +594,16 @@ Web widget allows you to embed Gurubase to your own website. You need to create 
 ![Web Widget Integration](imgs/web-widget-integration.png)
 
 ![Web Widget Integration Modal](imgs/web-widget-integration-modal.png)
+
+### API Support
+
+Gurubase provides a REST API to interact with the platform. It is available for both cloud and self-hosted versions.
+
+Currently there are 5 endpoints:
+- Ask question
+  - https://api.gurubase.io/api/v1/{guru_slug}/answer/
+- Create data sources
+  - https://api.gurubase.io/api/v1/{guru_slug}/data-sources/
+- Get data sources
+- Delete data sources
+- Reindex data sources
