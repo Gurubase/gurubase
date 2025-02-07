@@ -243,6 +243,7 @@ def analytics_table(request, guru_type):
                     'date': ds.date_created.isoformat(),
                     'type': format_filter_name_for_display(ds.type),
                     'title': ds.title or ds.url,
+                    'truncated_title': ds.title[:75] + '...' if len(ds.title) > 75 else ds.title,
                     'link': ds.url,
                     'reference_count': reference_counts.get(ds.url, 0)
                 })
@@ -252,6 +253,7 @@ def analytics_table(request, guru_type):
                     'date': gf.data_source.date_created.isoformat(),
                     'type': 'Codebase',
                     'title': gf.title,
+                    'truncated_title': gf.title[:75] + '...' if len(gf.title) > 75 else gf.title,
                     'link': gf.link,
                     'reference_count': reference_counts.get(gf.link, 0)
                 })
