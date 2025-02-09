@@ -588,18 +588,14 @@ Here are the functions used and their purposes:
 - `format_slack_response`: Formats the references, trust score, etc. of the final response.
 - `get_final_response`: Gets and sends the final formatted response.
 
+> The Slack bot answers are shortened compared to the responses in the UI.
+
+> Questions asked by the Slack bot have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
 
 ##### Installation
 
-Slack integration on the cloud is straightforward. You just have to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
+> You can check the [Slack Integration](https://docs.gurubase.ai/integrations/slack-bot) documentation for the installation process.
 
-![Empty Slack Integration](imgs/empty-slack-integration.png)
-
-![Slack Integration](imgs/slack-integration.png)
-
-> You can click on the "Send Test Message" button to test if the integration is working.
-
-> For private channels, you need to invite the bot to the channel manually.
 
 #### Discord
 
@@ -639,31 +635,51 @@ Here are the functions used and their purposes:
 - `get_guru_type_slug`: Gets the guru type slug.
 - `get_api_key`: Gets the api key.
 
+> The Discord bot answers are shortened compared to the responses in the UI.
+
+> Questions asked by the Discord bot have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
+
 ##### Installation
 
-Discord integration is similar to Slack. You need to go through the installation process from the dashboard. Once the installation is complete, you need to select channels to listen to. Then, you can start using the bot by mentioning it in the selected channels and asking questions.
-
-<img src="imgs/empty-discord-integration.png" alt="Empty Discord Integration"/>
-
-<img src="imgs/discord-integration.png" alt="Discord Integration"/>
-
-> You can also click on the "Send Test Message" button to test if the integration is working.
-
-> For private channels, you need to invite the bot to the channel manually.
+> You can check the [Discord Integration](https://docs.gurubase.ai/integrations/discord-bot) documentation for the installation process.
 
 #### Web Widget
 
 ![Web Widget](imgs/web-widget.png)
 
+Web widget allows you to embed Gurubase to your own website. It uses the following view functions
+- `ask_widget`: The main view that is used to ask questions.
+  - It takes 4 parameters:
+    - `question`: The question to ask.
+    - `binge_id`: The binge id.
+    - `parent_slug`: The parent slug.
+    - `fetch_existing`: Whether to fetch the existing question (This is initially sent as False for streaming, and then sent as True after the stream is done to fetch the final data)
+- `widget_create_binge`: Creates a binge session by copying the given root question and assigning it to the newly created binge.
+- `manage_widget_ids`: Manages the widget ids. It gets a domain url that the widget will be embedded to and generates a widget id.
+- `get_guru_visuals`: Gets the guru visuals. It gets the guru type slug and returns the colors, icon url, name, and slug. This is done to ensure the widget is styled the same as the rest of the platform. If these values are specified in the widget embedding, they are preferred.
+
+The question answering system is almost the same as the one in the UI. Summary is generated first, and then the answer is generated. As the answer stream is finished, the trust score, references etc. are fetched separately and added to the answer.
+
+> The widget answers are shortened compared to the responses in the UI.
+
+> Questions asked by the Widget have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
+
 ##### Installation
 
-Web widget allows you to embed Gurubase to your own website. You need to create a widget id from the dashboard by providing the domain of your website. Then, the embedding html is available in the page. You can embed it to your website by just pasting the html to the page. For other installation methods or further details, you can check the [Github README](https://github.com/Gurubase/gurubase-widget).
+> You can check the [Web Widget](https://docs.gurubase.ai/integrations/website-widget) documentation for the installation process.
 
-![Empty Web Widget Integration](imgs/empty-web-widget-integration.png)
+#### Question Existence Check
 
-![Web Widget Integration](imgs/web-widget-integration.png)
+The function `search_question` in `backend/core/utils.py` is used to check if the question exists in the database. Depending on the situation, it is used differently.
 
-![Web Widget Integration Modal](imgs/web-widget-integration-modal.png)
+> There is a unique constraint on the question slug.
+
+- It allows admin users to see all questions.
+- It allows guru maintainers to see all questions belonging to that guru.
+- In the widget endpoint, it is used to only consider the widget sources.
+- In the API, Slack, and Discord endpoints, it is used to only consider the API, Slack, and Discord sources. This is done as Slack and Discord bot responses use the API endpoint.
+-  While it considers all Slack and Discord questions, it only considers the API questions of the requesting user. This is done to ensure that API questions of users are kept private.
+- In the UI endpoints, it excludes the API and Widget questions. It purposefully includes Slack and Discord questions to allow them to be viewed in the UI. However, since Slack and Discord question slugs end with an uniquely assigned uuid at the end, it is not possible to ask the same question in the UI.
 
 ### API Support
 
