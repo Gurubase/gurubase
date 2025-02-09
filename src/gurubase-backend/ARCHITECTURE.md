@@ -547,8 +547,37 @@ And the answer to the last question is:
 Now, the user asked another question.
 ```
 
+### API Support
+
+Gurubase provides a REST API to interact with the platform. It is available for both cloud and self-hosted versions.
+
+The API view functions are:
+- `api_keys`: Manages the API keys.
+  - `GET`: Gets the API keys. It only retrieves the API keys not belonging to an integration.
+  - `POST`: Creates a new API key. It limits the number of API keys to 5.
+  - `DELETE`: Deletes an API key.
+- `api_data_sources`: Manages the data sources.
+  - `GET`: Paginates and returns the data sources.
+  - `POST`: Creates new data sources. Makes use of `DataSourceService` to validate them
+  - `DELETE`: Deletes data sources by their ids.
+- `api_answer`: Asks a question. It uses the same logic as the Web Widget integration. 
+  - It takes the following parameters:
+    - `question`: The question to ask.
+    - `session_id`: The session id.
+    - `fetch_existing`: Whether to fetch the existing question. This is initially sent as False for streaming, and then sent as True after the stream is done to fetch the final data.
+    - `stream`: Whether to stream the answer.
+  - It gets the API key from the header, and determines if this belongs to an integration or not. It sets the appropriate question sources accordingly.
+  - It then generates the summary and answer. Returns it as a stream if the stream parameter is True, or a json object if it is False.
+- `api_reindex_data_sources`: Reindexes the data sources. This is used to update the content of the existing data sources.
+
+The authentication is handled by the `api_key_auth` decorator. It checks if the API key is valid and if it belongs to an integration. It checks for the API key in the `X-API-KEY` header.
+
+> The API answers are shortened compared to the responses in the UI.
+
+For more details on their usage, you can check the [API Reference](https://docs.gurubase.ai/api-reference/introduction).
+
 ### Integrations
-Integrations allow users to use Gurubase in their own platforms. They are basically wrappers around the `/summary` and `/answer` endpoints. They can be managed in the `Integrations` page in the Guru dashboard.
+Integrations allow users to use Gurubase in their own platforms. They are basically wrappers around the API framework. They can be managed in the `Integrations` page in the Guru dashboard.
 
 The following integrations are available:
 - Slack
@@ -559,7 +588,7 @@ The following integrations are available:
 
 <img src="imgs/slack-bot.png" width="500" alt="Slack Bot"/>
 
-The slack integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoints (for details, see the [API Support](#api-support) section).
+The Slack integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoint (for details, see the [API Support](#api-support) section).
 
 The Slack integration works as following:
 
@@ -588,20 +617,17 @@ Here are the functions used and their purposes:
 - `format_slack_response`: Formats the references, trust score, etc. of the final response.
 - `get_final_response`: Gets and sends the final formatted response.
 
-> The Slack bot answers are shortened compared to the responses in the UI.
-
-> Questions asked by the Slack bot have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
+> Questions asked by the Slack bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
 
 ##### Installation
 
 > You can check the [Slack Integration](https://docs.gurubase.ai/integrations/slack-bot) documentation for the installation process.
 
-
 #### Discord
 
 <img src="imgs/discord-bot.png" width="500" alt="Discord Bot"/>
 
-The Discord integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoints (for details, see the [API Support](#api-support) section).
+The Discord integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoint (for details, see the [API Support](#api-support) section).
 
 The Discord integration works as following:
 
@@ -635,9 +661,7 @@ Here are the functions used and their purposes:
 - `get_guru_type_slug`: Gets the guru type slug.
 - `get_api_key`: Gets the api key.
 
-> The Discord bot answers are shortened compared to the responses in the UI.
-
-> Questions asked by the Discord bot have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
+> Questions asked by the Discord bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
 
 ##### Installation
 
@@ -647,7 +671,7 @@ Here are the functions used and their purposes:
 
 ![Web Widget](imgs/web-widget.png)
 
-Web widget allows you to embed Gurubase to your own website. It uses the following view functions
+Web widget allows you to embed Gurubase to your own website. It uses the following view functions:
 - `ask_widget`: The main view that is used to ask questions.
   - It takes 4 parameters:
     - `question`: The question to ask.
@@ -668,7 +692,7 @@ The question answering system is almost the same as the one in the UI. Summary i
 
 > You can check the [Web Widget](https://docs.gurubase.ai/integrations/website-widget) documentation for the installation process.
 
-#### Question Existence Check
+### Question Existence Check
 
 The function `search_question` in `backend/core/utils.py` is used to check if the question exists in the database. Depending on the situation, it is used differently.
 
@@ -676,20 +700,7 @@ The function `search_question` in `backend/core/utils.py` is used to check if th
 
 - It allows admin users to see all questions.
 - It allows guru maintainers to see all questions belonging to that guru.
-- In the widget endpoint, it is used to only consider the widget sources.
+- In the web widget endpoint, it is used to only consider the web widget sources.
 - In the API, Slack, and Discord endpoints, it is used to only consider the API, Slack, and Discord sources. This is done as Slack and Discord bot responses use the API endpoint.
 -  While it considers all Slack and Discord questions, it only considers the API questions of the requesting user. This is done to ensure that API questions of users are kept private.
 - In the UI endpoints, it excludes the API and Widget questions. It purposefully includes Slack and Discord questions to allow them to be viewed in the UI. However, since Slack and Discord question slugs end with an uniquely assigned uuid at the end, it is not possible to ask the same question in the UI.
-
-### API Support
-
-Gurubase provides a REST API to interact with the platform. It is available for both cloud and self-hosted versions.
-
-Currently there are 5 endpoints:
-- Ask question
-  - https://api.gurubase.io/api/v1/{guru_slug}/answer/
-- Create data sources
-  - https://api.gurubase.io/api/v1/{guru_slug}/data-sources/
-- Get data sources
-- Delete data sources
-- Reindex data sources
