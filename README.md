@@ -68,7 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master
 bash gurubase.sh
 ```
 
-See [INSTALL.md](INSTALL.md) for detailed installation instructions and prerequisites.
+See [INSTALL.md](INSTALL.md) for detailed installation instructions like [upgrading](INSTALL.md#upgrade), [uninstalling](INSTALL.md#remove), and more.
 
 ## How to Create a Guru
 

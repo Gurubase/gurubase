@@ -148,6 +148,10 @@ class Question(models.Model):
         indexes = [
             Index(fields=["add_to_sitemap"]),
             Index(fields=["guru_type"]),
+            Index(fields=["date_created"]),
+            Index(fields=["source"]),
+            Index(fields=["guru_type", "date_created"]),
+            Index(fields=["guru_type", "source"]),
         ]
 
     @property
@@ -904,10 +908,21 @@ class OutOfContextQuestion(models.Model):
     trust_score_threshold = models.FloatField(default=0.0)
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
     date_created = models.DateTimeField(auto_now_add=True)
+    source = models.CharField(
+        max_length=50,
+        choices=[(tag.value, tag.value) for tag in Question.Source],
+        default=Question.Source.USER.value,
+    )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
 
     def __str__(self):
         return self.question
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["guru_type", "date_created"]),
+            models.Index(fields=["source"]),
+        ]
 
 
 class Settings(models.Model):

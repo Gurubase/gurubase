@@ -22,7 +22,7 @@ const StyledDialogContent = React.forwardRef(
         className={cn(
           "fixed z-[100] bg-white shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           isMobile
-            ? "inset-x-0 bottom-0 z-[100] h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom"
+            ? "inset-x-0 bottom-0 z-[100] h-[90vh] w-full rounded-t-[20px] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom border border-gray-200 rounded-xl"
             : "right-0 top-0 z-[100] h-full w-full max-w-5xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
         )}
         {...props}>
@@ -52,7 +52,8 @@ const SourceDialog = React.memo(
     setDirtyChanges,
     setClickedSource,
     setSources,
-    handleDeleteUrls
+    handleDeleteUrls,
+    readOnly = false
   }) => (
     <Dialog
       open={isOpen}

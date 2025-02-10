@@ -48,10 +48,14 @@ const handleRequestError = (error, context = {}) => {
 };
 
 // Helper function for authenticated requests
-export const makeAuthenticatedRequest = async (url, options = {}) => {
+export const makeAuthenticatedRequest = async (
+  url,
+  options = {},
+  decode = false
+) => {
   // Early return for selfhosted mode
   if (shouldUsePublicRequest()) {
-    return makePublicRequest(url, options);
+    return makePublicRequest(url, options, decode);
   }
 
   try {
@@ -86,6 +90,10 @@ export const makeAuthenticatedRequest = async (url, options = {}) => {
       throw new Error(await response.text());
     }
 
+    if (decode) {
+      return await response.json();
+    }
+
     return response;
   } catch (error) {
     if (error.message === "NEXT_REDIRECT") {
@@ -103,7 +111,7 @@ export const makeAuthenticatedRequest = async (url, options = {}) => {
 };
 
 // Helper for public API requests
-export const makePublicRequest = async (url, options = {}) => {
+export const makePublicRequest = async (url, options = {}, decode = false) => {
   const headers = {
     // "Content-Type": "application/json",
     Authorization: process.env.NEXT_PUBLIC_BACKEND_AUTH_TOKEN,
@@ -138,6 +146,10 @@ export const makePublicRequest = async (url, options = {}) => {
     }
 
     throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  if (decode) {
+    return await response.json();
   }
 
   return response;

@@ -284,7 +284,7 @@ class LinkValidityAdmin(admin.ModelAdmin):
 
 @admin.register(OutOfContextQuestion)
 class OutOfContextQuestionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'question', 'user_question', 'guru_type', 'rerank_threshold', 'trust_score_threshold']
+    list_display = ['id', 'question', 'user_question', 'guru_type', 'source', 'rerank_threshold', 'trust_score_threshold']
     search_fields = ['id', 'question', 'guru_type__name', 'user_question']
     list_filter = ('guru_type__name',)
     ordering = ('-id',)

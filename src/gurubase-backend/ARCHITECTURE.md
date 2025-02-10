@@ -134,12 +134,11 @@ Creating and updating guru types also syncs their Milvus collection accordingly 
 
 ### Managing Data Sources
 
-Three types of data sources are supported:
+Four types of data sources are supported:
 - YouTube videos
 - Websites
 - PDFs
-
-The task `data_source_retrieval` in `backend/core/tasks.py` is responsible for processing data sources. It goes through all data sources that have the status `NOT_PROCESSED` and writes them to Milvus, marking them as `PROCESSED` and `in_milvus=True` when done. This tasks locks each guru type to prevent multiple tasks from processing the same guru type at the same time. However, it does not lock the data sources themselves to allow multiple guru types to be processed in parallel.
+- Codebases
 
 #### YouTube videos
 
@@ -154,6 +153,38 @@ The system uses `firecrawl` to extract content from websites. It scrapes the web
 #### PDFs
 
 The system uses `PyPDFLoader` from `langchain_community.document_loaders` to extract content from PDFs. It formats the content, and transfers it to Milvus. The PDF files are also saved to the local storage in self-hosted version.
+
+#### Codebases
+
+You can also provide a Github repository URL to index your codebase. The system will use the codebase as a data source while answering questions. You can only provide one Github repository URL per guru type.
+
+#### Data Retrieval
+
+The task `data_source_retrieval` in `backend/core/tasks.py` is responsible for processing data sources. It goes through all data sources that have the status `NOT_PROCESSED` and writes them to Milvus, marking them as `PROCESSED` and `in_milvus=True` when done. 
+- This task locks each guru type to prevent multiple tasks from processing the same guru type at the same time. This allows multiple guru types to be processed in parallel. 
+- It also allows Github repositories and other data sources to be processed in parallel.
+
+##### Codebases
+
+The task `process_github_repository` in `backend/core/github_handler.py` is responsible for Github repository retrieval. It does the following:
+- Clones the repository
+- Extracts default branch name
+- Goes through the files, picks the valid ones
+- Saves the valid files as `GithubFile` objects in the database
+
+The file validity is determined through the steps:
+
+1. Skip the common build/cache/env directories (like bin, obj, target, etc.)
+2. Only process files if they are code files or package manifest files
+  - The rules for these are determined in `code_file_extensions` and `package_manifest_file_extensions` dictionaries in `backend/core/github_handler.py`
+3. Skip files larger than 10MB
+
+> On cloud: After these steps, a total file count and size limit is applied. And the repository is rejected if it exceeds these limits.
+
+> On self-hosted: The repository is processed without any limits.
+
+Then the data is written to Milvus.
+
 
 #### Writing to Milvus
 
@@ -173,6 +204,10 @@ Deleting a data source from the database is handled by the `clear_data_source` s
 #### Reindexing a Data Source
 
 Reindexing a data source allows users to update the data source in Milvus without deleting and re-uploading it. This is useful for cases where the data source has been updated.
+
+##### Codebases
+
+Reindexing codebases is done automatically by the task `update_github_repositories`. It clones the repository again, and syncs updates like file updates, creations, deletions, etc. to the database through the `GithubFile` model. It still applies a file count and size limit check.
 
 #### Data Source Summarization
 
@@ -511,3 +546,161 @@ And the answer to the last question is:
 </last_answer>
 Now, the user asked another question.
 ```
+
+### API Support
+
+Gurubase provides a REST API to interact with the platform. It is available for both cloud and self-hosted versions.
+
+The API view functions are:
+- `api_keys`: Manages the API keys.
+  - `GET`: Gets the API keys. It only retrieves the API keys not belonging to an integration.
+  - `POST`: Creates a new API key. It limits the number of API keys to 5.
+  - `DELETE`: Deletes an API key.
+- `api_data_sources`: Manages the data sources.
+  - `GET`: Paginates and returns the data sources.
+  - `POST`: Creates new data sources. Makes use of `DataSourceService` to validate them
+  - `DELETE`: Deletes data sources by their ids.
+- `api_answer`: Asks a question. It uses the same logic as the Web Widget integration. 
+  - It takes the following parameters:
+    - `question`: The question to ask.
+    - `session_id`: The session id.
+    - `fetch_existing`: Whether to fetch the existing question. This is initially sent as False for streaming, and then sent as True after the stream is done to fetch the final data.
+    - `stream`: Whether to stream the answer.
+  - It gets the API key from the header, and determines if this belongs to an integration or not. It sets the appropriate question sources accordingly.
+  - It then generates the summary and answer. Returns it as a stream if the stream parameter is True, or a json object if it is False.
+- `api_reindex_data_sources`: Reindexes the data sources. This is used to update the content of the existing data sources.
+
+The authentication is handled by the `api_key_auth` decorator. It checks if the API key is valid and if it belongs to an integration. It checks for the API key in the `X-API-KEY` header.
+
+> The API answers are shortened compared to the responses in the UI.
+
+For more details on their usage, you can check the [API Reference](https://docs.gurubase.ai/api-reference/introduction).
+
+### Integrations
+Integrations allow users to use Gurubase in their own platforms. They are basically wrappers around the API framework. They can be managed in the `Integrations` page in the Guru dashboard.
+
+The following integrations are available:
+- Slack
+- Discord
+- Web Widget
+
+#### Slack
+
+<img src="imgs/slack-bot.png" width="500" alt="Slack Bot"/>
+
+The Slack integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoint (for details, see the [API Support](#api-support) section).
+
+The Slack integration works as following:
+
+1. Upon a message in the selected channel, Slack sends a callback request to the `slack/events` endpoint.
+2. This endpoint returns a `200 OK` response to Slack immediately. This is to prevent Slack from sending the same message again in case of a timeout.
+3. A new thread is started in the backend to process the message.
+3. It checks if the message is valid for the bot.
+  - The bot needs to be mentioned.
+  - The channel should be added in the integration settings for listening. If this is not satisfied, the bot prompts the user to add the channel to the integration.
+5. If it is valid, it retrieves the integration details of the workspace. It normally uses a cache. But its ttl is currently 0 to ensure the latest data is used. As a todo, this can be re-introduced with the proper cache invalidations with integration updates.
+6. It then checks if the message is in a thread or not. If not, it creates a new thread. If yes, it uses the existing thread.
+7. For the current thread, it checks if there is a binge session. If not, it creates a new one. If yes, it uses the existing binge session. It uses the `Thread` model to link threads to binges.
+8. After the validations, it first responds by saying `"Thinking..."`. Then it sends a request to the backend (itself) to answer the question and stream the response. It updates the message with the response as it comes.
+9. Once the stream is done, it sends another request to itself to fetch the final data. It then formats the data, and updates the message with the final response.
+
+> It removes the initial header from the message during streaming and after the stream is done.
+
+Here are the functions used and their purposes:
+
+- `slack_events`: Handles the callback request from Slack.
+- `handle_slack_message`: Handles the message processing.
+- `send_channel_unauthorized_message`: Sends a message to the channel if the bot is not authorized.
+- `get_or_create_thread_binge`: Gets or creates a binge session for the current thread.
+- `strip_first_header`: Removes the initial header from the message.
+- `convert_markdown_to_slack`: Slack does not use markdown. This function converts the markdown to Slack appropriate formatting.
+- `format_slack_response`: Formats the references, trust score, etc. of the final response.
+- `get_final_response`: Gets and sends the final formatted response.
+
+> Questions asked by the Slack bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+
+##### Installation
+
+> You can check the [Slack Integration](https://docs.gurubase.ai/integrations/slack-bot) documentation for the installation process.
+
+#### Discord
+
+<img src="imgs/discord-bot.png" width="500" alt="Discord Bot"/>
+
+The Discord integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoint (for details, see the [API Support](#api-support) section).
+
+The Discord integration works as following:
+
+1. Discord Listener needs to be up. It can be started by running `python manage.py discordListener`.
+2. It uses `discord.py` to listen to the messages. The implementation is inside the `discordListener.py` management command.
+3. When a new message is detected, it invokes the `on_message` function.
+4. This function checks if the message is valid for the bot.
+  - The bot needs to be mentioned.
+  - The author is different from the bot.
+  - The channel should be added in the integration settings for listening. If this is not satisfied, the bot prompts the user to add the channel to the integration.
+5. If it is valid, it retrieves the integration details of the workspace. It normally uses a cache. But its ttl is currently 0 to ensure the latest data is used. As a todo, this can be re-introduced with the proper cache invalidations with integration updates.
+6. It then checks if the message is in a thread or not. If not, it creates a new thread. If yes, it uses the existing thread.
+7. It then checks if there is a binge session. If not, it creates a new one. If yes, it uses the existing binge session. It uses the `Thread` model to link threads to binges.
+8. After the validations, it first responds by saying `"Thinking..."`. Then it sends a request to the backend (itself) to answer the question and stream the response. It updates the message with the response as it comes.
+9. Once the stream is done, it sends another request to itself to fetch the final data. It then formats the data, and updates the message with the final response.
+
+> It removes the initial header from the message during streaming and after the stream is done.
+
+Here are the functions used and their purposes:
+
+- `handle`: Sets up and starts the discord listener.
+- `setup_discord_client`: Sets up the discord client. Defines the event handlers that to the message validations.
+- `send_channel_unauthorized_message`: Sends a message to the channel if the bot is not authorized.
+- `get_or_create_thread_binge`: Gets or creates a binge session for the current thread.
+- `stream_answer`: Streams the answer to the question.
+- `get_finalized_answer`: Gets and sends the final formatted response.
+- `get_guild_integration`: Gets the integration details of the workspace.
+- `get_trust_score_emoji`: Gets the trust score emoji.
+- `strip_first_header`: Removes the initial header from the message.
+- `format_response`: Formats the references, trust score, etc. of the final response.
+- `get_guru_type_slug`: Gets the guru type slug.
+- `get_api_key`: Gets the api key.
+
+> Questions asked by the Discord bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+
+##### Installation
+
+> You can check the [Discord Integration](https://docs.gurubase.ai/integrations/discord-bot) documentation for the installation process.
+
+#### Web Widget
+
+![Web Widget](imgs/web-widget.png)
+
+Web widget allows you to embed Gurubase to your own website. It uses the following view functions:
+- `ask_widget`: The main view that is used to ask questions.
+  - It takes 4 parameters:
+    - `question`: The question to ask.
+    - `binge_id`: The binge id.
+    - `parent_slug`: The parent slug.
+    - `fetch_existing`: Whether to fetch the existing question (This is initially sent as False for streaming, and then sent as True after the stream is done to fetch the final data)
+- `widget_create_binge`: Creates a binge session by copying the given root question and assigning it to the newly created binge.
+- `manage_widget_ids`: Manages the widget ids. It gets a domain url that the widget will be embedded to and generates a widget id.
+- `get_guru_visuals`: Gets the guru visuals. It gets the guru type slug and returns the colors, icon url, name, and slug. This is done to ensure the widget is styled the same as the rest of the platform. If these values are specified in the widget embedding, they are preferred.
+
+The question answering system is almost the same as the one in the UI. Summary is generated first, and then the answer is generated. As the answer stream is finished, the trust score, references etc. are fetched separately and added to the answer.
+
+> The widget answers are shortened compared to the responses in the UI.
+
+> Questions asked by the Widget have an uuid at the end of their slugs. This is done to ensure that the same question can be repeatedly asked.
+
+##### Installation
+
+> You can check the [Web Widget](https://docs.gurubase.ai/integrations/website-widget) documentation for the installation process.
+
+### Question Existence Check
+
+The function `search_question` in `backend/core/utils.py` is used to check if the question exists in the database. Depending on the situation, it is used differently.
+
+> There is a unique constraint on the question slug.
+
+- It allows admin users to see all questions.
+- It allows guru maintainers to see all questions belonging to that guru.
+- In the web widget endpoint, it is used to only consider the web widget sources.
+- In the API, Slack, and Discord endpoints, it is used to only consider the API, Slack, and Discord sources. This is done as Slack and Discord bot responses use the API endpoint.
+-  While it considers all Slack and Discord questions, it only considers the API questions of the requesting user. This is done to ensure that API questions of users are kept private.
+- In the UI endpoints, it excludes the API and Widget questions. It purposefully includes Slack and Discord questions to allow them to be viewed in the UI. However, since Slack and Discord question slugs end with an uniquely assigned uuid at the end, it is not possible to ask the same question in the UI.

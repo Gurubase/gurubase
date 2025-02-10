@@ -34,6 +34,7 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
   const isIntegrationsActive = pathname.includes(
     `/guru/${guruSlug}/integrations`
   );
+  const isAnalyticsActive = pathname.includes(`/guru/${guruSlug}/analytics`);
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
@@ -79,6 +80,13 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
               label="Settings"
               isActive={isSettingsActive}
               onClick={() => handleNavigation(`/guru/${guruSlug}`)}
+            />
+
+            <SidebarOption
+              icon="Analytics"
+              label="Analytics"
+              isActive={isAnalyticsActive}
+              onClick={() => handleNavigation(`/guru/${guruSlug}/analytics`)}
             />
 
             <SidebarOption
