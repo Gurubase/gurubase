@@ -65,7 +65,7 @@ class Command(BaseCommand):
                 formatted_msg.append(f"• [_{clean_title}_](<{ref['link']}>)")
 
         # Add space for frontend link
-        formatted_msg.append(f":eyes: [_View on Gurubase for a better UX_]({response['question_url']})")
+        formatted_msg.append(f":eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)")
 
         metadata_length = sum(len(msg) for msg in formatted_msg)
         
