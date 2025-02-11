@@ -126,7 +126,28 @@ export const useHandleSubmit = (
         dispatch(setAskingQuestion(false));
 
         return;
-      } else if (error) {
+      } else if (error && status === 490 && isSelfHosted) {
+        setError(
+          <span>
+            Invalid OpenAI API Key.{" "}
+            <a 
+              href="/settings" 
+              className="text-blue-500 hover:text-blue-700 underline"
+              onClick={(e) => {
+                e.preventDefault();
+                navigation.push('/settings');
+              }}
+            >
+              Configure a valid API key
+            </a>{" "}
+            to use the Guru.
+          </span>
+        );
+        dispatch(setIsLoading(false));
+        dispatch(setAskingQuestion(false));
+
+        return;
+      }  else if (error) {
         setError("Error while asking question! Please try again.");
         dispatch(setIsLoading(false));
         dispatch(setAskingQuestion(false));
