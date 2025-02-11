@@ -61,7 +61,17 @@ class Command(BaseCommand):
         if response.get('references'):
             formatted_msg.append("_**Sources:**_")
             for ref in response['references']:
-                clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+                # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
+                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+
+                # Then remove Unicode emojis and their modifiers with adjacent spaces
+                clean_title = re.sub(
+                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                    ' ',
+                    clean_title
+                ).strip()
+
                 formatted_msg.append(f"• [_{clean_title}_](<{ref['link']}>)")
 
         # Add space for frontend link
