@@ -2002,8 +2002,8 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
     if references:
         formatted_msg.append("\n_*Sources*_:")
         for ref in references:
-            # Remove both Slack-style emoji codes and Unicode emojis
-            clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+            # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
+            clean_title = re.sub(r'\s*(?::[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF])\s*', ' ', ref['title']).strip()
             formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
     
     # Add frontend link if it exists
