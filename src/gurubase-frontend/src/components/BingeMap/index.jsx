@@ -406,13 +406,6 @@ export function BingeMap({
       currentQuestionSlug &&
       parentQuestionSlug
     ) {
-      console.log("[BingeMap] Adding streaming node:", {
-        streaming: streamingStatus,
-        recentlyStreamed,
-        currentQuestionSlug,
-        parentQuestionSlug,
-        hasNewNode: treeData.slug?.includes(currentQuestionSlug)
-      });
 
       // Deep clone the tree and add streaming node to correct parent
       const addStreamingNode = (node) => {
@@ -606,9 +599,6 @@ export function BingeMap({
   // Effects
   useEffect(() => {
     if (!streamingStatus && bingeOutdated !== undefined) {
-      console.log(
-        "[BingeMap] Streaming ended, setting recentlyStreamed to true"
-      );
       dispatch(setBingeOutdated(bingeOutdated));
       setRecentlyStreamed(true);
     }
@@ -626,9 +616,6 @@ export function BingeMap({
       };
 
       if (nodeExists(treeData)) {
-        console.log(
-          "[BingeMap] New node found in tree, clearing recentlyStreamed"
-        );
         setRecentlyStreamed(false);
       }
     }
@@ -743,7 +730,6 @@ export function BingeMap({
   }
 
   // Check if treeData only has one node (no children or empty children array)
-  console.log("[BingeMap] Nodes length:", nodes.length);
   if (nodes.length <= 1) {
     return null;
   }
