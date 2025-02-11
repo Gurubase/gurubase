@@ -1129,13 +1129,13 @@ class WidgetId(models.Model):
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, related_name='widget_ids')
     key = models.CharField(max_length=100, unique=True)
     domain_url = models.URLField(max_length=2000)
+    domain = models.URLField(max_length=2000)  # New field to store the base domain
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Widget ID'
         verbose_name_plural = 'Widget IDs'
-        # Add unique constraint for guru_type and domain_url
         unique_together = ['guru_type', 'domain_url']
 
     def __str__(self):
@@ -1145,6 +1145,9 @@ class WidgetId(models.Model):
         if self.domain_url:
             # Remove trailing slashes and normalize domain
             self.domain_url = self.domain_url.rstrip('/')
+            # Extract and store the domain
+            parsed_url = urlparse(self.domain_url)
+            self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
         # Ensure domain is unique per guru type if specified
         if self.domain_url and WidgetId.objects.filter(
