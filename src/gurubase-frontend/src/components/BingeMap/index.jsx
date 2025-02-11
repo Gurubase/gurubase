@@ -45,6 +45,8 @@ export function BingeMap({
   const [dragDistance, setDragDistance] = useState(0);
   const [scale, setScale] = useState(1);
   const [initialPanSet, setInitialPanSet] = useState(false);
+  const [recentlyStreamed, setRecentlyStreamed] = useState(false);
+  const [previousNodeCount, setPreviousNodeCount] = useState(0);
 
   // Refs
   const containerRef = useRef(null);
@@ -396,7 +398,22 @@ export function BingeMap({
     // Create a modified tree data that includes the streaming node
     let modifiedTreeData = treeData;
 
-    if (streamingStatus && currentQuestionSlug && parentQuestionSlug) {
+    // Only add streaming node if we're actively streaming OR
+    // we recently streamed but haven't received the new node yet
+    if (
+      (streamingStatus || recentlyStreamed) &&
+      !treeData.slug?.includes(currentQuestionSlug) &&
+      currentQuestionSlug &&
+      parentQuestionSlug
+    ) {
+      console.log("[BingeMap] Adding streaming node:", {
+        streaming: streamingStatus,
+        recentlyStreamed,
+        currentQuestionSlug,
+        parentQuestionSlug,
+        hasNewNode: treeData.slug?.includes(currentQuestionSlug)
+      });
+
       // Deep clone the tree and add streaming node to correct parent
       const addStreamingNode = (node) => {
         if (node.slug === parentQuestionSlug) {
@@ -408,7 +425,7 @@ export function BingeMap({
                 id: "streaming-temp",
                 text: currentQuestionSlug,
                 slug: currentQuestionSlug,
-                isStreaming: true,
+                isStreaming: streamingStatus,
                 children: []
               }
             ]
@@ -431,6 +448,7 @@ export function BingeMap({
     treeData,
     containerWidth,
     streamingStatus,
+    recentlyStreamed,
     currentQuestionSlug,
     parentQuestionSlug
   ]);
@@ -588,9 +606,33 @@ export function BingeMap({
   // Effects
   useEffect(() => {
     if (!streamingStatus && bingeOutdated !== undefined) {
+      console.log(
+        "[BingeMap] Streaming ended, setting recentlyStreamed to true"
+      );
       dispatch(setBingeOutdated(bingeOutdated));
+      setRecentlyStreamed(true);
     }
   }, [bingeOutdated, dispatch, streamingStatus]);
+
+  useEffect(() => {
+    if (recentlyStreamed && treeData && currentQuestionSlug) {
+      // Check if the new node exists in the tree
+      const nodeExists = (node) => {
+        if (node.slug === currentQuestionSlug) return true;
+        if (node.children) {
+          return node.children.some(nodeExists);
+        }
+        return false;
+      };
+
+      if (nodeExists(treeData)) {
+        console.log(
+          "[BingeMap] New node found in tree, clearing recentlyStreamed"
+        );
+        setRecentlyStreamed(false);
+      }
+    }
+  }, [treeData, recentlyStreamed, currentQuestionSlug]);
 
   useEffect(() => {
     if (isLoading || streamingStatus) return;
@@ -701,7 +743,7 @@ export function BingeMap({
   }
 
   // Check if treeData only has one node (no children or empty children array)
-  console.log(nodes);
+  console.log("[BingeMap] Nodes length:", nodes.length);
   if (nodes.length <= 1) {
     return null;
   }
