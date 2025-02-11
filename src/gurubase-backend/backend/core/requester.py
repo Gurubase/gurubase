@@ -32,7 +32,12 @@ def get_openai_api_key():
         return Settings.objects.get(id=1).openai_api_key
     else:
         return settings.OPENAI_API_KEY
-
+    
+def get_firecrawl_api_key():
+    if settings.ENV == 'selfhosted':
+        return Settings.objects.get(id=1).firecrawl_api_key
+    else:
+        return settings.FIRECRAWL_API_KEY
 
 GURU_ENDPOINTS = {
     'processed_raw_questions': 'processed_raw_questions'
@@ -93,7 +98,7 @@ class WebScraper(ABC):
 class FirecrawlScraper(WebScraper):
     """Firecrawl implementation of WebScraper"""
     def __init__(self):
-        self.app = FirecrawlApp(api_key=settings.FIRECRAWL_API_KEY)
+        self.app = FirecrawlApp(api_key=get_firecrawl_api_key())
 
     def scrape_url(self, url: str) -> Tuple[str, str]:
         scrape_status = self.app.scrape_url(
@@ -207,12 +212,19 @@ class Crawl4AIScraper(WebScraper):
 
 def get_web_scraper() -> WebScraper:
     """Factory function to get the appropriate web scraper based on settings"""
-    if settings.WEBSITE_EXTRACTION == 'crawl4ai':
-        return Crawl4AIScraper()
-    elif settings.WEBSITE_EXTRACTION == 'firecrawl':
-        return FirecrawlScraper()
+
+    if settings.ENV == 'selfhosted':
+        scrape_type = Settings.objects.get(id=1).scrape_type
+        scrape_type = scrape_type.lower()
     else:
-        raise ValueError(f"Invalid website extraction tool: {settings.WEBSITE_EXTRACTION}")
+        scrape_type = settings.WEBSITE_EXTRACTION
+
+    if scrape_type == 'crawl4ai':
+        return Crawl4AIScraper(), scrape_type
+    elif scrape_type == 'firecrawl':
+        return FirecrawlScraper(), scrape_type
+    else:
+        raise ValueError(f"Invalid website extraction tool: {scrape_type}")
 
 class GuruRequester():
     def __init__(self):

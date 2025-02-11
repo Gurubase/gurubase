@@ -2498,7 +2498,6 @@ def manage_settings(request):
         return Response(serializer.data)
 
     elif request.method == 'PUT':
-        print(request.data)
         serializer = SettingsSerializer(settings_obj, data=request.data, partial=True)
         if serializer.is_valid():
             if not serializer.validated_data.get('openai_api_key'):
