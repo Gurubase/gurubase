@@ -22,9 +22,16 @@ logging.getLogger("httpx").setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
-from core.models import GuruType
+from core.models import GuruType, Settings
 from core.guru_types import get_guru_type_prompt_map
 genai.configure(api_key=settings.GEMINI_API_KEY)
+
+
+def get_openai_api_key():
+    if settings.ENV == 'selfhosted':
+        return Settings.objects.get(id=1).openai_api_key
+    else:
+        return settings.OPENAI_API_KEY
 
 
 GURU_ENDPOINTS = {
@@ -220,7 +227,11 @@ class GuruRequester():
 
 class OpenAIRequester():
     def __init__(self):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        openai_api_key = get_openai_api_key()
+        if not openai_api_key:
+            self.client = None
+        else:
+            self.client = OpenAI(api_key=openai_api_key)
 
     def get_context_relevance(self, question_text, user_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance

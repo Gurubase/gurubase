@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiRequester, OpenAIRequester, CloudflareRequester 
+from core.requester import GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -44,9 +44,18 @@ from rest_framework.exceptions import Throttled
 
 logger = logging.getLogger(__name__)
 
-cloudflare_requester = CloudflareRequester()
-chatgpt_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-openai_requester = OpenAIRequester()
+
+def get_openai_client():
+    """Get a fresh OpenAI client instance with the current API key"""
+    return OpenAI(api_key=get_openai_api_key())
+
+def get_cloudflare_requester():
+    """Get a fresh CloudflareRequester instance"""
+    return CloudflareRequester()
+
+def get_openai_requester():
+    """Get a fresh OpenAIRequester instance"""
+    return OpenAIRequester()
 
 def stream_and_save(
         user_question, 
@@ -164,7 +173,7 @@ def stream_and_save(
             question_obj.user = user
             question_obj.times = times
             question_obj.save()
-            cloudflare_requester.purge_cache(guru_type, question_slug)
+            get_cloudflare_requester().purge_cache(guru_type, question_slug)
             
         else:
             question_obj = Question(
@@ -714,7 +723,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         return github_repo_sources, reranked_scores        
 
     def filter_by_trust_score(contexts, reranked_scores, question, user_question, guru_type_slug):
-        context_relevance, ctx_rel_usage, prompt, user_prompt = openai_requester.get_context_relevance(question, user_question, guru_type_slug, contexts, cot=False)
+        context_relevance, ctx_rel_usage, prompt, user_prompt = get_openai_requester().get_context_relevance(question, user_question, guru_type_slug, contexts, cot=False)
         ctx_rel_usage['cost_dollars'] = get_llm_usage(settings.GPT_MODEL, ctx_rel_usage['prompt_tokens'], ctx_rel_usage['completion_tokens'], ctx_rel_usage['cached_prompt_tokens'])
         filtered_contexts = []
         filtered_reranked_scores = []
@@ -1070,7 +1079,7 @@ def ask_question_with_stream(
     used_prompt = messages[0]['content']
 
     start_chatgpt = time.perf_counter()
-    response = chatgpt_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model=settings.GPT_MODEL,
         temperature=0,
         messages=messages,
@@ -1118,7 +1127,7 @@ def get_summary(question, guru_type, short_answer=False):
 
     start_response_await = time.perf_counter()
     try:
-        response = chatgpt_client.beta.chat.completions.parse(
+        response = get_openai_client().beta.chat.completions.parse(
             model=settings.GPT_MODEL,
             temperature=0,
             messages=[
@@ -1164,7 +1173,7 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
 
 
 def ask_if_english(question):
-    response = chatgpt_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
         model=settings.GPT_MODEL_MINI,
         temperature=0,
         messages=[
@@ -1240,7 +1249,7 @@ def get_more_seo_friendly_title(title):
     from core.prompts import seo_friendly_title_template
     prompt = seo_friendly_title_template.format(question=title)
 
-    response = chatgpt_client.beta.chat.completions.parse(
+    response = get_openai_client().beta.chat.completions.parse(
         model=settings.GPT_MODEL_MINI,
         temperature=0,
         messages=[
@@ -1278,7 +1287,7 @@ def generate_similar_questions(model, guru_type, questions, generate_count_per_c
     total_cached_prompt_tokens = 0
     
     prompt = create_question_categories.format(questions=formatted_questions, **context_variables)
-    response = chatgpt_client.chat.completions.create(
+    response = get_openai_client().chat.completions.create(
             model=settings.GPT_MODEL,
             temperature=1,
             messages=[
@@ -1331,7 +1340,7 @@ def generate_similar_questions(model, guru_type, questions, generate_count_per_c
             except Exception as e:
                 logger.error(f'Error while parsing generated raw questions with claude: {e}. Response: {response.content[0].text}', exc_info=True)
         elif model == 'chatgpt':
-            response = chatgpt_client.chat.completions.create(
+            response = get_openai_client().chat.completions.create(
                 model=settings.GPT_MODEL,
                 temperature=1,
                 messages=[
@@ -2592,7 +2601,7 @@ def get_summary_question_generation_model():
 def summarize_text(text, guru_type):
     llm_model, model_name = get_summary_generation_model()
     if llm_model == LLM_MODEL.OPENAI:
-        summary_response, usages = openai_requester.summarize_text(text, guru_type, model_name=model_name)
+        summary_response, usages = get_openai_requester().summarize_text(text, guru_type, model_name=model_name)
     elif llm_model == LLM_MODEL.GEMINI:
         summary_response, usages = GeminiRequester(model_name).summarize_text(text, guru_type)
         
@@ -2602,7 +2611,7 @@ def summarize_text(text, guru_type):
 def generate_questions_from_summary(summary, guru_type):
     llm_model, model_name = get_summary_question_generation_model()
     if llm_model == LLM_MODEL.OPENAI:
-        questions, usages = openai_requester.generate_questions_from_summary(summary, guru_type, model_name=model_name)
+        questions, usages = get_openai_requester().generate_questions_from_summary(summary, guru_type, model_name=model_name)
     elif llm_model == LLM_MODEL.GEMINI:
         questions, usages = GeminiRequester(model_name).generate_questions_from_summary(summary, guru_type)
         

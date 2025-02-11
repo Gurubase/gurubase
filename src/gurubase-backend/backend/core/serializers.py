@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey
+from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings
 from core.gcp import replace_media_root_with_nginx_base_url
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -126,3 +126,28 @@ class APIKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = APIKey
         fields = ['id', 'key', 'name', 'date_created']
+
+class SettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Settings
+        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'scrape_type']
+        extra_kwargs = {
+            'openai_api_key': {'write_only': True},  # Ensure API key is write-only for security
+            'is_openai_key_valid': {'read_only': True},  # This field is computed on save
+            'firecrawl_api_key': {'write_only': True},
+            'is_firecrawl_key_valid': {'read_only': True}
+        }
+
+    def to_representation(self, instance):
+        repr = super().to_representation(instance)
+        
+        # Mask API keys if they exist with fixed 10 asterisks
+        if instance.openai_api_key:
+            key = instance.openai_api_key
+            repr['openai_api_key'] = f"{key[:3]}{'.' * 10}{key[-4:]}"
+            
+        if instance.firecrawl_api_key:
+            key = instance.firecrawl_api_key
+            repr['firecrawl_api_key'] = f"{key[:3]}{'.' * 10}{key[-4:]}"
+            
+        return repr

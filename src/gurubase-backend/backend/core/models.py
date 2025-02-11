@@ -926,11 +926,55 @@ class OutOfContextQuestion(models.Model):
 
 
 class Settings(models.Model):
+    class ScrapeType(models.TextChoices):
+        CRAWL4AI = "CRAWL4AI", "Crawl4AI"
+        FIRECRAWL = "FIRECRAWL", "Firecrawl"
+
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
     trust_score_threshold = models.FloatField(default=0.0)
     pricings = models.JSONField(default=dict)
     widget_answer_max_length = models.IntegerField(default=150)
+    openai_api_key = models.CharField(max_length=500, null=True, blank=True)
+    is_openai_key_valid = models.BooleanField(default=False)
+    firecrawl_api_key = models.CharField(max_length=500, null=True, blank=True)
+    is_firecrawl_key_valid = models.BooleanField(default=False)
+    scrape_type = models.CharField(
+        max_length=50,
+        choices=ScrapeType.choices,
+        default=ScrapeType.CRAWL4AI,
+    )
+
+    def save(self, *args, **kwargs):
+        # Check OpenAI API key validity before saving
+        if self.openai_api_key:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=self.openai_api_key, timeout=10)
+                client.models.list()
+                self.is_openai_key_valid = True
+            except Exception:
+                self.is_openai_key_valid = False
+        else:
+            self.is_openai_key_valid = False
+
+        if self.firecrawl_api_key:
+            try:
+                if self.scrape_type == Settings.ScrapeType.FIRECRAWL:
+                    import requests
+                    url = "https://api.firecrawl.dev/v1/team/credit-usage"
+                    headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
+                    response = requests.get(url, headers=headers, timeout=10)
+                    self.is_firecrawl_key_valid = response.status_code == 200
+            except Exception:
+                self.is_firecrawl_key_valid = False
+        else:
+            self.is_firecrawl_key_valid = False
+            
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Settings ID: {self.id}"
 
 
 class LLMEvalResult(models.Model):
