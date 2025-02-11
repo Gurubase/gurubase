@@ -1921,7 +1921,35 @@ def convert_markdown_to_slack(content: str) -> str:
     """Convert Markdown formatting to Slack formatting."""
     # Convert markdown code blocks to Slack code blocks by removing language specifiers
     import re
+    
+    # First remove language specifiers from code blocks
     content = re.sub(r'```\w+', '```', content)
+    
+    # Then remove empty lines at the start and end of code blocks
+    def trim_code_block(match):
+        code_block = match.group(0)
+        lines = code_block.split('\n')
+        
+        # Find first and last non-empty lines (excluding ```)
+        start = 0
+        end = len(lines) - 1
+        
+        # Find first non-empty line after opening ```
+        for i, line in enumerate(lines):
+            if line.strip() == '```':
+                start = i + 1
+                break
+                
+        # Find last non-empty line before closing ```
+        for i in range(len(lines) - 1, -1, -1):
+            if line.strip() == '```':
+                end = i
+                break
+                
+        # Keep all lines between start and end (inclusive)
+        return '```\n' + '\n'.join(lines[start:end]) + '\n```'
+    
+    content = re.sub(r'```[\s\S]+?```', trim_code_block, content)
     
     # Convert markdown links [text](url) to Slack format <url|text>
     def replace_link(match):
