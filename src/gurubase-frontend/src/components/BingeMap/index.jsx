@@ -1,6 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/binge-map-card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/binge-map-card";
 import { useParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
@@ -11,10 +16,10 @@ import {
 } from "@/redux/slices/mainFormSlice";
 import clsx from "clsx";
 import { handleQuestionUpdate } from "@/utils/handleQuestionUpdate";
-import BingeMapZoomControls from './BingeMapZoomControls';
-import BingeMapGraph from './BingeMapGraph';
-import BingeMapTooltip from './BingeMapTooltip';
-import BingeMapMobileButton from './BingeMapMobileButton';
+import BingeMapZoomControls from "./BingeMapZoomControls";
+import BingeMapGraph from "./BingeMapGraph";
+import BingeMapTooltip from "./BingeMapTooltip";
+import BingeMapMobileButton from "./BingeMapMobileButton";
 
 // Constants
 const CONTAINER_HEIGHT = 400;
@@ -28,7 +33,7 @@ export function BingeMap({
   setQuestion,
   setDescription,
   treeData,
-  bingeOutdated,
+  bingeOutdated
 }) {
   // State
   const [activeNode, setActiveNode] = useState(null);
@@ -47,21 +52,35 @@ export function BingeMap({
   // Redux
   const dispatch = useAppDispatch();
   const { guruType } = useParams();
-  const currentQuestionSlug = useAppSelector((state) => state.mainForm.currentQuestionSlug);
-  const parentQuestionSlug = useAppSelector((state) => state.mainForm.parentQuestionSlug);
-  const streamingStatus = useAppSelector((state) => state.mainForm.streamingStatus);
+  const currentQuestionSlug = useAppSelector(
+    (state) => state.mainForm.currentQuestionSlug
+  );
+  const parentQuestionSlug = useAppSelector(
+    (state) => state.mainForm.parentQuestionSlug
+  );
+  const streamingStatus = useAppSelector(
+    (state) => state.mainForm.streamingStatus
+  );
   const inputQuery = useAppSelector((state) => state.mainForm.inputQuery);
   const questionText = useAppSelector((state) => state.mainForm.questionText);
   const bingeId = useAppSelector((state) => state.mainForm.bingeId);
   const isLoading = useAppSelector((state) => state.mainForm.isLoading);
-  const isBingeMapOpen = useAppSelector((state) => state.mainForm.isBingeMapOpen);
+  const isBingeMapOpen = useAppSelector(
+    (state) => state.mainForm.isBingeMapOpen
+  );
   const isAnswerValid = useAppSelector((state) => state.mainForm.isAnswerValid);
   const contextError = useAppSelector((state) => state.mainForm.contextError);
   const streamError = useAppSelector((state) => state.mainForm.streamError);
 
   // Helper functions
   const areNodesDisabled = () => {
-    return !isAnswerValid || contextError || streamError || isLoading || streamingStatus;
+    return (
+      !isAnswerValid ||
+      contextError ||
+      streamError ||
+      isLoading ||
+      streamingStatus
+    );
   };
 
   const getNodeColor = (node) => {
@@ -367,11 +386,12 @@ export function BingeMap({
       x: containerWidth / 2 - centerX,
       y: containerHeight / 2 - centerY
     };
-  };  
+  };
 
   // Use useMemo to calculate scaled positions
   const { nodes, links, nodeSize } = useMemo(() => {
-    if (!treeData || !containerWidth) return { nodes: [], links: [], nodeSize: 12 };
+    if (!treeData || !containerWidth)
+      return { nodes: [], links: [], nodeSize: 12 };
 
     // Create a modified tree data that includes the streaming node
     let modifiedTreeData = treeData;
@@ -407,23 +427,39 @@ export function BingeMap({
     }
 
     return getScaledPositions(modifiedTreeData);
-  }, [treeData, containerWidth, streamingStatus, currentQuestionSlug, parentQuestionSlug]);
+  }, [
+    treeData,
+    containerWidth,
+    streamingStatus,
+    currentQuestionSlug,
+    parentQuestionSlug
+  ]);
 
-  const activeNodeData = useMemo(() => 
-    activeNode && nodes?.length
-      ? nodes.find((node) => node.id === activeNode)
-      : null
-  , [activeNode, nodes]);
+  const activeNodeData = useMemo(
+    () =>
+      activeNode && nodes?.length
+        ? nodes.find((node) => node.id === activeNode)
+        : null,
+    [activeNode, nodes]
+  );
 
   // Event handlers
   const handleNodeClick = async (nodeId) => {
     if (streamingStatus || isLoading) return;
 
-    const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+    const isDesktop =
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 768px)").matches;
     const clickedNode = nodes.find((node) => node.id === nodeId);
 
     if (clickedNode) {
-      const optimalPan = calculateOptimalPan(clickedNode, nodes, containerWidth, CONTAINER_HEIGHT, pan);
+      const optimalPan = calculateOptimalPan(
+        clickedNode,
+        nodes,
+        containerWidth,
+        CONTAINER_HEIGHT,
+        pan
+      );
       setPan(optimalPan);
 
       if (isDesktop) {
@@ -445,13 +481,18 @@ export function BingeMap({
           });
         }
       } else {
-        setActiveNode((prevActiveNode) => prevActiveNode === nodeId ? null : nodeId);
+        setActiveNode((prevActiveNode) =>
+          prevActiveNode === nodeId ? null : nodeId
+        );
       }
     }
   };
 
   const handleNodeHover = (nodeId) => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches) {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 768px)").matches
+    ) {
       setHoveredNode(nodeId);
     }
   };
@@ -639,7 +680,15 @@ export function BingeMap({
         setInitialPanSet(true);
       }
     }
-  }, [nodes, currentQuestionSlug, containerWidth, initialPanSet, streamingStatus, isLoading, pan]);
+  }, [
+    nodes,
+    currentQuestionSlug,
+    containerWidth,
+    initialPanSet,
+    streamingStatus,
+    isLoading,
+    pan
+  ]);
 
   useEffect(() => {
     if (!isBingeMapOpen) {
@@ -648,6 +697,12 @@ export function BingeMap({
   }, [isBingeMapOpen]);
 
   if (!treeData || !nodes?.length) {
+    return null;
+  }
+
+  // Check if treeData only has one node (no children or empty children array)
+  console.log(nodes);
+  if (nodes.length <= 1) {
     return null;
   }
 
@@ -730,4 +785,4 @@ export function BingeMap({
   );
 }
 
-export default BingeMap; 
+export default BingeMap;
