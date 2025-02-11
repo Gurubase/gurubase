@@ -1919,13 +1919,11 @@ def strip_first_header(content: str) -> str:
 
 def convert_markdown_to_slack(content: str) -> str:
     """Convert Markdown formatting to Slack formatting."""
-    # Convert markdown code blocks to Slack code blocks
-    content = content.replace("```python", "```")
-    content = content.replace("```bash", "```")
-    content = content.replace("```javascript", "```")
+    # Convert markdown code blocks to Slack code blocks by removing language specifiers
+    import re
+    content = re.sub(r'```\w+', '```', content)
     
     # Convert markdown links [text](url) to Slack format <url|text>
-    import re
     def replace_link(match):
         text = match.group(1)
         url = match.group(2)
