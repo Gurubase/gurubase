@@ -6,7 +6,27 @@ FROM python:3.11-slim AS base
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      git
+        git \
+        libglib2.0-0 \
+        libnss3 \
+        libnspr4 \
+        libdbus-1-3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libx11-6 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libxcb1 \
+        libxkbcommon0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libasound2 \
+        libatspi2.0-0
 
 # 3) Tweak Python to run better in Docker
 ENV PYTHONUNBUFFERED=1 \
@@ -29,7 +49,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
 # Run crawl4ai setup to install browsers and dependencies
-RUN crawl4ai-setup
+RUN playwright install chromium
 
 COPY . .
 
@@ -85,6 +105,6 @@ ENV VIRTUAL_ENV=/workspace/.venv \
 
 COPY --from=build --chown=nonroot:nonroot /workspace ./
 
-RUN crawl4ai-setup
+RUN playwright install chromium
 
 CMD ["./entrypoint.sh"]
