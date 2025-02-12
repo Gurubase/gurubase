@@ -1779,12 +1779,13 @@ def create_integration(request):
 
 
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'DELETE', 'POST'])
 @jwt_auth
 def manage_integration(request, guru_type, integration_type):
     """
     GET: Get integration details for a specific guru type and integration type.
     DELETE: Delete an integration and invalidate its OAuth token.
+    POST: Create a new integration.
     """
     try:
         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
@@ -1798,11 +1799,14 @@ def manage_integration(request, guru_type, integration_type):
         return Response({'msg': f'Invalid integration type: {integration_type}'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        integration = Integration.objects.get(
-            guru_type=guru_type_object,
-            type=integration_type
-        )
-        
+        if request.method in ['GET', 'DELETE']:
+            integration = Integration.objects.get(
+                guru_type=guru_type_object,
+                type=integration_type
+            )
+        else:
+            integration = None
+
         if request.method == 'GET':
             return Response({
                 'id': integration.id,
@@ -1817,6 +1821,40 @@ def manage_integration(request, guru_type, integration_type):
             # Delete the integration - token revocation is handled by signal
             integration.delete()
             return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
+        elif request.method == 'POST':
+            if settings.ENV != 'selfhosted':
+                return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                workspace_name = request.data.get('workspace_name')
+                external_id = request.data.get('external_id')
+                access_token = request.data.get('access_token')
+
+                if not all([workspace_name, external_id, access_token]):
+                    return Response({'msg': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+                integration = Integration.objects.create(
+                    guru_type=guru_type_object,
+                    type=integration_type,
+                    workspace_name=workspace_name,
+                    external_id=external_id,
+                    access_token=access_token,
+                    channels=[]
+                )
+                
+                return Response({
+                    'id': integration.id,
+                    'type': integration.type,
+                    'workspace_name': integration.workspace_name,
+                    'external_id': integration.external_id,
+                    'channels': integration.channels,
+                    'date_created': integration.date_created,
+                    'date_updated': integration.date_updated,
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                logger.error(f"Error creating integration: {e}", exc_info=True)
+                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     except Integration.DoesNotExist:
         if request.method == 'GET':
@@ -2475,3 +2513,4 @@ def list_integrations(request, guru_type):
     except Exception as e:
         logger.error(f"Error in list_integrations: {e}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    

@@ -112,16 +112,19 @@ export const makeAuthenticatedRequest = async (
 
 // Helper for public API requests
 export const makePublicRequest = async (url, options = {}, decode = false) => {
+  console.log("Making public request", url, options);
   const headers = {
     // "Content-Type": "application/json",
     Authorization: process.env.NEXT_PUBLIC_BACKEND_AUTH_TOKEN,
     ...options.headers
   };
 
+  console.log("Headers", headers);
   const response = await fetch(url, {
     ...options,
     headers
   });
+  console.log("Response", response);
 
   if (response.status === 429) {
     throw new HttpError("Server api rate limiting reached!", response.status);
@@ -982,6 +985,49 @@ export async function getIntegrationsList(guruType) {
     return handleRequestError(error, {
       context: "getIntegrationsList",
       guruType
+    });
+  }
+}
+
+export async function createSelfhostedIntegration(
+  guruType,
+  integrationType,
+  data
+) {
+  try {
+    console.log("Creating selfhosted integration", data);
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_name: data.workspaceName,
+          external_id: data.externalId,
+          access_token: data.accessToken
+        })
+      }
+    );
+
+    console.log("Response", response);
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    const errorData = await response.json();
+    return {
+      error: true,
+      message: errorData.msg || "Failed to create integration",
+      status: response.status
+    };
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "createSelfhostedIntegration",
+      guruType,
+      data
     });
   }
 }

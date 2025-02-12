@@ -910,14 +910,15 @@ def handle_integration_deletion(sender, instance, **kwargs):
             logger.warning(f"Failed to leave Discord guild for integration {instance.id}: {e}", exc_info=True)
             
 
-    # Step 2: Revoke access token
-    try:
-        from .integrations import IntegrationFactory
-        strategy = IntegrationFactory.get_strategy(instance.type, instance)
-        strategy.revoke_access_token()
-    except Exception as e:
-        logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
-        # Continue with deletion even if token revocation fails
+    if settings.ENV != 'selfhosted':
+        # Step 2: Revoke access token
+        try:
+            from .integrations import IntegrationFactory
+            strategy = IntegrationFactory.get_strategy(instance.type, instance)
+            strategy.revoke_access_token()
+        except Exception as e:
+            logger.warning(f"Failed to revoke access token for integration {instance.id}: {e}", exc_info=True)
+            # Continue with deletion even if token revocation fails
 
-    if instance.api_key:
-        instance.api_key.delete()
+        if instance.api_key:
+            instance.api_key.delete()
