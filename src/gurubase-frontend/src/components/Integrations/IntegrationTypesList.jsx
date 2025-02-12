@@ -33,27 +33,21 @@ const IntegrationTypesList = ({ customGuru }) => {
     fetchIntegrations();
   }, [customGuru]);
 
-  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
-
   const integrationTypes = [
-    ...(isSelfHosted
-      ? []
-      : [
-          {
-            id: "slack",
-            name: "Slack Bot",
-            description: "Ask your Guru directly in Slack.",
-            icon: SlackIcon,
-            type: "SLACK"
-          },
-          {
-            id: "discord",
-            name: "Discord Bot",
-            description: "Instant access to your guru, right in Discord.",
-            icon: DiscordIcon,
-            type: "DISCORD"
-          }
-        ]),
+    {
+      id: "slack",
+      name: "Slack Bot",
+      description: "Ask your Guru directly in Slack.",
+      icon: SlackIcon,
+      type: "SLACK"
+    },
+    {
+      id: "discord",
+      name: "Discord Bot",
+      description: "Instant access to your guru, right in Discord.",
+      icon: DiscordIcon,
+      type: "DISCORD"
+    },
     {
       id: "web_widget",
       name: "Web Widget",

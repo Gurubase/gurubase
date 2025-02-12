@@ -16,15 +16,9 @@ import {
   getIntegrationChannels,
   saveIntegrationChannels,
   sendIntegrationTestMessage,
-  deleteIntegration
+  deleteIntegration,
+  createSelfhostedIntegration
 } from "@/app/actions";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,7 +49,7 @@ import {
 } from "@/components/ui/popover";
 import Link from "next/link";
 
-const IntegrationContent = ({ type, customGuru, error }) => {
+const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [channels, setChannels] = useState([]);
   const [originalChannels, setOriginalChannels] = useState([]);
@@ -67,34 +61,48 @@ const IntegrationContent = ({ type, customGuru, error }) => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [open, setOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [externalId, setExternalId] = useState("");
+  const [accessToken, setAccessToken] = useState("");
 
   const integrationConfig = {
     slack: {
       name: "Slack",
-      description:(
+      description: (
         <>
-          By connecting your account, you can ask your Guru directly in Slack. Here is the guide to{" "}
-          <Link href="https://docs.gurubase.io/integrations/slack-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+          By connecting your account, you can ask your Guru directly in Slack.
+          Here is the guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/slack-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
             learn more
           </Link>
-          .   
+          .
         </>
       ),
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_SLACK_INTEGRATION_URL,
       icon: SlackIcon,
       extraText:
-        'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.'
+        'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.',
+      externalIdLabel: "Workspace ID",
+      accessTokenLabel: "Bot Token",
+      workspaceNameLabel: "Workspace Name"
     },
     discord: {
       name: "Discord",
-      description:(
+      description: (
         <>
-          By connecting your account, you can ask your Guru directly in Discord. Here is the guide to{" "}
-          <Link href="https://docs.gurubase.io/integrations/discord-bot" className="text-blue-500 hover:text-blue-600" target="_blank">
+          By connecting your account, you can ask your Guru directly in Discord.
+          Here is the guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/discord-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
             learn more
           </Link>
-          .   
+          .
         </>
       ),
       bgColor: "bg-[#5865F2]",
@@ -102,7 +110,10 @@ const IntegrationContent = ({ type, customGuru, error }) => {
       url: process.env.NEXT_PUBLIC_DISCORD_INTEGRATION_URL,
       icon: DiscordIcon,
       extraText:
-        "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels."
+        "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels.",
+      externalIdLabel: "Server ID",
+      accessTokenLabel: "Bot Token",
+      workspaceNameLabel: "Server Name"
     }
   };
   const config = integrationConfig[type];
@@ -203,22 +214,48 @@ const IntegrationContent = ({ type, customGuru, error }) => {
         <div className="flex flex-col gap-6 p-6">
           <div className="flex md:items-center md:justify-between flex-col md:flex-row gap-4">
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
-              <IntegrationInfo
-                name={name}
-                description={config.description}
-              />
+              <IntegrationInfo name={name} description={config.description} />
             </IntegrationIconContainer>
             <div className="flex items-center justify-start w-full md:w-auto">
               <Button
                 variant="outline"
                 size="lgRounded"
                 className="bg-white hover:bg-white text-[#232323] border border-neutral-200 rounded-full gap-2 guru-xs:w-full guru-xs:justify-center hover:bg-[#F3F4F6] active:bg-[#E2E2E2]"
-                onClick={() => setShowDeleteDialog(true)}>
+                onClick={() => {
+                  setShowDeleteDialog(true);
+                }}>
                 <ConnectedIntegrationIcon />
                 Connected to {integrationData.workspace_name}
               </Button>
             </div>
           </div>
+          {selfhosted && (
+            <div className="flex flex-col gap-4">
+              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
+                <Input
+                  readOnly
+                  className="bg-gray-50 pt-8 pb-2"
+                  value={integrationData.external_id}
+                  label={config.externalIdLabel}
+                />
+                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                  {config.externalIdLabel}
+                </span>
+              </div>
+              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
+                <Input
+                  readOnly
+                  className="bg-gray-50 pt-8 pb-2"
+                  value={integrationData.access_token}
+                  label={config.accessTokenLabel}
+                  type="password"
+                />
+                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                  {config.accessTokenLabel}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="">
             <div className="flex flex-col gap-2">
               <h3 className="text-lg font-medium">Channels</h3>
@@ -505,29 +542,109 @@ const IntegrationContent = ({ type, customGuru, error }) => {
     <div className="w-full">
       <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
-      <div className="flex flex-row items-center justify-between p-6 guru-xs:flex-col guru-xs:items-start gap-4">
+      <div
+        className={cn(
+          "flex p-6 gap-4",
+          selfhosted
+            ? "flex-col"
+            : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
+        )}>
         <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
           <IntegrationInfo
             name={config.name}
             description={config.description}
           />
         </IntegrationIconContainer>
-        <Button
-          variant="default"
-          size="lgRounded"
-          className="bg-[#1a1a1a] text-white hover:bg-[#2a2a2a] guru-xs:w-full w-auto "
-          onClick={() =>
-            window.open(
-              `${integrationUrl}&state=${JSON.stringify({
-                type: type,
-                guru_type: customGuru,
-                encoded_guru_slug: integrationData?.encoded_guru_slug
-              })}`,
-              "_blank"
-            )
-          }>
-          Connect
-        </Button>
+        <div
+          className={cn(
+            "flex flex-col gap-4 mt-2",
+            selfhosted ? "w-full md:" : "w-full md:w-auto"
+          )}>
+          {selfhosted ? (
+            <>
+              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
+                <Input
+                  className="pt-8 pb-2"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  label={config.workspaceNameLabel}
+                />
+                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                  {config.workspaceNameLabel}
+                </span>
+              </div>
+              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
+                <Input
+                  className="pt-8 pb-2"
+                  value={externalId}
+                  onChange={(e) => setExternalId(e.target.value)}
+                  label={config.externalIdLabel}
+                />
+                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                  {config.externalIdLabel}
+                </span>
+              </div>
+              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
+                <Input
+                  className="pt-8 pb-2"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  label={config.accessTokenLabel}
+                  type="password"
+                />
+                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                  {config.accessTokenLabel}
+                </span>
+              </div>
+            </>
+          ) : null}
+          <Button
+            variant="default"
+            size="lgRounded"
+            className={cn(
+              "bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]",
+              selfhosted
+                ? "w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]"
+                : "guru-xs:w-full w-auto"
+            )}
+            onClick={async () => {
+              if (selfhosted) {
+                try {
+                  const response = await createSelfhostedIntegration(
+                    customGuru,
+                    type.toUpperCase(),
+                    {
+                      workspaceName,
+                      externalId,
+                      accessToken
+                    }
+                  );
+
+                  if (!response?.error) {
+                    setIntegrationData(response);
+                    setInternalError(null);
+                  } else {
+                    setInternalError(
+                      response.message || "Failed to create integration"
+                    );
+                  }
+                } catch (error) {
+                  setInternalError(error.message);
+                }
+              } else {
+                window.open(
+                  `${integrationUrl}&state=${JSON.stringify({
+                    type: type,
+                    guru_type: customGuru,
+                    encoded_guru_slug: integrationData?.encoded_guru_slug
+                  })}`,
+                  "_blank"
+                );
+              }
+            }}>
+            Connect
+          </Button>
+        </div>
       </div>
       {error && <IntegrationError />}
     </div>
