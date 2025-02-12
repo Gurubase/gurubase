@@ -163,12 +163,19 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
         );
         if (channelsData?.error) {
           console.error("Failed to fetch channels:", channelsData.message);
+          setInternalError(
+            selfhosted
+              ? "Failed to fetch channels. Please make sure your bot token is correct."
+              : "Failed to fetch channels."
+          );
         } else {
           setChannels(channelsData?.channels || []);
           setOriginalChannels(channelsData?.channels || []);
+          setInternalError(null);
         }
       } catch (err) {
         console.error("Failed to fetch channels:", err);
+        setInternalError(err.message);
       } finally {
         setChannelsLoading(false);
       }
@@ -196,21 +203,13 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     );
   }
 
-  if (internalError) {
-    return (
-      <div className="w-full">
-        <IntegrationHeader text={`${name} Bot`} />
-        <IntegrationDivider />
-        <div className="p-6 text-red-500">{internalError}</div>
-      </div>
-    );
-  }
-
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
         <IntegrationHeader text={`${name} Bot`} />
         <IntegrationDivider />
+        {/* Show error if present */}
+        {internalError && <IntegrationError message={internalError} />}
         <div className="flex flex-col gap-6 p-6">
           <div className="flex md:items-center md:justify-between flex-col md:flex-row gap-4">
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
@@ -541,6 +540,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     <div className="w-full">
       <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
+      {error && <IntegrationError />}
       <div
         className={cn(
           "flex p-6 gap-4",
@@ -644,7 +644,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           </Button>
         </div>
       </div>
-      {error && <IntegrationError />}
     </div>
   );
 };
