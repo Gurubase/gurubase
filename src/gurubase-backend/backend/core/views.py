@@ -1827,18 +1827,25 @@ def manage_integration(request, guru_type, integration_type):
                 return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
 
             try:
-                workspace_name = request.data.get('workspace_name')
-                external_id = request.data.get('external_id')
                 access_token = request.data.get('access_token')
+                if not access_token:
+                    return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
 
-                if not all([workspace_name, external_id, access_token]):
-                    return Response({'msg': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+                # Get the appropriate integration strategy
+                strategy = IntegrationFactory.get_strategy(integration_type)
+                
+                # Fetch workspace details using bot token
+                try:
+                    workspace_details = strategy.fetch_workspace_details(access_token)
+                except Exception as e:
+                    logger.error(f"Error fetching workspace details: {e}", exc_info=True)
+                    return Response({'msg': 'Failed to fetch workspace details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                 integration = Integration.objects.create(
                     guru_type=guru_type_object,
                     type=integration_type,
-                    workspace_name=workspace_name,
-                    external_id=external_id,
+                    workspace_name=workspace_details['workspace_name'],
+                    external_id=workspace_details['external_id'],
                     access_token=access_token,
                     channels=[]
                 )

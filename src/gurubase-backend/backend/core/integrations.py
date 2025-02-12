@@ -38,6 +38,11 @@ class IntegrationStrategy(ABC):
         pass
 
     @abstractmethod
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch workspace details using bot token in selfhosted mode"""
+        pass
+
+    @abstractmethod
     def send_test_message(self, channel_id: str) -> bool:
         """Send a test message to the specified channel"""
         pass
@@ -226,6 +231,28 @@ class DiscordStrategy(IntegrationStrategy):
             logger.error(f"Error refreshing Discord token: {e}", exc_info=True)
             raise
 
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch Discord guild details using bot token"""
+        response = requests.get(
+            'https://discord.com/api/v10/users/@me/guilds',
+            headers={
+                'Authorization': f'Bot {bot_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+        response.raise_for_status()
+        guilds = response.json()
+        
+        if not guilds:
+            raise ValueError("No guilds found for the bot")
+            
+        # For selfhosted, we'll use the first guild the bot has access to
+        guild = guilds[0]
+        return {
+            'external_id': guild['id'],
+            'workspace_name': guild['name']
+        }
+
 
 class SlackStrategy(IntegrationStrategy):
     def exchange_token(self, code: str) -> dict:
@@ -330,6 +357,25 @@ class SlackStrategy(IntegrationStrategy):
         Note: Slack's OAuth 2.0 tokens don't expire and don't need refresh tokens.
         This is implemented for consistency with the interface."""
         raise NotImplementedError("Slack tokens don't expire and can't be refreshed")
+
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch Slack workspace details using bot token"""
+        response = requests.post(
+            'https://slack.com/api/auth.test',
+            headers={
+                'Authorization': f'Bearer {bot_token}'
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get('ok', False):
+            raise ValueError(f"Slack API error: {data.get('error')}")
+            
+        return {
+            'external_id': data['team_id'],
+            'workspace_name': data['team']
+        }
 
 
 class IntegrationFactory:

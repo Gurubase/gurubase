@@ -86,9 +86,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       icon: SlackIcon,
       extraText:
         'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.',
-      externalIdLabel: "Workspace ID",
-      accessTokenLabel: "Bot Token",
-      workspaceNameLabel: "Workspace Name"
+      accessTokenLabel: "Bot Token"
     },
     discord: {
       name: "Discord",
@@ -111,9 +109,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       icon: DiscordIcon,
       extraText:
         "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels.",
-      externalIdLabel: "Server ID",
-      accessTokenLabel: "Bot Token",
-      workspaceNameLabel: "Server Name"
+      accessTokenLabel: "Bot Token"
     }
   };
   const config = integrationConfig[type];
@@ -230,17 +226,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           </div>
           {selfhosted && (
             <div className="flex flex-col gap-4">
-              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                <Input
-                  readOnly
-                  className="bg-gray-50 pt-8 pb-2"
-                  value={integrationData.external_id}
-                  label={config.externalIdLabel}
-                />
-                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                  {config.externalIdLabel}
-                </span>
-              </div>
               <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
                 <Input
                   readOnly
@@ -540,7 +525,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     <div className="w-full">
       <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
-      {error && <IntegrationError />}
+      {(error || internalError) && <IntegrationError message={internalError} />}
       <div
         className={cn(
           "flex p-6 gap-4",
@@ -561,28 +546,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           )}>
           {selfhosted ? (
             <>
-              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                <Input
-                  className="pt-8 pb-2"
-                  value={workspaceName}
-                  onChange={(e) => setWorkspaceName(e.target.value)}
-                  label={config.workspaceNameLabel}
-                />
-                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                  {config.workspaceNameLabel}
-                </span>
-              </div>
-              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                <Input
-                  className="pt-8 pb-2"
-                  value={externalId}
-                  onChange={(e) => setExternalId(e.target.value)}
-                  label={config.externalIdLabel}
-                />
-                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                  {config.externalIdLabel}
-                </span>
-              </div>
               <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
                 <Input
                   className="pt-8 pb-2"
@@ -623,7 +586,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                     setInternalError(null);
                   } else {
                     setInternalError(
-                      response.message || "Failed to create integration"
+                      "Failed to create integration. Please make sure your bot token is correct."
                     );
                   }
                 } catch (error) {
