@@ -68,7 +68,6 @@ FROM base AS runtime
 
 WORKDIR /workspace
 
-# 2) Avoid running as a privileged user.
 RUN addgroup --gid 1001 --system nonroot && \
     adduser --no-create-home --shell /bin/false \
       --disabled-password --uid 1001 --system --group nonroot
@@ -84,10 +83,8 @@ USER nonroot:nonroot
 ENV VIRTUAL_ENV=/workspace/.venv \
     PATH="/workspace/.venv/bin:$PATH"
 
-# 3) Copy the self-contained app from the build stage.
 COPY --from=build --chown=nonroot:nonroot /workspace ./
 
-# 4) Run crawl4ai setup as non-root user
 RUN crawl4ai-setup
 
 CMD ["./entrypoint.sh"]
