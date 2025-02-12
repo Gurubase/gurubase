@@ -112,19 +112,16 @@ export const makeAuthenticatedRequest = async (
 
 // Helper for public API requests
 export const makePublicRequest = async (url, options = {}, decode = false) => {
-  console.log("Making public request", url, options);
   const headers = {
     // "Content-Type": "application/json",
     Authorization: process.env.NEXT_PUBLIC_BACKEND_AUTH_TOKEN,
     ...options.headers
   };
 
-  console.log("Headers", headers);
   const response = await fetch(url, {
     ...options,
     headers
   });
-  console.log("Response", response);
 
   if (response.status === 429) {
     throw new HttpError("Server api rate limiting reached!", response.status);
@@ -995,7 +992,6 @@ export async function createSelfhostedIntegration(
   data
 ) {
   try {
-    console.log("Creating selfhosted integration", data);
     const response = await makePublicRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
       {
@@ -1008,8 +1004,6 @@ export async function createSelfhostedIntegration(
         })
       }
     );
-
-    console.log("Response", response);
 
     if (!response) return { error: true, message: "No response from server" };
 
