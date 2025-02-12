@@ -1,5 +1,5 @@
 import re
-import os
+import traceback
 import discord
 import logging
 import sys
@@ -13,6 +13,8 @@ from core.utils import create_fresh_binge
 import time
 from django.core.cache import caches
 import requests
+from core.views import api_answer
+from rest_framework.test import APIRequestFactory
 
 class BotTokenValidationException(Exception):
     pass
@@ -27,7 +29,6 @@ class Command(BaseCommand):
         # This is because dynamic channel updates are not immediately reflected
         # And this may result in bad UX, and false positive bug reports
         self.cache_timeout = 0
-        self.prod_backend_url = settings.PROD_BACKEND_URL.rstrip('/')
 
     def get_trust_score_emoji(self, trust_score):
         score = trust_score / 100.0
@@ -143,52 +144,91 @@ class Command(BaseCommand):
             return binge
 
     async def stream_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': True,
             'short_answer': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        buffer = ""
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                async for chunk in response.content:
-                    if chunk:
-                        text = chunk.decode('utf-8')
-                        buffer += text
-                        if buffer.strip():
+        # Call api_answer directly in a sync context
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Handle StreamingHttpResponse
+        if hasattr(response, 'streaming_content'):
+            buffer = ""
+            line_buffer = ""
+            
+            # Create an async wrapper for the generator iteration
+            @sync_to_async
+            def get_next_chunk():
+                try:
+                    return next(response.streaming_content)
+                except StopIteration:
+                    return None
+            
+            # Iterate over the generator asynchronously
+            while True:
+                chunk = await get_next_chunk()
+                if chunk is None:
+                    # Yield any remaining text in the buffer
+                    if line_buffer.strip():
+                        buffer += line_buffer
+                        yield buffer
+                    break
+                    
+                if chunk:
+                    text = chunk.decode('utf-8') if isinstance(chunk, bytes) else str(chunk)
+                    line_buffer += text
+                    
+                    # Check if we have complete lines
+                    while '\n' in line_buffer:
+                        line, line_buffer = line_buffer.split('\n', 1)
+                        if line.strip():
+                            buffer += line + '\n'
                             yield buffer
 
     async def get_finalized_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': False,
             'short_answer': True,
             'fetch_existing': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                response_json = await response.json()
-                if response.status == 200:
-                    return response_json, True
-                else:
-                    print(response_json, type(response_json))
-                    return response_json['msg'], False
+        try:
+            # Call api_answer directly
+            response = await sync_to_async(api_answer)(request, guru_type)
+            
+            # Convert response to dict if it's a Response object
+            if hasattr(response, 'data'):
+                return response.data, True
+            return response, True
+        except Exception as e:
+            return str(e), False
 
     async def send_channel_unauthorized_message(
         self,
@@ -366,7 +406,7 @@ class Command(BaseCommand):
                     logging.error(f"Network error occurred while processing your request. {str(e)}")
                     await thinking_msg.edit(content="❌ Network error occurred while processing your request.")
                 except Exception as e:
-                    logging.error(f"An unexpected error occurred: {str(e)}")
+                    logging.error(f"An unexpected error occurred: {str(e)}. {traceback.format_exc()}")
                     await thinking_msg.edit(content=f"❌ An unexpected error occurred.")
 
             except Exception as e:
