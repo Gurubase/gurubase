@@ -128,6 +128,13 @@ class IntegrationStrategy(ABC):
 
 
 class DiscordStrategy(IntegrationStrategy):
+    def _get_bot_token(self, integration=None) -> str:
+        """Helper to get the appropriate bot token based on environment"""
+        if settings.ENV == 'selfhosted':
+            integration = integration or self.get_integration()
+            return integration.access_token
+        return settings.DISCORD_BOT_TOKEN
+
     def exchange_token(self, code: str) -> dict:
         token_url = 'https://discord.com/api/oauth2/token'
         data = {
@@ -157,7 +164,7 @@ class DiscordStrategy(IntegrationStrategy):
             integration = self.get_integration()
             channels_response = requests.get(
                 f'https://discord.com/api/guilds/{integration.external_id}/channels',
-                headers={'Authorization': f"Bot {settings.DISCORD_BOT_TOKEN}"}
+                headers={'Authorization': f"Bot {self._get_bot_token(integration)}"}
             )
             channels_response.raise_for_status()
             channels = channels_response.json()
@@ -181,8 +188,9 @@ class DiscordStrategy(IntegrationStrategy):
 
     def send_test_message(self, channel_id: str) -> bool:
         def _send_test_message() -> bool:
+            integration = self.get_integration()
             url = f'https://discord.com/api/channels/{channel_id}/messages'
-            headers = {'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'}
+            headers = {'Authorization': f'Bot {self._get_bot_token(integration)}'}
             data = {
                 'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
             }

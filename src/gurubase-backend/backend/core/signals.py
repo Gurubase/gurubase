@@ -893,9 +893,12 @@ def handle_integration_deletion(sender, instance, **kwargs):
     # Step 1: Platform-specific cleanup
     if instance.type == Integration.Type.DISCORD:
         try:
+            from .integrations import IntegrationFactory
+            discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
+            
             def leave_guild():
                 headers = {
-                    'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'
+                    'Authorization': f'Bot {discord_strategy._get_bot_token(instance)}'
                 }
                 guild_id = instance.external_id
                 url = f'https://discord.com/api/v10/users/@me/guilds/{guild_id}'
