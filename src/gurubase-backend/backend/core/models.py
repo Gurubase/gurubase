@@ -1338,5 +1338,11 @@ class Integration(models.Model):
     def __str__(self):
         return f"{self.type} - {self.guru_type.name}"
 
+    @property
+    def masked_access_token(self):
+        if settings.ENV == 'selfhosted':
+            return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+        return None
+
     class Meta:
         unique_together = ['type', 'guru_type']

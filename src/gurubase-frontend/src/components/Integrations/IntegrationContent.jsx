@@ -248,7 +248,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                   className="bg-gray-50 pt-8 pb-2"
                   value={integrationData.access_token}
                   label={config.accessTokenLabel}
-                  type="password"
                 />
                 <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                   {config.accessTokenLabel}
@@ -590,7 +589,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   label={config.accessTokenLabel}
-                  type="password"
                 />
                 <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
                   {config.accessTokenLabel}

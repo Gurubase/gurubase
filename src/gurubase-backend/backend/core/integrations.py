@@ -106,6 +106,8 @@ class IntegrationStrategy(ABC):
         try:
             return api_func(*args, **kwargs)
         except Exception as e:
+            if settings.ENV == 'selfhosted':
+                raise
             # Check if it's a token-related error
             error_msg = str(e).lower()
             if any(err in error_msg for err in ['token_expired', 'invalid_auth', 'unauthorized', 'not_authed', '401']):

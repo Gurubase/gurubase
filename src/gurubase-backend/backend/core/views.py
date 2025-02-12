@@ -1816,6 +1816,7 @@ def manage_integration(request, guru_type, integration_type):
                 'channels': integration.channels,
                 'date_created': integration.date_created,
                 'date_updated': integration.date_updated,
+                'access_token': integration.masked_access_token,
             })
         elif request.method == 'DELETE':
             # Delete the integration - token revocation is handled by signal
@@ -1850,6 +1851,7 @@ def manage_integration(request, guru_type, integration_type):
                     'channels': integration.channels,
                     'date_created': integration.date_created,
                     'date_updated': integration.date_updated,
+                    'access_token': integration.masked_access_token,
                 }, status=status.HTTP_201_CREATED)
                 
             except Exception as e:
