@@ -389,7 +389,14 @@ class Command(BaseCommand):
     def _get_valid_bot_token(self) -> str:
         """Get a valid bot token based on environment"""
         if settings.ENV != 'selfhosted':
-            return settings.DISCORD_BOT_TOKEN
+            token = settings.DISCORD_BOT_TOKEN
+            if not self._validate_bot_token(token):
+                raise BotTokenValidationException(
+                    "Invalid Discord bot token in settings.DISCORD_BOT_TOKEN. "
+                    "Please check your environment variables and ensure the bot token is valid."
+                )
+            logging.info("Using bot token from settings")
+            return token
 
         # Get all Discord integrations
         discord_integrations = Integration.objects.filter(type=Integration.Type.DISCORD)
