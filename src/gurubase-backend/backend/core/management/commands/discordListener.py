@@ -12,6 +12,10 @@ from asgiref.sync import sync_to_async
 from core.utils import create_fresh_binge
 import time
 from django.core.cache import caches
+import requests
+
+class BotTokenValidationException(Exception):
+    pass
 
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
@@ -370,15 +374,62 @@ class Command(BaseCommand):
 
         return client, handler
 
+    def _validate_bot_token(self, token: str) -> bool:
+        """Validate a bot token by making a sample request to Discord API"""
+        try:
+            response = requests.get(
+                'https://discord.com/api/v10/users/@me',
+                headers={'Authorization': f'Bot {token}'}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logging.error(f"Error validating bot token: {str(e)}")
+            return False
+
+    def _get_valid_bot_token(self) -> str:
+        """Get a valid bot token based on environment"""
+        if settings.ENV != 'selfhosted':
+            return settings.DISCORD_BOT_TOKEN
+
+        # Get all Discord integrations
+        discord_integrations = Integration.objects.filter(type=Integration.Type.DISCORD)
+        if not discord_integrations.exists():
+            raise BotTokenValidationException("No Discord integrations found in selfhosted mode")
+
+        # Get unique tokens
+        unique_tokens = set(integration.access_token for integration in discord_integrations if integration.access_token)
+        
+        if len(unique_tokens) > 1:
+            logging.warning(
+                "Multiple Discord bots detected! This is not recommended. \n"
+                "Please review your integrations and delete any unnecessary bots. \n"
+                f"Found {len(unique_tokens)} unique bot tokens. \n"
+                "Will try to use the first valid one."
+            )
+
+        # Try each token until we find a valid one
+        for token in unique_tokens:
+            if self._validate_bot_token(token):
+                logging.info(f"Using bot token: {token}")
+                return token
+
+        raise BotTokenValidationException(
+            "No valid Discord bot tokens found. Please check your integration settings "
+            "and ensure at least one bot token is valid."
+        )
+
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
         
         try:
             client, handler = self.setup_discord_client()
-            token = settings.DISCORD_BOT_TOKEN
+            token = self._get_valid_bot_token()
             
             client.run(token, log_handler=handler, log_level=logging.DEBUG)
         except KeyboardInterrupt:
             self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
+        except BotTokenValidationException as e:
+            self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}')) 
+            self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
+            raise 
