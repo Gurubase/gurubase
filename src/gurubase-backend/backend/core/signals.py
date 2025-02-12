@@ -891,29 +891,28 @@ def handle_integration_deletion(sender, instance, **kwargs):
     3. Delete API key
     """
     # Step 1: Platform-specific cleanup
-    if instance.type == Integration.Type.DISCORD:
-        try:
-            from .integrations import IntegrationFactory
-            discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
-            
-            def leave_guild():
-                headers = {
-                    'Authorization': f'Bot {discord_strategy._get_bot_token(instance)}'
-                }
-                guild_id = instance.external_id
-                url = f'https://discord.com/api/v10/users/@me/guilds/{guild_id}'
-                
-                response = requests.delete(url, headers=headers)
-                if response.status not in [200, 204]:
-                    response_data = response.json()
-                    logger.warning(f"Failed to leave Discord guild {guild_id}: {response_data}")
-            
-            leave_guild()
-        except Exception as e:
-            logger.warning(f"Failed to leave Discord guild for integration {instance.id}: {e}", exc_info=True)
-            
-
     if settings.ENV != 'selfhosted':
+        if instance.type == Integration.Type.DISCORD:
+            try:
+                from .integrations import IntegrationFactory
+                discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
+                
+                def leave_guild():
+                    headers = {
+                        'Authorization': f'Bot {discord_strategy._get_bot_token(instance)}'
+                    }
+                    guild_id = instance.external_id
+                    url = f'https://discord.com/api/v10/users/@me/guilds/{guild_id}'
+                    
+                    response = requests.delete(url, headers=headers)
+                    if response.status not in [200, 204]:
+                        response_data = response.json()
+                        logger.warning(f"Failed to leave Discord guild {guild_id}: {response_data}")
+                
+                leave_guild()
+            except Exception as e:
+                logger.warning(f"Failed to leave Discord guild for integration {instance.id}: {e}", exc_info=True)
+
         # Step 2: Revoke access token
         try:
             from .integrations import IntegrationFactory
