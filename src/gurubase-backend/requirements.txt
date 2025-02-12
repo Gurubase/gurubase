@@ -46,7 +46,6 @@ pypdf==5.0.0
 firecrawl-py==1.4.0
 python-slugify==8.0.4
 colorthief==0.2.1
-CairoSVG==2.7.1
 matplotlib==3.9.2
 python-jose[cryptography]==3.3.0
 GitPython==3.1.42
