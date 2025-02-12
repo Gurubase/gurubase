@@ -926,11 +926,55 @@ class OutOfContextQuestion(models.Model):
 
 
 class Settings(models.Model):
+    class ScrapeType(models.TextChoices):
+        CRAWL4AI = "CRAWL4AI", "Crawl4AI"
+        FIRECRAWL = "FIRECRAWL", "Firecrawl"
+
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
     trust_score_threshold = models.FloatField(default=0.0)
     pricings = models.JSONField(default=dict)
     widget_answer_max_length = models.IntegerField(default=150)
+    openai_api_key = models.CharField(max_length=500, null=True, blank=True)
+    is_openai_key_valid = models.BooleanField(default=False)
+    firecrawl_api_key = models.CharField(max_length=500, null=True, blank=True)
+    is_firecrawl_key_valid = models.BooleanField(default=False)
+    scrape_type = models.CharField(
+        max_length=50,
+        choices=ScrapeType.choices,
+        default=ScrapeType.CRAWL4AI,
+    )
+
+    def save(self, *args, **kwargs):
+        # Check OpenAI API key validity before saving
+        if self.openai_api_key:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=self.openai_api_key, timeout=10)
+                client.models.list()
+                self.is_openai_key_valid = True
+            except Exception:
+                self.is_openai_key_valid = False
+        else:
+            self.is_openai_key_valid = False
+
+        if self.firecrawl_api_key:
+            try:
+                if self.scrape_type == Settings.ScrapeType.FIRECRAWL:
+                    import requests
+                    url = "https://api.firecrawl.dev/v1/team/credit-usage"
+                    headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
+                    response = requests.get(url, headers=headers, timeout=10)
+                    self.is_firecrawl_key_valid = response.status_code == 200
+            except Exception:
+                self.is_firecrawl_key_valid = False
+        else:
+            self.is_firecrawl_key_valid = False
+            
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Settings ID: {self.id}"
 
 
 class LLMEvalResult(models.Model):
@@ -1129,13 +1173,13 @@ class WidgetId(models.Model):
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, related_name='widget_ids')
     key = models.CharField(max_length=100, unique=True)
     domain_url = models.URLField(max_length=2000)
+    domain = models.URLField(max_length=2000)  # New field to store the base domain
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Widget ID'
         verbose_name_plural = 'Widget IDs'
-        # Add unique constraint for guru_type and domain_url
         unique_together = ['guru_type', 'domain_url']
 
     def __str__(self):
@@ -1145,6 +1189,9 @@ class WidgetId(models.Model):
         if self.domain_url:
             # Remove trailing slashes and normalize domain
             self.domain_url = self.domain_url.rstrip('/')
+            # Extract and store the domain
+            parsed_url = urlparse(self.domain_url)
+            self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
         # Ensure domain is unique per guru type if specified
         if self.domain_url and WidgetId.objects.filter(

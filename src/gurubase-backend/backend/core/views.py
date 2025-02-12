@@ -6,10 +6,9 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-from rest_framework.exceptions import NotFound
 
 from accounts.models import User
 from django.conf import settings
@@ -19,12 +18,12 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
-from core.requester import GeminiRequester, OpenAIRequester, RerankerRequester
+from core.requester import GeminiRequester, OpenAIRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, QuestionValidityCheckPricing, Summarization, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, OutOfContextQuestion, GithubFile
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -156,6 +155,11 @@ def summary(request, guru_type):
         'dirtiness_check': 0,
         'total': 0
     }
+
+    if settings.ENV == 'selfhosted':
+        api_key_valid = Settings.objects.get(id=1).is_openai_key_valid
+        if not api_key_valid:
+            return Response({'msg': 'OpenAI API key is invalid'}, status=490)
     
     endpoint_start = time.time()
     validate_guru_type(guru_type)
@@ -1338,7 +1342,11 @@ def get_binges(request):
 @api_view(['GET','POST', 'DELETE'])
 @jwt_auth
 def api_keys(request):
-    user = request.user
+    if settings.ENV == 'selfhosted':
+        user = User.objects.get(email=settings.ROOT_EMAIL)
+    else:
+        user = request.user
+    
     if request.method == 'GET':
         api_keys = APIKey.objects.filter(user=user, integration_owner__isnull=True)
         return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
@@ -1919,13 +1927,39 @@ def strip_first_header(content: str) -> str:
 
 def convert_markdown_to_slack(content: str) -> str:
     """Convert Markdown formatting to Slack formatting."""
-    # Convert markdown code blocks to Slack code blocks
-    content = content.replace("```python", "```")
-    content = content.replace("```bash", "```")
-    content = content.replace("```javascript", "```")
+    # Convert markdown code blocks to Slack code blocks by removing language specifiers
+    import re
+    
+    # First remove language specifiers from code blocks
+    content = re.sub(r'```\w+', '```', content)
+    
+    # Then remove empty lines at the start and end of code blocks
+    def trim_code_block(match):
+        code_block = match.group(0)
+        lines = code_block.split('\n')
+        
+        # Find first and last non-empty lines (excluding ```)
+        start = 0
+        end = len(lines) - 1
+        
+        # Find first non-empty line after opening ```
+        for i, line in enumerate(lines):
+            if line.strip() == '```':
+                start = i + 1
+                break
+                
+        # Find last non-empty line before closing ```
+        for i in range(len(lines) - 1, -1, -1):
+            if line.strip() == '```':
+                end = i
+                break
+                
+        # Keep all lines between start and end (inclusive)
+        return '```\n' + '\n'.join(lines[start:end]) + '\n```'
+    
+    content = re.sub(r'```[\s\S]+?```', trim_code_block, content)
     
     # Convert markdown links [text](url) to Slack format <url|text>
-    import re
     def replace_link(match):
         text = match.group(1)
         url = match.group(2)
@@ -1976,8 +2010,20 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
     if references:
         formatted_msg.append("\n_*Sources*_:")
         for ref in references:
-            # Remove both Slack-style emoji codes and Unicode emojis
-            clean_title = re.sub(r':[a-zA-Z0-9_+-]+:|[\U0001F300-\U0001F9FF]', '', ref['title'])
+            # First remove Slack-style emoji codes with adjacent spaces
+            clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+
+            # Then remove Unicode emojis and their modifiers with adjacent spaces
+            clean_title = re.sub(
+                r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                ' ',
+                clean_title
+            ).strip()
+            
+            # Clean up multiple spaces and trim
+            clean_title = ' '.join(clean_title.split())
+            
             formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
     
     # Add frontend link if it exists
@@ -2437,3 +2483,27 @@ def list_integrations(request, guru_type):
     except Exception as e:
         logger.error(f"Error in list_integrations: {e}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET', 'PUT'])
+@jwt_auth
+def manage_settings(request):
+    """
+    GET: Retrieve current settings (excluding sensitive data like API keys)
+    PUT: Update settings
+    """
+    settings_obj = Settings.objects.get(id=1)
+
+    if request.method == 'GET':
+        serializer = SettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = SettingsSerializer(settings_obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            if not serializer.validated_data.get('openai_api_key'):
+                serializer.validated_data['openai_api_key'] = settings_obj.openai_api_key
+            if not serializer.validated_data.get('firecrawl_api_key'):
+                serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

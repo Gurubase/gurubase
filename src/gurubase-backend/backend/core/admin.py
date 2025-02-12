@@ -404,7 +404,7 @@ class BingeAdmin(admin.ModelAdmin):
 
 @admin.register(WidgetId)
 class WidgetIdAdmin(admin.ModelAdmin):
-    list_display = ['id', 'guru_type', 'key', 'domain_url', 'date_created']
+    list_display = ['id', 'guru_type', 'key', 'domain_url', 'domain', 'date_created']
     search_fields = ['id', 'guru_type__slug', 'key', 'domain_url']
     list_filter = ('guru_type__slug', )
     ordering = ('-id',)

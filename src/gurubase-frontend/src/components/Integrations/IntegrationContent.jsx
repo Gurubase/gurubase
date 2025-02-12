@@ -18,13 +18,6 @@ import {
   sendIntegrationTestMessage,
   deleteIntegration
 } from "@/app/actions";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
 import { Input } from "@/components/ui/input";
 import {

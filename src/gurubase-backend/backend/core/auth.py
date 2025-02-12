@@ -11,6 +11,7 @@ from jwt import PyJWKClient
 import jwt
 from core.utils import decode_jwt, APIType
 from core.models import APIKey, WidgetId, Integration
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -186,10 +187,17 @@ def widget_id_auth(view_func):
         if not widget_id_obj:
             return Response({'msg': 'Invalid Widget ID'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        # Optional: Validate domain if present
-        if widget_id_obj.domain_url:
+        # Validate domain if present
+        if widget_id_obj.domain:
             origin = request.headers.get('Origin')
-            if not origin or not origin.rstrip('/').endswith(widget_id_obj.domain_url):
+            if not origin:
+                return Response({'msg': 'Origin header is required'}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Parse origin to get domain
+            parsed_origin = urlparse(origin)
+            request_domain = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+            
+            if request_domain != widget_id_obj.domain:
                 return Response({'msg': 'Invalid domain. Please check your domain URL in Gurubase platform'}, status=status.HTTP_401_UNAUTHORIZED)
         
         request.guru_type = widget_id_obj.guru_type

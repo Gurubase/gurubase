@@ -48,6 +48,7 @@ export const PageTransition = () => {
       <div
         ref={progressRef}
         className="h-full bg-orange-500 animate-progress"
+        style={{ width: "0%" }}
       />
     </div>
   );
