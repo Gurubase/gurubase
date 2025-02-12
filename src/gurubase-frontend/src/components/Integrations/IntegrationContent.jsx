@@ -64,6 +64,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
   const [workspaceName, setWorkspaceName] = useState("");
   const [externalId, setExternalId] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const integrationConfig = {
     slack: {
@@ -119,6 +120,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching data");
         // Fetch integration details
         const data = await getIntegrationDetails(
           customGuru,
@@ -153,6 +155,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
 
     const fetchChannels = async () => {
       try {
+        console.log("Fetching channels");
         const channelsData = await getIntegrationChannels(
           customGuru,
           type.toUpperCase()
@@ -177,8 +180,11 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       }
     };
 
-    fetchData();
-  }, [customGuru, type]);
+    console.log("Loading", loading);
+    if (loading) {
+      fetchData();
+    }
+  }, [customGuru, type, loading]);
 
   const Icon = config.icon;
   const name = config.name;
@@ -568,8 +574,10 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                 ? "w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]"
                 : "guru-xs:w-full w-auto"
             )}
+            disabled={isConnecting}
             onClick={async () => {
               if (selfhosted) {
+                setIsConnecting(true);
                 try {
                   const response = await createSelfhostedIntegration(
                     customGuru,
@@ -582,6 +590,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                   );
 
                   if (!response?.error) {
+                    setLoading(true);
                     setIntegrationData(response);
                     setInternalError(null);
                   } else {
@@ -591,6 +600,8 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                   }
                 } catch (error) {
                   setInternalError(error.message);
+                } finally {
+                  setIsConnecting(false);
                 }
               } else {
                 window.open(
@@ -603,7 +614,14 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                 );
               }
             }}>
-            Connect
+            {isConnecting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Connecting...
+              </div>
+            ) : (
+              "Connect"
+            )}
           </Button>
         </div>
       </div>
