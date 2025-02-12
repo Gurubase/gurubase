@@ -311,10 +311,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                                     integrationData.id,
                                     channel.id
                                   );
-                                CustomToast({
-                                  message: "Test message sent successfully!",
-                                  variant: "success"
-                                });
                                 if (response?.error) {
                                   console.error(
                                     "Failed to send test message:",
@@ -323,6 +319,11 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                                   CustomToast({
                                     message: "Failed to send test message.",
                                     variant: "error"
+                                  });
+                                } else {
+                                  CustomToast({
+                                    message: "Test message sent successfully!",
+                                    variant: "success"
                                   });
                                 }
                               } catch (error) {
