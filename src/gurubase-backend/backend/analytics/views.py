@@ -1,4 +1,5 @@
 import logging
+from django.db.models import Q
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
 from datetime import datetime
@@ -143,6 +144,10 @@ def analytics_table(request, guru_type):
                 guru_type=guru_type,
                 date_created__gte=start_date,
                 date_created__lte=end_date
+            ).exclude(
+                ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value]),
+                binge_id__isnull=False,
+                parent__isnull=True
             )
             
             if filter_type and filter_type != 'all':
