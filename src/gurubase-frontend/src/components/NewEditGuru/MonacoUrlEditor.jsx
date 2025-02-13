@@ -196,7 +196,7 @@ const MonacoUrlEditor = ({
                       {isLoadingSitemap ? (
                         <>
                           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                          Loading...
+                          Fetching...
                         </>
                       ) : (
                         "Parse Sitemap"
