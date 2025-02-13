@@ -2512,10 +2512,10 @@ def manage_settings(request):
 @auth
 def parse_sitemap(request):
     """
-    Parse URLs from a sitemap XML file (not sitemap index).
+    Parse URLs from a sitemap XML file.
+    If given a sitemap index, it will fetch and parse all referenced sitemaps.
     Expects a POST request with a 'sitemap_url' parameter that ends with .xml
-    Returns a list of URLs found in the sitemap.
-    Only processes standard sitemaps with <urlset> root element, not sitemap indexes.
+    Returns a list of all URLs found across all sitemaps.
     """
     sitemap_url = request.data.get('sitemap_url')
     
@@ -2532,43 +2532,78 @@ def parse_sitemap(request):
         if not all([parsed_url.scheme, parsed_url.netloc]):
             return Response({'msg': 'Invalid URL format'}, status=status.HTTP_400_BAD_REQUEST)
             
-        # Fetch and parse sitemap
+        def fetch_and_parse_sitemap(url):
+            """Helper function to fetch and parse a single sitemap."""
+            try:
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                return ET.fromstring(response.content)
+            except Exception as e:
+                logger.error(f"Error fetching sitemap {url}: {e}", exc_info=True)
+                return None
+
+        def extract_urls_from_sitemap(root):
+            """Extract URLs from a standard sitemap."""
+            if not root:
+                return []
+                
+            namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+            urls = []
+            
+            # Find all URL elements
+            loc_elements = root.findall('.//ns:url/ns:loc', namespaces)
+            for loc in loc_elements:
+                url = loc.text.strip()
+                urls.append(url)
+                
+            return urls
+
+        def process_sitemap_index(root):
+            """Process a sitemap index and return all URLs from referenced sitemaps."""
+            if not root:
+                return []
+                
+            namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+            all_urls = []
+            
+            # Find all sitemap references
+            sitemap_elements = root.findall('.//ns:sitemap/ns:loc', namespaces)
+            
+            for sitemap in sitemap_elements:
+                sitemap_url = sitemap.text.strip()
+                # Fetch and parse the referenced sitemap
+                sitemap_root = fetch_and_parse_sitemap(sitemap_url)
+                if sitemap_root is not None:
+                    # Extract URLs from this sitemap
+                    urls = extract_urls_from_sitemap(sitemap_root)
+                    all_urls.extend(urls)
+            
+            return all_urls
+
+        # Fetch and parse the initial sitemap/index
         import requests
         from xml.etree import ElementTree as ET
         
-        response = requests.get(sitemap_url, timeout=10)
-        response.raise_for_status()
+        root = fetch_and_parse_sitemap(sitemap_url)
+        if not root:
+            return Response({'msg': 'Error fetching sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Parse XML
-        root = ET.fromstring(response.content)
-        
-        # Check if this is a sitemap index (which we don't want to process)
-        if root.tag.endswith('sitemapindex'):
-            return Response({
-                'msg': 'The provided URL points to a sitemap index. Please provide a URL to a specific sitemap.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Verify this is a proper sitemap
-        if not root.tag.endswith('urlset'):
-            return Response({
-                'msg': 'Invalid sitemap format. Root element must be <urlset>.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Standard sitemap namespace
-        namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
-        
-        # Find all URL elements
-        loc_elements = root.findall('.//ns:url/ns:loc', namespaces)
-        
-        # Extract URLs
+        # Determine if this is a sitemap index or regular sitemap
         urls = []
-        for loc in loc_elements:
-            url = loc.text.strip()
-            urls.append(url)
+        if root.tag.endswith('sitemapindex'):
+            # Process sitemap index
+            urls = process_sitemap_index(root)
+        elif root.tag.endswith('urlset'):
+            # Process regular sitemap
+            urls = extract_urls_from_sitemap(root)
+        else:
+            return Response({
+                'msg': 'Invalid sitemap format. Root element must be <urlset> or <sitemapindex>.'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         if not urls:
             return Response({
-                'msg': 'No URLs found in the sitemap',
+                'msg': 'No URLs found in the sitemap(s)',
                 'urls': [],
                 'total_urls': 0
             }, status=status.HTTP_200_OK)
