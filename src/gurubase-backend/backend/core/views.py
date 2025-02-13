@@ -1641,6 +1641,7 @@ def api_answer(request, guru_type):
             binge = create_binge_helper(guru_type_object, user, api_response.question_obj)
             response_data['session_id'] = str(binge.id)
         elif binge and not binge.root_question:
+            # Used in Slack and Discord bots
             binge.root_question = api_response.question_obj
             binge.save()
         return Response(response_data)
