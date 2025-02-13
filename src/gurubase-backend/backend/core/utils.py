@@ -3292,7 +3292,7 @@ def string_to_boolean(value: str) -> bool:
 def format_github_repo_error(error: str) -> str:
     if error.startswith('No repository exists at this URL'):
         return error
-    elif error.startswith('The codebase exceeds'):
+    elif error.startswith('The codebase'):
         return error
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'

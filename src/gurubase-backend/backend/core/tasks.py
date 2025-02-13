@@ -1338,16 +1338,16 @@ def update_github_repositories():
                     # Read the repository structure
                     structure = read_repository(temp_dir)
 
-                    if len(structure) > settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_SOFT_LIMIT:
+                    if len(structure) > data_source.guru_type.github_file_count_limit_per_repo_hard:
                         raise GithubRepoFileCountLimitError(
-                            f"The codebase exceeds the maximum file limit of {settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_SOFT_LIMIT} files supported."
+                            f"The codebase exceeds the maximum file limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files supported."
                         )
 
                     # Calculate total size
                     total_size = sum(file['size'] for file in structure)
-                    if total_size > settings.DATA_SOURCES_GITHUB_REPO_SIZE_LIMIT_MB * 1024 * 1024:
+                    if total_size > data_source.guru_type.github_repo_size_limit_mb * 1024 * 1024:
                         raise GithubRepoSizeLimitError(
-                            f"The codebase exceeds the maximum size limit of {settings.DATA_SOURCES_GITHUB_REPO_SIZE_LIMIT_MB} MB supported."
+                            f"The codebase exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported."
                         )
                     
                     # Get existing files for this data source

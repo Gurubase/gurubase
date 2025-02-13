@@ -1075,3 +1075,26 @@ export async function updateSettings(formData) {
     });
   }
 }
+
+export async function parseSitemapUrls(sitemapUrl) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/parse_sitemap/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sitemap_url: sitemapUrl })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "parseSitemapUrls",
+      sitemapUrl
+    });
+  }
+}

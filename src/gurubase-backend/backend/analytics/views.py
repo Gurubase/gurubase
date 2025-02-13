@@ -258,6 +258,25 @@ def analytics_table(request, guru_type):
                     'reference_count': reference_counts.get(gf.link, 0)
                 })
             
+            # Filter out duplicate links, keeping the one with highest reference count
+            seen_links = {}
+            unique_sources = []
+            for source in combined_sources:
+                link = source['link']
+                if link not in seen_links:
+                    seen_links[link] = source
+                    unique_sources.append(source)
+                else:
+                    # If we have a duplicate link, keep the one with higher reference count
+                    existing = seen_links[link]
+                    # Normally, their refernce counts should be the same, but just in case
+                    if source['reference_count'] > existing['reference_count']:
+                        unique_sources.remove(existing)
+                        seen_links[link] = source
+                        unique_sources.append(source)
+            
+            combined_sources = unique_sources
+            
             # Sort by reference count and then by date
             if sort_order == 'asc':
                 combined_sources.sort(key=lambda x: (x['reference_count'], x['date']))
