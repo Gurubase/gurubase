@@ -87,7 +87,20 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       icon: SlackIcon,
       extraText:
         'To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the Slack app using the <strong>"Add apps to this channel"</strong> command. This is not needed for public channels.',
-      accessTokenLabel: "Bot Token"
+      accessTokenLabel: "Bot Token",
+      selfhostedDescription: (
+        <>
+          To use the Slack integration on selfhosted, you need to set up a Slack
+          bot. Learn how to do so in our{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/slack-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            documentation
+          </Link>
+          .
+        </>
+      )
     },
     discord: {
       name: "Discord",
@@ -110,7 +123,20 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       icon: DiscordIcon,
       extraText:
         "To subscribe to a <strong>private channel</strong> and send test messages to it, you need to invite the bot to the channel. You can do so from the channel settings in the Discord app. This is not needed for public channels.",
-      accessTokenLabel: "Bot Token"
+      accessTokenLabel: "Bot Token",
+      selfhostedDescription: (
+        <>
+          To use the Discord integration on selfhosted, you need to set up a
+          Discord bot. Learn how to do so in our{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/discord-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            documentation
+          </Link>
+          .
+        </>
+      )
     }
   };
   const config = integrationConfig[type];
@@ -230,21 +256,42 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
               </Button>
             </div>
           </div>
-          {selfhosted && (
-            <div className="flex flex-col gap-4">
-              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                <Input
-                  readOnly
-                  className="bg-gray-50 pt-8 pb-2"
-                  value={integrationData.access_token}
-                  label={config.accessTokenLabel}
-                />
-                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                  {config.accessTokenLabel}
-                </span>
+          {selfhosted ? (
+            <div className="space-y-8">
+              <div>
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-medium">
+                    {config.accessTokenLabel}
+                  </h3>
+                  <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                    {config.selfhostedDescription}
+                  </p>
+                </div>
+                <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                  <Input
+                    readOnly={!!integrationData?.access_token}
+                    className={cn(
+                      "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                      integrationData?.access_token ? "bg-gray-50" : "bg-white"
+                    )}
+                    value={integrationData?.access_token || accessToken}
+                    onChange={
+                      !integrationData?.access_token
+                        ? (e) => setAccessToken(e.target.value)
+                        : undefined
+                    }
+                    placeholder={
+                      !integrationData?.access_token
+                        ? type === "discord"
+                          ? "Enter Discord bot token..."
+                          : "Enter Slack bot token..."
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             </div>
-          )}
+          ) : null}
           <div className="">
             <div className="flex flex-col gap-2">
               <h3 className="text-lg font-medium">Channels</h3>
@@ -553,16 +600,41 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           )}>
           {selfhosted ? (
             <>
-              <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-                <Input
-                  className="pt-8 pb-2"
-                  value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
-                  label={config.accessTokenLabel}
-                />
-                <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                  {config.accessTokenLabel}
-                </span>
+              <div className="space-y-8">
+                <div>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-lg font-medium">
+                      {config.accessTokenLabel}
+                    </h3>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                      {config.selfhostedDescription}
+                    </p>
+                  </div>
+                  <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                    <Input
+                      readOnly={!!integrationData?.access_token}
+                      className={cn(
+                        "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                        integrationData?.access_token
+                          ? "bg-gray-50"
+                          : "bg-white"
+                      )}
+                      value={integrationData?.access_token || accessToken}
+                      onChange={
+                        !integrationData?.access_token
+                          ? (e) => setAccessToken(e.target.value)
+                          : undefined
+                      }
+                      placeholder={
+                        !integrationData?.access_token
+                          ? type === "discord"
+                            ? "Enter Discord bot token..."
+                            : "Enter Slack bot token..."
+                          : undefined
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             </>
           ) : null}
