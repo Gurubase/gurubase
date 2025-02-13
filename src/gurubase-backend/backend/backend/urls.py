@@ -54,6 +54,7 @@ urlpatterns += [
     path('widget/binge/', core_views.widget_create_binge, name='widget_create_binge'),
     path('<str:guru_type>/widget_ids/', core_views.manage_widget_ids, name='manage_widget_ids'),
     path('widget/guru/', core_views.get_guru_visuals, name='get_guru_visuals'),
+    path('parse_sitemap/', core_views.parse_sitemap, name='parse_sitemap'),  # New sitemap parsing endpoint
     
     # API v1 Endpoints
     path('api/v1/<str:guru_type>/answer/', core_views.api_answer, name='api-answer'),

@@ -2507,3 +2507,83 @@ def manage_settings(request):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@auth
+def parse_sitemap(request):
+    """
+    Parse URLs from a sitemap XML file (not sitemap index).
+    Expects a POST request with a 'sitemap_url' parameter that ends with .xml
+    Returns a list of URLs found in the sitemap.
+    Only processes standard sitemaps with <urlset> root element, not sitemap indexes.
+    """
+    sitemap_url = request.data.get('sitemap_url')
+    
+    if not sitemap_url:
+        return Response({'msg': 'Sitemap URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    if not sitemap_url.endswith('.xml'):
+        return Response({'msg': 'Sitemap URL must end with .xml'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Validate URL format
+        from urllib.parse import urlparse
+        parsed_url = urlparse(sitemap_url)
+        if not all([parsed_url.scheme, parsed_url.netloc]):
+            return Response({'msg': 'Invalid URL format'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Fetch and parse sitemap
+        import requests
+        from xml.etree import ElementTree as ET
+        
+        response = requests.get(sitemap_url, timeout=10)
+        response.raise_for_status()
+        
+        # Parse XML
+        root = ET.fromstring(response.content)
+        
+        # Check if this is a sitemap index (which we don't want to process)
+        if root.tag.endswith('sitemapindex'):
+            return Response({
+                'msg': 'The provided URL points to a sitemap index. Please provide a URL to a specific sitemap.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify this is a proper sitemap
+        if not root.tag.endswith('urlset'):
+            return Response({
+                'msg': 'Invalid sitemap format. Root element must be <urlset>.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Standard sitemap namespace
+        namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+        
+        # Find all URL elements
+        loc_elements = root.findall('.//ns:url/ns:loc', namespaces)
+        
+        # Extract URLs
+        urls = []
+        for loc in loc_elements:
+            url = loc.text.strip()
+            urls.append(url)
+        
+        if not urls:
+            return Response({
+                'msg': 'No URLs found in the sitemap',
+                'urls': [],
+                'total_urls': 0
+            }, status=status.HTTP_200_OK)
+        
+        return Response({
+            'urls': urls,
+            'total_urls': len(urls)
+        }, status=status.HTTP_200_OK)
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching sitemap: {e}", exc_info=True)
+        return Response({'msg': 'Error fetching sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except ET.ParseError as e:
+        logger.error(f"Error parsing XML: {e}", exc_info=True)
+        return Response({'msg': 'Invalid XML format'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Unexpected error parsing sitemap: {e}", exc_info=True)
+        return Response({'msg': 'Error processing sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
