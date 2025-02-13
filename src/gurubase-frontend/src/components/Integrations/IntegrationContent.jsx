@@ -146,7 +146,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("Fetching data");
+        // console.log("Fetching data");
         // Fetch integration details
         const data = await getIntegrationDetails(
           customGuru,
@@ -181,7 +181,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
 
     const fetchChannels = async () => {
       try {
-        console.log("Fetching channels");
+        // console.log("Fetching channels");
         const channelsData = await getIntegrationChannels(
           customGuru,
           type.toUpperCase()
@@ -206,7 +206,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       }
     };
 
-    console.log("Loading", loading);
+    // console.log("Loading", loading);
     if (loading) {
       fetchData();
     }
