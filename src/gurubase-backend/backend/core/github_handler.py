@@ -209,15 +209,15 @@ def save_repository(data_source, structure):
     bulk_save = []
 
     if settings.ENV != 'selfhosted':
-        if len(structure) > settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_HARD_LIMIT:
-            raise GithubRepoFileCountLimitError(f"The codebase ({len(structure)}) exceeds the maximum file limit of {settings.DATA_SOURCES_GITHUB_FILE_COUNT_LIMIT_PER_REPO_HARD_LIMIT} files supported")
+        if len(structure) > data_source.guru_type.github_file_count_limit_per_repo_soft:
+            raise GithubRepoFileCountLimitError(f"The codebase ({len(structure)}) exceeds the maximum file limit of {data_source.guru_type.github_file_count_limit_per_repo_soft} files supported")
 
         # Calculate total size of all files
         total_size = sum(file['size'] for file in structure)
         
-        # Check if total size exceeds limit (e.g. 100MB)
-        if total_size > settings.DATA_SOURCES_GITHUB_REPO_SIZE_LIMIT_MB * 1024 * 1024:
-            raise GithubRepoSizeLimitError(f"The codebase exceeds the maximum size limit of {settings.DATA_SOURCES_GITHUB_REPO_SIZE_LIMIT_MB} MB supported")
+        # Check if total size exceeds limit
+        if total_size > data_source.guru_type.github_repo_size_limit_mb * 1024 * 1024:
+            raise GithubRepoSizeLimitError(f"The codebase exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported")
 
     for file in structure:
         bulk_save.append(GithubFile(

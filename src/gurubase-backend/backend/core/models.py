@@ -308,6 +308,11 @@ class GuruType(models.Model):
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
+    # GitHub repository limits
+    github_repo_count_limit = models.IntegerField(default=2)
+    github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
+    github_file_count_limit_per_repo_hard = models.IntegerField(default=1500)  # Absolute maximum
+    github_repo_size_limit_mb = models.IntegerField(default=100)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -453,8 +458,8 @@ class GuruType(models.Model):
             return False, f"YouTube video limit ({settings.DATA_SOURCES_LIMIT_TOTAL_YOUTUBE_COUNT}) reached"
 
         # Check GitHub repo limit
-        if (github_count + github_urls_count) > settings.DATA_SOURCES_LIMIT_TOTAL_GITHUB_REPO_COUNT:
-            return False, f"GitHub repository limit ({settings.DATA_SOURCES_LIMIT_TOTAL_GITHUB_REPO_COUNT}) reached"
+        if (github_count + github_urls_count) > self.github_repo_count_limit:
+            return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
 
         # Check PDF size limit if file provided
         if file:
