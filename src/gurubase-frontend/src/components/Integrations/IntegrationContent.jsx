@@ -93,7 +93,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           To use the Slack integration on Self-hosted, you need to set up a
           Slack bot. Learn how to do so in our{" "}
           <Link
-            href="https://docs.gurubase.io/integrations/slack-bot"
+            href="https://docs.gurubase.ai/integrations/slack-bot#slack-app-setup-for-self-hosted-version"
             className="text-blue-500 hover:text-blue-600"
             target="_blank">
             documentation
@@ -129,7 +129,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           To use the Discord integration on Self-hosted, you need to set up a
           Discord bot. Learn how to do so in our{" "}
           <Link
-            href="https://docs.gurubase.io/integrations/discord-bot"
+            href="https://docs.gurubase.ai/integrations/discord-bot#discord-app-setup-for-self-hosted-version"
             className="text-blue-500 hover:text-blue-600"
             target="_blank">
             documentation
