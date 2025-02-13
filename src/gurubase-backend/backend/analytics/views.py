@@ -243,6 +243,9 @@ def analytics_table(request, guru_type):
             combined_sources = []
             
             for ds in data_sources:
+                if not ds.type or not ds.title or not ds.url:
+                    continue
+
                 combined_sources.append({
                     'date': ds.date_created.isoformat(),
                     'type': format_filter_name_for_display(ds.type),
@@ -253,6 +256,9 @@ def analytics_table(request, guru_type):
                 })
             
             for gf in github_files:
+                if not gf.data_source or not gf.data_source.date_created or not gf.title or not gf.link:
+                    continue
+
                 combined_sources.append({
                     'date': gf.data_source.date_created.isoformat(),
                     'type': 'Codebase',
