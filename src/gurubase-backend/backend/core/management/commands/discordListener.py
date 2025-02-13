@@ -468,15 +468,20 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
         
-        try:
-            client, handler = self.setup_discord_client()
-            token = self._get_valid_bot_token()
-            
-            client.run(token, log_handler=handler, log_level=logging.DEBUG)
-        except KeyboardInterrupt:
-            self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
-        except BotTokenValidationException as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
-            raise 
+        while True:
+            try:
+                client, handler = self.setup_discord_client()
+                token = self._get_valid_bot_token()
+                
+                client.run(token, log_handler=handler, log_level=logging.DEBUG)
+                break  # If client.run() completes normally, exit the loop
+            except BotTokenValidationException as e:
+                self.stdout.write(self.style.WARNING(f'No valid bot token found: {str(e)}'))
+                self.stdout.write(self.style.WARNING('Retrying in 5 seconds...'))
+                time.sleep(5)  # Wait for 5 seconds before retrying
+            except KeyboardInterrupt:
+                self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
+                break
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
+                raise 
