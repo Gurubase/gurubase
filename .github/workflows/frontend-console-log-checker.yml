@@ -1,0 +1,38 @@
+name: PR Console Check
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'src/gurubase-frontend/**'
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'src/gurubase-frontend/**'
+
+jobs:
+  check-console:
+    name: Check for Console Statements
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/gurubase-frontend
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check for console statements
+        run: |
+          files_with_console=$(grep -rL "use server" --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" --exclude-dir={node_modules,public,.next} . | xargs grep -nE "^[^/]*console\.(log|error|warn|info|debug|trace|dir|dirxml|table|time|timeEnd|group|groupEnd|count|countReset|assert|profile|profileEnd)" | cut -d: -f1 | sort -u || true)
+          if [ -n "$files_with_console" ]; then
+            echo "Console statements found in the following files:"
+            echo "$files_with_console"
+            echo "Please remove console statements before merging to develop/master branch."
+            exit 1
+          else
+            echo "No uncommented console statements found in files without 'use server'."
+          fi 
