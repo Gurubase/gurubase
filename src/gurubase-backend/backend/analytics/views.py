@@ -1,4 +1,5 @@
 import logging
+import traceback
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
 from datetime import datetime
@@ -35,6 +36,7 @@ def analytics_stats(request, guru_type):
         
         return Response({'data': stats_data}, status=status.HTTP_200_OK)
     except Exception as e:
+        logger.error(f"Error in analytics_stats: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -89,8 +91,10 @@ def analytics_histogram(request, guru_type):
         
         return Response({'data': result}, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in analytics_histogram: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.error(f"Error in analytics_histogram: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -285,8 +289,10 @@ def analytics_table(request, guru_type):
         
         return Response(response_data, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in analytics_table: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.error(f"Error in analytics_table: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -327,7 +333,8 @@ def data_source_questions(request, guru_type):
             
         return Response(result, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in data_source_questions: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error in data_source_questions: {str(e)}", exc_info=True)
+        logger.error(f"Error in data_source_questions: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
