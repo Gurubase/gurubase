@@ -1,23 +1,17 @@
 import logging
 import re
 import traceback
-from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
-from firecrawl import FirecrawlApp
 from abc import ABC, abstractmethod
-from core.exceptions import GitHubRepoContentExtractionError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
-from core.models import DataSource, DataSourceExists, GithubFile
+from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
+from core.models import DataSource, DataSourceExists
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
-import json
 from core.github_handler import process_github_repository, extract_repo_name
-import os
-import random
 from core.requester import get_web_scraper
 
 
 logger = logging.getLogger(__name__)
-app = FirecrawlApp(api_key=settings.FIRECRAWL_API_KEY)
 
 
 def youtube_content_extraction(youtube_url):
@@ -80,15 +74,12 @@ def website_content_extraction(url):
     Returns: Tuple[title: str, content: str, scrape_tool: str]
     """
     try:
-        scraper = get_web_scraper()
+        scraper, scrape_tool = get_web_scraper()
         title, content = scraper.scrape_url(url)
         
         # Clean the extracted content
         title = clean_title(title)
         content = clean_content(content)
-        
-        # Return the scraping tool used based on the scraper class
-        scrape_tool = settings.WEBSITE_EXTRACTION
         
         return title, content, scrape_tool
         

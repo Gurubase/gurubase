@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import Link from "next/link";
 
 import {
   addGuruSources,
@@ -32,7 +33,8 @@ import {
   getGuruDataSources,
   reindexGuruSources,
   updateGuru,
-  updateGuruDataSourcesPrivacy
+  updateGuruDataSourcesPrivacy,
+  getSettings
 } from "@/app/actions";
 import CreateWidgetModal from "@/components/CreateWidgetModal";
 import { CustomToast } from "@/components/CustomToast";
@@ -154,6 +156,30 @@ export default function NewGuru({
     : useUser();
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+
+  const [isApiKeyValid, setIsApiKeyValid] = useState(true);
+  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+
+  // Add effect to check API key validity
+  useEffect(() => {
+    const checkApiKey = async () => {
+      if (!isSelfHosted) {
+        setIsCheckingApiKey(false);
+        return;
+      }
+
+      try {
+        const settings = await getSettings();
+        setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
+      } catch (error) {
+        setIsApiKeyValid(false);
+      } finally {
+        setIsCheckingApiKey(false);
+      }
+    };
+
+    checkApiKey();
+  }, [isSelfHosted]);
 
   // Add helper function here at the top level
 
@@ -1751,6 +1777,14 @@ export default function NewGuru({
     );
   }
 
+  if (isSelfHosted && isCheckingApiKey) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full h-[50vh]">
+        <LoaderCircle className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
   // Only show GitHub-related UI and logic if index_repo is true
   const renderCodebaseIndexing = () => {
     if (!index_repo && isEditMode) return null;
@@ -1868,6 +1902,24 @@ export default function NewGuru({
   // Modify the form component
   return (
     <>
+      {isSelfHosted && !isCheckingApiKey && !isApiKeyValid && (
+        <div className="w-full border-b border-red-200 bg-red-50">
+          <div className="flex items-center gap-3 px-6 py-3">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-900">
+                Configure a valid OpenAI API Key to create a Guru.
+              </p>
+            </div>
+            <Link
+              href="/settings"
+              className="flex-shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
+              Configure API Key →
+            </Link>
+          </div>
+        </div>
+      )}
+
       <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
         <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
@@ -1876,7 +1928,10 @@ export default function NewGuru({
       <div className="p-6 pt-0">
         <Form {...form}>
           <form
-            className="space-y-8"
+            className={cn(
+              "space-y-8",
+              isSelfHosted && !isApiKeyValid && "opacity-50 pointer-events-none"
+            )}
             onSubmit={(e) => {
               e.preventDefault();
               form.trigger().then((isValid) => {

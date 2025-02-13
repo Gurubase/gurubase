@@ -131,6 +131,10 @@ export const makePublicRequest = async (url, options = {}, decode = false) => {
     throw new HttpError("Reranker model is not available!", response.status);
   }
 
+  if (response.status === 490) {
+    throw new HttpError("OpenAI API Key is not valid!", response.status);
+  }
+
   if (!response.ok) {
     let errorDetails;
 
@@ -1022,6 +1026,52 @@ export async function createSelfhostedIntegration(
       context: "createSelfhostedIntegration",
       guruType,
       data
+    });
+  }
+}
+
+export async function getSettings() {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/settings/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getSettings"
+    });
+  }
+}
+
+export async function updateSettings(formData) {
+  try {
+    const openai_api_key = formData.get("openai_api_key");
+    const firecrawl_api_key = formData.get("firecrawl_api_key");
+    const scrape_type = formData.get("scrape_type");
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/settings/`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          openai_api_key,
+          firecrawl_api_key,
+          scrape_type
+        })
+      }
+    );
+
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "updateSettings"
     });
   }
 }

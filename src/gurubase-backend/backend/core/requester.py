@@ -22,10 +22,30 @@ logging.getLogger("httpx").setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
-from core.models import GuruType
+from core.models import GuruType, Settings
 from core.guru_types import get_guru_type_prompt_map
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
+
+def get_openai_api_key():
+    if settings.ENV == 'selfhosted':
+        try:
+            return Settings.objects.get(id=1).openai_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.OPENAI_API_KEY
+    else:
+        return settings.OPENAI_API_KEY
+    
+def get_firecrawl_api_key():
+    if settings.ENV == 'selfhosted':
+        try:
+            return Settings.objects.get(id=1).firecrawl_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.FIRECRAWL_API_KEY
+    else:
+        return settings.FIRECRAWL_API_KEY
 
 GURU_ENDPOINTS = {
     'processed_raw_questions': 'processed_raw_questions'
@@ -86,7 +106,7 @@ class WebScraper(ABC):
 class FirecrawlScraper(WebScraper):
     """Firecrawl implementation of WebScraper"""
     def __init__(self):
-        self.app = FirecrawlApp(api_key=settings.FIRECRAWL_API_KEY)
+        self.app = FirecrawlApp(api_key=get_firecrawl_api_key())
 
     def scrape_url(self, url: str) -> Tuple[str, str]:
         scrape_status = self.app.scrape_url(
@@ -200,12 +220,19 @@ class Crawl4AIScraper(WebScraper):
 
 def get_web_scraper() -> WebScraper:
     """Factory function to get the appropriate web scraper based on settings"""
-    if settings.WEBSITE_EXTRACTION == 'crawl4ai':
-        return Crawl4AIScraper()
-    elif settings.WEBSITE_EXTRACTION == 'firecrawl':
-        return FirecrawlScraper()
+
+    if settings.ENV == 'selfhosted':
+        scrape_type = Settings.objects.get(id=1).scrape_type
+        scrape_type = scrape_type.lower()
     else:
-        raise ValueError(f"Invalid website extraction tool: {settings.WEBSITE_EXTRACTION}")
+        scrape_type = settings.WEBSITE_EXTRACTION
+
+    if scrape_type == 'crawl4ai':
+        return Crawl4AIScraper(), scrape_type
+    elif scrape_type == 'firecrawl':
+        return FirecrawlScraper(), scrape_type
+    else:
+        raise ValueError(f"Invalid website extraction tool: {scrape_type}")
 
 class GuruRequester():
     def __init__(self):
@@ -220,7 +247,11 @@ class GuruRequester():
 
 class OpenAIRequester():
     def __init__(self):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        openai_api_key = get_openai_api_key()
+        if not openai_api_key:
+            self.client = None
+        else:
+            self.client = OpenAI(api_key=openai_api_key)
 
     def get_context_relevance(self, question_text, user_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance
