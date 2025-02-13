@@ -174,10 +174,11 @@ class DiscordStrategy(IntegrationStrategy):
                 {
                     'id': c['id'],
                     'name': c['name'],
-                    'allowed': False
+                    'allowed': False,
+                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown'
                 }
                 for c in channels
-                if c['type'] == 0  # 0 is text channel
+                if c['type'] in [0, 15]  # 0 is text channel, 15 is forum
             ]
             return sorted(text_channels, key=lambda x: x['name'])
 
@@ -189,11 +190,33 @@ class DiscordStrategy(IntegrationStrategy):
     def send_test_message(self, channel_id: str) -> bool:
         def _send_test_message() -> bool:
             integration = self.get_integration()
-            url = f'https://discord.com/api/channels/{channel_id}/messages'
+            
+            # Find the channel type from integration.channels
+            channel_type = 'text'  # default to text
+            for channel in integration.channels:
+                if channel['id'] == channel_id:
+                    channel_type = channel.get('type', 'text')
+                    break
+
+            url = f'https://discord.com/api/channels/{channel_id}'
             headers = {'Authorization': f'Bot {self._get_bot_token(integration)}'}
-            data = {
-                'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
-            }
+            
+            if channel_type == 'forum':
+                # Create a forum post
+                url += '/threads'
+                data = {
+                    'name': 'Test Message from Gurubase',
+                    'message': {
+                        'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
+                    }
+                }
+            else:
+                # Regular text channel message
+                url += '/messages'
+                data = {
+                    'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
+                }
+            
             response = requests.post(url, headers=headers, json=data)
             response.raise_for_status()
             return True
