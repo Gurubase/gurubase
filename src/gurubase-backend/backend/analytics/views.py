@@ -217,21 +217,25 @@ def analytics_table(request, guru_type):
             if filter_type == 'all' or not filter_type:
                 data_sources = list(DataSource.objects.filter(
                     guru_type=guru_type,
-                    url__in=referenced_links
+                    url__in=referenced_links,
+                    status=DataSource.Status.SUCCESS
                 ))
                 github_files = list(GithubFile.objects.filter(
-                    link__in=referenced_links
+                    link__in=referenced_links,
+                    data_source__status=DataSource.Status.SUCCESS
                 ).select_related('data_source'))
             elif filter_type == 'github_repo':
                 data_sources = []
                 github_files = list(GithubFile.objects.filter(
-                    link__in=referenced_links
+                    link__in=referenced_links,
+                    data_source__status=DataSource.Status.SUCCESS
                 ).select_related('data_source'))
             else:
                 data_sources = list(DataSource.objects.filter(
                     guru_type=guru_type,
                     url__in=referenced_links,
-                    type__iexact=filter_type
+                    type__iexact=filter_type,
+                    status=DataSource.Status.SUCCESS
                 ))
                 github_files = []
             
