@@ -29,13 +29,21 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 
 def get_openai_api_key():
     if settings.ENV == 'selfhosted':
-        return Settings.objects.get(id=1).openai_api_key
+        try:
+            return Settings.objects.get(id=1).openai_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.OPENAI_API_KEY
     else:
         return settings.OPENAI_API_KEY
     
 def get_firecrawl_api_key():
     if settings.ENV == 'selfhosted':
-        return Settings.objects.get(id=1).firecrawl_api_key
+        try:
+            return Settings.objects.get(id=1).firecrawl_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.FIRECRAWL_API_KEY
     else:
         return settings.FIRECRAWL_API_KEY
 

@@ -160,15 +160,7 @@ def create_base_og_image_for_guru(sender, instance: GuruType, created, **kwargs)
 
         response = requests.get(icon_url, timeout=30)
         response.raise_for_status()
-        import cairosvg
-
-        if response.headers['Content-Type'] == 'image/svg+xml':
-            # Convert SVG bytes to PNG bytes
-            png_bytes = cairosvg.svg2png(bytestring=response.content)
-            image = Image.open(BytesIO(png_bytes)).convert("RGBA")
-        else:
-            # Assume it's a format supported directly by PIL
-            image = Image.open(BytesIO(response.content)).convert("RGBA")
+        image = Image.open(BytesIO(response.content)).convert("RGBA")
     
         corner_radius = 15
 
@@ -272,14 +264,9 @@ def create_question_og_image_for_guru(sender, instance: GuruType, created, **kwa
         
         from PIL import Image, ImageDraw, ImageFont
         from io import BytesIO
-        import cairosvg
         from core.gcp import OG_IMAGES_GCP
 
-        if response.headers['Content-Type'] == 'image/svg+xml':
-            png_bytes = cairosvg.svg2png(bytestring=response.content)
-            image = Image.open(BytesIO(png_bytes)).convert("RGBA")
-        else:
-            image = Image.open(BytesIO(response.content)).convert("RGBA")
+        image = Image.open(BytesIO(response.content)).convert("RGBA")
 
         # Load and resize icon
         icon_image_size = (140, 140)

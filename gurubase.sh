@@ -252,33 +252,6 @@ if ! grep -q "POSTGRES_PASSWORD=" "$GURUBASE_DIR/.env" 2>/dev/null; then
     echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $GURUBASE_DIR/.env
 fi
 
-# Check if OPENAI_API_KEY exists and is not empty
-if ! grep -q "^OPENAI_API_KEY=.\+" "$GURUBASE_DIR/.env" 2>/dev/null; then
-    echo "ℹ️  OpenAI API Key Security Notice:"
-    echo "   - Your API key will be stored locally in $GURUBASE_DIR/.env"
-    echo "   - It never leaves your machine and is not shared with any external services"
-    echo "   - This key is used for text generation (gpt-4o, gpt-4o-mini, etc.) and embeddings (text-embedding-3-small, etc.)"
-    echo "   - You can get an API key from https://platform.openai.com/api-keys"
-    echo ""
-    read -p "Enter your OpenAI API key: " OPENAI_API_KEY
-    echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> $GURUBASE_DIR/.env
-fi
-
-echo ""
-echo ""
-
-# Check if FIRECRAWL_API_KEY exists and is not empty
-if ! grep -q "^FIRECRAWL_API_KEY=.\+" "$GURUBASE_DIR/.env" 2>/dev/null; then
-    echo "ℹ️  Firecrawl API Key Security Notice:"
-    echo "   - Your API key will be stored locally in $GURUBASE_DIR/.env"
-    echo "   - It never leaves your machine and is not shared with any external services"
-    echo "   - This key is used for website scraping"
-    echo "   - You can get an API key from https://www.firecrawl.dev/app/api-keys"
-    echo ""
-    read -p "Enter your Firecrawl API key: " FIRECRAWL_API_KEY
-    echo "FIRECRAWL_API_KEY=$FIRECRAWL_API_KEY" >> $GURUBASE_DIR/.env
-fi
-
 # Create .env.frontend file
 if [ ! -f "$GURUBASE_DIR/.env.frontend" ] || ! grep -q "^NEXT_PUBLIC_TELEMETRY_ENABLED=" "$GURUBASE_DIR/.env.frontend" 2>/dev/null; then
     echo "NEXT_PUBLIC_TELEMETRY_ENABLED=true" > "$GURUBASE_DIR/.env.frontend"

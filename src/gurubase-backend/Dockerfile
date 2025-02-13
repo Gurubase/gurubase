@@ -6,8 +6,27 @@ FROM python:3.11-slim AS base
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      git \
-      libcairo2
+        git \
+        libglib2.0-0 \
+        libnss3 \
+        libnspr4 \
+        libdbus-1-3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libx11-6 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libxcb1 \
+        libxkbcommon0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libasound2 \
+        libatspi2.0-0
 
 # 3) Tweak Python to run better in Docker
 ENV PYTHONUNBUFFERED=1 \
@@ -29,7 +48,8 @@ COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
-RUN playwright install --with-deps chromium
+# Run crawl4ai setup to install browsers and dependencies
+RUN playwright install chromium
 
 COPY . .
 
@@ -68,20 +88,23 @@ FROM base AS runtime
 
 WORKDIR /workspace
 
-# 1) Avoid running as a privileged user.
 RUN addgroup --gid 1001 --system nonroot && \
     adduser --no-create-home --shell /bin/false \
       --disabled-password --uid 1001 --system --group nonroot
 
-ENV CRAWL4_AI_BASE_DIRECTORY=/workspace/.crawl4ai
-RUN mkdir -p $CRAWL4_AI_BASE_DIRECTORY && chown -R nonroot:nonroot $CRAWL4_AI_BASE_DIRECTORY
+ENV CRAWL4_AI_BASE_DIRECTORY=/workspace/.crawl4ai \
+    PLAYWRIGHT_BROWSERS_PATH=/workspace/.cache/ms-playwright
+
+RUN mkdir -p $CRAWL4_AI_BASE_DIRECTORY $PLAYWRIGHT_BROWSERS_PATH && \
+    chown -R nonroot:nonroot $CRAWL4_AI_BASE_DIRECTORY $PLAYWRIGHT_BROWSERS_PATH
 
 USER nonroot:nonroot
 
 ENV VIRTUAL_ENV=/workspace/.venv \
     PATH="/workspace/.venv/bin:$PATH"
 
-# 2) Copy the self-contained app from the build stage.
 COPY --from=build --chown=nonroot:nonroot /workspace ./
+
+RUN playwright install chromium
 
 CMD ["./entrypoint.sh"]

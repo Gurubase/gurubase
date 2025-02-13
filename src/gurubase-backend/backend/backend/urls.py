@@ -78,6 +78,7 @@ if settings.STREAM_ENABLED:
     if settings.ENV == 'selfhosted':
         urlpatterns += [
             path('api/<str:guru_type>/answer/', core_views.answer, name="answer-api"),
+            path('api/analytics/', include('analytics.urls')),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
         ]
 
