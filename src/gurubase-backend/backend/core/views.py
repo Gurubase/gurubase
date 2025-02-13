@@ -1,4 +1,5 @@
 from asgiref.sync import sync_to_async
+from rest_framework.test import APIRequestFactory
 from slack_sdk.errors import SlackApiError
 import json
 import logging
@@ -2086,43 +2087,86 @@ async def stream_and_update_message(
     current_content = ""
     
     try:
-        async with session.post(url, json=payload, headers=headers) as response:
-            if response.status != 200:
-                error_response = await response.json()
-                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    text=f"❌ {error_msg}"
-                )
-                return
-                
-            async for chunk in response.content:
-                if chunk:
-                    text = chunk.decode('utf-8')
-                    current_content += text
-                    # Strip header and convert markdown
-                    cleaned_content = strip_first_header(current_content)
-                    if cleaned_content.strip():
-                        formatted_content = convert_markdown_to_slack(cleaned_content)
-                        formatted_content += '\n\n:clock1: _streaming..._'
-                        current_time = time.time()
-                        if current_time - last_update >= update_interval:
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        guru_type = payload.get('guru_type')
+        
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=headers.get('X-API-KEY'),
+            format='json'
+        )
+        
+        # Call api_answer directly in a sync context
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Handle StreamingHttpResponse
+        if hasattr(response, 'streaming_content'):
+            buffer = ""
+            line_buffer = ""
+            
+            # Create an async wrapper for the generator iteration
+            @sync_to_async
+            def get_next_chunk():
+                try:
+                    return next(response.streaming_content)
+                except StopIteration:
+                    return None
+            
+            # Iterate over the generator asynchronously
+            while True:
+                chunk = await get_next_chunk()
+                if chunk is None:
+                    # Yield any remaining text in the buffer
+                    if line_buffer.strip():
+                        buffer += line_buffer
+                        # Strip header and convert markdown
+                        cleaned_content = strip_first_header(buffer)
+                        if cleaned_content.strip():
+                            formatted_content = convert_markdown_to_slack(cleaned_content)
+                            formatted_content += '\n\n:clock1: _streaming..._'
                             try:
                                 client.chat_update(
                                     channel=channel_id,
                                     ts=message_ts,
                                     text=formatted_content
                                 )
-                                last_update = current_time
                             except SlackApiError as e:
                                 logger.error(f"Error updating message: {e.response}", exc_info=True)
-                                client.chat_update(
-                                    channel=channel_id,
-                                    ts=message_ts,
-                                    text="❌ Failed to update message"
-                                )
-                                return
+                    break
+                    
+                if chunk:
+                    text = chunk.decode('utf-8') if isinstance(chunk, bytes) else str(chunk)
+                    line_buffer += text
+                    
+                    # Check if we have complete lines
+                    while '\n' in line_buffer:
+                        line, line_buffer = line_buffer.split('\n', 1)
+                        if line.strip():
+                            buffer += line + '\n'
+                            # Strip header and convert markdown
+                            cleaned_content = strip_first_header(buffer)
+                            if cleaned_content.strip():
+                                formatted_content = convert_markdown_to_slack(cleaned_content)
+                                formatted_content += '\n\n:clock1: _streaming..._'
+                                current_time = time.time()
+                                if current_time - last_update >= update_interval:
+                                    try:
+                                        client.chat_update(
+                                            channel=channel_id,
+                                            ts=message_ts,
+                                            text=formatted_content
+                                        )
+                                        last_update = current_time
+                                    except SlackApiError as e:
+                                        logger.error(f"Error updating message: {e.response}", exc_info=True)
+                                        client.chat_update(
+                                            channel=channel_id,
+                                            ts=message_ts,
+                                            text="❌ Failed to update message"
+                                        )
+                                        return
     except Exception as e:
         logger.error(f"Error in stream_and_update_message: {str(e)}", exc_info=True)
         client.chat_update(
@@ -2143,29 +2187,38 @@ async def get_final_response(
 ) -> None:
     """Get and send the final formatted response."""
     try:
-        async with session.post(url, json=payload, headers=headers) as response:
-            if response.status == 200:
-                final_response = await response.json()
-                trust_score = final_response.get('trust_score', 0)
-                references = final_response.get('references', [])
-                content = final_response.get('content', '')
-                question_url = final_response.get('question_url', '')
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        guru_type = payload.get('guru_type')
+        
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=headers.get('X-API-KEY'),
+            format='json'
+        )
+        
+        # Call api_answer directly
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Convert response to dict if it's a Response object
+        if hasattr(response, 'data'):
+            final_response = response.data
+        else:
+            final_response = response
 
-                final_text = format_slack_response(content, trust_score, references, question_url)
-                if final_text.strip():  # Only update if there's content after stripping header
-                    client.chat_update(
-                        channel=channel_id,
-                        ts=message_ts,
-                        text=final_text
-                    )
-            else:
-                error_response = await response.json()
-                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    text=f"❌ {error_msg}"
-                )
+        trust_score = final_response.get('trust_score', 0)
+        references = final_response.get('references', [])
+        content = final_response.get('content', '')
+        question_url = final_response.get('question_url', '')
+
+        final_text = format_slack_response(content, trust_score, references, question_url)
+        if final_text.strip():  # Only update if there's content after stripping header
+            client.chat_update(
+                channel=channel_id,
+                ts=message_ts,
+                text=final_text
+            )
     except Exception as e:
         logger.error(f"Error in get_final_response: {str(e)}", exc_info=True)
         client.chat_update(
@@ -2205,26 +2258,26 @@ async def handle_slack_message(
         
         guru_type_slug = await sync_to_async(lambda integration: integration.guru_type.slug)(integration)
         api_key = await sync_to_async(lambda integration: integration.api_key.key)(integration)
-        # Setup API endpoint
-        url = f"{settings.PROD_BACKEND_URL.rstrip('/')}/api/v1/{guru_type_slug}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
         
         try:
-            # Stream the response
+            # First get streaming response
+            stream_payload = {
+                'question': clean_message,
+                'stream': True,
+                'short_answer': True,
+                'session_id': str(binge.id),
+                'guru_type': guru_type_slug
+            }
+            
+            headers = {
+                'X-API-KEY': api_key,
+                'Content-Type': 'application/json'
+            }
+            
             async with aiohttp.ClientSession() as session:
-                # First get streaming response
-                stream_payload = {
-                    'question': clean_message,
-                    'stream': True,
-                    'short_answer': True,
-                    'session_id': str(binge.id)
-                }
                 await stream_and_update_message(
                     session=session,
-                    url=url,
+                    url='',  # Not used anymore
                     headers=headers,
                     payload=stream_payload,
                     client=client,
@@ -2238,12 +2291,13 @@ async def handle_slack_message(
                     'stream': False,
                     'short_answer': True,
                     'fetch_existing': True,
-                    'session_id': str(binge.id)
+                    'session_id': str(binge.id),
+                    'guru_type': guru_type_slug
                 }
                 
                 await get_final_response(
                     session=session,
-                    url=url,
+                    url='',  # Not used anymore
                     headers=headers,
                     payload=final_payload,
                     client=client,
