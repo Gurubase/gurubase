@@ -447,19 +447,27 @@ class Command(BaseCommand):
                         
                         metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
                         
-                        # Get the last message's content
-                        last_msg = messages[-1]
-                        last_msg_id = str(last_msg.id)
-                        last_msg_content = message_contents[last_msg_id]
+                        # Get complete response with metadata
+                        complete_response = response['content'] + metadata
                         
-                        # Check if metadata can be appended to the last message
-                        if len(last_msg_content + metadata) <= 1900:
-                            # Append metadata to the last message
-                            await last_msg.edit(content=last_msg_content + metadata)
-                        else:
-                            # Keep the last message as is and send metadata as a new message
-                            await last_msg.edit(content=last_msg_content)
-                            await thread.send(metadata)
+                        # Split into chunks preserving code blocks
+                        chunks = self.split_content_preserve_codeblocks(complete_response)
+                        
+                        # Update existing messages or create/delete as needed
+                        for i, chunk in enumerate(chunks):
+                            if i < len(messages):
+                                # Update existing message
+                                await messages[i].edit(content=chunk)
+                            else:
+                                # Create new message for extra chunk
+                                new_msg = await thread.send(chunk)
+                                messages.append(new_msg)
+                        
+                        # Delete any extra messages if we have fewer chunks
+                        if len(chunks) < len(messages):
+                            for msg in messages[len(chunks):]:
+                                await msg.delete()
+                            messages = messages[:len(chunks)]
                     else:
                         error_msg = response if response else "Sorry, I couldn't process your request. 😕"
                         # Clean up all messages except the first one
@@ -535,6 +543,79 @@ class Command(BaseCommand):
             "No valid Discord bot tokens found. Please check your integration settings "
             "and ensure at least one bot token is valid."
         )
+
+    def split_content_preserve_codeblocks(self, content, max_length=1900):
+        """Split content into chunks while preserving code blocks and staying under max_length."""
+        chunks = []
+        current_chunk = ""
+        in_code_block = False
+        code_block_content = ""
+        lines = content.split('\n')
+        
+        def try_add_to_current_chunk(text_to_add):
+            nonlocal current_chunk
+            if not current_chunk:
+                return text_to_add
+            elif len(current_chunk + text_to_add) <= max_length:
+                return current_chunk + text_to_add
+            else:
+                chunks.append(current_chunk.rstrip())
+                return text_to_add
+        
+        for line in lines:
+            # Check for code block markers
+            if line.strip().startswith('```'):
+                if in_code_block:
+                    # End of code block
+                    code_block_content += line + '\n'
+                    # Try to add the complete code block to current chunk
+                    new_chunk = try_add_to_current_chunk(code_block_content)
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        # If code block doesn't fit, it needs its own chunk(s)
+                        if current_chunk:
+                            chunks.append(current_chunk.rstrip())
+                        if len(code_block_content) <= max_length:
+                            current_chunk = code_block_content
+                        else:
+                            # If code block itself is too long, split it
+                            code_chunks = [code_block_content[i:i+max_length] for i in range(0, len(code_block_content), max_length)]
+                            chunks.extend(chunk.rstrip() for chunk in code_chunks[:-1])
+                            current_chunk = code_chunks[-1]
+                    code_block_content = ""
+                    in_code_block = False
+                else:
+                    # Start of code block
+                    in_code_block = True
+                    code_block_content = line + '\n'
+            else:
+                if in_code_block:
+                    code_block_content += line + '\n'
+                else:
+                    # Regular line handling
+                    new_chunk = try_add_to_current_chunk(line + '\n')
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        chunks.append(current_chunk.rstrip())
+                        current_chunk = line + '\n'
+        
+        # Add any remaining content
+        if code_block_content:
+            # Try to add the final code block to current chunk
+            new_chunk = try_add_to_current_chunk(code_block_content)
+            if len(new_chunk) <= max_length:
+                current_chunk = new_chunk
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.rstrip())
+                current_chunk = code_block_content
+        
+        if current_chunk:
+            chunks.append(current_chunk.rstrip())
+        
+        return chunks
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
