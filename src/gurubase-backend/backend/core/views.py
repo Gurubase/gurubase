@@ -509,7 +509,7 @@ def my_gurus(request):
         return Response(gurus_data)
     except Exception as e:
         logger.error(f'Error while fetching user gurus: {e}', exc_info=True)
-        return Response({'error': str(e)}, status=500)
+        return Response({'msg': str(e)}, status=500)
 
 
 @api_view(['GET'])
@@ -1063,18 +1063,18 @@ def guru_type_status(request, guru_type):
 def export_datasources(request):
     guru_type = request.data.get('guru_type', None)
     if not guru_type:
-        return Response({"error": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         guru_type_object = get_guru_type_object(guru_type, only_active=False)
     except Exception as e:
-        return Response({"error": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         data = {
             'data_sources': list(DataSource.objects.filter(guru_type=guru_type_object).values()),
         }
         return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"msg": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -1082,18 +1082,18 @@ def export_datasources(request):
 def export_questions(request):
     guru_type = request.data.get('guru_type', None)
     if not guru_type:
-        return Response({"error": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         guru_type_object = get_guru_type_object(guru_type, only_active=False)
     except Exception as e:
-        return Response({"error": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         data = {
             'questions': list(Question.objects.filter(guru_type=guru_type_object).values()),
         }
         return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"msg": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -1736,7 +1736,7 @@ def create_integration(request):
 
     if not all([code, state]):
         return Response({
-            'error': 'Missing required parameters'
+            'msg': 'Missing required parameters'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -1748,13 +1748,13 @@ def create_integration(request):
 
         if not all([integration_type, guru_type_slug, encoded_guru_slug]):
             return Response({
-                'error': 'Invalid state parameter'
+                'msg': 'Invalid state parameter'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         decoded_guru_slug = decode_guru_slug(encoded_guru_slug)
         if not decoded_guru_slug or decoded_guru_slug != guru_type_slug:
             return Response({
-                'error': 'Invalid state parameter'
+                'msg': 'Invalid state parameter'
             }, status=status.HTTP_400_BAD_REQUEST)                    
 
     except Exception as e:
@@ -1766,7 +1766,7 @@ def create_integration(request):
         guru_type = GuruType.objects.get(slug=guru_type_slug)
     except GuruType.DoesNotExist:
         return Response({
-            'error': 'Invalid guru type'
+            'msg': 'Invalid guru type'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -1775,7 +1775,7 @@ def create_integration(request):
     except Exception as e:
         logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({
-            'error': str(e)
+            'msg': 'There has been an error while creating the integration. Please try again. If the problem persists, please contact support.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({
@@ -2382,7 +2382,7 @@ def slack_events(request):
                                 clean_message=clean_message
                             ))
                         except SlackApiError as e:
-                            if e.response.data.get('error') in ['token_expired', 'invalid_auth', 'not_authed']:
+                            if e.response.data.get('msg') in ['token_expired', 'invalid_auth', 'not_authed']:
                                 try:
                                     # Get fresh integration data from DB
                                     integration = Integration.objects.get(id=integration.id)
