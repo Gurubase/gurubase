@@ -463,6 +463,12 @@ class Command(BaseCommand):
                         
                         # Update existing messages or create/delete as needed
                         for i, chunk in enumerate(chunks):
+                            # Remove leading # and newline if present
+                            if i == 0 and chunk.startswith('#'):
+                                newline_index = chunk.find('\n')
+                                if newline_index != -1:
+                                    chunk = chunk[newline_index + 1:].lstrip()
+
                             if i < len(messages):
                                 # Update existing message
                                 await messages[i].edit(content=chunk)
