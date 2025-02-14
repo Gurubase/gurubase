@@ -1,5 +1,5 @@
 import re
-import os
+import traceback
 import discord
 import logging
 import sys
@@ -12,6 +12,12 @@ from asgiref.sync import sync_to_async
 from core.utils import create_fresh_binge
 import time
 from django.core.cache import caches
+import requests
+from core.views import api_answer
+from rest_framework.test import APIRequestFactory
+
+class BotTokenValidationException(Exception):
+    pass
 
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
@@ -23,7 +29,6 @@ class Command(BaseCommand):
         # This is because dynamic channel updates are not immediately reflected
         # And this may result in bad UX, and false positive bug reports
         self.cache_timeout = 0
-        self.prod_backend_url = settings.PROD_BACKEND_URL.rstrip('/')
 
     def get_trust_score_emoji(self, trust_score):
         score = trust_score / 100.0
@@ -139,52 +144,91 @@ class Command(BaseCommand):
             return binge
 
     async def stream_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': True,
             'short_answer': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        buffer = ""
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                async for chunk in response.content:
-                    if chunk:
-                        text = chunk.decode('utf-8')
-                        buffer += text
-                        if buffer.strip():
+        # Call api_answer directly in a sync context
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Handle StreamingHttpResponse
+        if hasattr(response, 'streaming_content'):
+            buffer = ""
+            line_buffer = ""
+            
+            # Create an async wrapper for the generator iteration
+            @sync_to_async
+            def get_next_chunk():
+                try:
+                    return next(response.streaming_content)
+                except StopIteration:
+                    return None
+            
+            # Iterate over the generator asynchronously
+            while True:
+                chunk = await get_next_chunk()
+                if chunk is None:
+                    # Yield any remaining text in the buffer
+                    if line_buffer.strip():
+                        buffer += line_buffer
+                        yield buffer
+                    break
+                    
+                if chunk:
+                    text = chunk.decode('utf-8') if isinstance(chunk, bytes) else str(chunk)
+                    line_buffer += text
+                    
+                    # Check if we have complete lines
+                    while '\n' in line_buffer:
+                        line, line_buffer = line_buffer.split('\n', 1)
+                        if line.strip():
+                            buffer += line + '\n'
                             yield buffer
 
     async def get_finalized_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': False,
             'short_answer': True,
             'fetch_existing': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                response_json = await response.json()
-                if response.status == 200:
-                    return response_json, True
-                else:
-                    print(response_json, type(response_json))
-                    return response_json['msg'], False
+        try:
+            # Call api_answer directly
+            response = await sync_to_async(api_answer)(request, guru_type)
+            
+            # Convert response to dict if it's a Response object
+            if hasattr(response, 'data'):
+                return response.data, True
+            return response, True
+        except Exception as e:
+            return str(e), False
 
     async def send_channel_unauthorized_message(
         self,
@@ -362,7 +406,7 @@ class Command(BaseCommand):
                     logging.error(f"Network error occurred while processing your request. {str(e)}")
                     await thinking_msg.edit(content="❌ Network error occurred while processing your request.")
                 except Exception as e:
-                    logging.error(f"An unexpected error occurred: {str(e)}")
+                    logging.error(f"An unexpected error occurred: {str(e)}. {traceback.format_exc()}")
                     await thinking_msg.edit(content=f"❌ An unexpected error occurred.")
 
             except Exception as e:
@@ -370,15 +414,74 @@ class Command(BaseCommand):
 
         return client, handler
 
+    def _validate_bot_token(self, token: str) -> bool:
+        """Validate a bot token by making a sample request to Discord API"""
+        try:
+            response = requests.get(
+                'https://discord.com/api/v10/users/@me',
+                headers={'Authorization': f'Bot {token}'}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logging.error(f"Error validating bot token: {str(e)}")
+            return False
+
+    def _get_valid_bot_token(self) -> str:
+        """Get a valid bot token based on environment"""
+        if settings.ENV != 'selfhosted':
+            token = settings.DISCORD_BOT_TOKEN
+            if not self._validate_bot_token(token):
+                raise BotTokenValidationException(
+                    "Invalid Discord bot token in settings.DISCORD_BOT_TOKEN. "
+                    "Please check your environment variables and ensure the bot token is valid."
+                )
+            logging.info("Using bot token from settings")
+            return token
+
+        # Get all Discord integrations
+        discord_integrations = Integration.objects.filter(type=Integration.Type.DISCORD)
+        if not discord_integrations.exists():
+            raise BotTokenValidationException("No Discord integrations found in selfhosted mode")
+
+        # Get unique tokens
+        unique_tokens = set(integration.access_token for integration in discord_integrations if integration.access_token)
+        
+        if len(unique_tokens) > 1:
+            logging.warning(
+                "Multiple Discord bots detected! This is not recommended. \n"
+                "Please review your integrations and delete any unnecessary bots. \n"
+                f"Found {len(unique_tokens)} unique bot tokens. \n"
+                "Will try to use the first valid one."
+            )
+
+        # Try each token until we find a valid one
+        for token in unique_tokens:
+            if self._validate_bot_token(token):
+                logging.info(f"Using bot token: {token}")
+                return token
+
+        raise BotTokenValidationException(
+            "No valid Discord bot tokens found. Please check your integration settings "
+            "and ensure at least one bot token is valid."
+        )
+
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
         
-        try:
-            client, handler = self.setup_discord_client()
-            token = settings.DISCORD_BOT_TOKEN
-            
-            client.run(token, log_handler=handler, log_level=logging.DEBUG)
-        except KeyboardInterrupt:
-            self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}')) 
+        while True:
+            try:
+                client, handler = self.setup_discord_client()
+                token = self._get_valid_bot_token()
+                
+                client.run(token, log_handler=handler, log_level=logging.DEBUG)
+                break  # If client.run() completes normally, exit the loop
+            except BotTokenValidationException as e:
+                self.stdout.write(self.style.WARNING(f'No valid bot token found: {str(e)}'))
+                self.stdout.write(self.style.WARNING('Retrying in 5 seconds...'))
+                time.sleep(5)  # Wait for 5 seconds before retrying
+            except KeyboardInterrupt:
+                self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
+                break
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
+                raise 

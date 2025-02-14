@@ -21,15 +21,7 @@ export const IntegrationPayeLayout = ({
           <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />
         }>
         <div className="flex gap-6">
-          <div className="flex-1">
-            {content || (
-              <IntegrationContent
-                type={type.toLowerCase()}
-                customGuru={customGuru}
-                error={error}
-              />
-            )}
-          </div>
+          <div className="flex-1">{content}</div>
         </div>
       </CommonContentLayout>
       <Footer sidebarExists={true} />
