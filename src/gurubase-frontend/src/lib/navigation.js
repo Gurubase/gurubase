@@ -40,7 +40,7 @@ export const getNavigation = () => {
         try {
           router.push(path);
         } finally {
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       },
       replace: async (path) => {
@@ -48,7 +48,7 @@ export const getNavigation = () => {
         try {
           router.replace(path);
         } finally {
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       },
       back: () => {
@@ -56,7 +56,7 @@ export const getNavigation = () => {
         try {
           router.back();
         } finally {
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       },
       setHref: (url) => {
@@ -67,7 +67,7 @@ export const getNavigation = () => {
       pushState: (state, title, url) => {
         startNavigation();
         window.history.pushState(state, title, url);
-        setTimeout(endNavigation, 1500);
+        setTimeout(endNavigation, 1000);
       }
     };
   }
@@ -89,7 +89,7 @@ export const useAppNavigation = () => {
           router.push(path);
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       }
     },
@@ -101,7 +101,7 @@ export const useAppNavigation = () => {
           router.replace(path);
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       }
     },
@@ -113,7 +113,7 @@ export const useAppNavigation = () => {
           router.back();
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1500);
+          setTimeout(endNavigation, 1000);
         }
       }
     },
@@ -128,7 +128,7 @@ export const useAppNavigation = () => {
     pushState: (state, title, url) => {
       startNavigation();
       window.history.pushState(state, title, url);
-      setTimeout(endNavigation, 1500);
+      setTimeout(endNavigation, 1000);
     }
   };
 };
