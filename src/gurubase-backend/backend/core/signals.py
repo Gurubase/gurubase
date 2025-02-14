@@ -795,8 +795,13 @@ def data_source_retrieval_on_creation(sender, instance: DataSource, created, **k
 @receiver(pre_save, sender=Integration)
 def create_api_key_for_integration(sender, instance, **kwargs):
     if not instance.api_key_id:
+        if instance.guru_type.maintainers.first():
+            user = instance.guru_type.maintainers.first()
+        else:
+            user = User.objects.filter(email=settings.ROOT_EMAIL).first()
+
         api_key = APIKey.objects.create(
-            user=instance.guru_type.maintainers.first(),
+            user=user,
             key=secrets.token_urlsafe(32),
             integration=True
         )
