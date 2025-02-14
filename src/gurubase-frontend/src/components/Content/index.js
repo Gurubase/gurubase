@@ -263,13 +263,16 @@ const Content = (props) => {
 
   useEffect(() => {
     if (isBingeMapOpen) {
-      document.body.classList.add("binge-map-open");
+      // Just prevent scrolling while keeping position
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.classList.remove("binge-map-open");
+      // Restore scrolling
+      document.body.style.overflow = "";
     }
 
     return () => {
-      document.body.classList.remove("binge-map-open");
+      // Cleanup
+      document.body.style.overflow = "";
     };
   }, [isBingeMapOpen]);
 
@@ -406,27 +409,6 @@ const Content = (props) => {
       submitWithAbortController(null, true); // Pass necessary arguments
     }
   }, [inputValue, submitTrigger]);
-
-  useEffect(() => {
-    if (isBingeMapOpen) {
-      // Binge map açıkken body scroll'u engelle
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.width = "100%";
-    } else {
-      // Binge map kapandığında scroll'u geri aç
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    }
-
-    return () => {
-      // Cleanup
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    };
-  }, [isBingeMapOpen]);
 
   const isAnswerValid = useAppSelector((state) => state.mainForm.isAnswerValid);
   const reduxSource = useAppSelector((state) => state.mainForm.source);
@@ -809,50 +791,50 @@ const Content = (props) => {
             !streamingStatus &&
             content &&
             slug && (
-          <div
-            ref={slidePanel}
-            className={`guru-lg:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 transition-transform duration-300 ease-in-out z-40 overflow-hidden bg-white ${
-              isBingeMapOpen ? "translate-y-0" : "translate-y-full"
-            }`}
-            style={{
-              height: "70vh",
-              borderTopLeftRadius: "20px",
-              borderTopRightRadius: "20px"
-            }}
-            onTouchEnd={onTouchEnd}
-            onTouchMove={onTouchMove}
-            onTouchStart={onTouchStart}>
-            <div className="flex flex-col h-full bg-white">
-              {/* Header - Draggable for mobile, Close button for desktop */}
-              <div className="p-3 flex-shrink-0 flex justify-center items-center bg-white">
-                {windowWidth < 768 ? ( // window.innerWidth yerine windowWidth
-                  <div className="w-12 h-1.5 bg-neutral-300 rounded-full cursor-grab active:cursor-grabbing" />
-                ) : (
-                  // Close button for desktop
-                  <button
-                    aria-label="Close binge map"
-                    className="absolute right-4 top-4 p-2 hover:bg-neutral-100 rounded-full transition-colors"
-                    onClick={() => dispatch(setIsBingeMapOpen(false))}>
-                    <X className="h-5 w-5 text-neutral-500" />
-                  </button>
-                )}
-              </div>
+              <div
+                ref={slidePanel}
+                className={`guru-lg:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 transition-transform duration-300 ease-in-out z-40 overflow-hidden bg-white ${
+                  isBingeMapOpen ? "translate-y-0" : "translate-y-full"
+                }`}
+                style={{
+                  height: "70vh",
+                  borderTopLeftRadius: "20px",
+                  borderTopRightRadius: "20px"
+                }}
+                onTouchEnd={onTouchEnd}
+                onTouchMove={onTouchMove}
+                onTouchStart={onTouchStart}>
+                <div className="flex flex-col h-full bg-white">
+                  {/* Header - Draggable for mobile, Close button for desktop */}
+                  <div className="p-3 flex-shrink-0 flex justify-center items-center bg-white">
+                    {windowWidth < 768 ? ( // window.innerWidth yerine windowWidth
+                      <div className="w-12 h-1.5 bg-neutral-300 rounded-full cursor-grab active:cursor-grabbing" />
+                    ) : (
+                      // Close button for desktop
+                      <button
+                        aria-label="Close binge map"
+                        className="absolute right-4 top-4 p-2 hover:bg-neutral-100 rounded-full transition-colors"
+                        onClick={() => dispatch(setIsBingeMapOpen(false))}>
+                        <X className="h-5 w-5 text-neutral-500" />
+                      </button>
+                    )}
+                  </div>
 
-              {/* Scrollable content - will not trigger panel close */}
-              <div className="flex-1 overflow-y-auto overscroll-contain">
-                <div className="h-full p-4">
-                  <BingeMap
-                    bingeOutdated={bingeOutdated}
-                    setContent={setContent}
-                    setDescription={setDescription}
-                    setQuestion={setQuestion}
-                    treeData={treeData}
-                  />
+                  {/* Scrollable content - will not trigger panel close */}
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    <div className="h-full p-4">
+                      <BingeMap
+                        bingeOutdated={bingeOutdated}
+                        setContent={setContent}
+                        setDescription={setDescription}
+                        setQuestion={setQuestion}
+                        treeData={treeData}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-          )}
+            )}
 
           {/* Overlay */}
           {isBingeMapOpen && (
