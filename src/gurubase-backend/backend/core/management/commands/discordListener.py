@@ -22,6 +22,9 @@ class BotTokenValidationException(Exception):
 class NotEnoughData(Exception):
     pass
 
+class NotRelated(Exception):
+    pass
+
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
 
@@ -437,6 +440,8 @@ class Command(BaseCommand):
                         
                         if 'msg' in response and 'doesn\'t have enough data' in response['msg']:
                             raise NotEnoughData(response['msg'])
+                        elif 'msg' in response and 'is not related to' in response['msg']:
+                            raise NotRelated(response['msg'])
 
                         if response.get('references'):
                             metadata += "\n_**Sources:**_"
@@ -481,6 +486,9 @@ class Command(BaseCommand):
                             await msg.delete()
                         await messages[0].edit(content=error_msg)
                         
+                except NotRelated as e:
+                    logging.error(f"Not related to the question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
                 except NotEnoughData as e:
                     logging.error(f"Not enough data to process question: {str(e)}")
                     await thinking_msg.edit(content=f'❌ {str(e)}')
