@@ -952,22 +952,30 @@ def slack_send_outofcontext_question_notification(guru_type, user_question, ques
 def get_github_details_if_applicable(guru_type):
     guru_type_obj = get_guru_type_object(guru_type)
     response = ""
-    if guru_type_obj.github_details:
-        simplified_github_details = {}
-        simplified_github_details['name'] = guru_type_obj.github_details['name']
-        simplified_github_details['description'] = guru_type_obj.github_details['description']
-        simplified_github_details['topics'] = guru_type_obj.github_details['topics']
-        simplified_github_details['language'] = guru_type_obj.github_details['language']
-        simplified_github_details['size'] = guru_type_obj.github_details['size']
-        simplified_github_details['homepage'] = guru_type_obj.github_details['homepage']
-        simplified_github_details['stargazers_count'] = guru_type_obj.github_details['stargazers_count']
-        simplified_github_details['forks_count'] = guru_type_obj.github_details['forks_count']
-        simplified_github_details['license_name'] = guru_type_obj.github_details.get('license', {}).get('name')
-        simplified_github_details['open_issues_count'] = guru_type_obj.github_details['open_issues_count']
-        simplified_github_details['pushed_at'] = guru_type_obj.github_details['pushed_at']
-        simplified_github_details['created_at'] = guru_type_obj.github_details['created_at']
-        simplified_github_details['owner_login'] = guru_type_obj.github_details['owner']['login']
-        response = f"Here is the GitHub details for {guru_type_obj.name}: {simplified_github_details}"
+    if guru_type_obj and guru_type_obj.github_details:
+        try:
+            simplified_github_details = {}
+            github_details = guru_type_obj.github_details
+            simplified_github_details['name'] = github_details.get('name', '')
+            simplified_github_details['description'] = github_details.get('description', '')
+            simplified_github_details['topics'] = github_details.get('topics', [])
+            simplified_github_details['language'] = github_details.get('language', '')
+            simplified_github_details['size'] = github_details.get('size', 0)
+            simplified_github_details['homepage'] = github_details.get('homepage', '')
+            simplified_github_details['stargazers_count'] = github_details.get('stargazers_count', 0)
+            simplified_github_details['forks_count'] = github_details.get('forks_count', 0)
+            # Handle null license case
+            license_info = github_details.get('license')
+            simplified_github_details['license_name'] = license_info.get('name', '') if license_info else ''
+            simplified_github_details['open_issues_count'] = github_details.get('open_issues_count', 0)
+            simplified_github_details['pushed_at'] = github_details.get('pushed_at', '')
+            simplified_github_details['created_at'] = github_details.get('created_at', '')
+            owner = github_details.get('owner', {})
+            simplified_github_details['owner_login'] = owner.get('login', '')
+            response = f"Here is the GitHub details for {guru_type_obj.name}: {simplified_github_details}"
+        except Exception as e:
+            logger.error(f"Error while processing GitHub details for guru type {guru_type}: {str(e)}")
+            response = ""
     return response
 
 
