@@ -1,17 +1,24 @@
 import re
-import os
+import traceback
 import discord
 import logging
 import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from core.integrations import NotEnoughData, NotRelated
 from core.models import Integration, Thread
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
 from core.utils import create_fresh_binge
 import time
 from django.core.cache import caches
+import requests
+from core.views import api_answer
+from rest_framework.test import APIRequestFactory
+
+class BotTokenValidationException(Exception):
+    pass
 
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
@@ -23,7 +30,6 @@ class Command(BaseCommand):
         # This is because dynamic channel updates are not immediately reflected
         # And this may result in bad UX, and false positive bug reports
         self.cache_timeout = 0
-        self.prod_backend_url = settings.PROD_BACKEND_URL.rstrip('/')
 
     def get_trust_score_emoji(self, trust_score):
         score = trust_score / 100.0
@@ -139,52 +145,91 @@ class Command(BaseCommand):
             return binge
 
     async def stream_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': True,
             'short_answer': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        buffer = ""
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                async for chunk in response.content:
-                    if chunk:
-                        text = chunk.decode('utf-8')
-                        buffer += text
-                        if buffer.strip():
+        # Call api_answer directly in a sync context
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Handle StreamingHttpResponse
+        if hasattr(response, 'streaming_content'):
+            buffer = ""
+            line_buffer = ""
+            
+            # Create an async wrapper for the generator iteration
+            @sync_to_async
+            def get_next_chunk():
+                try:
+                    return next(response.streaming_content)
+                except StopIteration:
+                    return None
+            
+            # Iterate over the generator asynchronously
+            while True:
+                chunk = await get_next_chunk()
+                if chunk is None:
+                    # Yield any remaining text in the buffer
+                    if line_buffer.strip():
+                        buffer += line_buffer
+                        yield buffer
+                    break
+                    
+                if chunk:
+                    text = chunk.decode('utf-8') if isinstance(chunk, bytes) else str(chunk)
+                    line_buffer += text
+                    
+                    # Check if we have complete lines
+                    while '\n' in line_buffer:
+                        line, line_buffer = line_buffer.split('\n', 1)
+                        if line.strip():
+                            buffer += line + '\n'
                             yield buffer
 
     async def get_finalized_answer(self, guru_type, question, api_key, binge_id=None):
-        url = f"{self.prod_backend_url}/api/v1/{guru_type}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
-        payload = {
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        request_data = {
             'question': question,
             'stream': False,
             'short_answer': True,
             'fetch_existing': True
         }
         if binge_id:
-            payload['session_id'] = str(binge_id)
+            request_data['session_id'] = str(binge_id)
+            
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            request_data,
+            HTTP_X_API_KEY=api_key,
+            format='json'
+        )
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as response:
-                response_json = await response.json()
-                if response.status == 200:
-                    return response_json, True
-                else:
-                    print(response_json, type(response_json))
-                    return response_json['msg'], False
+        try:
+            # Call api_answer directly
+            response = await sync_to_async(api_answer)(request, guru_type)
+            
+            # Convert response to dict if it's a Response object
+            if hasattr(response, 'data'):
+                return response.data, True
+            return response, True
+        except Exception as e:
+            return str(e), False
 
     async def send_channel_unauthorized_message(
         self,
@@ -293,7 +338,8 @@ class Command(BaseCommand):
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
-                        thinking_msg = await message.channel.send("Thinking... 🤔")
+                        thread = message.channel
+                        thinking_msg = await thread.send("Thinking... 🤔")
                         
                         # Get or create thread and binge
                         binge = await self.get_or_create_thread_binge(
@@ -320,6 +366,9 @@ class Command(BaseCommand):
                     
                     last_update = time.time()
                     update_interval = 0.5  # Update every 0.5 seconds
+                    messages = [thinking_msg]  # List to keep track of all messages
+                    previous_content = ""  # Track the total content we've seen before
+                    message_contents = {"thinking": ""}  # Track actual content of each message
                     
                     # First, stream the response
                     async for streamed_content in self.stream_answer(
@@ -333,8 +382,37 @@ class Command(BaseCommand):
                             # Strip header from streamed content
                             cleaned_content = self.strip_first_header(streamed_content)
                             if cleaned_content:
-                                cleaned_content += '\n:clock1: _streaming..._'
-                                await thinking_msg.edit(content=cleaned_content)
+                                # Get the new content by removing what we've seen before
+                                if previous_content and cleaned_content.startswith(previous_content):
+                                    new_content = cleaned_content[len(previous_content):]
+                                else:
+                                    new_content = cleaned_content
+                                    
+                                if new_content:  # Only proceed if we have new content
+                                    new_content = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', new_content)
+                                    new_content = re.sub(r'\s*#{4,}\s*', '', new_content)
+                                    current_message = messages[-1]  # Get the last message
+                                    current_msg_id = str(current_message.id)
+                                    if current_msg_id not in message_contents:
+                                        message_contents[current_msg_id] = ""
+                                    
+                                    # Check if adding new content would exceed limit
+                                    if len(message_contents[current_msg_id] + new_content) + len('\n:clock1: _streaming..._') > 1900:
+                                        # Remove streaming indicator from current message
+                                        await current_message.edit(content=message_contents[current_msg_id])
+                                        
+                                        # Create new message with just the new content in the thread
+                                        new_message = await thread.send(new_content + '\n:clock1: _streaming..._')
+                                        messages.append(new_message)
+                                        message_contents[str(new_message.id)] = new_content
+                                    else:
+                                        # Update current message with combined content
+                                        message_contents[current_msg_id] += new_content
+                                        await current_message.edit(
+                                            content=message_contents[current_msg_id] + '\n:clock1: _streaming..._'
+                                        )
+                                    
+                                    previous_content = cleaned_content  # Update what we've seen
                                 last_update = current_time
                     
                     # After streaming is done, fetch the formatted response
@@ -346,12 +424,81 @@ class Command(BaseCommand):
                     )
                     
                     if success:
-                        formatted_response = self.format_response(response)
-                        await thinking_msg.edit(content=formatted_response)
+                        # Clean up streaming indicators from all messages
+                        for msg in messages[:-1]:
+                            msg_id = str(msg.id)
+                            if msg_id in message_contents:
+                                await msg.edit(content=message_contents[msg_id])
+                        
+                        # Format metadata
+                        trust_score = response.get('trust_score', 0)
+                        trust_emoji = self.get_trust_score_emoji(trust_score)
+                        metadata = f"\n---------\n_**Trust Score**: {trust_emoji} {trust_score}%_"
+                        
+                        if 'msg' in response and 'doesn\'t have enough data' in response['msg']:
+                            raise NotEnoughData(response['msg'])
+                        elif 'msg' in response and 'is not related to' in response['msg']:
+                            raise NotRelated(response['msg'])
+                        elif 'msg' in response:
+                            raise Exception(response['msg'])
+
+                        if response.get('references'):
+                            metadata += "\n_**Sources:**_"
+                            for ref in response['references']:
+                                # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
+                                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+                                clean_title = re.sub(
+                                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                                    ' ',
+                                    clean_title
+                                ).strip()
+                                metadata += f"\n• [_{clean_title}_](<{ref['link']}>)"
+                        
+                        metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
+                        
+                        # Get complete response with metadata
+                        complete_response = response['content'] + metadata
+                        
+                        # Split into chunks preserving code blocks
+                        chunks = self.split_content_preserve_codeblocks(complete_response)
+                        
+                        # Update existing messages or create/delete as needed
+                        for i, chunk in enumerate(chunks):
+                            # Remove leading # and newline if present
+                            if i == 0 and chunk.startswith('#'):
+                                newline_index = chunk.find('\n')
+                                if newline_index != -1:
+                                    chunk = chunk[newline_index + 1:].lstrip()
+
+                            # Use regex to format links by enclosing URLs in angle brackets
+                            chunk = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', chunk)
+                            if i < len(messages):
+                                # Update existing message
+                                await messages[i].edit(content=chunk)
+                            else:
+                                # Create new message for extra chunk
+                                new_msg = await thread.send(chunk)
+                                messages.append(new_msg)
+                        
+                        # Delete any extra messages if we have fewer chunks
+                        if len(chunks) < len(messages):
+                            for msg in messages[len(chunks):]:
+                                await msg.delete()
+                            messages = messages[:len(chunks)]
                     else:
                         error_msg = response if response else "Sorry, I couldn't process your request. 😕"
-                        await thinking_msg.edit(content=error_msg)
+                        # Clean up all messages except the first one
+                        for msg in messages[1:]:
+                            await msg.delete()
+                        await messages[0].edit(content=error_msg)
                         
+                except NotRelated as e:
+                    logging.error(f"Not related to the question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
+                except NotEnoughData as e:
+                    logging.error(f"Not enough data to process question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
                 except discord.Forbidden as e:
                     logging.error(f"Discord forbidden error occurred: {str(e)}")
                     await thinking_msg.edit(content="❌ I don't have permission to perform this action. Please check my permissions.")
@@ -362,7 +509,7 @@ class Command(BaseCommand):
                     logging.error(f"Network error occurred while processing your request. {str(e)}")
                     await thinking_msg.edit(content="❌ Network error occurred while processing your request.")
                 except Exception as e:
-                    logging.error(f"An unexpected error occurred: {str(e)}")
+                    logging.error(f"An unexpected error occurred: {str(e)}. {traceback.format_exc()}")
                     await thinking_msg.edit(content=f"❌ An unexpected error occurred.")
 
             except Exception as e:
@@ -370,15 +517,153 @@ class Command(BaseCommand):
 
         return client, handler
 
+    def _validate_bot_token(self, token: str) -> bool:
+        """Validate a bot token by making a sample request to Discord API"""
+        try:
+            response = requests.get(
+                'https://discord.com/api/v10/users/@me',
+                headers={'Authorization': f'Bot {token}'}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logging.error(f"Error validating bot token: {str(e)}")
+            return False
+
+    def _get_valid_bot_token(self) -> str:
+        """Get a valid bot token based on environment"""
+        if settings.ENV != 'selfhosted':
+            token = settings.DISCORD_BOT_TOKEN
+            if not self._validate_bot_token(token):
+                raise BotTokenValidationException(
+                    "Invalid Discord bot token in settings.DISCORD_BOT_TOKEN. "
+                    "Please check your environment variables and ensure the bot token is valid."
+                )
+            logging.info("Using bot token from settings")
+            return token
+
+        # Get all Discord integrations
+        discord_integrations = Integration.objects.filter(type=Integration.Type.DISCORD)
+        if not discord_integrations.exists():
+            raise BotTokenValidationException("No Discord integrations found in selfhosted mode")
+
+        # Get unique tokens
+        unique_tokens = set(integration.access_token for integration in discord_integrations if integration.access_token)
+        
+        if len(unique_tokens) > 1:
+            logging.warning(
+                "Multiple Discord bots detected! This is not recommended. \n"
+                "Please review your integrations and delete any unnecessary bots. \n"
+                f"Found {len(unique_tokens)} unique bot tokens. \n"
+                "Will try to use the first valid one."
+            )
+
+        # Try each token until we find a valid one
+        for token in unique_tokens:
+            if self._validate_bot_token(token):
+                logging.info(f"Using bot token: {token}")
+                return token
+
+        raise BotTokenValidationException(
+            "No valid Discord bot tokens found. Please check your integration settings "
+            "and ensure at least one bot token is valid."
+        )
+
+    def split_content_preserve_codeblocks(self, content, max_length=1900):
+        """Split content into chunks while preserving code blocks and staying under max_length."""
+        chunks = []
+        current_chunk = ""
+        in_code_block = False
+        code_block_content = ""
+        lines = content.split('\n')
+        
+        def try_add_to_current_chunk(text_to_add):
+            nonlocal current_chunk
+            if not current_chunk:
+                return text_to_add
+            elif len(current_chunk + text_to_add) <= max_length:
+                return current_chunk + text_to_add
+            else:
+                chunks.append(current_chunk.rstrip())
+                return text_to_add.lstrip()  # Remove leading newline
+        
+        for line in lines:
+            # Check for code block markers
+            if line.strip().startswith('```'):
+                if in_code_block:
+                    # End of code block
+                    code_block_content += line + '\n'
+                    # Try to add the complete code block to current chunk
+                    new_chunk = try_add_to_current_chunk(code_block_content)
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        # If code block doesn't fit, it needs its own chunk(s)
+                        if current_chunk:
+                            chunks.append(current_chunk.rstrip())
+                        if len(code_block_content) <= max_length:
+                            current_chunk = code_block_content
+                        else:
+                            # If code block itself is too long, split it
+                            code_chunks = [code_block_content[i:i+max_length] for i in range(0, len(code_block_content), max_length)]
+                            chunks.extend(chunk.rstrip() for chunk in code_chunks[:-1])
+                            current_chunk = code_chunks[-1]
+                    code_block_content = ""
+                    in_code_block = False
+                else:
+                    # Start of code block
+                    in_code_block = True
+                    code_block_content = line + '\n'
+            else:
+                if in_code_block:
+                    code_block_content += line + '\n'
+                else:
+                    # Regular line handling
+                    new_chunk = try_add_to_current_chunk(line + '\n')
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        chunks.append(current_chunk.rstrip())
+                        current_chunk = line + '\n'
+        
+        # Add any remaining content
+        if code_block_content:
+            # Try to add the final code block to current chunk
+            new_chunk = try_add_to_current_chunk(code_block_content)
+            if len(new_chunk) <= max_length:
+                current_chunk = new_chunk
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.rstrip())
+                current_chunk = code_block_content
+        
+        if current_chunk:
+            chunks.append(current_chunk.rstrip())
+        
+        cleared_chunks = []
+        for chunk in chunks:
+            intermediate_chunk = re.sub(r'\n\n', '\n', chunk)
+            intermediate_chunk = re.sub(r'\s*#{4,}\s*', '', intermediate_chunk)
+            cleared_chunks.append(intermediate_chunk)
+
+        return cleared_chunks
+
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
         
-        try:
-            client, handler = self.setup_discord_client()
-            token = settings.DISCORD_BOT_TOKEN
-            
-            client.run(token, log_handler=handler, log_level=logging.DEBUG)
-        except KeyboardInterrupt:
-            self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}')) 
+        while True:
+            try:
+                client, handler = self.setup_discord_client()
+                token = self._get_valid_bot_token()
+                
+                client.run(token, log_handler=handler, log_level=logging.DEBUG)
+                break  # If client.run() completes normally, exit the loop
+            except BotTokenValidationException as e:
+                self.stdout.write(self.style.WARNING(f'No valid bot token found: {str(e)}'))
+                self.stdout.write(self.style.WARNING('Retrying in 5 seconds...'))
+                time.sleep(5)  # Wait for 5 seconds before retrying
+            except KeyboardInterrupt:
+                self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))
+                break
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
+                raise 
