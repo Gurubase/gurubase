@@ -17,7 +17,6 @@ export default function LineChartComponent({ data }) {
 
   const processedData = useMemo(() => {
     if (!Array.isArray(data)) {
-      console.error("Data must be an array");
       return [];
     }
 

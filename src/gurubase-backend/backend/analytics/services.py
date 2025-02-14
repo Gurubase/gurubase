@@ -1,4 +1,4 @@
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Q
 from django.core.cache import cache
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 from .utils import get_date_range, calculate_percentage_change, format_filter_name_for_display, map_filter_to_source
@@ -29,6 +29,10 @@ class AnalyticsService:
             guru_type=guru_type,
             date_created__gte=start_date,
             date_created__lte=end_date
+        ).exclude(
+            ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value]),
+            binge_id__isnull=False,
+            parent__isnull=True
         )
         
         total_questions = questions.count()
@@ -191,6 +195,10 @@ class AnalyticsService:
             date_created__gte=start_date,
             date_created__lte=end_date,
             references__contains=[{'link': data_source_url}]
+        ).exclude(
+            ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value]),
+            binge_id__isnull=False,
+            parent__isnull=True
         )
         
         # Apply filter type if specified

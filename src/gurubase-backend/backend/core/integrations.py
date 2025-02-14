@@ -6,6 +6,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class IntegrationError(Exception):
+    pass
+
 class IntegrationStrategy(ABC):
     def __init__(self, integration: 'Integration' = None):
         self.integration = integration
@@ -35,6 +38,11 @@ class IntegrationStrategy(ABC):
     @abstractmethod
     def get_workspace_name(self, token_response: dict) -> str:
         """Get workspace name from the platform"""
+        pass
+
+    @abstractmethod
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch workspace details using bot token in selfhosted mode"""
         pass
 
     @abstractmethod
@@ -80,20 +88,25 @@ class IntegrationStrategy(ABC):
         
         # Check if integration already exists for this type and external_id
         if Integration.objects.filter(type=self.get_type(), external_id=external_id).exists():
-            raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
+            logger.error(f"Integration for {self.get_type()} with ID {external_id} already exists")
+            raise IntegrationError(f"This integration type is already connected to this guru. Please disconnect the existing integration before connecting a new one.")
         
         # Fetch available channels
         workspace_name = self.get_workspace_name(token_data)
         
-        return Integration.objects.create(
-            type=self.get_type(),
-            external_id=external_id,
-            guru_type=guru_type,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            code=code,
-            workspace_name=workspace_name
-        )
+        try:
+            return Integration.objects.create(
+                type=self.get_type(),
+                external_id=external_id,
+                guru_type=guru_type,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                code=code,
+                workspace_name=workspace_name
+            )
+        except Exception as e:
+            logger.error(f"Error creating integration: {e}", exc_info=True)
+            raise IntegrationError(f"Error creating integration. Please try again. If the problem persists, please contact support.")
 
     @abstractmethod
     def get_type(self) -> str:
@@ -106,6 +119,8 @@ class IntegrationStrategy(ABC):
         try:
             return api_func(*args, **kwargs)
         except Exception as e:
+            if settings.ENV == 'selfhosted':
+                raise
             # Check if it's a token-related error
             error_msg = str(e).lower()
             if any(err in error_msg for err in ['token_expired', 'invalid_auth', 'unauthorized', 'not_authed', '401']):
@@ -121,6 +136,13 @@ class IntegrationStrategy(ABC):
 
 
 class DiscordStrategy(IntegrationStrategy):
+    def _get_bot_token(self, integration=None) -> str:
+        """Helper to get the appropriate bot token based on environment"""
+        if settings.ENV == 'selfhosted':
+            integration = integration or self.get_integration()
+            return integration.access_token
+        return settings.DISCORD_BOT_TOKEN
+
     def exchange_token(self, code: str) -> dict:
         token_url = 'https://discord.com/api/oauth2/token'
         data = {
@@ -150,7 +172,7 @@ class DiscordStrategy(IntegrationStrategy):
             integration = self.get_integration()
             channels_response = requests.get(
                 f'https://discord.com/api/guilds/{integration.external_id}/channels',
-                headers={'Authorization': f"Bot {settings.DISCORD_BOT_TOKEN}"}
+                headers={'Authorization': f"Bot {self._get_bot_token(integration)}"}
             )
             channels_response.raise_for_status()
             channels = channels_response.json()
@@ -160,10 +182,11 @@ class DiscordStrategy(IntegrationStrategy):
                 {
                     'id': c['id'],
                     'name': c['name'],
-                    'allowed': False
+                    'allowed': False,
+                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown'
                 }
                 for c in channels
-                if c['type'] == 0  # 0 is text channel
+                if c['type'] in [0, 15]  # 0 is text channel, 15 is forum
             ]
             return sorted(text_channels, key=lambda x: x['name'])
 
@@ -174,11 +197,34 @@ class DiscordStrategy(IntegrationStrategy):
 
     def send_test_message(self, channel_id: str) -> bool:
         def _send_test_message() -> bool:
-            url = f'https://discord.com/api/channels/{channel_id}/messages'
-            headers = {'Authorization': f'Bot {settings.DISCORD_BOT_TOKEN}'}
-            data = {
-                'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
-            }
+            integration = self.get_integration()
+            
+            # Find the channel type from integration.channels
+            channel_type = 'text'  # default to text
+            for channel in integration.channels:
+                if channel['id'] == channel_id:
+                    channel_type = channel.get('type', 'text')
+                    break
+
+            url = f'https://discord.com/api/channels/{channel_id}'
+            headers = {'Authorization': f'Bot {self._get_bot_token(integration)}'}
+            
+            if channel_type == 'forum':
+                # Create a forum post
+                url += '/threads'
+                data = {
+                    'name': 'Test Message from Gurubase',
+                    'message': {
+                        'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
+                    }
+                }
+            else:
+                # Regular text channel message
+                url += '/messages'
+                data = {
+                    'content': '👋 Hello! This is a test message from your Guru. I am working correctly!'
+                }
+            
             response = requests.post(url, headers=headers, json=data)
             response.raise_for_status()
             return True
@@ -223,6 +269,28 @@ class DiscordStrategy(IntegrationStrategy):
         except Exception as e:
             logger.error(f"Error refreshing Discord token: {e}", exc_info=True)
             raise
+
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch Discord guild details using bot token"""
+        response = requests.get(
+            'https://discord.com/api/v10/users/@me/guilds',
+            headers={
+                'Authorization': f'Bot {bot_token}',
+                'Content-Type': 'application/json'
+            }
+        )
+        response.raise_for_status()
+        guilds = response.json()
+        
+        if not guilds:
+            raise ValueError("No guilds found for the bot")
+            
+        # For selfhosted, we'll use the first guild the bot has access to
+        guild = guilds[0]
+        return {
+            'external_id': guild['id'],
+            'workspace_name': guild['name']
+        }
 
 
 class SlackStrategy(IntegrationStrategy):
@@ -329,6 +397,25 @@ class SlackStrategy(IntegrationStrategy):
         This is implemented for consistency with the interface."""
         raise NotImplementedError("Slack tokens don't expire and can't be refreshed")
 
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """Fetch Slack workspace details using bot token"""
+        response = requests.post(
+            'https://slack.com/api/auth.test',
+            headers={
+                'Authorization': f'Bearer {bot_token}'
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get('ok', False):
+            raise ValueError(f"Slack API error: {data.get('error')}")
+            
+        return {
+            'external_id': data['team_id'],
+            'workspace_name': data['team']
+        }
+
 
 class IntegrationFactory:
     @staticmethod
@@ -340,3 +427,9 @@ class IntegrationFactory:
             return SlackStrategy(integration)
         else:
             raise ValueError(f'Invalid integration type: {integration_type}') 
+
+class NotEnoughData(Exception):
+    pass
+
+class NotRelated(Exception):
+    pass

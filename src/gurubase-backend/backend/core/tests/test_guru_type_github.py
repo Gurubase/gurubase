@@ -23,7 +23,7 @@ class GuruTypeGithubTests(TestCase):
     def test_initial_state(self):
         """Test initial state with no GitHub settings"""
         guru_type = self.create_guru_type()
-        self.assertFalse(guru_type.index_repo)
+        self.assertTrue(guru_type.index_repo)
         self.assertEqual(guru_type.github_repo, '')
         self.assertEqual(DataSource.objects.count(), 0)
 
@@ -110,13 +110,8 @@ class GuruTypeGithubTests(TestCase):
         """Test multiple sequential updates"""
         guru_type = self.create_guru_type()
         
-        # Add URL without indexing
+        # Add URL
         guru_type.github_repo = self.valid_github_url
-        guru_type.save()
-        self.assertEqual(DataSource.objects.count(), 0)
-        
-        # Enable indexing
-        guru_type.index_repo = True
         guru_type.save()
         self.assertEqual(DataSource.objects.count(), 1)
         

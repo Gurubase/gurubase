@@ -27,21 +27,33 @@ const OAuthCallback = () => {
         navigation.push(`/`);
       }
 
+      let url = null;
+
       try {
         const stateData = JSON.parse(state);
-        const response = await createIntegration(code, state);
-
         const { guru_type, type } = stateData;
-        const url = `/guru/${guru_type}/integrations/${type.toLowerCase()}`;
+        url = `/guru/${guru_type}/integrations/${type.toLowerCase()}`;
+        const response = await createIntegration(code, state);
 
         if (response.error) {
           setError(response.message);
-          navigation.push(`${url}?error=true`);
+          const errorMessage =
+            response.message ||
+            "There was an error during the integration process. Please try again or contact support if the issue persists.";
+          navigation.push(`${url}?error=${errorMessage}`);
         } else {
           navigation.push(url);
         }
       } catch (err) {
-        setError(err.message || "Failed to create integration");
+        const errorMessage =
+          err.message ||
+          "There was an error during the integration process. Please try again or contact support if the issue persists.";
+        setError(errorMessage);
+        if (url) {
+          navigation.push(`${url}?error=${errorMessage}`);
+        } else {
+          navigation.push(`/`);
+        }
       }
     };
 

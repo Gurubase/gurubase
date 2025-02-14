@@ -1,4 +1,5 @@
 from asgiref.sync import sync_to_async
+from rest_framework.test import APIRequestFactory
 from slack_sdk.errors import SlackApiError
 import json
 import logging
@@ -9,7 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-
+from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
@@ -52,7 +53,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .integrations import IntegrationFactory
+from .integrations import IntegrationError, IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -509,7 +510,7 @@ def my_gurus(request):
         return Response(gurus_data)
     except Exception as e:
         logger.error(f'Error while fetching user gurus: {e}', exc_info=True)
-        return Response({'error': str(e)}, status=500)
+        return Response({'msg': str(e)}, status=500)
 
 
 @api_view(['GET'])
@@ -1063,18 +1064,18 @@ def guru_type_status(request, guru_type):
 def export_datasources(request):
     guru_type = request.data.get('guru_type', None)
     if not guru_type:
-        return Response({"error": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         guru_type_object = get_guru_type_object(guru_type, only_active=False)
     except Exception as e:
-        return Response({"error": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         data = {
             'data_sources': list(DataSource.objects.filter(guru_type=guru_type_object).values()),
         }
         return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"msg": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -1082,18 +1083,18 @@ def export_datasources(request):
 def export_questions(request):
     guru_type = request.data.get('guru_type', None)
     if not guru_type:
-        return Response({"error": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "guru_type is required"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         guru_type_object = get_guru_type_object(guru_type, only_active=False)
     except Exception as e:
-        return Response({"error": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"msg": "Guru type does not exist"}, status=status.HTTP_400_BAD_REQUEST)
     try:
         data = {
             'questions': list(Question.objects.filter(guru_type=guru_type_object).values()),
         }
         return Response(data, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"msg": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -1640,6 +1641,7 @@ def api_answer(request, guru_type):
             binge = create_binge_helper(guru_type_object, user, api_response.question_obj)
             response_data['session_id'] = str(binge.id)
         elif binge and not binge.root_question:
+            # Used in Slack and Discord bots
             binge.root_question = api_response.question_obj
             binge.save()
         return Response(response_data)
@@ -1736,7 +1738,7 @@ def create_integration(request):
 
     if not all([code, state]):
         return Response({
-            'error': 'Missing required parameters'
+            'msg': 'Missing required parameters'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -1748,34 +1750,39 @@ def create_integration(request):
 
         if not all([integration_type, guru_type_slug, encoded_guru_slug]):
             return Response({
-                'error': 'Invalid state parameter'
+                'msg': 'Invalid state parameter'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         decoded_guru_slug = decode_guru_slug(encoded_guru_slug)
         if not decoded_guru_slug or decoded_guru_slug != guru_type_slug:
             return Response({
-                'error': 'Invalid state parameter'
+                'msg': 'Invalid state parameter'
             }, status=status.HTTP_400_BAD_REQUEST)                    
 
     except Exception as e:
+        logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({
-            'error': str(e)
+            'msg': 'There has been an error while creating the integration. Please try again. If the problem persists, please contact support.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         guru_type = GuruType.objects.get(slug=guru_type_slug)
     except GuruType.DoesNotExist:
         return Response({
-            'error': 'Invalid guru type'
+            'msg': 'Invalid guru type'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         strategy = IntegrationFactory.get_strategy(integration_type)
         integration = strategy.create_integration(code, guru_type)
+    except IntegrationError as e:
+        return Response({
+            'msg': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({
-            'error': str(e)
+            'msg': 'There has been an error while creating the integration. Please try again. If the problem persists, please contact support.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({
@@ -1787,12 +1794,13 @@ def create_integration(request):
 
 
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'DELETE', 'POST'])
 @jwt_auth
 def manage_integration(request, guru_type, integration_type):
     """
     GET: Get integration details for a specific guru type and integration type.
     DELETE: Delete an integration and invalidate its OAuth token.
+    POST: Create a new integration.
     """
     try:
         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
@@ -1806,11 +1814,14 @@ def manage_integration(request, guru_type, integration_type):
         return Response({'msg': f'Invalid integration type: {integration_type}'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        integration = Integration.objects.get(
-            guru_type=guru_type_object,
-            type=integration_type
-        )
-        
+        if request.method in ['GET', 'DELETE']:
+            integration = Integration.objects.get(
+                guru_type=guru_type_object,
+                type=integration_type
+            )
+        else:
+            integration = None
+
         if request.method == 'GET':
             return Response({
                 'id': integration.id,
@@ -1820,11 +1831,54 @@ def manage_integration(request, guru_type, integration_type):
                 'channels': integration.channels,
                 'date_created': integration.date_created,
                 'date_updated': integration.date_updated,
+                'access_token': integration.masked_access_token,
             })
         elif request.method == 'DELETE':
             # Delete the integration - token revocation is handled by signal
             integration.delete()
             return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
+        elif request.method == 'POST':
+            if settings.ENV != 'selfhosted':
+                return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                access_token = request.data.get('access_token')
+                if not access_token:
+                    return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Get the appropriate integration strategy
+                strategy = IntegrationFactory.get_strategy(integration_type)
+                
+                # Fetch workspace details using bot token
+                try:
+                    workspace_details = strategy.fetch_workspace_details(access_token)
+                except Exception as e:
+                    logger.error(f"Error fetching workspace details: {e}", exc_info=True)
+                    return Response({'msg': 'Failed to fetch workspace details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                integration = Integration.objects.create(
+                    guru_type=guru_type_object,
+                    type=integration_type,
+                    workspace_name=workspace_details['workspace_name'],
+                    external_id=workspace_details['external_id'],
+                    access_token=access_token,
+                    channels=[]
+                )
+                
+                return Response({
+                    'id': integration.id,
+                    'type': integration.type,
+                    'workspace_name': integration.workspace_name,
+                    'external_id': integration.external_id,
+                    'channels': integration.channels,
+                    'date_created': integration.date_created,
+                    'date_updated': integration.date_updated,
+                    'access_token': integration.masked_access_token,
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                logger.error(f"Error creating integration: {e}", exc_info=True)
+                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     except Integration.DoesNotExist:
         if request.method == 'GET':
@@ -2047,43 +2101,86 @@ async def stream_and_update_message(
     current_content = ""
     
     try:
-        async with session.post(url, json=payload, headers=headers) as response:
-            if response.status != 200:
-                error_response = await response.json()
-                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    text=f"❌ {error_msg}"
-                )
-                return
-                
-            async for chunk in response.content:
-                if chunk:
-                    text = chunk.decode('utf-8')
-                    current_content += text
-                    # Strip header and convert markdown
-                    cleaned_content = strip_first_header(current_content)
-                    if cleaned_content.strip():
-                        formatted_content = convert_markdown_to_slack(cleaned_content)
-                        formatted_content += '\n\n:clock1: _streaming..._'
-                        current_time = time.time()
-                        if current_time - last_update >= update_interval:
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        guru_type = payload.get('guru_type')
+        
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=headers.get('X-API-KEY'),
+            format='json'
+        )
+        
+        # Call api_answer directly in a sync context
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Handle StreamingHttpResponse
+        if hasattr(response, 'streaming_content'):
+            buffer = ""
+            line_buffer = ""
+            
+            # Create an async wrapper for the generator iteration
+            @sync_to_async
+            def get_next_chunk():
+                try:
+                    return next(response.streaming_content)
+                except StopIteration:
+                    return None
+            
+            # Iterate over the generator asynchronously
+            while True:
+                chunk = await get_next_chunk()
+                if chunk is None:
+                    # Yield any remaining text in the buffer
+                    if line_buffer.strip():
+                        buffer += line_buffer
+                        # Strip header and convert markdown
+                        cleaned_content = strip_first_header(buffer)
+                        if cleaned_content.strip():
+                            formatted_content = convert_markdown_to_slack(cleaned_content)
+                            formatted_content += '\n\n:clock1: _streaming..._'
                             try:
                                 client.chat_update(
                                     channel=channel_id,
                                     ts=message_ts,
                                     text=formatted_content
                                 )
-                                last_update = current_time
                             except SlackApiError as e:
                                 logger.error(f"Error updating message: {e.response}", exc_info=True)
-                                client.chat_update(
-                                    channel=channel_id,
-                                    ts=message_ts,
-                                    text="❌ Failed to update message"
-                                )
-                                return
+                    break
+                    
+                if chunk:
+                    text = chunk.decode('utf-8') if isinstance(chunk, bytes) else str(chunk)
+                    line_buffer += text
+                    
+                    # Check if we have complete lines
+                    while '\n' in line_buffer:
+                        line, line_buffer = line_buffer.split('\n', 1)
+                        if line.strip():
+                            buffer += line + '\n'
+                            # Strip header and convert markdown
+                            cleaned_content = strip_first_header(buffer)
+                            if cleaned_content.strip():
+                                formatted_content = convert_markdown_to_slack(cleaned_content)
+                                formatted_content += '\n\n:clock1: _streaming..._'
+                                current_time = time.time()
+                                if current_time - last_update >= update_interval:
+                                    try:
+                                        client.chat_update(
+                                            channel=channel_id,
+                                            ts=message_ts,
+                                            text=formatted_content
+                                        )
+                                        last_update = current_time
+                                    except SlackApiError as e:
+                                        logger.error(f"Error updating message: {e.response}", exc_info=True)
+                                        client.chat_update(
+                                            channel=channel_id,
+                                            ts=message_ts,
+                                            text="❌ Failed to update message"
+                                        )
+                                        return
     except Exception as e:
         logger.error(f"Error in stream_and_update_message: {str(e)}", exc_info=True)
         client.chat_update(
@@ -2104,29 +2201,59 @@ async def get_final_response(
 ) -> None:
     """Get and send the final formatted response."""
     try:
-        async with session.post(url, json=payload, headers=headers) as response:
-            if response.status == 200:
-                final_response = await response.json()
-                trust_score = final_response.get('trust_score', 0)
-                references = final_response.get('references', [])
-                content = final_response.get('content', '')
-                question_url = final_response.get('question_url', '')
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        guru_type = payload.get('guru_type')
+        
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=headers.get('X-API-KEY'),
+            format='json'
+        )
+        
+        # Call api_answer directly
+        response = await sync_to_async(api_answer)(request, guru_type)
+        
+        # Convert response to dict if it's a Response object
+        if hasattr(response, 'data'):
+            final_response = response.data
+        else:
+            final_response = response
 
-                final_text = format_slack_response(content, trust_score, references, question_url)
-                if final_text.strip():  # Only update if there's content after stripping header
-                    client.chat_update(
-                        channel=channel_id,
-                        ts=message_ts,
-                        text=final_text
-                    )
-            else:
-                error_response = await response.json()
-                error_msg = error_response.get('msg', "Sorry, I couldn't process your request. 😕")
-                client.chat_update(
-                    channel=channel_id,
-                    ts=message_ts,
-                    text=f"❌ {error_msg}"
-                )
+        if 'msg' in final_response and 'doesn\'t have enough data' in final_response['msg']:
+            raise NotEnoughData(final_response['msg'])
+        elif 'msg' in final_response and 'is not related to' in final_response['msg']:
+            raise NotRelated(final_response['msg'])
+        elif 'msg' in final_response:
+            raise Exception(final_response['msg'])
+
+        trust_score = final_response.get('trust_score', 0)
+        references = final_response.get('references', [])
+        content = final_response.get('content', '')
+        question_url = final_response.get('question_url', '')
+
+        final_text = format_slack_response(content, trust_score, references, question_url)
+        if final_text.strip():  # Only update if there's content after stripping header
+            client.chat_update(
+                channel=channel_id,
+                ts=message_ts,
+                text=final_text
+            )
+    except NotEnoughData as e:
+        logger.error(f"Not enough data: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text=f"❌ {str(e)}"
+        )
+    except NotRelated as e:
+        logger.error(f"Not related to the question: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text=f"❌ {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Error in get_final_response: {str(e)}", exc_info=True)
         client.chat_update(
@@ -2166,26 +2293,26 @@ async def handle_slack_message(
         
         guru_type_slug = await sync_to_async(lambda integration: integration.guru_type.slug)(integration)
         api_key = await sync_to_async(lambda integration: integration.api_key.key)(integration)
-        # Setup API endpoint
-        url = f"{settings.PROD_BACKEND_URL.rstrip('/')}/api/v1/{guru_type_slug}/answer/"
-        headers = {
-            'X-API-KEY': f'{api_key}',
-            'Content-Type': 'application/json'
-        }
         
         try:
-            # Stream the response
+            # First get streaming response
+            stream_payload = {
+                'question': clean_message,
+                'stream': True,
+                'short_answer': True,
+                'session_id': str(binge.id),
+                'guru_type': guru_type_slug
+            }
+            
+            headers = {
+                'X-API-KEY': api_key,
+                'Content-Type': 'application/json'
+            }
+            
             async with aiohttp.ClientSession() as session:
-                # First get streaming response
-                stream_payload = {
-                    'question': clean_message,
-                    'stream': True,
-                    'short_answer': True,
-                    'session_id': str(binge.id)
-                }
                 await stream_and_update_message(
                     session=session,
-                    url=url,
+                    url='',  # Not used anymore
                     headers=headers,
                     payload=stream_payload,
                     client=client,
@@ -2199,12 +2326,13 @@ async def handle_slack_message(
                     'stream': False,
                     'short_answer': True,
                     'fetch_existing': True,
-                    'session_id': str(binge.id)
+                    'session_id': str(binge.id),
+                    'guru_type': guru_type_slug
                 }
                 
                 await get_final_response(
                     session=session,
-                    url=url,
+                    url='',  # Not used anymore
                     headers=headers,
                     payload=final_payload,
                     client=client,
@@ -2382,7 +2510,7 @@ def slack_events(request):
                                 clean_message=clean_message
                             ))
                         except SlackApiError as e:
-                            if e.response.data.get('error') in ['token_expired', 'invalid_auth', 'not_authed']:
+                            if e.response.data.get('msg') in ['token_expired', 'invalid_auth', 'not_authed']:
                                 try:
                                     # Get fresh integration data from DB
                                     integration = Integration.objects.get(id=integration.id)
