@@ -233,6 +233,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
         <IntegrationDivider />
         {/* Show error if present */}
         {internalError && <IntegrationError message={internalError} />}
+        {error && <IntegrationError message={error} />}
         <div className="flex flex-col gap-6 p-6">
           <div className="flex md:items-center md:justify-between flex-col md:flex-row gap-4">
             <IntegrationIconContainer Icon={Icon} iconSize={config.iconSize}>
@@ -566,7 +567,8 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     <div className="w-full">
       <IntegrationHeader text={`${name} Bot`} />
       <IntegrationDivider />
-      {(error || internalError) && <IntegrationError message={internalError} />}
+      {internalError && <IntegrationError message={internalError} />}
+      {error && <IntegrationError message={error} />}
       <div
         className={cn(
           "flex p-6 gap-4",

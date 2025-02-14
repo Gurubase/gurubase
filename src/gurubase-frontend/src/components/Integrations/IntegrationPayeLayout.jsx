@@ -6,13 +6,7 @@ import GuruEditPageSidebar from "@/components/GuruEditPageSidebar";
 import Header from "@/components/Header";
 import IntegrationContent from "@/components/Integrations/IntegrationContent";
 
-export const IntegrationPayeLayout = ({
-  customGuru,
-  type,
-  error,
-  guruTypes,
-  content
-}) => {
+export const IntegrationPayeLayout = ({ customGuru, guruTypes, content }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
       <Header sidebarExists={true} />

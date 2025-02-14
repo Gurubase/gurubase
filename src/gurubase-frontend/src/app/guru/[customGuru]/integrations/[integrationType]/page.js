@@ -9,7 +9,6 @@ export default async function IntegrationsPage({ params, searchParams }) {
   const { customGuru, integrationType } = params;
   const type =
     integrationType.charAt(0).toUpperCase() + integrationType.slice(1);
-  const hasError = searchParams && searchParams.error === "true";
 
   const guruTypes = await getMyGurus();
   const currentGuru = guruTypes.find((guru) => guru.slug === customGuru);
@@ -31,7 +30,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
         return (
           <IntegrationContent
             customGuru={customGuru}
-            error={hasError}
+            error={searchParams?.error}
             selfhosted={selfhosted}
             type={integrationType}
           />
@@ -51,9 +50,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
     <IntegrationPayeLayout
       content={content}
       customGuru={customGuru}
-      error={hasError}
       guruTypes={guruTypes}
-      type={type}
     />
   );
 }
