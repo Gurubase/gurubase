@@ -337,7 +337,8 @@ class Command(BaseCommand):
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
-                        thinking_msg = await message.channel.send("Thinking... 🤔")
+                        thread = message.channel
+                        thinking_msg = await thread.send("Thinking... 🤔")
                         
                         # Get or create thread and binge
                         binge = await self.get_or_create_thread_binge(
@@ -364,6 +365,9 @@ class Command(BaseCommand):
                     
                     last_update = time.time()
                     update_interval = 0.5  # Update every 0.5 seconds
+                    messages = [thinking_msg]  # List to keep track of all messages
+                    previous_content = ""  # Track the total content we've seen before
+                    message_contents = {"thinking": ""}  # Track actual content of each message
                     
                     # First, stream the response
                     async for streamed_content in self.stream_answer(
@@ -377,8 +381,35 @@ class Command(BaseCommand):
                             # Strip header from streamed content
                             cleaned_content = self.strip_first_header(streamed_content)
                             if cleaned_content:
-                                cleaned_content += '\n:clock1: _streaming..._'
-                                await thinking_msg.edit(content=cleaned_content)
+                                # Get the new content by removing what we've seen before
+                                if previous_content and cleaned_content.startswith(previous_content):
+                                    new_content = cleaned_content[len(previous_content):]
+                                else:
+                                    new_content = cleaned_content
+                                    
+                                if new_content:  # Only proceed if we have new content
+                                    current_message = messages[-1]  # Get the last message
+                                    current_msg_id = str(current_message.id)
+                                    if current_msg_id not in message_contents:
+                                        message_contents[current_msg_id] = ""
+                                    
+                                    # Check if adding new content would exceed limit
+                                    if len(message_contents[current_msg_id] + new_content) + len('\n:clock1: _streaming..._') > 1900:
+                                        # Remove streaming indicator from current message
+                                        await current_message.edit(content=message_contents[current_msg_id])
+                                        
+                                        # Create new message with just the new content in the thread
+                                        new_message = await thread.send(new_content + '\n:clock1: _streaming..._')
+                                        messages.append(new_message)
+                                        message_contents[str(new_message.id)] = new_content
+                                    else:
+                                        # Update current message with combined content
+                                        message_contents[current_msg_id] += new_content
+                                        await current_message.edit(
+                                            content=message_contents[current_msg_id] + '\n:clock1: _streaming..._'
+                                        )
+                                    
+                                    previous_content = cleaned_content  # Update what we've seen
                                 last_update = current_time
                     
                     # After streaming is done, fetch the formatted response
@@ -390,11 +421,51 @@ class Command(BaseCommand):
                     )
                     
                     if success:
-                        formatted_response = self.format_response(response)
-                        await thinking_msg.edit(content=formatted_response)
+                        # Clean up streaming indicators from all messages
+                        for msg in messages[:-1]:
+                            msg_id = str(msg.id)
+                            if msg_id in message_contents:
+                                await msg.edit(content=message_contents[msg_id])
+                        
+                        # Format metadata
+                        trust_score = response.get('trust_score', 0)
+                        trust_emoji = self.get_trust_score_emoji(trust_score)
+                        metadata = f"\n---------\n_**Trust Score**: {trust_emoji} {trust_score}%_"
+                        
+                        if response.get('references'):
+                            metadata += "\n_**Sources:**_"
+                            for ref in response['references']:
+                                # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
+                                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+                                clean_title = re.sub(
+                                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                                    ' ',
+                                    clean_title
+                                ).strip()
+                                metadata += f"\n• [_{clean_title}_](<{ref['link']}>)"
+                        
+                        metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
+                        
+                        # Get the last message's content
+                        last_msg = messages[-1]
+                        last_msg_id = str(last_msg.id)
+                        last_msg_content = message_contents[last_msg_id]
+                        
+                        # Check if metadata can be appended to the last message
+                        if len(last_msg_content + metadata) <= 1900:
+                            # Append metadata to the last message
+                            await last_msg.edit(content=last_msg_content + metadata)
+                        else:
+                            # Keep the last message as is and send metadata as a new message
+                            await last_msg.edit(content=last_msg_content)
+                            await thread.send(metadata)
                     else:
                         error_msg = response if response else "Sorry, I couldn't process your request. 😕"
-                        await thinking_msg.edit(content=error_msg)
+                        # Clean up all messages except the first one
+                        for msg in messages[1:]:
+                            await msg.delete()
+                        await messages[0].edit(content=error_msg)
                         
                 except discord.Forbidden as e:
                     logging.error(f"Discord forbidden error occurred: {str(e)}")
