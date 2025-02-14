@@ -52,7 +52,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .integrations import IntegrationFactory
+from .integrations import IntegrationError, IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -1758,8 +1758,9 @@ def create_integration(request):
             }, status=status.HTTP_400_BAD_REQUEST)                    
 
     except Exception as e:
+        logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({
-            'error': str(e)
+            'msg': 'There has been an error while creating the integration. Please try again. If the problem persists, please contact support.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -1772,6 +1773,10 @@ def create_integration(request):
     try:
         strategy = IntegrationFactory.get_strategy(integration_type)
         integration = strategy.create_integration(code, guru_type)
+    except IntegrationError as e:
+        return Response({
+            'msg': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Error creating integration: {e}", exc_info=True)
         return Response({

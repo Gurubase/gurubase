@@ -6,6 +6,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class IntegrationError(Exception):
+    pass
+
 class IntegrationStrategy(ABC):
     def __init__(self, integration: 'Integration' = None):
         self.integration = integration
@@ -80,20 +83,25 @@ class IntegrationStrategy(ABC):
         
         # Check if integration already exists for this type and external_id
         if Integration.objects.filter(type=self.get_type(), external_id=external_id).exists():
-            raise ValueError(f"Integration for {self.get_type()} with ID {external_id} already exists")
+            logger.error(f"Integration for {self.get_type()} with ID {external_id} already exists")
+            raise IntegrationError(f"This integration type is already connected to this guru. Please disconnect the existing integration before connecting a new one.")
         
         # Fetch available channels
         workspace_name = self.get_workspace_name(token_data)
         
-        return Integration.objects.create(
-            type=self.get_type(),
-            external_id=external_id,
-            guru_type=guru_type,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            code=code,
-            workspace_name=workspace_name
-        )
+        try:
+            return Integration.objects.create(
+                type=self.get_type(),
+                external_id=external_id,
+                guru_type=guru_type,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                code=code,
+                workspace_name=workspace_name
+            )
+        except Exception as e:
+            logger.error(f"Error creating integration: {e}", exc_info=True)
+            raise IntegrationError(f"Error creating integration. Please try again. If the problem persists, please contact support.")
 
     @abstractmethod
     def get_type(self) -> str:
