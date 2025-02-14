@@ -1,4 +1,6 @@
 import logging
+import traceback
+from django.db.models import Q
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
 from datetime import datetime
@@ -35,6 +37,7 @@ def analytics_stats(request, guru_type):
         
         return Response({'data': stats_data}, status=status.HTTP_200_OK)
     except Exception as e:
+        logger.error(f"Error in analytics_stats: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -89,8 +92,10 @@ def analytics_histogram(request, guru_type):
         
         return Response({'data': result}, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in analytics_histogram: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.error(f"Error in analytics_histogram: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -143,6 +148,10 @@ def analytics_table(request, guru_type):
                 guru_type=guru_type,
                 date_created__gte=start_date,
                 date_created__lte=end_date
+            ).exclude(
+                ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value]),
+                binge_id__isnull=False,
+                parent__isnull=True
             )
             
             if filter_type and filter_type != 'all':
@@ -217,21 +226,25 @@ def analytics_table(request, guru_type):
             if filter_type == 'all' or not filter_type:
                 data_sources = list(DataSource.objects.filter(
                     guru_type=guru_type,
-                    url__in=referenced_links
+                    url__in=referenced_links,
+                    status=DataSource.Status.SUCCESS
                 ))
                 github_files = list(GithubFile.objects.filter(
-                    link__in=referenced_links
+                    link__in=referenced_links,
+                    data_source__status=DataSource.Status.SUCCESS
                 ).select_related('data_source'))
             elif filter_type == 'github_repo':
                 data_sources = []
                 github_files = list(GithubFile.objects.filter(
-                    link__in=referenced_links
+                    link__in=referenced_links,
+                    data_source__status=DataSource.Status.SUCCESS
                 ).select_related('data_source'))
             else:
                 data_sources = list(DataSource.objects.filter(
                     guru_type=guru_type,
                     url__in=referenced_links,
-                    type__iexact=filter_type
+                    type__iexact=filter_type,
+                    status=DataSource.Status.SUCCESS
                 ))
                 github_files = []
             
@@ -239,6 +252,9 @@ def analytics_table(request, guru_type):
             combined_sources = []
             
             for ds in data_sources:
+                if not ds.type or not ds.title or not ds.url:
+                    continue
+
                 combined_sources.append({
                     'date': ds.date_created.isoformat(),
                     'type': format_filter_name_for_display(ds.type),
@@ -249,6 +265,9 @@ def analytics_table(request, guru_type):
                 })
             
             for gf in github_files:
+                if not gf.data_source or not gf.data_source.date_created or not gf.title or not gf.link:
+                    continue
+
                 combined_sources.append({
                     'date': gf.data_source.date_created.isoformat(),
                     'type': 'Codebase',
@@ -304,8 +323,10 @@ def analytics_table(request, guru_type):
         
         return Response(response_data, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in analytics_table: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        logger.error(f"Error in analytics_table: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -346,7 +367,8 @@ def data_source_questions(request, guru_type):
             
         return Response(result, status=status.HTTP_200_OK)
     except ValidationError as e:
+        logger.error(f"Error in data_source_questions: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error in data_source_questions: {str(e)}", exc_info=True)
+        logger.error(f"Error in data_source_questions: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

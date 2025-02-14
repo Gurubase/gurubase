@@ -990,6 +990,46 @@ export async function getIntegrationsList(guruType) {
   }
 }
 
+export async function createSelfhostedIntegration(
+  guruType,
+  integrationType,
+  data
+) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_name: data.workspaceName,
+          external_id: data.externalId,
+          access_token: data.accessToken
+        })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    const errorData = await response.json();
+    return {
+      error: true,
+      message: errorData.msg || "Failed to create integration",
+      status: response.status
+    };
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "createSelfhostedIntegration",
+      guruType,
+      data
+    });
+  }
+}
+
 export async function getSettings() {
   try {
     const response = await makeAuthenticatedRequest(
