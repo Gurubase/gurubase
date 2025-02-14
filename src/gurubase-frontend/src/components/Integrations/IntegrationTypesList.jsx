@@ -24,7 +24,6 @@ const IntegrationTypesList = ({ customGuru }) => {
           setConnectedIntegrations(response || []);
         }
       } catch (error) {
-        console.error("Failed to fetch integrations:", error);
       } finally {
         setLoading(false);
       }

@@ -146,7 +146,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("Fetching data");
         // Fetch integration details
         const data = await getIntegrationDetails(
           customGuru,
@@ -181,13 +180,11 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
 
     const fetchChannels = async () => {
       try {
-        console.log("Fetching channels");
         const channelsData = await getIntegrationChannels(
           customGuru,
           type.toUpperCase()
         );
         if (channelsData?.error) {
-          console.error("Failed to fetch channels:", channelsData.message);
           setInternalError(
             selfhosted
               ? "Failed to fetch channels. Please make sure your bot token is correct."
@@ -199,14 +196,12 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
           setInternalError(null);
         }
       } catch (err) {
-        console.error("Failed to fetch channels:", err);
         setInternalError(err.message);
       } finally {
         setChannelsLoading(false);
       }
     };
 
-    console.log("Loading", loading);
     if (loading) {
       fetchData();
     }
@@ -359,10 +354,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                                     channel.id
                                   );
                                 if (response?.error) {
-                                  console.error(
-                                    "Failed to send test message:",
-                                    response.message
-                                  );
                                   CustomToast({
                                     message: "Failed to send test message.",
                                     variant: "error"
@@ -374,10 +365,6 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                                   });
                                 }
                               } catch (error) {
-                                console.error(
-                                  "Error sending test message:",
-                                  error
-                                );
                                 CustomToast({
                                   message: "Failed to send test message.",
                                   variant: "error"
@@ -498,7 +485,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                           setOriginalChannels(channels);
                         }
                       } catch (error) {
-                        console.error("Failed to save channels:", error);
+                        setInternalError(error.message);
                       } finally {
                         setIsSaving(false);
                       }
