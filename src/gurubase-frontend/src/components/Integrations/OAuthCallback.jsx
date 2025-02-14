@@ -31,15 +31,11 @@ const OAuthCallback = () => {
 
       try {
         const stateData = JSON.parse(state);
-        console.log("State Data", stateData);
         const { guru_type, type } = stateData;
-        console.log("Guru Type", guru_type);
-        console.log("Type", type);
         url = `/guru/${guru_type}/integrations/${type.toLowerCase()}`;
         const response = await createIntegration(code, state);
 
         if (response.error) {
-          console.log("Error", response);
           setError(response.message);
           const errorMessage =
             response.message ||
