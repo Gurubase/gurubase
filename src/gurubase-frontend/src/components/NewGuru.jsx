@@ -792,7 +792,7 @@ export default function NewGuru({
           return false; // Indicate timeout
         }
       } catch (error) {
-        console.error("Error in polling:", error);
+        // console.error("Error in polling:", error);
         if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
