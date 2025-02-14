@@ -10,7 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-
+from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
@@ -2216,6 +2216,13 @@ async def get_final_response(
         else:
             final_response = response
 
+        if 'msg' in final_response and 'doesn\'t have enough data' in final_response['msg']:
+            raise NotEnoughData(final_response['msg'])
+        elif 'msg' in final_response and 'is not related to' in final_response['msg']:
+            raise NotRelated(final_response['msg'])
+        elif 'msg' in final_response:
+            raise Exception(final_response['msg'])
+
         trust_score = final_response.get('trust_score', 0)
         references = final_response.get('references', [])
         content = final_response.get('content', '')
@@ -2228,6 +2235,20 @@ async def get_final_response(
                 ts=message_ts,
                 text=final_text
             )
+    except NotEnoughData as e:
+        logger.error(f"Not enough data: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text=f"❌ {str(e)}"
+        )
+    except NotRelated as e:
+        logger.error(f"Not related to the question: {str(e)}", exc_info=True)
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text=f"❌ {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Error in get_final_response: {str(e)}", exc_info=True)
         client.chat_update(

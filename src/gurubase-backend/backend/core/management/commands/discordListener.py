@@ -6,6 +6,7 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from core.integrations import NotEnoughData, NotRelated
 from core.models import Integration, Thread
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
@@ -17,12 +18,6 @@ from core.views import api_answer
 from rest_framework.test import APIRequestFactory
 
 class BotTokenValidationException(Exception):
-    pass
-
-class NotEnoughData(Exception):
-    pass
-
-class NotRelated(Exception):
     pass
 
 class Command(BaseCommand):
@@ -442,6 +437,8 @@ class Command(BaseCommand):
                             raise NotEnoughData(response['msg'])
                         elif 'msg' in response and 'is not related to' in response['msg']:
                             raise NotRelated(response['msg'])
+                        elif 'msg' in response:
+                            raise Exception(response['msg'])
 
                         if response.get('references'):
                             metadata += "\n_**Sources:**_"
