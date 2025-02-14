@@ -19,6 +19,9 @@ from rest_framework.test import APIRequestFactory
 class BotTokenValidationException(Exception):
     pass
 
+class NotEnoughData(Exception):
+    pass
+
 class Command(BaseCommand):
     help = 'Starts a Discord listener bot'
 
@@ -432,6 +435,9 @@ class Command(BaseCommand):
                         trust_emoji = self.get_trust_score_emoji(trust_score)
                         metadata = f"\n---------\n_**Trust Score**: {trust_emoji} {trust_score}%_"
                         
+                        if 'msg' in response and 'doesn\'t have enough data' in response['msg']:
+                            raise NotEnoughData(response['msg'])
+
                         if response.get('references'):
                             metadata += "\n_**Sources:**_"
                             for ref in response['references']:
@@ -475,6 +481,9 @@ class Command(BaseCommand):
                             await msg.delete()
                         await messages[0].edit(content=error_msg)
                         
+                except NotEnoughData as e:
+                    logging.error(f"Not enough data to process question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
                 except discord.Forbidden as e:
                     logging.error(f"Discord forbidden error occurred: {str(e)}")
                     await thinking_msg.edit(content="❌ I don't have permission to perform this action. Please check my permissions.")
