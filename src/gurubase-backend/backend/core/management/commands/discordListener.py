@@ -389,6 +389,7 @@ class Command(BaseCommand):
                                     new_content = cleaned_content
                                     
                                 if new_content:  # Only proceed if we have new content
+                                    new_content = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', new_content)
                                     current_message = messages[-1]  # Get the last message
                                     current_msg_id = str(current_message.id)
                                     if current_msg_id not in message_contents:
@@ -469,6 +470,8 @@ class Command(BaseCommand):
                                 if newline_index != -1:
                                     chunk = chunk[newline_index + 1:].lstrip()
 
+                            # Use regex to format links by enclosing URLs in angle brackets
+                            chunk = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', chunk)
                             if i < len(messages):
                                 # Update existing message
                                 await messages[i].edit(content=chunk)
