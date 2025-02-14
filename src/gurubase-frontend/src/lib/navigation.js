@@ -38,17 +38,17 @@ export const getNavigation = () => {
       push: async (path) => {
         startNavigation();
         try {
-          await router.push(path);
+          router.push(path);
         } finally {
-          setTimeout(endNavigation, 500);
+          setTimeout(endNavigation, 1500);
         }
       },
       replace: async (path) => {
         startNavigation();
         try {
-          await router.replace(path);
+          router.replace(path);
         } finally {
-          setTimeout(endNavigation, 500);
+          setTimeout(endNavigation, 1500);
         }
       },
       back: () => {
@@ -56,7 +56,7 @@ export const getNavigation = () => {
         try {
           router.back();
         } finally {
-          setTimeout(endNavigation, 500);
+          setTimeout(endNavigation, 1500);
         }
       },
       setHref: (url) => {
@@ -67,7 +67,7 @@ export const getNavigation = () => {
       pushState: (state, title, url) => {
         startNavigation();
         window.history.pushState(state, title, url);
-        setTimeout(endNavigation, 500);
+        setTimeout(endNavigation, 1500);
       }
     };
   }
@@ -86,10 +86,10 @@ export const useAppNavigation = () => {
         // Only start if not already navigating
         startNavigation();
         try {
-          await router.push(path);
+          router.push(path);
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
+          setTimeout(endNavigation, 1500);
         }
       }
     },
@@ -98,10 +98,10 @@ export const useAppNavigation = () => {
         // Only start if not already navigating
         startNavigation();
         try {
-          await router.replace(path);
+          router.replace(path);
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
+          setTimeout(endNavigation, 1500);
         }
       }
     },
@@ -113,7 +113,7 @@ export const useAppNavigation = () => {
           router.back();
         } finally {
           // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
+          setTimeout(endNavigation, 1500);
         }
       }
     },
@@ -128,7 +128,7 @@ export const useAppNavigation = () => {
     pushState: (state, title, url) => {
       startNavigation();
       window.history.pushState(state, title, url);
-      setTimeout(endNavigation, 500);
+      setTimeout(endNavigation, 1500);
     }
   };
 };
