@@ -6,6 +6,7 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from core.integrations import NotEnoughData, NotRelated
 from core.models import Integration, Thread
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
@@ -337,7 +338,8 @@ class Command(BaseCommand):
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
-                        thinking_msg = await message.channel.send("Thinking... 🤔")
+                        thread = message.channel
+                        thinking_msg = await thread.send("Thinking... 🤔")
                         
                         # Get or create thread and binge
                         binge = await self.get_or_create_thread_binge(
@@ -364,6 +366,9 @@ class Command(BaseCommand):
                     
                     last_update = time.time()
                     update_interval = 0.5  # Update every 0.5 seconds
+                    messages = [thinking_msg]  # List to keep track of all messages
+                    previous_content = ""  # Track the total content we've seen before
+                    message_contents = {"thinking": ""}  # Track actual content of each message
                     
                     # First, stream the response
                     async for streamed_content in self.stream_answer(
@@ -377,8 +382,35 @@ class Command(BaseCommand):
                             # Strip header from streamed content
                             cleaned_content = self.strip_first_header(streamed_content)
                             if cleaned_content:
-                                cleaned_content += '\n:clock1: _streaming..._'
-                                await thinking_msg.edit(content=cleaned_content)
+                                # Get the new content by removing what we've seen before
+                                if previous_content and cleaned_content.startswith(previous_content):
+                                    new_content = cleaned_content[len(previous_content):]
+                                else:
+                                    new_content = cleaned_content
+                                    
+                                if new_content:  # Only proceed if we have new content
+                                    current_message = messages[-1]  # Get the last message
+                                    current_msg_id = str(current_message.id)
+                                    if current_msg_id not in message_contents:
+                                        message_contents[current_msg_id] = ""
+                                    
+                                    # Check if adding new content would exceed limit
+                                    if len(message_contents[current_msg_id] + new_content) + len('\n:clock1: _streaming..._') > 1900:
+                                        # Remove streaming indicator from current message
+                                        await current_message.edit(content=message_contents[current_msg_id])
+                                        
+                                        # Create new message with just the new content in the thread
+                                        new_message = await thread.send(new_content + '\n:clock1: _streaming..._')
+                                        messages.append(new_message)
+                                        message_contents[str(new_message.id)] = new_content
+                                    else:
+                                        # Update current message with combined content
+                                        message_contents[current_msg_id] += new_content
+                                        await current_message.edit(
+                                            content=message_contents[current_msg_id] + '\n:clock1: _streaming..._'
+                                        )
+                                    
+                                    previous_content = cleaned_content  # Update what we've seen
                                 last_update = current_time
                     
                     # After streaming is done, fetch the formatted response
@@ -390,12 +422,73 @@ class Command(BaseCommand):
                     )
                     
                     if success:
-                        formatted_response = self.format_response(response)
-                        await thinking_msg.edit(content=formatted_response)
+                        # Clean up streaming indicators from all messages
+                        for msg in messages[:-1]:
+                            msg_id = str(msg.id)
+                            if msg_id in message_contents:
+                                await msg.edit(content=message_contents[msg_id])
+                        
+                        # Format metadata
+                        trust_score = response.get('trust_score', 0)
+                        trust_emoji = self.get_trust_score_emoji(trust_score)
+                        metadata = f"\n---------\n_**Trust Score**: {trust_emoji} {trust_score}%_"
+                        
+                        if 'msg' in response and 'doesn\'t have enough data' in response['msg']:
+                            raise NotEnoughData(response['msg'])
+                        elif 'msg' in response and 'is not related to' in response['msg']:
+                            raise NotRelated(response['msg'])
+                        elif 'msg' in response:
+                            raise Exception(response['msg'])
+
+                        if response.get('references'):
+                            metadata += "\n_**Sources:**_"
+                            for ref in response['references']:
+                                # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
+                                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+                                clean_title = re.sub(
+                                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                                    ' ',
+                                    clean_title
+                                ).strip()
+                                metadata += f"\n• [_{clean_title}_](<{ref['link']}>)"
+                        
+                        metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
+                        
+                        # Get complete response with metadata
+                        complete_response = response['content'] + metadata
+                        
+                        # Split into chunks preserving code blocks
+                        chunks = self.split_content_preserve_codeblocks(complete_response)
+                        
+                        # Update existing messages or create/delete as needed
+                        for i, chunk in enumerate(chunks):
+                            if i < len(messages):
+                                # Update existing message
+                                await messages[i].edit(content=chunk)
+                            else:
+                                # Create new message for extra chunk
+                                new_msg = await thread.send(chunk)
+                                messages.append(new_msg)
+                        
+                        # Delete any extra messages if we have fewer chunks
+                        if len(chunks) < len(messages):
+                            for msg in messages[len(chunks):]:
+                                await msg.delete()
+                            messages = messages[:len(chunks)]
                     else:
                         error_msg = response if response else "Sorry, I couldn't process your request. 😕"
-                        await thinking_msg.edit(content=error_msg)
+                        # Clean up all messages except the first one
+                        for msg in messages[1:]:
+                            await msg.delete()
+                        await messages[0].edit(content=error_msg)
                         
+                except NotRelated as e:
+                    logging.error(f"Not related to the question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
+                except NotEnoughData as e:
+                    logging.error(f"Not enough data to process question: {str(e)}")
+                    await thinking_msg.edit(content=f'❌ {str(e)}')
                 except discord.Forbidden as e:
                     logging.error(f"Discord forbidden error occurred: {str(e)}")
                     await thinking_msg.edit(content="❌ I don't have permission to perform this action. Please check my permissions.")
@@ -464,6 +557,79 @@ class Command(BaseCommand):
             "No valid Discord bot tokens found. Please check your integration settings "
             "and ensure at least one bot token is valid."
         )
+
+    def split_content_preserve_codeblocks(self, content, max_length=1900):
+        """Split content into chunks while preserving code blocks and staying under max_length."""
+        chunks = []
+        current_chunk = ""
+        in_code_block = False
+        code_block_content = ""
+        lines = content.split('\n')
+        
+        def try_add_to_current_chunk(text_to_add):
+            nonlocal current_chunk
+            if not current_chunk:
+                return text_to_add
+            elif len(current_chunk + text_to_add) <= max_length:
+                return current_chunk + text_to_add
+            else:
+                chunks.append(current_chunk.rstrip())
+                return text_to_add
+        
+        for line in lines:
+            # Check for code block markers
+            if line.strip().startswith('```'):
+                if in_code_block:
+                    # End of code block
+                    code_block_content += line + '\n'
+                    # Try to add the complete code block to current chunk
+                    new_chunk = try_add_to_current_chunk(code_block_content)
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        # If code block doesn't fit, it needs its own chunk(s)
+                        if current_chunk:
+                            chunks.append(current_chunk.rstrip())
+                        if len(code_block_content) <= max_length:
+                            current_chunk = code_block_content
+                        else:
+                            # If code block itself is too long, split it
+                            code_chunks = [code_block_content[i:i+max_length] for i in range(0, len(code_block_content), max_length)]
+                            chunks.extend(chunk.rstrip() for chunk in code_chunks[:-1])
+                            current_chunk = code_chunks[-1]
+                    code_block_content = ""
+                    in_code_block = False
+                else:
+                    # Start of code block
+                    in_code_block = True
+                    code_block_content = line + '\n'
+            else:
+                if in_code_block:
+                    code_block_content += line + '\n'
+                else:
+                    # Regular line handling
+                    new_chunk = try_add_to_current_chunk(line + '\n')
+                    if len(new_chunk) <= max_length:
+                        current_chunk = new_chunk
+                    else:
+                        chunks.append(current_chunk.rstrip())
+                        current_chunk = line + '\n'
+        
+        # Add any remaining content
+        if code_block_content:
+            # Try to add the final code block to current chunk
+            new_chunk = try_add_to_current_chunk(code_block_content)
+            if len(new_chunk) <= max_length:
+                current_chunk = new_chunk
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.rstrip())
+                current_chunk = code_block_content
+        
+        if current_chunk:
+            chunks.append(current_chunk.rstrip())
+        
+        return chunks
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))

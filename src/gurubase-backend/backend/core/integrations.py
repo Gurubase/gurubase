@@ -419,3 +419,9 @@ class IntegrationFactory:
             return SlackStrategy(integration)
         else:
             raise ValueError(f'Invalid integration type: {integration_type}') 
+
+class NotEnoughData(Exception):
+    pass
+
+class NotRelated(Exception):
+    pass
