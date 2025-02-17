@@ -24,7 +24,7 @@ import BingeMapMobileButton from "./BingeMapMobileButton";
 // Constants
 const CONTAINER_HEIGHT = 400;
 const PADDING = 20;
-const DRAG_THRESHOLD = 5;
+const DRAG_THRESHOLD = 0.05;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2;
 
@@ -406,7 +406,6 @@ export function BingeMap({
       currentQuestionSlug &&
       parentQuestionSlug
     ) {
-
       // Deep clone the tree and add streaming node to correct parent
       const addStreamingNode = (node) => {
         if (node.slug === parentQuestionSlug) {
