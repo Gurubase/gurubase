@@ -1356,11 +1356,11 @@ def api_keys(request):
         user = request.user
     
     if request.method == 'GET':
-        api_keys = APIKey.objects.filter(user=user, integration_owner__isnull=True)
+        api_keys = APIKey.objects.filter(user=user, integration=False)
         return Response(APIKeySerializer(api_keys, many=True).data, status=status.HTTP_200_OK)
     elif request.method == 'POST':
         # Check if user has reached the limit
-        existing_keys_count = APIKey.objects.filter(user=user).count()
+        existing_keys_count = APIKey.objects.filter(user=user, integration=False).count()
         if existing_keys_count >= 5:
             return Response({'msg': 'You have reached the maximum limit of 5 API keys'}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -1369,7 +1369,7 @@ def api_keys(request):
         return Response({'msg': 'API key created successfully', 'key': key}, status=status.HTTP_200_OK)
     elif request.method == 'DELETE':
         try:
-            api_key = APIKey.objects.get(key=request.data.get('api_key'), user=user)
+            api_key = APIKey.objects.get(key=request.data.get('api_key'), user=user, integration=False)
             api_key.delete()
             return Response({'msg': 'API key deleted successfully'}, status=status.HTTP_200_OK)
         except APIKey.DoesNotExist:
