@@ -120,11 +120,11 @@ const MetricSection = ({
   );
 };
 
-const AnalyticsContent = ({ customGuru, initialInterval }) => {
+const AnalyticsContent = ({ guruData, initialInterval }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [interval, setInterval] = useState(initialInterval);
-  const guruType = customGuru;
+  const guruType = guruData?.slug;
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleIntervalChange = (newInterval) => {

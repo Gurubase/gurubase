@@ -25,10 +25,14 @@ const SidebarOption = ({ icon, label, isActive, onClick }) => (
   </Button>
 );
 
-export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
+export default function GuruEditPageSidebar({ guruData }) {
   const router = useRouter();
   const pathname = usePathname();
   const navigation = useAppNavigation();
+
+  let guruSlug = guruData?.slug;
+  let guruName = guruData?.name;
+  let guruLogo = guruData?.icon_url;
 
   const isSettingsActive = pathname === `/guru/${guruSlug}`;
   const isIntegrationsActive = pathname.includes(
@@ -40,9 +44,6 @@ export default function GuruEditPageSidebar({ guruSlug, guruTypes }) {
     if (!guruSlug) return;
     navigation.push(path);
   };
-
-  let guruName = guruTypes?.find((type) => type.slug === guruSlug)?.name;
-  let guruLogo = guruTypes?.find((type) => type.slug === guruSlug)?.icon_url;
 
   if (!guruName) {
     return null;

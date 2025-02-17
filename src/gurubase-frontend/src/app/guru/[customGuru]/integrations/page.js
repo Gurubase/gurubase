@@ -1,16 +1,15 @@
-import { getMyGurus } from "@/app/actions";
+import { getMyGuru } from "@/app/actions";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
 import IntegrationTypesList from "@/components/Integrations/IntegrationTypesList";
 
 export default async function IntegrationsPage({ params }) {
   const { customGuru } = params;
-  const guruTypes = await getMyGurus();
+  const customGuruData = await getMyGuru(customGuru);
 
   return (
     <IntegrationPayeLayout
-      content={<IntegrationTypesList customGuru={customGuru} />}
-      customGuru={customGuru}
-      guruTypes={guruTypes}
+      content={<IntegrationTypesList guruData={customGuruData} />}
+      guruData={customGuruData}
     />
   );
 }

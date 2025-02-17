@@ -43,6 +43,7 @@ urlpatterns += [
     path('guru_types/delete/<str:guru_type>/', core_views.delete_guru_type, name='delete_guru_type'),
     path('<str:guru_type>/resources/detailed/', core_views.get_data_sources_detailed, name='get_data_sources_detailed'),
     path('my_gurus/', core_views.my_gurus, name='my_gurus'),
+    path('my_gurus/<str:guru_slug>/', core_views.my_gurus, name='my_gurus_slug'),
     path('<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples'),
     path('<str:guru_type>/follow_up/graph/', core_views.follow_up_graph, name='follow_up_graph'),
     path('<str:guru_type>/follow_up/binge/', core_views.create_binge, name='create_binge'),

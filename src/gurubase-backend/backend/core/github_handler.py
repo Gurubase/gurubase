@@ -142,7 +142,9 @@ def clone_repository(repo_url):
                 repo_url = match.group(1)
                 logger.error(f"Repository not found: {repo_url}")
                 raise GithubInvalidRepoError(f"No repository exists at this URL.")
-        logger.error(f"Error cloning repository {repo_url}: {str(e)}")
+        elif 'No such device or address' in str(e):
+            raise GithubInvalidRepoError(f"No repository exists at this URL.")
+        logger.error(f"Error cloning repository {repo_url}: {str(e)}", exc_info=True)
         raise GitHubRepoContentExtractionError(f"Failed to clone repository: {str(e)}")
 
 def get_file_content(file_path):
