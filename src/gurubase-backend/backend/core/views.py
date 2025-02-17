@@ -469,18 +469,22 @@ def guru_type(request, slug):
 
 @api_view(['GET'])
 @jwt_auth
-def my_gurus(request):
+def my_gurus(request, guru_slug=None):
     try:
         if settings.ENV == 'selfhosted':
             user = None
         else:
             user = User.objects.get(auth0_id=request.auth0_id)
 
-        if settings.ENV == 'selfhosted' or user.is_admin:
-            user_gurus = GuruType.objects.filter(active=True).order_by('-date_created')
-        
+        if guru_slug:
+            sub_query = GuruType.objects.filter(slug=guru_slug)
         else:
-            user_gurus = GuruType.objects.filter(maintainers=user, active=True).order_by('-date_created')
+            sub_query = GuruType.objects.all()
+
+        if settings.ENV == 'selfhosted' or user.is_admin:
+            user_gurus = sub_query.filter(active=True).order_by('-date_created')
+        else:
+            user_gurus = sub_query.filter(maintainers=user, active=True).order_by('-date_created')
         
         gurus_data = []
         for guru in user_gurus:
@@ -507,7 +511,10 @@ def my_gurus(request):
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data
             })
         
-        return Response(gurus_data)
+        if guru_slug:
+            return Response(gurus_data[0], status=status.HTTP_200_OK)
+        else:
+            return Response(gurus_data, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f'Error while fetching user gurus: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=500)

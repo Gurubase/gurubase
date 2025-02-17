@@ -1,19 +1,11 @@
-import { redirect } from "next/navigation";
-
-import { getMyGurus } from "@/app/actions";
+import { getMyGuru } from "@/app/actions";
 import AnalyticsPageLayout from "@/components/Analytics/AnalyticsPageLayout";
 
 export default async function AnalyticsPage({ params, searchParams }) {
   const { customGuru } = params;
   const interval = searchParams.interval || "30d";
 
-  const guruTypes = await getMyGurus();
+  const guruData = await getMyGuru(customGuru);
 
-  return (
-    <AnalyticsPageLayout
-      customGuru={customGuru}
-      guruTypes={guruTypes}
-      initialInterval={interval}
-    />
-  );
+  return <AnalyticsPageLayout guruData={guruData} initialInterval={interval} />;
 }

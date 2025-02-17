@@ -6,23 +6,15 @@ import Header from "@/components/Header";
 import CommonContentLayout from "../CommonContentLayout";
 import NewGuruContent from "./NewGuruContent";
 
-export const NewGuruClient = ({
-  customGuru,
-  dataSources,
-  guruTypes,
-  isProcessing
-}) => {
+export const NewGuruClient = ({ guruData, dataSources, isProcessing }) => {
   return (
     <div className={`flex flex-col bg-white h-screen`}>
       <Header sidebarExists={true} />
       <CommonContentLayout
-        sidebar={
-          <GuruEditPageSidebar guruSlug={customGuru} guruTypes={guruTypes} />
-        }>
+        sidebar={<GuruEditPageSidebar guruData={guruData} />}>
         <NewGuruContent
-          customGuru={customGuru}
+          guruData={guruData}
           dataSources={dataSources}
-          guruTypes={guruTypes}
           isProcessing={isProcessing}
         />
       </CommonContentLayout>

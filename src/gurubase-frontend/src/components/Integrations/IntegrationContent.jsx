@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/popover";
 import Link from "next/link";
 
-const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
+const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [channels, setChannels] = useState([]);
   const [originalChannels, setOriginalChannels] = useState([]);
@@ -148,7 +148,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
       try {
         // Fetch integration details
         const data = await getIntegrationDetails(
-          customGuru,
+          guruData?.slug,
           type.toUpperCase()
         );
 
@@ -181,7 +181,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     const fetchChannels = async () => {
       try {
         const channelsData = await getIntegrationChannels(
-          customGuru,
+          guruData?.slug,
           type.toUpperCase()
         );
         if (channelsData?.error) {
@@ -205,7 +205,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
     if (loading) {
       fetchData();
     }
-  }, [customGuru, type, loading]);
+  }, [guruData?.slug, type, loading]);
 
   const Icon = config.icon;
   const name = config.name;
@@ -477,7 +477,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                       setIsSaving(true);
                       try {
                         const response = await saveIntegrationChannels(
-                          customGuru,
+                          guruData?.slug,
                           type.toUpperCase(),
                           channels.filter((c) => c.allowed)
                         );
@@ -527,7 +527,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                     setIsDisconnecting(true);
                     try {
                       const response = await deleteIntegration(
-                        customGuru,
+                        guruData?.slug,
                         type.toUpperCase()
                       );
                       if (!response?.error) {
@@ -642,7 +642,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                 setIsConnecting(true);
                 try {
                   const response = await createSelfhostedIntegration(
-                    customGuru,
+                    guruData?.slug,
                     type.toUpperCase(),
                     {
                       workspaceName,
@@ -669,7 +669,7 @@ const IntegrationContent = ({ type, customGuru, error, selfhosted }) => {
                 window.open(
                   `${integrationUrl}&state=${JSON.stringify({
                     type: type,
-                    guru_type: customGuru,
+                    guru_type: guruData?.slug,
                     encoded_guru_slug: integrationData?.encoded_guru_slug
                   })}`,
                   "_blank"

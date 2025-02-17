@@ -14,7 +14,7 @@ import {
 } from "./IntegrationShared";
 import { WebWidgetIcon } from "@/components/Icons";
 
-export const WebWidgetIntegrationContent = ({ customGuru, guruData }) => {
+export const WebWidgetIntegrationContent = ({ guruData }) => {
   const router = useRouter();
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [isGeneratingWidget, setIsGeneratingWidget] = useState(false);
@@ -56,7 +56,7 @@ export const WebWidgetIntegrationContent = ({ customGuru, guruData }) => {
               <WidgetId
                 key={widget.key}
                 domainUrl={widget.domain_url}
-                guruSlug={customGuru}
+                guruSlug={guruData?.slug}
                 isFirst={index === 0}
                 isLast={
                   !isWidgetModalVisible &&
@@ -95,7 +95,7 @@ export const WebWidgetIntegrationContent = ({ customGuru, guruData }) => {
 
             {isWidgetModalVisible && (
               <CreateWidgetModal
-                guruSlug={customGuru}
+                guruSlug={guruData?.slug}
                 onWidgetCreate={handleWidgetCreate}
               />
             )}

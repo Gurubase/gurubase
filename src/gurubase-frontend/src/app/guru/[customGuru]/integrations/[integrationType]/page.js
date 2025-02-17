@@ -1,17 +1,14 @@
 import { redirect } from "next/navigation";
 
-import { getGuruTypes, getMyGurus } from "@/app/actions";
+import { getMyGuru } from "@/app/actions";
 import IntegrationContent from "@/components/Integrations/IntegrationContent";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
 import WebWidgetIntegrationContent from "@/components/Integrations/WebWidgetIntegrationContent";
 
 export default async function IntegrationsPage({ params, searchParams }) {
   const { customGuru, integrationType } = params;
-  const type =
-    integrationType.charAt(0).toUpperCase() + integrationType.slice(1);
 
-  const guruTypes = await getMyGurus();
-  const currentGuru = guruTypes.find((guru) => guru.slug === customGuru);
+  const guruData = await getMyGuru(customGuru);
 
   const selfhosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
@@ -19,17 +16,12 @@ export default async function IntegrationsPage({ params, searchParams }) {
   const getIntegrationContent = (selfhosted) => {
     switch (integrationType) {
       case "web_widget":
-        return (
-          <WebWidgetIntegrationContent
-            customGuru={customGuru}
-            guruData={currentGuru}
-          />
-        );
+        return <WebWidgetIntegrationContent guruData={guruData} />;
       case "slack":
       case "discord":
         return (
           <IntegrationContent
-            customGuru={customGuru}
+            guruData={guruData}
             error={searchParams?.error}
             selfhosted={selfhosted}
             type={integrationType}
@@ -46,11 +38,5 @@ export default async function IntegrationsPage({ params, searchParams }) {
     redirect("/not-found");
   }
 
-  return (
-    <IntegrationPayeLayout
-      content={content}
-      customGuru={customGuru}
-      guruTypes={guruTypes}
-    />
-  );
+  return <IntegrationPayeLayout content={content} guruData={guruData} />;
 }

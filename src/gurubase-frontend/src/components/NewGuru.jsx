@@ -141,12 +141,7 @@ const formSchema = z.object({
   websiteUrls: z.array(z.string()).optional()
 });
 
-export default function NewGuru({
-  guruTypes,
-  dataSources,
-  customGuru,
-  isProcessing
-}) {
+export default function NewGuru({ guruData, dataSources, isProcessing }) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
@@ -203,9 +198,8 @@ export default function NewGuru({
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const customGuruData = customGuru
-    ? guruTypes.find((guru) => guru.slug === customGuru)
-    : null;
+  const customGuruData = guruData;
+  const customGuru = guruData?.slug;
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
