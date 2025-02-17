@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 class AnalyticsService:
-    CACHE_TTL = 300  # 5 minutes cache
+    CACHE_TTL = 15  # 15 seconds cache
 
     @staticmethod
     def _get_cache_key(prefix, *args):
