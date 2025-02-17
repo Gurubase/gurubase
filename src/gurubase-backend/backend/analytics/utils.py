@@ -30,7 +30,17 @@ def get_date_range(interval):
         start_date = now - timedelta(days=365)  # Approximately 1 year
     else:  # Default to today
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    
+
+    # Truncate timestamps based on interval
+    if interval in ['today', 'yesterday']:
+        # Truncate to hour
+        start_date = start_date.replace(minute=0, second=0, microsecond=0)
+        end_date = end_date.replace(minute=59, second=59, microsecond=999999)
+    else:
+        # Truncate to day
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
     return start_date, end_date
 
 def calculate_percentage_change(current_value, previous_value):

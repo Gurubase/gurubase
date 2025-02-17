@@ -58,16 +58,6 @@ def analytics_histogram(request, guru_type):
         
         start_date, end_date = get_date_range(interval)
         
-        # Truncate timestamps based on interval
-        if interval in ['today', 'yesterday']:
-            # Truncate to hour
-            start_date = start_date.replace(minute=0, second=0, microsecond=0)
-            end_date = end_date.replace(minute=0, second=0, microsecond=0)
-        else:
-            # Truncate to day
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
-        
         increment, format_data_point = get_histogram_increment(start_date, end_date, interval)
         
         result = []
