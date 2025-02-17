@@ -141,7 +141,7 @@ const formSchema = z.object({
   websiteUrls: z.array(z.string()).optional()
 });
 
-export default function NewGuru({ guruData, dataSources, isProcessing }) {
+export default function NewGuru({ guruData, isProcessing }) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
@@ -151,9 +151,34 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
     : useUser();
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+  const [dataSources, setDataSources] = useState(null);
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  const customGuruData = guruData;
+
+  // Add function to fetch data sources
+  const fetchDataSources = useCallback(async (guruSlug) => {
+    try {
+      // console.log("Fetching data sources");
+      const sources = await getGuruDataSources(guruSlug);
+      if (!sources) {
+        redirect("/not-found");
+      }
+      setDataSources(sources);
+      return sources;
+    } catch (error) {
+      // console.error("Error fetching data sources:", error);
+      return null;
+    }
+  }, []);
+
+  // Add effect to fetch data sources initially
+  useEffect(() => {
+    if (customGuruData?.slug) {
+      fetchDataSources(customGuruData.slug);
+    }
+  }, [customGuruData?.slug, fetchDataSources]);
 
   // Add effect to check API key validity
   useEffect(() => {
@@ -198,7 +223,6 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const customGuruData = guruData;
   const customGuru = guruData?.slug;
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
@@ -693,7 +717,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
 
         if (isReady) {
           // Fetch the latest sources data
-          const latestSources = await getGuruDataSources(guruSlug);
+          const latestSources = await fetchDataSources(guruSlug);
           if (!latestSources) {
             redirect("/not-found");
           }
@@ -904,6 +928,35 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         setIsSourcesProcessing(true);
       }
 
+      // Handle deleted sources
+      if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
+        const deletedSourceIds = dirtyChanges.sources
+          .filter((source) => source.deleted)
+          .flatMap((source) =>
+            Array.isArray(source.id) ? source.id : [source.id]
+          );
+
+        if (deletedSourceIds.length > 0) {
+          const deleteResponse = await deleteGuruSources(
+            guruSlug,
+            deletedSourceIds
+          );
+
+          if (deleteResponse.error) {
+            throw new Error(deleteResponse.message);
+          }
+
+          // Fetch updated sources after deletion
+          await fetchDataSources(guruSlug);
+          await pollForGuruReadiness(guruSlug);
+
+          CustomToast({
+            message: "Guru updated successfully!",
+            variant: "success"
+          });
+        }
+      }
+
       // Handle privacy changes BEFORE other source updates
       const existingPdfPrivacyChanges = dirtyChanges.sources
         .filter(
@@ -921,6 +974,9 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         await updateGuruDataSourcesPrivacy(guruSlug, {
           data_sources: existingPdfPrivacyChanges
         });
+
+        // Fetch updated sources after privacy changes
+        await fetchDataSources(guruSlug);
       }
 
       // Handle reindexed sources
@@ -943,36 +999,12 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           if (reindexResponse.error) {
             throw new Error(reindexResponse.message);
           }
+
+          // Fetch updated sources after reindexing
+          await fetchDataSources(guruSlug);
         }
 
         await pollForGuruReadiness(guruSlug);
-      }
-
-      // Handle deleted sources
-      if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
-        const deletedSourceIds = dirtyChanges.sources
-          .filter((source) => source.deleted)
-          .flatMap((source) =>
-            Array.isArray(source.id) ? source.id : [source.id]
-          );
-
-        if (deletedSourceIds.length > 0) {
-          const deleteResponse = await deleteGuruSources(
-            guruSlug,
-            deletedSourceIds
-          );
-
-          if (deleteResponse.error) {
-            throw new Error(deleteResponse.message);
-          }
-
-          await pollForGuruReadiness(guruSlug);
-
-          CustomToast({
-            message: "Guru updated successfully!",
-            variant: "success"
-          });
-        }
       }
 
       // Handle new sources
@@ -1088,6 +1120,9 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           throw new Error(sourcesResponse.message);
         }
 
+        // Fetch updated sources after adding new sources
+        await fetchDataSources(guruSlug);
+
         // If not in edit mode, redirect immediately after guru creation
         if (!isEditMode) {
           redirectingRef.current = true;
@@ -1120,30 +1155,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         websiteUrls: data.websiteUrls || []
       });
 
-      // Update the sources state one final time to ensure privacy settings are correct
-      const finalSources = await getGuruDataSources(guruSlug);
-
-      if (finalSources?.results) {
-        const updatedSources = finalSources.results.map((source) => ({
-          id: source.id,
-          sources:
-            source.type === "YOUTUBE"
-              ? "Video"
-              : source.type === "PDF"
-                ? "File"
-                : "Website",
-          name: source.title,
-          type: source.type.toLowerCase(),
-          size: source.type === "PDF" ? "N/A" : "N/A",
-          url: source.url || "",
-          status: source.status,
-          error: source.error || "",
-          private: source.type === "PDF" ? !!source.private : undefined
-        }));
-
-        setSources(updatedSources);
-      }
-
+      // No need for final fetch since we're fetching after each operation
       setDirtyChanges({ sources: [], guruUpdated: false });
     } catch (error) {
       CustomToast({
