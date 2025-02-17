@@ -1,7 +1,7 @@
 import NewGuru from "@/components/NewGuru";
 
-const NewGuruContent = (props) => {
-  return <NewGuru {...props} />;
+const NewGuruContent = ({ guruData, isProcessing }) => {
+  return <NewGuru guruData={guruData} isProcessing={isProcessing} />;
 };
 
 export default NewGuruContent;
