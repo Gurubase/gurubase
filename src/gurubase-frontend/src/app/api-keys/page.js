@@ -5,9 +5,6 @@ import { getApiKeys } from "@/app/actions";
 import APIKeysMainPage from "@/components/APIKeysMainPage";
 
 const ApiKeysPage = async () => {
-  // Get API keys
-  const apiKeys = await getApiKeys();
-
   let session = null;
 
   if (process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted") {
@@ -21,10 +18,9 @@ const ApiKeysPage = async () => {
 
   return (
     <div>
-      <APIKeysMainPage apiKeys={apiKeys} />
+      <APIKeysMainPage />
     </div>
   );
 };
 
 export default ApiKeysPage;
-
