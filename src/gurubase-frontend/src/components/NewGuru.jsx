@@ -912,6 +912,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         return;
       }
 
+      // Track if any changes were made that require polling
+      let hasChanges = false;
+
       // First handle guru update/create
       const formData = new FormData();
 
@@ -919,7 +922,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         formData.append("name", data.guruName);
       }
       formData.append("domain_knowledge", data.guruContext);
-
       formData.append("github_repo", data.githubRepo || "");
 
       // Handle guruLogo
@@ -945,9 +947,9 @@ export default function NewGuru({ guruData, isProcessing }) {
       // Fetch updated guru data after create/update
       await fetchGuruData(guruSlug);
 
-      // If there are GitHub-related changes, set processing state and start polling
+      // If there are GitHub-related changes, mark for polling
       if (index_repo && hasGithubChanges) {
-        setIsSourcesProcessing(true);
+        hasChanges = true;
         await fetchDataSources(guruSlug);
       }
 
@@ -960,6 +962,7 @@ export default function NewGuru({ guruData, isProcessing }) {
           );
 
         if (deletedSourceIds.length > 0) {
+          hasChanges = true;
           const deleteResponse = await deleteGuruSources(
             guruSlug,
             deletedSourceIds
@@ -971,16 +974,10 @@ export default function NewGuru({ guruData, isProcessing }) {
 
           // Fetch updated sources after deletion
           await fetchDataSources(guruSlug);
-          await pollForGuruReadiness(guruSlug);
-
-          CustomToast({
-            message: "Guru updated successfully!",
-            variant: "success"
-          });
         }
       }
 
-      // Handle privacy changes BEFORE other source updates
+      // Handle privacy changes
       const existingPdfPrivacyChanges = dirtyChanges.sources
         .filter(
           (source) =>
@@ -994,6 +991,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         }));
 
       if (existingPdfPrivacyChanges.length > 0) {
+        hasChanges = true;
         await updateGuruDataSourcesPrivacy(guruSlug, {
           data_sources: existingPdfPrivacyChanges
         });
@@ -1014,6 +1012,7 @@ export default function NewGuru({ guruData, isProcessing }) {
           );
 
         if (reindexedSourceIds.length > 0) {
+          hasChanges = true;
           const reindexResponse = await reindexGuruSources(
             guruSlug,
             reindexedSourceIds
@@ -1026,8 +1025,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           // Fetch updated sources after reindexing
           await fetchDataSources(guruSlug);
         }
-
-        await pollForGuruReadiness(guruSlug);
       }
 
       // Handle new sources
@@ -1048,7 +1045,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           }
         });
 
-        // dirtyChanges'teki privacy değerlerini kullan
         const pdfPrivacies = pdfSources.map(
           (source) => source.private || false
         );
@@ -1095,6 +1091,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       }
 
       if (hasNewSources) {
+        hasChanges = true;
         setIsSourcesProcessing(true);
 
         // Get all source IDs including those from the same domain groups
@@ -1145,33 +1142,35 @@ export default function NewGuru({ guruData, isProcessing }) {
 
         // Fetch updated sources after adding new sources
         await fetchDataSources(guruSlug);
-
-        // If not in edit mode, redirect immediately after guru creation
-        if (!isEditMode) {
-          redirectingRef.current = true;
-          window.location.href = `/guru/${guruSlug}`;
-          return; // Exit early for new guru creation
-        }
-
-        // Wait for polling to complete before proceeding
-        const pollingSuccessful = await pollForGuruReadiness(guruSlug);
-
-        if (pollingSuccessful) {
-          if (!isEditMode) {
-            redirectingRef.current = true;
-            window.location.href = `/guru/${guruSlug}`;
-          } else {
-            // Fetch final guru data after all operations
-            await fetchGuruData(guruSlug);
-            CustomToast({
-              message: "Guru updated successfully!",
-              variant: "success"
-            });
-          }
-        }
       }
 
-      // Only reset states after all updates are complete
+      // If not in edit mode, redirect immediately after guru creation
+      if (!isEditMode) {
+        redirectingRef.current = true;
+        window.location.href = `/guru/${guruSlug}`;
+        return;
+      }
+
+      // Poll for readiness only if there were changes
+      if (hasChanges) {
+        const pollingSuccessful = await pollForGuruReadiness(guruSlug);
+        if (pollingSuccessful) {
+          // Fetch final guru data after all operations
+          await fetchGuruData(guruSlug);
+          CustomToast({
+            message: "Guru updated successfully!",
+            variant: "success"
+          });
+        }
+      } else if (isEditMode) {
+        // If no changes required polling but guru was updated
+        CustomToast({
+          message: "Guru updated successfully!",
+          variant: "success"
+        });
+      }
+
+      // Reset states after all updates are complete
       setInitialFormValues({
         ...data,
         guruLogo: guruResponse.icon_url || data.guruLogo,
@@ -1180,7 +1179,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         websiteUrls: data.websiteUrls || []
       });
 
-      // No need for final fetch since we're fetching after each operation
       setDirtyChanges({ sources: [], guruUpdated: false });
     } catch (error) {
       CustomToast({
