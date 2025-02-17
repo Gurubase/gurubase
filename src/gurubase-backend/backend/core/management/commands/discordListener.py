@@ -389,6 +389,8 @@ class Command(BaseCommand):
                                     new_content = cleaned_content
                                     
                                 if new_content:  # Only proceed if we have new content
+                                    new_content = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', new_content)
+                                    new_content = re.sub(r'\s*#{4,}\s*', '', new_content)
                                     current_message = messages[-1]  # Get the last message
                                     current_msg_id = str(current_message.id)
                                     if current_msg_id not in message_contents:
@@ -463,6 +465,14 @@ class Command(BaseCommand):
                         
                         # Update existing messages or create/delete as needed
                         for i, chunk in enumerate(chunks):
+                            # Remove leading # and newline if present
+                            if i == 0 and chunk.startswith('#'):
+                                newline_index = chunk.find('\n')
+                                if newline_index != -1:
+                                    chunk = chunk[newline_index + 1:].lstrip()
+
+                            # Use regex to format links by enclosing URLs in angle brackets
+                            chunk = re.sub(r'(\[.*?\]\()(http[^\)]+)(\))', r'\1<\2>\3', chunk)
                             if i < len(messages):
                                 # Update existing message
                                 await messages[i].edit(content=chunk)
@@ -574,7 +584,7 @@ class Command(BaseCommand):
                 return current_chunk + text_to_add
             else:
                 chunks.append(current_chunk.rstrip())
-                return text_to_add
+                return text_to_add.lstrip()  # Remove leading newline
         
         for line in lines:
             # Check for code block markers
@@ -629,7 +639,13 @@ class Command(BaseCommand):
         if current_chunk:
             chunks.append(current_chunk.rstrip())
         
-        return chunks
+        cleared_chunks = []
+        for chunk in chunks:
+            intermediate_chunk = re.sub(r'\n\n', '\n', chunk)
+            intermediate_chunk = re.sub(r'\s*#{4,}\s*', '', intermediate_chunk)
+            cleared_chunks.append(intermediate_chunk)
+
+        return cleared_chunks
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting Discord listener...'))
