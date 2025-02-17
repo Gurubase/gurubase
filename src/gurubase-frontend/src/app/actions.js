@@ -360,6 +360,23 @@ export async function getMyGurus() {
   }
 }
 
+export async function getMyGuru(guruSlug) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/my_gurus/${guruSlug}/`
+    );
+
+    if (!response) return null;
+    const data = await response.json();
+
+    return data;
+  } catch (error) {
+    return handleRequestError(error, {
+      url: `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/my_gurus/${guruSlug}/`
+    });
+  }
+}
+
 export async function createWidgetId(guruSlug, domainUrl) {
   try {
     const response = await makeAuthenticatedRequest(

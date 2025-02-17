@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
-import { getGuruDataSources, getMyGurus } from "@/app/actions";
+import { getGuruDataSources, getMyGuru } from "@/app/actions";
 import { NewGuruClient } from "@/components/NewGuruClient";
 
 export const viewport = {
@@ -25,19 +25,13 @@ const CustomGuru = async ({ params }) => {
   revalidateTag("my-guru-types");
 
   // Fetch guru types and data sources
-  const guruTypes = await getMyGurus();
+  const guruData = await getMyGuru(customGuru);
 
   // Add null check for guruTypes
-  if (guruTypes.error) {
+  if (guruData.error) {
     notFound();
   }
-  const guru = guruTypes?.find(
-    (guru) => guru.slug.toLowerCase() === customGuru.toLowerCase()
-  );
 
-  if (!guru) {
-    notFound();
-  }
   const dataSources = await getGuruDataSources(customGuru);
 
   // Redirect if unauthorized (dataSources is null)
@@ -46,13 +40,12 @@ const CustomGuru = async ({ params }) => {
   }
 
   // Determine if the guru is still processing
-  const isProcessing = guru.ready === false;
+  const isProcessing = guruData.ready === false;
 
   return (
     <NewGuruClient
-      customGuru={customGuru}
+      guruData={guruData}
       dataSources={dataSources}
-      guruTypes={guruTypes}
       isProcessing={isProcessing}
     />
   );

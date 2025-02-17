@@ -11,15 +11,16 @@ import { Link } from "@/components/Link";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 
-const IntegrationTypesList = ({ customGuru }) => {
+const IntegrationTypesList = ({ guruData }) => {
   const [connectedIntegrations, setConnectedIntegrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredIntegration, setHoveredIntegration] = useState(null);
+  const guruSlug = guruData?.slug;
 
   useEffect(() => {
     const fetchIntegrations = async () => {
       try {
-        const response = await getIntegrationsList(customGuru);
+        const response = await getIntegrationsList(guruSlug);
         if (!response?.error) {
           setConnectedIntegrations(response || []);
         }
@@ -30,7 +31,7 @@ const IntegrationTypesList = ({ customGuru }) => {
     };
 
     fetchIntegrations();
-  }, [customGuru]);
+  }, [guruSlug]);
 
   const integrationTypes = [
     {
@@ -81,7 +82,7 @@ const IntegrationTypesList = ({ customGuru }) => {
               return (
                 <Link
                   key={integration.id}
-                  href={`/guru/${customGuru}/integrations/${integration.id}`}
+                  href={`/guru/${guruSlug}/integrations/${integration.id}`}
                   className={clsx(
                     "flex flex-col items-start relative",
                     "p-6",
