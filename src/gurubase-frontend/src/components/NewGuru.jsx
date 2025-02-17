@@ -34,7 +34,8 @@ import {
   reindexGuruSources,
   updateGuru,
   updateGuruDataSourcesPrivacy,
-  getSettings
+  getSettings,
+  getMyGuru
 } from "@/app/actions";
 import CreateWidgetModal from "@/components/CreateWidgetModal";
 import { CustomToast } from "@/components/CustomToast";
@@ -152,10 +153,26 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [dataSources, setDataSources] = useState(null);
+  const [customGuruData, setCustomGuruData] = useState(guruData);
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
-  const customGuruData = guruData;
+
+  // Add function to fetch guru data
+  const fetchGuruData = useCallback(async (guruSlug) => {
+    try {
+      const data = await getMyGuru(guruSlug);
+      console.log("Fetching guru data", data);
+      if (data.error) {
+        notFound();
+      }
+      setCustomGuruData(data);
+      return data;
+    } catch (error) {
+      console.error("Error fetching guru data:", error);
+      return null;
+    }
+  }, []);
 
   // Add function to fetch data sources
   const fetchDataSources = useCallback(async (guruSlug) => {
@@ -223,7 +240,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const customGuru = guruData?.slug;
+  const customGuru = customGuruData?.slug;
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
@@ -453,6 +470,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         private: source.type === "PDF" ? !!source.private : undefined
       }));
 
+      console.log("github repo:", customGuruData.github_repo);
+      console.log("data sources:", dataSources.results);
       // Find GitHub repository source status
       if (customGuruData.github_repo) {
         const githubSource = dataSources.results.find(
@@ -923,9 +942,13 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       const guruSlug = isEditMode ? customGuru : guruResponse.slug;
 
+      // Fetch updated guru data after create/update
+      await fetchGuruData(guruSlug);
+
       // If there are GitHub-related changes, set processing state and start polling
       if (index_repo && hasGithubChanges) {
         setIsSourcesProcessing(true);
+        await fetchDataSources(guruSlug);
       }
 
       // Handle deleted sources
@@ -1138,6 +1161,8 @@ export default function NewGuru({ guruData, isProcessing }) {
             redirectingRef.current = true;
             window.location.href = `/guru/${guruSlug}`;
           } else {
+            // Fetch final guru data after all operations
+            await fetchGuruData(guruSlug);
             CustomToast({
               message: "Guru updated successfully!",
               variant: "success"
@@ -1803,6 +1828,10 @@ export default function NewGuru({ guruData, isProcessing }) {
     // Check if the current value matches the original repo URL
     const isOriginalUrl =
       form.getValues("githubRepo") === customGuruData?.github_repo;
+
+    console.log("Custom Guru Data", customGuruData);
+    console.log("Github Source", githubSource);
+    console.log("Github Repo Status", githubRepoStatus);
 
     return (
       <FormField
