@@ -369,6 +369,8 @@ GS_PLOTS_BUCKET_NAME = config('GS_PLOTS_BUCKET_NAME', default='gurubase-customgu
 AUTH0_MANAGEMENT_API_TOKEN = config('AUTH0_MANAGEMENT_API_TOKEN', default='')
 AUTH0_DOMAIN = config('AUTH0_DOMAIN', default='')
 AUTH0_AUDIENCE = config('AUTH0_AUDIENCE', default='xxx')
+AUTH0_CLIENT_ID = config('AUTH0_CLIENT_ID', default='')
+AUTH0_CLIENT_SECRET = config('AUTH0_CLIENT_SECRET', default='')
 
 SUMMARY_GENERATION_MODEL = config('SUMMARY_GENERATION_MODEL', default='gemini-1.5-flash-002') # gpt-4o-2024-08-06 or gemini-1.5-flash-002
 SUMMARY_QUESTION_GENERATION_MODEL = config('SUMMARY_QUESTION_GENERATION_MODEL', default='gemini-1.5-flash-002') # gpt-4o-mini-2024-07-18 or gemini-1.5-flash-002

@@ -7,8 +7,9 @@ from functools import wraps
 import logging
 from django.utils import timezone
 
-from django.contrib.auth import get_user_model
+from core.requester import Auth0Requester
 logger = logging.getLogger(__name__)
+auth0_requester = Auth0Requester()
 
 
 def auth_auth0(view_func):
@@ -47,23 +48,25 @@ def auth0_user_login(request):
     connection_name = request_body.get('connection_name')   # google-oauth2, github, Username-Password-Authentication
     full_request = request_body.get('full_request')
     
-
     if 'identities' in full_request['user']:
         full_request['user'].pop('identities')
     
     if 'secrets' in full_request:
         full_request.pop('secrets')
 
-    user = User.objects.filter(auth0_id=auth0_id).first()
+    user = User.objects.filter(auth0_id=auth0_id, email=email).first()
     if not user:
         auth_provider = get_auth_provider(connection_name)
         if User.objects.filter(email=email).exists():
-            return Response({"message": "Email already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            auth0_requester.delete_user(auth0_id)
+            existing_auth_provider = User.objects.filter(email=email).first().auth_provider
+            formatted_auth_provider = existing_auth_provider.capitalize()
+            return Response({"msg": f"This email is already registered with {formatted_auth_provider}. Please login with {formatted_auth_provider} or use a different email."}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.create_auth0_user(auth0_id, email, name, picture, full_request, auth_provider, True)
         logger.info(f'Auth0 user created: {user.email}')
-        return Response({"message": "Auth0 user created"}, status=status.HTTP_200_OK)
+        return Response({"msg": "Auth0 user created"}, status=status.HTTP_200_OK)
     else:
         user.last_login = timezone.now()
         user.save()
         logger.info(f'Auth0 user already exists: {user.email}')
-        return Response({"message": "Auth0 user already exists"}, status=status.HTTP_200_OK)
+        return Response({"msg": "Auth0 user already exists"}, status=status.HTTP_200_OK)
