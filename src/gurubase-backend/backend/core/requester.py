@@ -743,10 +743,10 @@ class RerankerRequester():
 
 class Auth0Requester():
     def __init__(self):
-        self.base_url = settings.AUTH0_DOMAIN
+        self.base_url = settings.AUTH0_MANAGEMENT_API_DOMAIN
         self.client_id = settings.AUTH0_CLIENT_ID
         self.client_secret = settings.AUTH0_CLIENT_SECRET
-        self.audience = f"{settings.AUTH0_DOMAIN}api/v2/"
+        self.audience = f"{settings.AUTH0_MANAGEMENT_API_DOMAIN}api/v2/"
         self.token = None
         self.token_expiry = 0
 
