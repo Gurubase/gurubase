@@ -162,14 +162,12 @@ export default function NewGuru({ guruData, isProcessing }) {
   const fetchGuruData = useCallback(async (guruSlug) => {
     try {
       const data = await getMyGuru(guruSlug);
-      console.log("Fetching guru data", data);
       if (data.error) {
         notFound();
       }
       setCustomGuruData(data);
       return data;
     } catch (error) {
-      console.error("Error fetching guru data:", error);
       return null;
     }
   }, []);
@@ -470,8 +468,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         private: source.type === "PDF" ? !!source.private : undefined
       }));
 
-      console.log("github repo:", customGuruData.github_repo);
-      console.log("data sources:", dataSources.results);
       // Find GitHub repository source status
       if (customGuruData.github_repo) {
         const githubSource = dataSources.results.find(
@@ -1826,10 +1822,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     // Check if the current value matches the original repo URL
     const isOriginalUrl =
       form.getValues("githubRepo") === customGuruData?.github_repo;
-
-    console.log("Custom Guru Data", customGuruData);
-    console.log("Github Source", githubSource);
-    console.log("Github Repo Status", githubRepoStatus);
 
     return (
       <FormField
