@@ -785,7 +785,9 @@ class Auth0Requester():
         
         try:
             response = requests.delete(url, headers=headers, timeout=10)
-            response.raise_for_status()
+            if not response.ok:
+                logger.error(f"Error deleting user {user_id}. Status code: {response.status_code}. Response: {response.text}")
+                return False
             return True
         except Exception as e:
             logger.error(f"Error deleting user {user_id}", exc_info=True)
