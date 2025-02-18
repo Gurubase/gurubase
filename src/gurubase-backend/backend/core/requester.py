@@ -739,3 +739,56 @@ class RerankerRequester():
         else:
             logger.error(f"Reranker health check failed. Status code: {response.status_code}. Response: {response.text}")
             return False
+
+
+class Auth0Requester():
+    def __init__(self):
+        self.base_url = settings.AUTH0_DOMAIN
+        self.client_id = settings.AUTH0_CLIENT_ID
+        self.client_secret = settings.AUTH0_CLIENT_SECRET
+        self.audience = f"{settings.AUTH0_DOMAIN}api/v2/"
+        self.token = None
+        self.token_expiry = 0
+
+    def _get_management_token(self):
+        if self.token and time.time() < self.token_expiry:
+            return self.token
+
+        url = f"{self.base_url}oauth/token"
+        data = {
+            'grant_type': 'client_credentials',
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'audience': self.audience
+        }
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+
+        try:
+            response = requests.post(url, headers=headers, data=data, timeout=10)
+            response.raise_for_status()
+            token_data = response.json()
+            self.token = token_data['access_token']
+            # Set expiry 5 minutes before actual expiry to be safe
+            self.token_expiry = time.time() + token_data['expires_in'] - 300
+            return self.token
+        except Exception as e:
+            logger.error("Error getting Auth0 management token", exc_info=True)
+            return None
+
+    def delete_user(self, user_id):
+        token = self._get_management_token()
+        if not token:
+            return False
+
+        url = f"{self.base_url}api/v2/users/{user_id}"
+        headers = {'Authorization': f'Bearer {token}'}
+        
+        try:
+            response = requests.delete(url, headers=headers, timeout=10)
+            if not response.ok:
+                logger.error(f"Error deleting user {user_id}. Status code: {response.status_code}. Response: {response.text}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting user {user_id}", exc_info=True)
+            return False
