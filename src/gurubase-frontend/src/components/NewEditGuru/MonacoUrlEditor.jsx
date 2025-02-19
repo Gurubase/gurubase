@@ -78,6 +78,15 @@ const MonacoUrlEditor = ({
   const [showSitemapInput, setShowSitemapInput] = useState(false);
   const [showCrawlInput, setShowCrawlInput] = useState(false);
   const [crawlUrl, setCrawlUrl] = useState("");
+  const [isProcessingCrawl, setIsProcessingCrawl] = useState(false);
+  const [startingCrawl, setStartingCrawl] = useState(false);
+  const [stoppingCrawl, setStoppingCrawl] = useState(false);
+
+  // Update editor options to include readOnly based on isCrawling state
+  const currentEditorOptions = {
+    ...editorOptions,
+    readOnly: isCrawling
+  };
 
   const handleSitemapParse = async () => {
     if (!sitemapUrl) {
@@ -145,6 +154,73 @@ const MonacoUrlEditor = ({
       });
     } finally {
       setIsLoadingSitemap(false);
+    }
+  };
+
+  const handleCrawlStart = async (url) => {
+    setStartingCrawl(true);
+    try {
+      await onStartCrawl(url);
+    } finally {
+      setStartingCrawl(false);
+    }
+  };
+
+  const handleCrawlStop = async () => {
+    setStoppingCrawl(true);
+    try {
+      await onStopCrawl();
+    } finally {
+      setStoppingCrawl(false);
+    }
+  };
+
+  const buttonContent = () => {
+    if (!isCrawling) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={!crawlUrl || startingCrawl}
+          onClick={() => handleCrawlStart(crawlUrl)}
+          variant="outline">
+          Start Crawling
+        </Button>
+      );
+    } else {
+      if (stoppingCrawl) {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={handleCrawlStop}
+            disabled={stoppingCrawl}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stopping...
+          </Button>
+        );
+      } else if (startingCrawl) {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1"
+            onClick={handleCrawlStop}
+            disabled={stoppingCrawl}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Starting...
+          </Button>
+        );
+      } else {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={handleCrawlStop}
+            disabled={stoppingCrawl}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stop Crawling
+          </Button>
+        );
+      }
     }
   };
 
@@ -256,25 +332,7 @@ const MonacoUrlEditor = ({
                     disabled={isCrawling}
                   />
                   <div className="flex items-center gap-2 guru-sm:w-full">
-                    {!isCrawling ? (
-                      <Button
-                        className="h-8 guru-sm:flex-1"
-                        disabled={!crawlUrl}
-                        onClick={() => {
-                          onStartCrawl(crawlUrl);
-                        }}
-                        variant="outline">
-                        Start Crawling
-                      </Button>
-                    ) : (
-                      <Button
-                        className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
-                        onClick={onStopCrawl}
-                        variant="outline">
-                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                        Stop Crawling
-                      </Button>
-                    )}
+                    {buttonContent()}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -298,7 +356,7 @@ const MonacoUrlEditor = ({
           <MonacoEditor
             height="100%"
             language="plaintext"
-            options={editorOptions}
+            options={currentEditorOptions}
             theme="vs-light"
             value={value}
             onChange={onChange}
