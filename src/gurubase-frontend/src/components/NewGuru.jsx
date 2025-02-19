@@ -34,7 +34,8 @@ import {
   reindexGuruSources,
   updateGuru,
   updateGuruDataSourcesPrivacy,
-  getSettings
+  getSettings,
+  getMyGuru
 } from "@/app/actions";
 import CreateWidgetModal from "@/components/CreateWidgetModal";
 import { CustomToast } from "@/components/CustomToast";
@@ -141,7 +142,7 @@ const formSchema = z.object({
   websiteUrls: z.array(z.string()).optional()
 });
 
-export default function NewGuru({ guruData, dataSources, isProcessing }) {
+export default function NewGuru({ guruData, isProcessing }) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Only initialize Auth0 hooks if in selfhosted mode
@@ -151,9 +152,48 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
     : useUser();
 
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
+  const [dataSources, setDataSources] = useState(null);
+  const [customGuruData, setCustomGuruData] = useState(guruData);
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+
+  // Add function to fetch guru data
+  const fetchGuruData = useCallback(async (guruSlug) => {
+    try {
+      const data = await getMyGuru(guruSlug);
+      if (data.error) {
+        notFound();
+      }
+      setCustomGuruData(data);
+      return data;
+    } catch (error) {
+      return null;
+    }
+  }, []);
+
+  // Add function to fetch data sources
+  const fetchDataSources = useCallback(async (guruSlug) => {
+    try {
+      // console.log("Fetching data sources");
+      const sources = await getGuruDataSources(guruSlug);
+      if (!sources) {
+        redirect("/not-found");
+      }
+      setDataSources(sources);
+      return sources;
+    } catch (error) {
+      // console.error("Error fetching data sources:", error);
+      return null;
+    }
+  }, []);
+
+  // Add effect to fetch data sources initially
+  useEffect(() => {
+    if (customGuruData?.slug) {
+      fetchDataSources(customGuruData.slug);
+    }
+  }, [customGuruData?.slug, fetchDataSources]);
 
   // Add effect to check API key validity
   useEffect(() => {
@@ -198,8 +238,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
   const [initialActiveTab, setInitialActiveTab] = useState("success");
   const [isPublishing, setIsPublishing] = useState(false);
 
-  const customGuruData = guruData;
-  const customGuru = guruData?.slug;
+  const customGuru = customGuruData?.slug;
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
@@ -693,7 +732,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
 
         if (isReady) {
           // Fetch the latest sources data
-          const latestSources = await getGuruDataSources(guruSlug);
+          const latestSources = await fetchDataSources(guruSlug);
           if (!latestSources) {
             redirect("/not-found");
           }
@@ -869,6 +908,9 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         return;
       }
 
+      // Track if any changes were made that require polling
+      let hasChanges = false;
+
       // First handle guru update/create
       const formData = new FormData();
 
@@ -876,7 +918,6 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         formData.append("name", data.guruName);
       }
       formData.append("domain_knowledge", data.guruContext);
-
       formData.append("github_repo", data.githubRepo || "");
 
       // Handle guruLogo
@@ -899,12 +940,40 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
 
       const guruSlug = isEditMode ? customGuru : guruResponse.slug;
 
-      // If there are GitHub-related changes, set processing state and start polling
+      // Fetch updated guru data after create/update
+      await fetchGuruData(guruSlug);
+
+      // If there are GitHub-related changes, mark for polling
       if (index_repo && hasGithubChanges) {
-        setIsSourcesProcessing(true);
+        hasChanges = true;
+        await fetchDataSources(guruSlug);
       }
 
-      // Handle privacy changes BEFORE other source updates
+      // Handle deleted sources
+      if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
+        const deletedSourceIds = dirtyChanges.sources
+          .filter((source) => source.deleted)
+          .flatMap((source) =>
+            Array.isArray(source.id) ? source.id : [source.id]
+          );
+
+        if (deletedSourceIds.length > 0) {
+          hasChanges = true;
+          const deleteResponse = await deleteGuruSources(
+            guruSlug,
+            deletedSourceIds
+          );
+
+          if (deleteResponse.error) {
+            throw new Error(deleteResponse.message);
+          }
+
+          // Fetch updated sources after deletion
+          await fetchDataSources(guruSlug);
+        }
+      }
+
+      // Handle privacy changes
       const existingPdfPrivacyChanges = dirtyChanges.sources
         .filter(
           (source) =>
@@ -918,9 +987,13 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         }));
 
       if (existingPdfPrivacyChanges.length > 0) {
+        hasChanges = true;
         await updateGuruDataSourcesPrivacy(guruSlug, {
           data_sources: existingPdfPrivacyChanges
         });
+
+        // Fetch updated sources after privacy changes
+        await fetchDataSources(guruSlug);
       }
 
       // Handle reindexed sources
@@ -935,6 +1008,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           );
 
         if (reindexedSourceIds.length > 0) {
+          hasChanges = true;
           const reindexResponse = await reindexGuruSources(
             guruSlug,
             reindexedSourceIds
@@ -943,35 +1017,9 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           if (reindexResponse.error) {
             throw new Error(reindexResponse.message);
           }
-        }
 
-        await pollForGuruReadiness(guruSlug);
-      }
-
-      // Handle deleted sources
-      if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
-        const deletedSourceIds = dirtyChanges.sources
-          .filter((source) => source.deleted)
-          .flatMap((source) =>
-            Array.isArray(source.id) ? source.id : [source.id]
-          );
-
-        if (deletedSourceIds.length > 0) {
-          const deleteResponse = await deleteGuruSources(
-            guruSlug,
-            deletedSourceIds
-          );
-
-          if (deleteResponse.error) {
-            throw new Error(deleteResponse.message);
-          }
-
-          await pollForGuruReadiness(guruSlug);
-
-          CustomToast({
-            message: "Guru updated successfully!",
-            variant: "success"
-          });
+          // Fetch updated sources after reindexing
+          await fetchDataSources(guruSlug);
         }
       }
 
@@ -993,7 +1041,6 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           }
         });
 
-        // dirtyChanges'teki privacy değerlerini kullan
         const pdfPrivacies = pdfSources.map(
           (source) => source.private || false
         );
@@ -1040,6 +1087,7 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
       }
 
       if (hasNewSources) {
+        hasChanges = true;
         setIsSourcesProcessing(true);
 
         // Get all source IDs including those from the same domain groups
@@ -1088,30 +1136,37 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
           throw new Error(sourcesResponse.message);
         }
 
-        // If not in edit mode, redirect immediately after guru creation
-        if (!isEditMode) {
-          redirectingRef.current = true;
-          window.location.href = `/guru/${guruSlug}`;
-          return; // Exit early for new guru creation
-        }
-
-        // Wait for polling to complete before proceeding
-        const pollingSuccessful = await pollForGuruReadiness(guruSlug);
-
-        if (pollingSuccessful) {
-          if (!isEditMode) {
-            redirectingRef.current = true;
-            window.location.href = `/guru/${guruSlug}`;
-          } else {
-            CustomToast({
-              message: "Guru updated successfully!",
-              variant: "success"
-            });
-          }
-        }
+        // Fetch updated sources after adding new sources
+        await fetchDataSources(guruSlug);
       }
 
-      // Only reset states after all updates are complete
+      // If not in edit mode, redirect immediately after guru creation
+      if (!isEditMode) {
+        redirectingRef.current = true;
+        window.location.href = `/guru/${guruSlug}`;
+        return;
+      }
+
+      // Poll for readiness only if there were changes
+      if (hasChanges) {
+        const pollingSuccessful = await pollForGuruReadiness(guruSlug);
+        if (pollingSuccessful) {
+          // Fetch final guru data after all operations
+          await fetchGuruData(guruSlug);
+          CustomToast({
+            message: "Guru updated successfully!",
+            variant: "success"
+          });
+        }
+      } else if (isEditMode) {
+        // If no changes required polling but guru was updated
+        CustomToast({
+          message: "Guru updated successfully!",
+          variant: "success"
+        });
+      }
+
+      // Reset states after all updates are complete
       setInitialFormValues({
         ...data,
         guruLogo: guruResponse.icon_url || data.guruLogo,
@@ -1119,30 +1174,6 @@ export default function NewGuru({ guruData, dataSources, isProcessing }) {
         youtubeLinks: data.youtubeLinks || [],
         websiteUrls: data.websiteUrls || []
       });
-
-      // Update the sources state one final time to ensure privacy settings are correct
-      const finalSources = await getGuruDataSources(guruSlug);
-
-      if (finalSources?.results) {
-        const updatedSources = finalSources.results.map((source) => ({
-          id: source.id,
-          sources:
-            source.type === "YOUTUBE"
-              ? "Video"
-              : source.type === "PDF"
-                ? "File"
-                : "Website",
-          name: source.title,
-          type: source.type.toLowerCase(),
-          size: source.type === "PDF" ? "N/A" : "N/A",
-          url: source.url || "",
-          status: source.status,
-          error: source.error || "",
-          private: source.type === "PDF" ? !!source.private : undefined
-        }));
-
-        setSources(updatedSources);
-      }
 
       setDirtyChanges({ sources: [], guruUpdated: false });
     } catch (error) {

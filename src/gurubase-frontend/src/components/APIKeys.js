@@ -5,9 +5,9 @@ import { format, parseISO } from "date-fns";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-import { createApiKey, deleteApiKey } from "@/app/actions";
+import { createApiKey, deleteApiKey, getApiKeys } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 import { SolarTrashBinTrashBold } from "@/components/Icons";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-const APIKeys = ({ initialApiKeys = [] }) => {
+const APIKeys = ({}) => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [keyToDelete, setKeyToDelete] = useState(null);
@@ -39,8 +39,22 @@ const APIKeys = ({ initialApiKeys = [] }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [copied, setCopied] = useState(null);
   const router = useRouter();
+  const [apiKeys, setApiKeys] = useState([]);
 
-  const apiKeys = Array.isArray(initialApiKeys) ? initialApiKeys : [];
+  const fetchApiKeys = async () => {
+    const keys = await getApiKeys();
+    setApiKeys(keys);
+  };
+
+  useEffect(() => {
+    fetchApiKeys();
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && !isDeleting) {
+      fetchApiKeys();
+    }
+  }, [isLoading, isDeleting]);
 
   const toggleKeyVisibility = (id) => {
     setVisibleKeys((prev) => {
