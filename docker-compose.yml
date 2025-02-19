@@ -1,143 +1,163 @@
 services:
-  milvus:
-    image: milvusdb/milvus:v2.4.17
-    container_name: gurubase-milvus-standalone
-    command: ["milvus", "run", "standalone"]
-    security_opt:
-      - seccomp:unconfined
-    environment:
-      ETCD_USE_EMBED: "true"
-      ETCD_DATA_DIR: /var/lib/milvus/etcd
-      ETCD_CONFIG_PATH: /milvus/configs/embedEtcd.yaml
-      COMMON_STORAGETYPE: local
-    volumes:
-      - ${HOME}/.gurubase/milvus:/var/lib/milvus
-      - ${HOME}/.gurubase/config/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-      start_period: 90s
-    restart: always
-
-  rabbitmq:
-    image: rabbitmq:3.13.7-alpine
-    container_name: gurubase-rabbitmq
-    restart: always
-
-  postgres:
-    image: postgres:16.3-alpine
-    container_name: gurubase-postgres
-    env_file:
-      - ${HOME}/.gurubase/.env
-    environment:
-      POSTGRES_DB: gurubase
-    volumes:
-      - ${HOME}/.gurubase/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: always
-
-  redis:
-    image: redis:7.2.6-alpine
-    container_name: gurubase-redis
-    volumes:
-      - ${HOME}/.gurubase/redis:/data
-    restart: always
-
-  backend:
-    image: ddosify/gurubase-backend:0.1.2
-    container_name: gurubase-backend
-    command: /workspace/start_scripts/start_app_selfhosted.sh
-    env_file:
-      - ${HOME}/.gurubase/.env
-    volumes:
-      - ${HOME}/.gurubase/backend_media:/workspace/backend/media
-    ports:
-      - "8028:8008"
-    depends_on:
-      postgres:
-        condition: service_started
-      milvus:
-        condition: service_started
-      rabbitmq:
-        condition: service_started
-      redis:
-        condition: service_started
-    restart: always
-    pull_policy: always
-
-  celery-worker-1:
-    image: ddosify/gurubase-backend:0.1.2
-    container_name: gurubase-backend-celery-worker-1
-    command: /workspace/start_scripts/start_celery_worker.sh
-    env_file:
-      - ${HOME}/.gurubase/.env
-    depends_on:
-      - backend
-    restart: always
-    pull_policy: always
-
-  celery-worker-2:
-    image: ddosify/gurubase-backend:0.1.2
-    container_name: gurubase-backend-celery-worker-2
-    command: /workspace/start_scripts/start_celery_worker.sh
-    env_file:
-      - ${HOME}/.gurubase/.env
-    depends_on:
-      - backend
-    restart: always
-    pull_policy: always
-
-  celery-worker-3:
-    image: ddosify/gurubase-backend:0.1.2
-    container_name: gurubase-backend-celery-worker-3
-    command: /workspace/start_scripts/start_celery_worker.sh
-    env_file:
-      - ${HOME}/.gurubase/.env
-    depends_on:
-      - backend
-    restart: always
-    pull_policy: always
-
-  celery-beat:
-    image: ddosify/gurubase-backend:0.1.2
-    container_name: gurubase-backend-celery-beat
-    command: /workspace/start_scripts/start_celery_beat.sh
-    env_file:
-      - ${HOME}/.gurubase/.env
-    depends_on:
-      - backend
-    restart: always
-    pull_policy: always
-
-  frontend:
-    image: ddosify/gurubase-frontend:0.1.1
-    container_name: gurubase-frontend
-    env_file:
-      - ${HOME}/.gurubase/.env.frontend
-    depends_on:
-      - backend
-    restart: always
-    pull_policy: always
-
-  nginx:
-    image: nginx:1.23.3-alpine
-    container_name: gurubase-nginx
-    volumes:
-      - ${HOME}/.gurubase/config/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ${HOME}/.gurubase/backend_media:/django_media_files
-    ports:
-      - "8029:8029"
-    depends_on:
-      - frontend
-      - backend
-    restart: always
-
-networks:
-  default:
-    name: gurubase-dc
+    milvus:
+      image: milvusdb/milvus:v2.4.17
+      container_name: gurubase-milvus-standalone
+      command: ["milvus", "run", "standalone"]
+      security_opt:
+        - seccomp:unconfined
+      environment:
+        ETCD_USE_EMBED: "true"
+        ETCD_DATA_DIR: /var/lib/milvus/etcd
+        ETCD_CONFIG_PATH: /milvus/configs/embedEtcd.yaml
+        COMMON_STORAGETYPE: local
+      volumes:
+        - ${HOME}/.gurubase/milvus:/var/lib/milvus
+        - ${HOME}/.gurubase/config/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+        interval: 30s
+        timeout: 20s
+        retries: 3
+        start_period: 90s
+      restart: always
+  
+    rabbitmq:
+      image: rabbitmq:3.13.7-alpine
+      container_name: gurubase-rabbitmq
+      restart: always
+  
+    postgres:
+      image: postgres:16.3-alpine
+      container_name: gurubase-postgres
+      env_file:
+        - ${HOME}/.gurubase/.env
+      environment:
+        POSTGRES_DB: gurubase
+      volumes:
+        - ${HOME}/.gurubase/postgres:/var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U postgres"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      restart: always
+  
+    redis:
+      image: redis:7.2.6-alpine
+      container_name: gurubase-redis
+      volumes:
+        - ${HOME}/.gurubase/redis:/data
+      restart: always
+  
+    backend:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-backend
+      command: /workspace/start_scripts/start_app_selfhosted.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      volumes:
+        - ${HOME}/.gurubase/backend_media:/workspace/backend/media
+      ports:
+        - "8028:8008"
+      depends_on:
+        postgres:
+          condition: service_started
+        milvus:
+          condition: service_started
+        rabbitmq:
+          condition: service_started
+        redis:
+          condition: service_started
+      restart: always
+      pull_policy: always
+  
+    celery-worker-1:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-backend-celery-worker-1
+      command: /workspace/start_scripts/start_celery_worker.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+  
+    celery-worker-2:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-backend-celery-worker-2
+      command: /workspace/start_scripts/start_celery_worker.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+  
+    celery-worker-3:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-backend-celery-worker-3
+      command: /workspace/start_scripts/start_celery_worker.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+  
+    celery-beat:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-backend-celery-beat
+      command: /workspace/start_scripts/start_celery_beat.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+  
+    frontend:
+      image: ddosify/gurubase-frontend:0.2.0
+      container_name: gurubase-frontend
+      env_file:
+        - ${HOME}/.gurubase/.env.frontend
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+  
+    nginx:
+      image: nginx:1.23.3-alpine
+      container_name: gurubase-nginx
+      volumes:
+        - ${HOME}/.gurubase/config/nginx.conf:/etc/nginx/conf.d/default.conf
+        - ${HOME}/.gurubase/backend_media:/django_media_files
+      ports:
+        - "8029:8029"
+      depends_on:
+        - frontend
+        - backend
+      restart: always
+  
+    discord-listener:
+      image: ddosify/gurubase-backend:0.2.0
+      container_name: gurubase-discord-listener
+      command: /workspace/start_scripts/start_discord_listener.sh
+      env_file:
+        - ${HOME}/.gurubase/.env
+      volumes:
+        - ${HOME}/.gurubase/gcp:/workspace/backend/gcp
+      depends_on:
+        - backend
+      restart: always
+      pull_policy: always
+      deploy:
+        resources:
+          limits:
+            memory: 2G
+          reservations:
+            memory: 1G
+  
+  networks:
+    default:
+      name: gurubase-dc
+  
