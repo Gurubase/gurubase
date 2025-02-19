@@ -2762,7 +2762,7 @@ def parse_sitemap(request):
         return Response({'msg': 'Error processing sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@auth
+@jwt_auth
 def start_crawl(request):
     """
     Start crawling a website and return the crawl ID.
@@ -2772,6 +2772,11 @@ def start_crawl(request):
 
     if not url:
         return Response({'msg': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate URL format
+    url_pattern = r'^https?:\/\/([\w\d\-]+\.)+\w{2,}(\/.*)?$'
+    if not re.match(url_pattern, url):
+        return Response({'msg': 'Invalid URL format'}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
         # Create a new crawl state
@@ -2795,7 +2800,7 @@ def start_crawl(request):
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@auth
+@jwt_auth
 def stop_crawl(request, crawl_id):
     """
     Stop a running crawl.
@@ -2820,7 +2825,7 @@ def stop_crawl(request, crawl_id):
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
-@auth
+@jwt_auth
 def get_crawl_status(request, crawl_id):
     """
     Get the status and discovered URLs of a crawl.
