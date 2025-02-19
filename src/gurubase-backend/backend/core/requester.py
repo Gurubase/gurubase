@@ -792,3 +792,21 @@ class Auth0Requester():
         except Exception as e:
             logger.error(f"Error deleting user {user_id}", exc_info=True)
             return False
+
+
+class WebshareRequester():
+    def __init__(self):
+        self.base_url = "https://proxy.webshare.io/api/v2"
+        self.token = settings.WEBSHARE_TOKEN
+        self.headers = {
+            'Authorization': f'Token {self.token}'
+        }
+
+    def get_proxies(self, next=None):
+        if not next:
+            url = f"{self.base_url}/proxy/list?mode=direct&page=1&page_size=100"
+        else:
+            url = next
+
+        response = requests.get(url, headers=self.headers, timeout=10)
+        return response

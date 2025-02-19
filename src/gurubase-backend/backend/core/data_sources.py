@@ -5,6 +5,7 @@ import time
 import traceback
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
+from core.proxy import get_random_proxy
 from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
@@ -325,9 +326,6 @@ class GitHubRepoStrategy(DataSourceStrategy):
 
 setup()
 
-def get_random_proxy():
-
-    return "http://dxttebbz:zw0wt5ys5g0c@" + random.choice(proxy_list)
 
 class InternalLinkSpider(scrapy.Spider):
     name = 'internal_links'

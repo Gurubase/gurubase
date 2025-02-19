@@ -9,7 +9,7 @@ from django.db.models import Index
 from datetime import datetime
 from django.core.exceptions import ValidationError
 from urllib.parse import urlparse
-from django.core.validators import URLValidator
+from django.core.validators import URLValidator, MaxValueValidator
 
 from accounts.models import User
 
@@ -1418,3 +1418,40 @@ class CrawlState(models.Model):
 
     def __str__(self):
         return f"Crawl {self.id} - {self.url} ({self.status})"
+
+
+class Proxy(models.Model):
+    address = models.CharField(max_length=100)
+    port = models.PositiveIntegerField(validators=[MaxValueValidator(65535)])
+    country = models.CharField(max_length=50, blank=False, null=False)
+    continent = models.CharField(max_length=50, blank=False, null=False)
+    location_code = models.CharField(max_length=50, blank=True, null=True)
+    state_code = models.CharField(max_length=10, blank=True, null=True)
+    state_name = models.CharField(max_length=100, blank=True, null=True)
+    city_code = models.CharField(max_length=10, blank=True, null=True)
+    city_name = models.CharField(max_length=100, blank=True, null=True)
+
+    is_active = models.BooleanField()
+    is_locked = models.BooleanField(default=False)
+    username = models.CharField(max_length=500, blank=False, null=False)
+    password = models.CharField(max_length=500, blank=False, null=False)
+    provider = models.CharField(max_length=50, blank=True, null=True)
+    last_checked = models.DateTimeField(null=True, blank=True)
+    response_time = models.FloatField(null=True, blank=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        location_code = f"{self.continent}.{self.country}"
+        if self.state_code:
+            location_code += f".{self.state_code}"
+        if self.city_code:
+            location_code += f".{self.city_code}"
+        self.location_code = location_code
+        super(Proxy, self).save(*args, **kwargs)
+
+    class Meta:
+        unique_together = ('address', 'port', 'username',)
+
+    def __str__(self) -> str:
+        return f"{self.id}:{self.address}:{self.port}__{self.country}"
