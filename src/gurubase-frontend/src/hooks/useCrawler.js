@@ -63,7 +63,7 @@ export const useCrawler = (
           clearInterval(pollInterval);
 
           CustomToast({
-            message: data.error || "Crawling failed",
+            message: data.error_message || "Crawling failed",
             variant: "error"
           });
         }
