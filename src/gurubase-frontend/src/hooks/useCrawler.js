@@ -31,13 +31,15 @@ export const useCrawler = (
           onUrlsDiscovered(data.discovered_urls);
         }
 
-        if (data.status === "STOPPED") {
+        // Handle different status conditions
+        if (data.status === "COMPLETED") {
           setIsCrawling(false);
           setCrawlId(null);
+          clearInterval(pollInterval);
 
           if (data.discovered_urls?.length > 0) {
             CustomToast({
-              message: `Successfully crawled ${data.discovered_urls.length} URLs`,
+              message: `Successfully crawled ${data.discovered_urls.length} URL(s)`,
               variant: "success"
             });
           } else {
@@ -46,8 +48,24 @@ export const useCrawler = (
               variant: "warning"
             });
           }
-
+        } else if (data.status === "STOPPED") {
+          setIsCrawling(false);
+          setCrawlId(null);
           clearInterval(pollInterval);
+
+          CustomToast({
+            message: "Crawling was stopped",
+            variant: "info"
+          });
+        } else if (data.status === "FAILED") {
+          setIsCrawling(false);
+          setCrawlId(null);
+          clearInterval(pollInterval);
+
+          CustomToast({
+            message: data.error || "Crawling failed",
+            variant: "error"
+          });
         }
       } catch (error) {
         console.error("Error polling crawl status:", error);
