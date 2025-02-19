@@ -382,15 +382,17 @@ class InternalLinkSpider(scrapy.Spider):
                             crawl_state.discovered_urls = list(self.internal_links)
                             crawl_state.save(update_fields=['discovered_urls'])
 
+                if len(self.internal_links) >= self.link_limit:
+                    if self.crawl_state_id:
+                        crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                        crawl_state.status = CrawlState.Status.FAILED
+                        crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
+                        crawl_state.end_time = timezone.now()
+                        crawl_state.save()
+                    return
+
                 if len(self.internal_links) % 100 == 0:
                     logger.info(f"Found {len(self.internal_links)} internal links")
-                    if len(self.internal_links) >= self.link_limit:
-                        if self.crawl_state_id:
-                            crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
-                            crawl_state.status = CrawlState.Status.COMPLETED
-                            crawl_state.end_time = timezone.now()
-                            crawl_state.save()
-                        return
 
                 # Check again if crawl has been stopped before scheduling new requests
                 if self.check_crawl_state():
