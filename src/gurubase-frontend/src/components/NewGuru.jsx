@@ -158,6 +158,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  const [crawledUrls, setCrawledUrls] = useState([]);
 
   // Add function to fetch guru data
   const fetchGuruData = useCallback(async (guruSlug) => {
@@ -1934,7 +1935,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         .split("\n")
         .filter((url) => url.trim());
 
-      console.log("discoveredUrls", discoveredUrls);
+      setCrawledUrls(discoveredUrls); // Required to reset it with a new crawl
 
       // Combine existing URLs with new ones and remove duplicates
       const allUrls = [...new Set([...existingUrls, ...discoveredUrls])];
@@ -1945,7 +1946,11 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       // Update form values
       form.setValue("websiteUrls", allUrls);
-    }
+    },
+    urlEditorContent,
+    crawledUrls,
+    setUrlEditorContent,
+    setCrawledUrls
   );
 
   // Modify the form component
