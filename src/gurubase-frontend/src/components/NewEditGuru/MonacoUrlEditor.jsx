@@ -11,7 +11,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { LoaderCircle, FileJson } from "lucide-react";
+import { LoaderCircle, Spider } from "lucide-react";
 import { CustomToast } from "@/components/CustomToast";
 import { parseSitemapUrls } from "@/app/actions";
 
@@ -68,11 +68,16 @@ const MonacoUrlEditor = ({
   tooltipText,
   value,
   onChange,
-  placeholder
+  placeholder,
+  onStartCrawl,
+  isCrawling,
+  onStopCrawl
 }) => {
   const [sitemapUrl, setSitemapUrl] = useState("");
   const [isLoadingSitemap, setIsLoadingSitemap] = useState(false);
   const [showSitemapInput, setShowSitemapInput] = useState(false);
+  const [showCrawlInput, setShowCrawlInput] = useState(false);
+  const [crawlUrl, setCrawlUrl] = useState("");
 
   const handleSitemapParse = async () => {
     if (!sitemapUrl) {
@@ -83,7 +88,7 @@ const MonacoUrlEditor = ({
       return;
     }
 
-    if (!sitemapUrl.endsWith('.xml')) {
+    if (!sitemapUrl.endsWith(".xml")) {
       CustomToast({
         message: "Sitemap URL must end with .xml",
         variant: "error"
@@ -106,19 +111,21 @@ const MonacoUrlEditor = ({
       const { urls, total_urls } = response;
       if (urls && urls.length > 0) {
         // Get current editor content
-        const currentContent = value || '';
-        const existingUrls = currentContent.split('\n').filter(url => url.trim());
-        
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
         // Combine existing URLs with new ones and remove duplicates
         const allUrls = [...new Set([...existingUrls, ...urls])];
-        
+
         // Update the editor content
-        const newContent = allUrls.join('\n');
+        const newContent = allUrls.join("\n");
         onChange(newContent);
-        
+
         // Clear the input field
-        setSitemapUrl('');
-        
+        setSitemapUrl("");
+
         CustomToast({
           message: `Successfully added ${total_urls} URLs from sitemap`,
           variant: "success"
@@ -131,7 +138,9 @@ const MonacoUrlEditor = ({
       }
     } catch (error) {
       CustomToast({
-        message: error.message || "An unexpected error occurred while parsing the sitemap",
+        message:
+          error.message ||
+          "An unexpected error occurred while parsing the sitemap",
         variant: "error"
       });
     } finally {
@@ -142,7 +151,8 @@ const MonacoUrlEditor = ({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
-        <div className={`flex items-center justify-between h-8 mb-3 ${showSitemapInput ? 'guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2' : ''}`}>
+        <div
+          className={`flex items-center justify-between h-8 mb-3 ${showSitemapInput || showCrawlInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -159,27 +169,49 @@ const MonacoUrlEditor = ({
             </TooltipProvider>
           </div>
           {title === "Website Links" && (
-            <div className={`flex items-center gap-2 ${showSitemapInput ? 'guru-sm:w-full' : ''}`}>
-              {!showSitemapInput ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5"
-                        onClick={() => setShowSitemapInput(true)}
-                      >
-                        <Icon icon="mdi:sitemap" className="h-4 w-4" />
-                        <span className="text-sm">Import from Sitemap</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Import URLs from your website's sitemap.xml file</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
+            <div
+              className={`flex items-center gap-2 ${showSitemapInput || showCrawlInput ? "guru-sm:w-full" : ""}`}>
+              {!showSitemapInput && !showCrawlInput ? (
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5"
+                          onClick={() => setShowSitemapInput(true)}>
+                          <Icon icon="mdi:sitemap" className="h-4 w-4" />
+                          <span className="text-sm">Import from Sitemap</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Import URLs from your website's sitemap.xml file</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5"
+                          onClick={() => setShowCrawlInput(true)}>
+                          <Icon icon="mdi:spider" className="h-4 w-4" />
+                          <span className="text-sm">Crawl Website</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Automatically discover and import URLs by crawling
+                          your website
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ) : showSitemapInput ? (
                 <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
                   <Input
                     className="w-[300px] h-8 guru-sm:w-full"
@@ -209,8 +241,49 @@ const MonacoUrlEditor = ({
                       onClick={() => {
                         setShowSitemapInput(false);
                         setSitemapUrl("");
+                      }}>
+                      ✕
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <Input
+                    className="w-[300px] h-8 guru-sm:w-full"
+                    placeholder="https://example.com"
+                    value={crawlUrl}
+                    onChange={(e) => setCrawlUrl(e.target.value)}
+                    disabled={isCrawling}
+                  />
+                  <div className="flex items-center gap-2 guru-sm:w-full">
+                    {!isCrawling ? (
+                      <Button
+                        className="h-8 guru-sm:flex-1"
+                        disabled={!crawlUrl}
+                        onClick={() => {
+                          onStartCrawl(crawlUrl);
+                        }}
+                        variant="outline">
+                        Start Crawling
+                      </Button>
+                    ) : (
+                      <Button
+                        className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+                        onClick={onStopCrawl}
+                        variant="outline">
+                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                        Stop Crawling
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowCrawlInput(false);
+                        setCrawlUrl("");
                       }}
-                    >
+                      disabled={isCrawling}>
                       ✕
                     </Button>
                   </div>
@@ -234,6 +307,14 @@ const MonacoUrlEditor = ({
             <div className="monaco-placeholder absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
               <div className="pl-[35px] pt-[3px] text-gray-400 text-[13px]">
                 {placeholder}
+              </div>
+            </div>
+          )}
+          {isCrawling && (
+            <div className="absolute top-0 left-0 right-0 bottom-0 bg-gray-50/50 flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-2 text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm">
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <span>Crawling website...</span>
               </div>
             </div>
           )}

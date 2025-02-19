@@ -107,6 +107,7 @@ import {
   TooltipTrigger
 } from "./ui/tooltip";
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
+import { useCrawler } from "@/hooks/useCrawler";
 
 const formSchema = z.object({
   guruName: z
@@ -1924,6 +1925,29 @@ export default function NewGuru({ guruData, isProcessing }) {
     );
   };
 
+  // Add crawler hook
+  const { isCrawling, handleStartCrawl, handleStopCrawl } = useCrawler(
+    (discoveredUrls) => {
+      // Get current editor content
+      const currentContent = urlEditorContent || "";
+      const existingUrls = currentContent
+        .split("\n")
+        .filter((url) => url.trim());
+
+      console.log("discoveredUrls", discoveredUrls);
+
+      // Combine existing URLs with new ones and remove duplicates
+      const allUrls = [...new Set([...existingUrls, ...discoveredUrls])];
+
+      // Update the editor content
+      const newContent = allUrls.join("\n");
+      setUrlEditorContent(newContent);
+
+      // Update form values
+      form.setValue("websiteUrls", allUrls);
+    }
+  );
+
   // Modify the form component
   return (
     <>
@@ -2513,6 +2537,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         onAddUrls={(links) => handleAddUrls(links, "website")}
         onEditorChange={handleUrlEditorChange}
         onOpenChange={setIsUrlSidebarOpen}
+        onStartCrawl={handleStartCrawl}
+        onStopCrawl={handleStopCrawl}
+        isCrawling={isCrawling}
       />
       <SourceDialog
         clickedSource={clickedSource}

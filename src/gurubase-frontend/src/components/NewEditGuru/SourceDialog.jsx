@@ -53,7 +53,10 @@ const SourceDialog = React.memo(
     setClickedSource,
     setSources,
     handleDeleteUrls,
-    readOnly = false
+    readOnly = false,
+    onStartCrawl,
+    isCrawling,
+    onStopCrawl
   }) => (
     <Dialog
       open={isOpen}
@@ -115,6 +118,9 @@ const SourceDialog = React.memo(
                 tooltipText={`Add multiple ${title} with a new line`}
                 value={editorContent}
                 onChange={onEditorChange}
+                onStartCrawl={onStartCrawl}
+                isCrawling={isCrawling}
+                onStopCrawl={onStopCrawl}
               />
             ) : (
               <div className="h-full">
