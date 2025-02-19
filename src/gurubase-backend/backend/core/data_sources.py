@@ -455,11 +455,14 @@ def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1
         List[str]: A list of all internal links found
     """
     links = set()
+    spider_instance = None
 
     class BulkInternalLinkSpider(InternalLinkSpider):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.internal_links: Set[str] = links
+            nonlocal spider_instance
+            spider_instance = self
 
     @wait_for(timeout=3600)  # Wait for up to 1 hour
     def run_crawler():
@@ -480,19 +483,20 @@ def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1
         deferred = runner.crawl(BulkInternalLinkSpider, start_urls=[url], original_url=url, crawl_state_id=crawl_state_id, link_limit=link_limit)
         
         # Update crawl state when spider closes
-        def on_spider_closed(spider):
-            if crawl_state_id:
+        def on_spider_closed(_):
+            if crawl_state_id and spider_instance:
                 try:
                     crawl_state = CrawlState.objects.get(id=crawl_state_id)
                     # Only update if not already FAILED (from error handling)
                     if crawl_state.status != CrawlState.Status.FAILED:
-                        crawl_state.status = CrawlState.Status.STOPPED if spider.should_close else CrawlState.Status.COMPLETED
+                        crawl_state.status = CrawlState.Status.STOPPED if getattr(spider_instance, 'should_close', False) else CrawlState.Status.COMPLETED
                         crawl_state.end_time = timezone.now()
                         crawl_state.save()
                 except Exception as e:
                     logger.error(f"Error updating crawl state on spider close: {str(e)}")
+                    logger.error(traceback.format_exc())
         
-        deferred.addCallback(lambda spider: on_spider_closed(spider))
+        deferred.addCallback(on_spider_closed)
         return deferred
 
     try:
@@ -500,6 +504,7 @@ def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1
         return list(links)
     except Exception as e:
         logger.error(f"Error in get_internal_links: {str(e)}")
+        logger.error(traceback.format_exc())
         if crawl_state_id:
             try:
                 crawl_state = CrawlState.objects.get(id=crawl_state_id)
@@ -507,7 +512,8 @@ def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1
                 crawl_state.error_message = str(e)
                 crawl_state.end_time = timezone.now()
                 crawl_state.save()
-            except Exception as e:
-                logger.error(f"Error updating crawl state: {str(e)}")
+            except Exception as save_error:
+                logger.error(f"Error updating crawl state: {str(save_error)}")
+                logger.error(traceback.format_exc())
         raise
 
