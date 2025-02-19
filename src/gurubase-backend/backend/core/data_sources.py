@@ -353,8 +353,6 @@ class InternalLinkSpider(scrapy.Spider):
         return False
 
     def parse(self, response):
-        logger.info(f"Parsing URL: {response.url}")
-        time.sleep(0.2)
         try:
             # First check if crawl has been stopped
             if self.check_crawl_state():
