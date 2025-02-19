@@ -2,13 +2,7 @@ import { useState, useEffect } from "react";
 import { startCrawl, getCrawlStatus, stopCrawl } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 
-export const useCrawler = (
-  onUrlsDiscovered,
-  urlEditorContent,
-  crawledUrls,
-  setUrlEditorContent,
-  setCrawledUrls
-) => {
+export const useCrawler = (onUrlsDiscovered) => {
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlId, setCrawlId] = useState(null);
 
@@ -103,19 +97,6 @@ export const useCrawler = (
     }
 
     try {
-      // Remove crawled URLs from editor content
-      let newEditorContent = urlEditorContent;
-      if (crawledUrls && crawledUrls.length > 0) {
-        const lines = urlEditorContent.split("\n");
-        const filteredLines = lines.filter((line) => {
-          const trimmedLine = line.trim();
-          return trimmedLine && !crawledUrls.includes(trimmedLine);
-        });
-        newEditorContent = filteredLines.join("\n");
-        setUrlEditorContent(newEditorContent);
-      }
-
-      setCrawledUrls([]);
       setIsCrawling(true);
       const data = await startCrawl(url);
 

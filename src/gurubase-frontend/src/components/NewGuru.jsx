@@ -1946,11 +1946,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       // Update form values
       form.setValue("websiteUrls", allUrls);
-    },
-    urlEditorContent,
-    crawledUrls,
-    setUrlEditorContent,
-    setCrawledUrls
+    }
   );
 
   // Modify the form component
