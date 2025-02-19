@@ -7,7 +7,7 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Generator
 import re
 from core.integrations import NotEnoughData, NotRelated
@@ -20,11 +20,11 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
+from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy, get_internal_links
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings, CrawlState
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -2760,3 +2760,89 @@ def parse_sitemap(request):
     except Exception as e:
         logger.error(f"Unexpected error parsing sitemap: {e}", exc_info=True)
         return Response({'msg': 'Error processing sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@auth
+def start_crawl(request):
+    """
+    Start crawling a website and return the crawl ID.
+    """
+    url = request.data.get('url')
+    link_limit = request.data.get('link_limit', 1500)
+
+    if not url:
+        return Response({'msg': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Create a new crawl state
+        crawl_state = CrawlState.objects.create(
+            url=url,
+            status=CrawlState.Status.RUNNING,
+            link_limit=link_limit
+        )
+        
+        # Start the crawl in the background using Celery
+        from core.tasks import crawl_website
+        crawl_website.delay(url, crawl_state.id, link_limit)
+        
+        return Response({
+            'crawl_id': crawl_state.id,
+            'status': crawl_state.status,
+            'url': crawl_state.url
+        })
+        
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@auth
+def stop_crawl(request, crawl_id):
+    """
+    Stop a running crawl.
+    """
+    try:
+        crawl_state = CrawlState.objects.get(id=crawl_id)
+        if crawl_state.status == CrawlState.Status.RUNNING:
+            crawl_state.status = CrawlState.Status.STOPPED
+            crawl_state.end_time = datetime.now(UTC)
+            crawl_state.save()
+        
+        return Response({
+            'crawl_id': crawl_state.id,
+            'status': crawl_state.status,
+            'url': crawl_state.url,
+            'discovered_urls': crawl_state.discovered_urls
+        })
+        
+    except CrawlState.DoesNotExist:
+        return Response({'msg': 'Crawl not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@auth
+def get_crawl_status(request, crawl_id):
+    """
+    Get the status and discovered URLs of a crawl.
+    """
+    try:
+        crawl_state = CrawlState.objects.get(id=crawl_id)
+        response_data = {
+            'crawl_id': crawl_state.id,
+            'status': crawl_state.status,
+            'url': crawl_state.url,
+            'discovered_urls': crawl_state.discovered_urls,
+            'start_time': crawl_state.start_time,
+            'end_time': crawl_state.end_time,
+            'link_limit': crawl_state.link_limit
+        }
+        
+        if crawl_state.error_message:
+            response_data['error_message'] = crawl_state.error_message
+            
+        return Response(response_data)
+        
+    except CrawlState.DoesNotExist:
+        return Response({'msg': 'Crawl not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

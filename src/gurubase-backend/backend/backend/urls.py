@@ -70,6 +70,9 @@ urlpatterns += [
     path('integrations/create/', core_views.create_integration, name='create_integration'),
     path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
     path('analytics/', include('analytics.urls')),
+    path('crawl/start/', core_views.start_crawl, name='start_crawl'),
+    path('crawl/<int:crawl_id>/stop/', core_views.stop_crawl, name='stop_crawl'),
+    path('crawl/<int:crawl_id>/status/', core_views.get_crawl_status, name='get_crawl_status'),
 ]
 
 if settings.STREAM_ENABLED:

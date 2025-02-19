@@ -1,14 +1,22 @@
 import logging
+import random
 import re
+import time
 import traceback
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
 from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
-from core.models import DataSource, DataSourceExists
+from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
 from core.requester import get_web_scraper
+import scrapy
+from scrapy.crawler import CrawlerRunner
+from crochet import setup, wait_for
+from urllib.parse import urljoin
+from typing import List, Set
+from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
@@ -313,4 +321,193 @@ class GitHubRepoStrategy(DataSourceStrategy):
                 'status': 'error',
                 'message': str(e)
             }
+
+
+setup()
+
+def get_random_proxy():
+
+    return "http://dxttebbz:zw0wt5ys5g0c@" + random.choice(proxy_list)
+
+class InternalLinkSpider(scrapy.Spider):
+    name = 'internal_links'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.start_url = self.start_urls[0]
+        self.original_url = kwargs.get('original_url')
+        self.internal_links: Set[str] = set()
+        self.crawl_state_id = kwargs.get('crawl_state_id')
+        self.link_limit = kwargs.get('link_limit', 1500)
+        self.should_close = False
+
+    def check_crawl_state(self):
+        """Check if the crawl should be stopped"""
+        if self.crawl_state_id:
+            crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+            if crawl_state.status == CrawlState.Status.STOPPED:
+                self.should_close = True
+                # Tell scrapy to stop the spider
+                self.crawler.engine.close_spider(self, 'Crawl stopped by user')
+                return True
+        return False
+
+    def parse(self, response):
+        logger.info(f"Parsing URL: {response.url}")
+        time.sleep(0.2)
+        try:
+            # First check if crawl has been stopped
+            if self.check_crawl_state():
+                return
+
+            content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
+            if 'text/html' not in content_type:
+                return
+
+            html_lang = response.xpath('//html/@lang').get()
+            html_lang = html_lang.strip() if html_lang else None
+            content_lang = response.headers.get('Content-Language', b'')
+            content_lang = content_lang.decode('utf-8').strip() if content_lang else None
+
+            is_english = (
+                not html_lang and not content_lang or
+                (html_lang and html_lang.lower().startswith('en')) or
+                (content_lang and content_lang.lower().startswith('en'))
+            )
+            
+            if response.status == 200 and is_english:
+                if response.url.startswith(self.start_url) or response.url.startswith(self.original_url):
+                    self.internal_links.add(response.url)
+                    if self.crawl_state_id:
+                        crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                        if crawl_state.status == CrawlState.Status.RUNNING:
+                            crawl_state.discovered_urls = list(self.internal_links)
+                            crawl_state.save(update_fields=['discovered_urls'])
+
+                if len(self.internal_links) % 100 == 0:
+                    logger.info(f"Found {len(self.internal_links)} internal links")
+                    if len(self.internal_links) >= self.link_limit:
+                        if self.crawl_state_id:
+                            crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                            crawl_state.status = CrawlState.Status.COMPLETED
+                            crawl_state.end_time = timezone.now()
+                            crawl_state.save()
+                        return
+
+                # Check again if crawl has been stopped before scheduling new requests
+                if self.check_crawl_state():
+                    return
+
+                for href in response.css('a::attr(href)').getall():
+                    full_url = urljoin(response.url, href)
+                    clean_url = full_url.split('#')[0].split('?')[0]
+
+                    if not clean_url.startswith(self.start_url) and not clean_url.startswith(self.original_url):
+                        continue
+                    
+                    if any(clean_url.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.css', '.js']):
+                        continue
+
+                    if re.search(r"/v\d+.*(?:/|$)", clean_url):
+                        continue
+
+                    not_follow_words = ["/release-notes/", "/releases/","/generated", "/cdn-cgi/", "/_modules/", 
+                                      "/_static/", "/_sources/", "/_generated/", "/_downloads/", "/_sources/", 
+                                      "/_autosummary/", "/tags/", "/tag/"]
+                    if any(word in clean_url for word in not_follow_words):
+                        continue
+                    
+                    normalized_url = clean_url.rstrip('/')
+                    if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
+                        logger.info(f"Crawling URL: {normalized_url}")
+                        yield scrapy.Request(
+                            full_url, 
+                            callback=self.parse,
+                            errback=self.handle_error,
+                            meta={'download_timeout': 10, 'proxy': get_random_proxy()}
+                        )
+        except Exception as e:
+            logger.error(f"Exception {e} for url {response.url}")
+            logger.error(f"Exception traceback: {traceback.format_exc()}")
+            if self.crawl_state_id:
+                crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                crawl_state.status = CrawlState.Status.FAILED
+                crawl_state.error_message = str(e)
+                crawl_state.end_time = timezone.now()
+                crawl_state.save()
+    
+    def handle_error(self, failure):
+        failed_url = failure.request.url.split('#')[0].split('?')[0]
+        self.internal_links.discard(failed_url)
+        logger.warning(f"Failed to crawl URL: {failed_url}, Reason: {failure.value}")
+
+def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1500) -> List[str]:
+    """
+    Crawls a website starting from the given URL and returns a list of all internal links found.
+    The crawler only follows links that start with the same domain as the initial URL.
+    
+    Args:
+        url (str): The starting URL to crawl from
+        crawl_state_id (int): ID of the CrawlState object to update during crawling
+        link_limit (int): Maximum number of links to collect (default: 1500)
+    
+    Returns:
+        List[str]: A list of all internal links found
+    """
+    links = set()
+
+    class BulkInternalLinkSpider(InternalLinkSpider):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.internal_links: Set[str] = links
+
+    @wait_for(timeout=3600)  # Wait for up to 1 hour
+    def run_crawler():
+        runner = CrawlerRunner(settings={
+            'LOG_ENABLED': False,
+            'ROBOTSTXT_OBEY': False,
+            'DOWNLOAD_TIMEOUT': 10,
+            'USER_AGENT': 'Mozilla/5.0',
+            'CONCURRENT_REQUESTS': 50,
+            'CONCURRENT_REQUESTS_PER_DOMAIN': 50,
+            'CONCURRENT_REQUESTS_PER_IP': 50,
+            'AUTOTHROTTLE_ENABLED': True,
+            'AUTOTHROTTLE_START_DELAY': 0,
+            'AUTOTHROTTLE_MAX_DELAY': 1,
+            'AUTOTHROTTLE_TARGET_CONCURRENCY': 50,
+        })
+        
+        deferred = runner.crawl(BulkInternalLinkSpider, start_urls=[url], original_url=url, crawl_state_id=crawl_state_id, link_limit=link_limit)
+        
+        # Update crawl state when spider closes
+        def on_spider_closed(spider):
+            if crawl_state_id:
+                try:
+                    crawl_state = CrawlState.objects.get(id=crawl_state_id)
+                    # Only update if not already FAILED (from error handling)
+                    if crawl_state.status != CrawlState.Status.FAILED:
+                        crawl_state.status = CrawlState.Status.STOPPED if spider.should_close else CrawlState.Status.COMPLETED
+                        crawl_state.end_time = timezone.now()
+                        crawl_state.save()
+                except Exception as e:
+                    logger.error(f"Error updating crawl state on spider close: {str(e)}")
+        
+        deferred.addCallback(lambda spider: on_spider_closed(spider))
+        return deferred
+
+    try:
+        run_crawler()
+        return list(links)
+    except Exception as e:
+        logger.error(f"Error in get_internal_links: {str(e)}")
+        if crawl_state_id:
+            try:
+                crawl_state = CrawlState.objects.get(id=crawl_state_id)
+                crawl_state.status = CrawlState.Status.FAILED
+                crawl_state.error_message = str(e)
+                crawl_state.end_time = timezone.now()
+                crawl_state.save()
+            except Exception as e:
+                logger.error(f"Error updating crawl state: {str(e)}")
+        raise
 
