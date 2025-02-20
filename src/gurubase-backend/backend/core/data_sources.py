@@ -476,12 +476,16 @@ class InternalLinkSpider(scrapy.Spider):
                     
                     normalized_url = clean_url.rstrip('/')
                     if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
+                        if settings.ENV == 'selfhosted':
+                            meta = {'download_timeout': 10}
+                        else:
+                            meta = {'download_timeout': 10, 'proxy': random.choice(self.proxies)}
                         # logger.info(f"Crawling URL: {normalized_url}")
                         yield scrapy.Request(
                             full_url, 
                             callback=self.parse,
                             errback=self.handle_error,
-                            meta={'download_timeout': 10, 'proxy': random.choice(self.proxies)}
+                            meta=meta
                         )
         except Exception as e:
             logger.error(f"Exception {e} for url {response.url}")
