@@ -1127,7 +1127,6 @@ export async function startCrawl(url) {
       }
     );
 
-    console.log(response);
     if (!response) return { error: true, message: "No response from server" };
     return await response.json();
   } catch (error) {

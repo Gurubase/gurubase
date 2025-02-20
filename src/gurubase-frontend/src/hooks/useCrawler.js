@@ -15,7 +15,6 @@ export const useCrawler = (onUrlsDiscovered) => {
 
       try {
         const data = await getCrawlStatus(crawlId);
-        console.log("crawl status data", data);
 
         if (data.error) {
           throw new Error(data.message);
