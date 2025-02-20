@@ -14,14 +14,15 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/modal-dialog.jsx";
-// import { CustomToast } from "@/components/CustomToast";
+import { CustomToast } from "@/components/CustomToast";
 
 export default function WidgetModal({
   widgetId,
   domainUrl,
   guruSlug,
   isLast,
-  isFirst
+  isFirst,
+  onDelete
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(null);
@@ -50,11 +51,17 @@ export default function WidgetModal({
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await deleteWidgetId(guruSlug, widgetId);
+      const { success, message } = await deleteWidgetId(guruSlug, widgetId);
 
-      if (!response.success) {
-        throw new Error("Failed to delete widget ID");
+      if (!success) {
+        CustomToast({
+          message: message,
+          variant: "error"
+        });
       }
+
+      // Call the onDelete callback after successful deletion
+      onDelete?.();
     } catch (error) {
       // console.error("error", error);
     } finally {
