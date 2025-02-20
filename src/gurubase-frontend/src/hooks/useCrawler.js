@@ -69,7 +69,6 @@ export const useCrawler = (onUrlsDiscovered) => {
           });
         }
       } catch (error) {
-        console.error("Error polling crawl status:", error);
         setIsCrawling(false);
         setCrawlId(null);
         clearInterval(pollInterval);
