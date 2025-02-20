@@ -46,11 +46,6 @@ export const useCrawler = (onUrlsDiscovered) => {
           setIsCrawling(false);
           setCrawlId(null);
           clearInterval(pollInterval);
-
-          CustomToast({
-            message: "Crawling was stopped",
-            variant: "info"
-          });
         } else if (data.status === "FAILED") {
           setIsCrawling(false);
           setCrawlId(null);
@@ -109,10 +104,6 @@ export const useCrawler = (onUrlsDiscovered) => {
       }
 
       setCrawlId(data.crawl_id);
-      CustomToast({
-        message: "Started crawling website",
-        variant: "info"
-      });
     } catch (error) {
       setIsCrawling(false);
       CustomToast({
@@ -133,10 +124,6 @@ export const useCrawler = (onUrlsDiscovered) => {
 
       setIsCrawling(false);
       setCrawlId(null);
-      CustomToast({
-        message: "Stopped crawling website",
-        variant: "info"
-      });
     } catch (error) {
       CustomToast({
         message: error.message || "Failed to stop crawling",
