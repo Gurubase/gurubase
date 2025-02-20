@@ -28,9 +28,11 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 def get_openai_api_key():
+    from core.utils import get_default_settings
     if settings.ENV == 'selfhosted':
         try:
-            return Settings.objects.get(id=1).openai_api_key
+            default_settings = get_default_settings()
+            return default_settings.openai_api_key
         except Exception:
             # Handle cases where the table/column doesn't exist yet (during migrations)
             return settings.OPENAI_API_KEY
@@ -38,9 +40,11 @@ def get_openai_api_key():
         return settings.OPENAI_API_KEY
     
 def get_firecrawl_api_key():
+    from core.utils import get_default_settings
     if settings.ENV == 'selfhosted':
         try:
-            return Settings.objects.get(id=1).firecrawl_api_key
+            default_settings = get_default_settings()
+            return default_settings.firecrawl_api_key
         except Exception:
             # Handle cases where the table/column doesn't exist yet (during migrations)
             return settings.FIRECRAWL_API_KEY
@@ -220,9 +224,11 @@ class Crawl4AIScraper(WebScraper):
 
 def get_web_scraper() -> WebScraper:
     """Factory function to get the appropriate web scraper based on settings"""
+    from core.utils import get_default_settings
 
     if settings.ENV == 'selfhosted':
-        scrape_type = Settings.objects.get(id=1).scrape_type
+        default_settings = get_default_settings()
+        scrape_type = default_settings.scrape_type
         scrape_type = scrape_type.lower()
     else:
         scrape_type = settings.WEBSITE_EXTRACTION

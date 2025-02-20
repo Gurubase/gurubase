@@ -150,6 +150,7 @@ def conditional_csrf_exempt(view_func):
 @api_view(['POST'])
 @combined_auth
 def summary(request, guru_type):
+    from core.utils import get_default_settings
     times = {
         'payload_processing': 0,
         'existence_check': 0,
@@ -158,7 +159,8 @@ def summary(request, guru_type):
     }
 
     if settings.ENV == 'selfhosted':
-        api_key_valid = Settings.objects.get(id=1).is_openai_key_valid
+        default_settings = get_default_settings()
+        api_key_valid = default_settings.is_openai_key_valid
         if not api_key_valid:
             return Response({'msg': 'OpenAI API key is invalid'}, status=490)
     
@@ -2629,7 +2631,8 @@ def manage_settings(request):
     GET: Retrieve current settings (excluding sensitive data like API keys)
     PUT: Update settings
     """
-    settings_obj = Settings.objects.get(id=1)
+    from core.utils import get_default_settings
+    settings_obj = get_default_settings()
 
     if request.method == 'GET':
         serializer = SettingsSerializer(settings_obj)
