@@ -148,15 +148,24 @@ export default function NewGuru({ guruData, isProcessing }) {
   const redirectingRef = useRef(false);
   // Add useCrawler here with other hooks
   const { isCrawling, handleStartCrawl, handleStopCrawl } = useCrawler(
-    (discoveredUrls) => {
+    (newUrls) => {
+      // Get current content and split into lines
       const currentContent = urlEditorContent || "";
       const existingUrls = currentContent
         .split("\n")
         .filter((url) => url.trim());
-      setCrawledUrls(discoveredUrls);
-      const allUrls = [...new Set([...existingUrls, ...discoveredUrls])];
-      const newContent = allUrls.join("\n");
-      setUrlEditorContent(newContent);
+
+      // Add new URLs line by line
+      const updatedContent =
+        currentContent +
+        (currentContent && newUrls.length > 0 ? "\n" : "") +
+        newUrls.join("\n");
+
+      // Update editor content
+      setUrlEditorContent(updatedContent);
+
+      // Update form value
+      const allUrls = [...existingUrls, ...newUrls];
       form.setValue("websiteUrls", allUrls);
     }
   );
@@ -173,7 +182,6 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
-  const [crawledUrls, setCrawledUrls] = useState([]);
 
   // Add function to fetch guru data
   const fetchGuruData = useCallback(async (guruSlug) => {

@@ -5,6 +5,7 @@ import { CustomToast } from "@/components/CustomToast";
 export const useCrawler = (onUrlsDiscovered) => {
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlId, setCrawlId] = useState(null);
+  const [discoveredUrls, setDiscoveredUrls] = useState(new Set());
 
   useEffect(() => {
     let pollInterval;
@@ -20,9 +21,18 @@ export const useCrawler = (onUrlsDiscovered) => {
           throw new Error(data.message);
         }
 
-        // Update discovered URLs even while crawling is in progress
+        // Filter out already discovered URLs
         if (data.discovered_urls?.length > 0) {
-          onUrlsDiscovered(data.discovered_urls);
+          const newUrls = data.discovered_urls.filter(
+            (url) => !discoveredUrls.has(url)
+          );
+          if (newUrls.length > 0) {
+            // Update discovered URLs set
+            newUrls.forEach((url) => discoveredUrls.add(url));
+            setDiscoveredUrls(discoveredUrls);
+            // Only pass new URLs to callback
+            onUrlsDiscovered(newUrls);
+          }
         }
 
         // Handle different status conditions
@@ -30,6 +40,7 @@ export const useCrawler = (onUrlsDiscovered) => {
           setIsCrawling(false);
           setCrawlId(null);
           clearInterval(pollInterval);
+          setDiscoveredUrls(new Set()); // Reset discovered URLs
 
           if (data.discovered_urls?.length > 0) {
             CustomToast({
@@ -46,10 +57,12 @@ export const useCrawler = (onUrlsDiscovered) => {
           setIsCrawling(false);
           setCrawlId(null);
           clearInterval(pollInterval);
+          setDiscoveredUrls(new Set()); // Reset discovered URLs
         } else if (data.status === "FAILED") {
           setIsCrawling(false);
           setCrawlId(null);
           clearInterval(pollInterval);
+          setDiscoveredUrls(new Set()); // Reset discovered URLs
 
           CustomToast({
             message: data.error_message || "Crawling failed",
@@ -61,6 +74,7 @@ export const useCrawler = (onUrlsDiscovered) => {
         setIsCrawling(false);
         setCrawlId(null);
         clearInterval(pollInterval);
+        setDiscoveredUrls(new Set()); // Reset discovered URLs
 
         CustomToast({
           message: "Error checking crawl status",
@@ -80,7 +94,7 @@ export const useCrawler = (onUrlsDiscovered) => {
         clearInterval(pollInterval);
       }
     };
-  }, [crawlId, onUrlsDiscovered]);
+  }, [crawlId, onUrlsDiscovered, discoveredUrls]);
 
   const handleStartCrawl = async (url) => {
     if (!url) {
