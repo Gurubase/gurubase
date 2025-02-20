@@ -6,13 +6,7 @@ import MonacoUrlEditor from "@/components/NewEditGuru/MonacoUrlEditor";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isValidUrl } from "@/utils/common";
-import {
-  Dialog as AlertDialog,
-  DialogContent as AlertDialogContent,
-  DialogDescription as AlertDialogDescription,
-  DialogHeader as AlertDialogHeader,
-  DialogTitle as AlertDialogTitle
-} from "@/components/ui/modal-dialog";
+import CrawlStopConfirmationDialog from "@/components/NewEditGuru/CrawlStopConfirmationDialog";
 
 import { UrlTableContent } from "./UrlTableContent";
 
@@ -41,44 +35,6 @@ const StyledDialogContent = React.forwardRef(
 
 StyledDialogContent.displayName = "StyledDialogContent";
 
-const CrawlStopConfirmationDialog = ({
-  isOpen,
-  onOpenChange,
-  onConfirm,
-  isClosing
-}) => {
-  return (
-    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[400px] p-6 z-[200]">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-base font-semibold text-center text-[#191919] font-inter">
-            Stop Crawling?
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-[14px] text-[#6D6D6D] text-center font-inter font-normal">
-            This will stop the crawling process. The URLs discovered so far will
-            still be available.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="mt-6 flex flex-col gap-2">
-          <Button
-            className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
-            disabled={isClosing}
-            onClick={onConfirm}>
-            {isClosing ? "Stopping..." : "Stop Crawling"}
-          </Button>
-          <Button
-            className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
-            variant="outline"
-            disabled={isClosing}
-            onClick={() => onOpenChange(false)}>
-            Continue Crawling
-          </Button>
-        </div>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-};
-
 const SourceDialog = React.memo(
   ({
     isOpen,
@@ -106,10 +62,16 @@ const SourceDialog = React.memo(
     const [showCrawlStopConfirmation, setShowCrawlStopConfirmation] =
       React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
+    const [stopAction, setStopAction] = React.useState(null);
+
+    const handleCrawlStop = React.useCallback((action) => {
+      setStopAction(action);
+      setShowCrawlStopConfirmation(true);
+    }, []);
 
     const handleClose = React.useCallback(async () => {
       if (isCrawling) {
-        setShowCrawlStopConfirmation(true);
+        handleCrawlStop("close");
         return;
       }
 
@@ -147,19 +109,23 @@ const SourceDialog = React.memo(
     const handleConfirmStopCrawl = React.useCallback(async () => {
       if (isClosing) return;
       setIsClosing(true);
+
       try {
         await onStopCrawl();
-        await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay to ensure state updates
+        await new Promise((resolve) => setTimeout(resolve, 100));
         setShowCrawlStopConfirmation(false);
-        onOpenChange(false);
+
+        if (stopAction === "close") {
+          onOpenChange(false);
+        }
       } finally {
         setIsClosing(false);
+        setStopAction(null);
       }
-    }, [onStopCrawl, onOpenChange]);
+    }, [onStopCrawl, onOpenChange, stopAction]);
 
     const handleDialogClose = React.useCallback(
       (e) => {
-        // Prevent the default close behavior
         e?.preventDefault();
         handleClose();
       },
@@ -207,7 +173,7 @@ const SourceDialog = React.memo(
                     onChange={onEditorChange}
                     onStartCrawl={onStartCrawl}
                     isCrawling={isCrawling}
-                    onStopCrawl={onStopCrawl}
+                    onStopCrawl={() => handleCrawlStop("stop")}
                   />
                 ) : (
                   <div className="h-full">
@@ -241,6 +207,7 @@ const SourceDialog = React.memo(
           onOpenChange={setShowCrawlStopConfirmation}
           onConfirm={handleConfirmStopCrawl}
           isClosing={isClosing}
+          action={stopAction}
         />
       </>
     );
