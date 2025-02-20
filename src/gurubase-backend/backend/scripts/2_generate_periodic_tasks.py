@@ -239,22 +239,6 @@ periodic_tasks = {
         'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
-    },
-    'task_sync_proxies_with_webshare': {
-        'every': 1,
-        'period': DAYS,
-        'task': 'core.tasks.sync_proxies_with_webshare',
-        'enabled': True,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_check_proxies': {
-        'every': 1,
-        'period': DAYS,
-        'task': 'core.tasks.check_proxies',
-        'enabled': True,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
     }
 }
 
@@ -280,8 +264,6 @@ if settings.ENV == 'selfhosted':
     periodic_tasks.pop('task_check_datasource_in_milvus_false_and_success')
     periodic_tasks.pop('task_send_request_to_questions_for_cloudflare_cache')
     periodic_tasks.pop('task_update_guru_type_sitemap_status')
-    periodic_tasks.pop('task_sync_proxies_with_webshare')
-    periodic_tasks.pop('task_check_proxies')
 
 
 def get_interval_schedule(task_configuration):

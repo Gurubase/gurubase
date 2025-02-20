@@ -1518,19 +1518,3 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
             crawl_state.save()
         except Exception as e:
             logger.error(f"Error updating crawl state: {str(e)}", exc_info=True)
-
-@shared_task
-def sync_proxies_with_webshare():
-    """
-    Celery task to sync proxies with Webshare API.
-    """
-    from core.proxy import sync_proxies_with_webshare as sync_proxies
-    sync_proxies()
-
-@shared_task
-def check_proxies(timeout=10):
-    """
-    Celery task to check proxy health.
-    """
-    from core.proxy import check_proxies as check_proxy_health
-    check_proxy_health('https://www.google.com', timeout)
