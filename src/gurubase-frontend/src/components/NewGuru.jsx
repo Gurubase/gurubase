@@ -155,18 +155,26 @@ export default function NewGuru({ guruData, isProcessing }) {
         .split("\n")
         .filter((url) => url.trim());
 
-      // Add new URLs line by line
-      const updatedContent =
-        currentContent +
-        (currentContent && newUrls.length > 0 ? "\n" : "") +
-        newUrls.join("\n");
+      // Filter out URLs that already exist in the editor
+      const uniqueNewUrls = newUrls.filter(
+        (url) => !existingUrls.includes(url)
+      );
 
-      // Update editor content
-      setUrlEditorContent(updatedContent);
+      // Only proceed if there are new unique URLs to add
+      if (uniqueNewUrls.length > 0) {
+        // Add new URLs line by line
+        const updatedContent =
+          currentContent +
+          (currentContent ? "\n" : "") +
+          uniqueNewUrls.join("\n");
 
-      // Update form value
-      const allUrls = [...existingUrls, ...newUrls];
-      form.setValue("websiteUrls", allUrls);
+        // Update editor content
+        setUrlEditorContent(updatedContent);
+
+        // Update form value with all unique URLs
+        const allUrls = [...existingUrls, ...uniqueNewUrls];
+        form.setValue("websiteUrls", allUrls);
+      }
     }
   );
 
