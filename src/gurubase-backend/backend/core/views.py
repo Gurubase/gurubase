@@ -483,7 +483,7 @@ def my_gurus(request, guru_slug=None):
         else:
             sub_query = GuruType.objects.all()
 
-        if sub_query.count() == 0:
+        if sub_query.count() == 0 and guru_slug:
             return Response({'msg': 'Guru not found'}, status=status.HTTP_404_NOT_FOUND)
 
         if settings.ENV == 'selfhosted' or user.is_admin:
