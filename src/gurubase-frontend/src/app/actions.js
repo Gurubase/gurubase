@@ -407,9 +407,23 @@ export async function deleteWidgetId(guruSlug, widgetId) {
       }
     );
 
-    if (!response) return null;
+    if (!response)
+      return {
+        success: false,
+        message: response.msg || "No response from server"
+      };
 
-    return await response.json();
+    if (response.ok) {
+      return {
+        success: true,
+        message: "Widget ID deleted successfully"
+      };
+    }
+
+    return {
+      success: false,
+      message: response.msg || "Failed to delete widget ID"
+    };
   } catch (error) {
     return handleRequestError(error, { widgetId });
   }
