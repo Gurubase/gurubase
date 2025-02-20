@@ -55,6 +55,7 @@ export const makeAuthenticatedRequest = async (
 ) => {
   // Early return for selfhosted mode
   if (shouldUsePublicRequest()) {
+    options.cache = "no-store";
     return makePublicRequest(url, options, decode);
   }
 
