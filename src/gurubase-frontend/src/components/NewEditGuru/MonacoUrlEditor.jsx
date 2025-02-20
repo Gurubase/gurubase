@@ -183,7 +183,7 @@ const MonacoUrlEditor = ({
           disabled={!crawlUrl || startingCrawl}
           onClick={() => handleCrawlStart(crawlUrl)}
           variant="outline">
-          Crawl
+          Start Crawling
         </Button>
       );
     } else {
