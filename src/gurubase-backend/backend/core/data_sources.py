@@ -13,8 +13,8 @@ import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
 from core.requester import get_web_scraper
 import scrapy
-from scrapy.crawler import CrawlerRunner
-from crochet import setup, wait_for
+from scrapy.crawler import CrawlerProcess
+from multiprocessing import Process
 from urllib.parse import urljoin
 from typing import List, Set
 from django.utils import timezone
@@ -324,7 +324,61 @@ class GitHubRepoStrategy(DataSourceStrategy):
             }
 
 
-setup()
+def run_spider_process(url, crawl_state_id, link_limit):
+    """Run spider in a separate process"""
+    try:
+        settings = {
+            'LOG_ENABLED': False,
+            'ROBOTSTXT_OBEY': False,
+            'DOWNLOAD_TIMEOUT': 10,
+            'USER_AGENT': 'Mozilla/5.0',
+            'CONCURRENT_REQUESTS': 50,
+            'CONCURRENT_REQUESTS_PER_DOMAIN': 50,
+            'CONCURRENT_REQUESTS_PER_IP': 50,
+            'AUTOTHROTTLE_ENABLED': True,
+            'AUTOTHROTTLE_START_DELAY': 0,
+            'AUTOTHROTTLE_MAX_DELAY': 1,
+            'AUTOTHROTTLE_TARGET_CONCURRENCY': 50,
+        }
+        
+        process = CrawlerProcess(settings)
+        process.crawl(
+            InternalLinkSpider,
+            start_urls=[url],
+            original_url=url,
+            crawl_state_id=crawl_state_id,
+            link_limit=link_limit
+        )
+        process.start()
+    except Exception as e:
+        logger.error(f"Error in spider process: {str(e)}")
+        logger.error(traceback.format_exc())
+
+
+def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1500) -> List[str]:
+    """
+    Crawls a website starting from the given URL and returns a list of all internal links found.
+    The crawler only follows links that start with the same domain as the initial URL.
+    """
+    try:
+        # Start the spider in a separate process
+        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit))
+        crawler_process.start()
+        
+    except Exception as e:
+        logger.error(f"Error in get_internal_links: {str(e)}")
+        logger.error(traceback.format_exc())
+        if crawl_state_id:
+            try:
+                crawl_state = CrawlState.objects.get(id=crawl_state_id)
+                crawl_state.status = CrawlState.Status.FAILED
+                crawl_state.error_message = str(e)
+                crawl_state.end_time = timezone.now()
+                crawl_state.save()
+            except Exception as save_error:
+                logger.error(f"Error updating crawl state: {str(save_error)}")
+                logger.error(traceback.format_exc())
+        raise
 
 
 class InternalLinkSpider(scrapy.Spider):
@@ -418,7 +472,7 @@ class InternalLinkSpider(scrapy.Spider):
                     
                     normalized_url = clean_url.rstrip('/')
                     if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
-                        logger.info(f"Crawling URL: {normalized_url}")
+                        # logger.info(f"Crawling URL: {normalized_url}")
                         yield scrapy.Request(
                             full_url, 
                             callback=self.parse,
@@ -440,79 +494,18 @@ class InternalLinkSpider(scrapy.Spider):
         self.internal_links.discard(failed_url)
         logger.warning(f"Failed to crawl URL: {failed_url}, Reason: {failure.value}")
 
-def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1500) -> List[str]:
-    """
-    Crawls a website starting from the given URL and returns a list of all internal links found.
-    The crawler only follows links that start with the same domain as the initial URL.
-    
-    Args:
-        url (str): The starting URL to crawl from
-        crawl_state_id (int): ID of the CrawlState object to update during crawling
-        link_limit (int): Maximum number of links to collect (default: 1500)
-    
-    Returns:
-        List[str]: A list of all internal links found
-    """
-    links = set()
-    spider_instance = None
-
-    class BulkInternalLinkSpider(InternalLinkSpider):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.internal_links: Set[str] = links
-            nonlocal spider_instance
-            spider_instance = self
-
-    @wait_for(timeout=3600)  # Wait for up to 1 hour
-    def run_crawler():
-        runner = CrawlerRunner(settings={
-            'LOG_ENABLED': False,
-            'ROBOTSTXT_OBEY': False,
-            'DOWNLOAD_TIMEOUT': 10,
-            'USER_AGENT': 'Mozilla/5.0',
-            'CONCURRENT_REQUESTS': 50,
-            'CONCURRENT_REQUESTS_PER_DOMAIN': 50,
-            'CONCURRENT_REQUESTS_PER_IP': 50,
-            'AUTOTHROTTLE_ENABLED': True,
-            'AUTOTHROTTLE_START_DELAY': 0,
-            'AUTOTHROTTLE_MAX_DELAY': 1,
-            'AUTOTHROTTLE_TARGET_CONCURRENCY': 50,
-        })
-        
-        deferred = runner.crawl(BulkInternalLinkSpider, start_urls=[url], original_url=url, crawl_state_id=crawl_state_id, link_limit=link_limit)
-        
-        # Update crawl state when spider closes
-        def on_spider_closed(_):
-            if crawl_state_id and spider_instance:
-                try:
-                    crawl_state = CrawlState.objects.get(id=crawl_state_id)
-                    # Only update if not already FAILED (from error handling)
-                    if crawl_state.status != CrawlState.Status.FAILED:
-                        crawl_state.status = CrawlState.Status.STOPPED if getattr(spider_instance, 'should_close', False) else CrawlState.Status.COMPLETED
-                        crawl_state.end_time = timezone.now()
-                        crawl_state.save()
-                except Exception as e:
-                    logger.error(f"Error updating crawl state on spider close: {str(e)}")
-                    logger.error(traceback.format_exc())
-        
-        deferred.addCallback(on_spider_closed)
-        return deferred
-
-    try:
-        run_crawler()
-        return list(links)
-    except Exception as e:
-        logger.error(f"Error in get_internal_links: {str(e)}")
-        logger.error(traceback.format_exc())
-        if crawl_state_id:
+    def closed(self, reason):
+        """Handle spider closure"""
+        if self.crawl_state_id:
             try:
-                crawl_state = CrawlState.objects.get(id=crawl_state_id)
-                crawl_state.status = CrawlState.Status.FAILED
-                crawl_state.error_message = str(e)
-                crawl_state.end_time = timezone.now()
-                crawl_state.save()
-            except Exception as save_error:
-                logger.error(f"Error updating crawl state: {str(save_error)}")
+                crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                # Only update if not already FAILED (from error handling)
+                if crawl_state.status != CrawlState.Status.FAILED:
+                    crawl_state.status = CrawlState.Status.STOPPED if self.should_close else CrawlState.Status.COMPLETED
+                    crawl_state.end_time = timezone.now()
+                    crawl_state.discovered_urls = list(self.internal_links)
+                    crawl_state.save()
+            except Exception as e:
+                logger.error(f"Error updating crawl state on spider close: {str(e)}")
                 logger.error(traceback.format_exc())
-        raise
 
