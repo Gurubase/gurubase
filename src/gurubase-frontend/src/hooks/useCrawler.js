@@ -100,6 +100,7 @@ export const useCrawler = (onUrlsDiscovered) => {
           message: data.message,
           variant: "error"
         });
+        setIsCrawling(false);
         return;
       }
 
