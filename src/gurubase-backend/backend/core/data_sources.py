@@ -3,6 +3,7 @@ import random
 import re
 import time
 import traceback
+from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
 from core.proxy import format_proxies, get_random_proxies
@@ -392,7 +393,10 @@ class InternalLinkSpider(scrapy.Spider):
         self.crawl_state_id = kwargs.get('crawl_state_id')
         self.link_limit = kwargs.get('link_limit', 1500)
         self.should_close = False
-        self.proxies = format_proxies(get_random_proxies())
+        if settings.ENV != 'selfhosted':
+            self.proxies = format_proxies(get_random_proxies())
+        else:
+            self.proxies = None
 
     def check_crawl_state(self):
         """Check if the crawl should be stopped"""
@@ -435,7 +439,7 @@ class InternalLinkSpider(scrapy.Spider):
                             crawl_state.discovered_urls = list(self.internal_links)
                             crawl_state.save(update_fields=['discovered_urls'])
 
-                if len(self.internal_links) >= self.link_limit:
+                if settings.ENV != 'selfhosted' and len(self.internal_links) >= self.link_limit:
                     if self.crawl_state_id:
                         crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
                         crawl_state.status = CrawlState.Status.FAILED
