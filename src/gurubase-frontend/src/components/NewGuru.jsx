@@ -37,7 +37,6 @@ import {
   getSettings,
   getMyGuru
 } from "@/app/actions";
-import CreateWidgetModal from "@/components/CreateWidgetModal";
 import { CustomToast } from "@/components/CustomToast";
 import {
   LogosYoutubeIcon,
@@ -91,7 +90,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import WidgetId from "@/components/WidgetId";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import {

@@ -27,6 +27,7 @@ import { setResetMainForm } from "@/redux/slices/mainFormSlice";
 
 import MobileSidebar from "./MobileSidebar";
 import SocialMediaHeader from "./SocialMediaHeader";
+import { getNavigationItems } from "./navigationConfig";
 
 // Create a memoized UserAvatar component with loading optimization
 const UserAvatar = memo(({ user }) => {
@@ -87,6 +88,26 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 915px)");
 
+  const renderNavigationItem = (item) => (
+    <DropdownMenuItem key={item.id} className="p-0.5">
+      <div className="w-full">
+        <Link
+          className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
+          href={item.href}
+          prefetch={false}>
+          <Icon
+            className={`w-4 h-4 text-[${item.iconColor}]`}
+            icon={item.icon}
+          />
+          <span
+            className={`flex-1 text-sm font-medium text-[${item.textColor}] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]`}>
+            {item.label}
+          </span>
+        </Link>
+      </div>
+    </DropdownMenuItem>
+  );
+
   const renderAuthButtons = () => {
     // Show loading spinner while user data is being fetched
     if (!isSelfHosted && isUserLoading) {
@@ -131,87 +152,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                   <DropdownMenuSeparator className="bg-[#E2E2E2]" />
                 </>
               )}
-              <DropdownMenuItem className="p-0.5">
-                <Link
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                  href="/my-gurus"
-                  prefetch={false}>
-                  <Icon
-                    className="w-4 h-4 shrink-0 text-[#6D6D6D]"
-                    icon="solar:notes-linear"
-                  />
-                  <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                    My Gurus
-                  </span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="p-0.5">
-                <div className="w-full">
-                  <Link
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                    href="/binge-history"
-                    prefetch={false}>
-                    <Icon
-                      className="w-4 h-4 text-[#6D6D6D]"
-                      icon="solar:history-linear"
-                    />
-                    <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                      Binge History
-                    </span>
-                  </Link>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="p-0.5">
-                <div className="w-full">
-                  <Link
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                    href="/api-keys"
-                    prefetch={false}>
-                    <Icon
-                      className="w-4 h-4 text-[#6D6D6D]"
-                      icon="solar:key-linear"
-                    />
-                    <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                      API Keys
-                    </span>
-                  </Link>
-                </div>
-              </DropdownMenuItem>
-              {isSelfHosted && (
-                <DropdownMenuItem className="p-0.5">
-                  <div className="w-full">
-                    <Link
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                      href="/settings"
-                      prefetch={false}>
-                      <Icon
-                        className="w-4 h-4 text-[#6D6D6D]"
-                        icon="solar:settings-linear"
-                      />
-                      <span className="flex-1 text-sm font-medium text-[#6D6D6D] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                        Settings
-                      </span>
-                    </Link>
-                  </div>
-                </DropdownMenuItem>
-              )}
-              {!isSelfHosted && (
-                <DropdownMenuItem className="p-0.5 mb-0.5">
-                  <div className="w-full">
-                    <a
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#F5F5F5] transition-colors cursor-pointer w-full"
-                      href="/api/auth/logout">
-                      <Icon
-                        className="w-4 h-4 shrink-0 text-[#DC2626]"
-                        icon="solar:logout-outline"
-                      />
-                      <span className="flex-1 text-sm font-medium text-[#DC2626] overflow-hidden text-ellipsis whitespace-nowrap leading-[1.25]">
-                        Log out
-                      </span>
-                    </a>
-                  </div>
-                </DropdownMenuItem>
-              )}
+              {getNavigationItems(isSelfHosted).map(renderNavigationItem)}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

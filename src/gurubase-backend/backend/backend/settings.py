@@ -222,8 +222,8 @@ LOGGING = {
 }
 
 
-BASE_URL = config('BASE_URL', default='http://localhost:3014')
-BACKEND_URL = config('BACKEND_URL', default='http://localhost:8018')
+BASE_URL = config('BASE_URL', default='http://localhost:8029')
+BACKEND_URL = config('BACKEND_URL', default='http://localhost:8028')
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_TEXT_EMBEDDING_MODEL = config('OPENAI_TEXT_EMBEDDING_MODEL', default='text-embedding-3-small')
 USE_OPENAI_TEXT_EMBEDDING = config('USE_OPENAI_TEXT_EMBEDDING', default=True, cast=bool)

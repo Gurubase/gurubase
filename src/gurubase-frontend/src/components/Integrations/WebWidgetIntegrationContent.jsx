@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getMyGuru } from "@/app/actions";
 import CreateWidgetModal from "@/components/CreateWidgetModal";
 import WidgetId from "@/components/WidgetId";
 import { Button } from "@/components/ui/button";
@@ -18,17 +19,28 @@ export const WebWidgetIntegrationContent = ({ guruData }) => {
   const router = useRouter();
   const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [isGeneratingWidget, setIsGeneratingWidget] = useState(false);
+  const [widgetIds, setWidgetIds] = useState(guruData?.widget_ids || []);
+
+  const refreshGuruData = async () => {
+    const updatedGuruData = await getMyGuru(guruData.slug);
+    setWidgetIds(updatedGuruData?.widget_ids || []);
+  };
 
   const handleAddWidget = () => {
     setIsWidgetModalVisible(true);
     setIsGeneratingWidget(true);
   };
 
-  const handleWidgetCreate = (response) => {
+  const handleWidgetCreate = async (response) => {
     setIsWidgetModalVisible(false);
     setIsGeneratingWidget(false);
     if (response?.error) return;
-    router.refresh();
+
+    await refreshGuruData();
+  };
+
+  const handleWidgetDelete = async (deletedWidgetId) => {
+    await refreshGuruData();
   };
 
   return (
@@ -52,17 +64,15 @@ export const WebWidgetIntegrationContent = ({ guruData }) => {
             .
           </p>
           <div className="flex flex-col">
-            {guruData?.widget_ids?.map((widget, index) => (
+            {widgetIds.map((widget, index) => (
               <WidgetId
                 key={widget.key}
                 domainUrl={widget.domain_url}
                 guruSlug={guruData?.slug}
                 isFirst={index === 0}
-                isLast={
-                  !isWidgetModalVisible &&
-                  index === guruData.widget_ids.length - 1
-                }
+                isLast={!isWidgetModalVisible && index === widgetIds.length - 1}
                 widgetId={widget.key}
+                onDelete={() => handleWidgetDelete(widget.key)}
               />
             ))}
 
