@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
 
 import { SolarInfoCircleBold } from "@/components/Icons";
@@ -73,6 +73,7 @@ const MonacoUrlEditor = ({
   isCrawling,
   onStopCrawl
 }) => {
+  const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
   const [isLoadingSitemap, setIsLoadingSitemap] = useState(false);
   const [showSitemapInput, setShowSitemapInput] = useState(false);
@@ -81,12 +82,31 @@ const MonacoUrlEditor = ({
   const [isProcessingCrawl, setIsProcessingCrawl] = useState(false);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
+  const prevValueRef = useRef(value);
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
     ...editorOptions,
     readOnly: isCrawling
   };
+
+  // Effect to handle auto-scrolling when new URLs are added
+  useEffect(() => {
+    if (
+      editorRef.current &&
+      value &&
+      value !== prevValueRef.current &&
+      isCrawling
+    ) {
+      const editor = editorRef.current;
+      const model = editor.getModel();
+      if (model) {
+        const lineCount = model.getLineCount();
+        editor.revealLine(lineCount);
+      }
+    }
+    prevValueRef.current = value;
+  }, [value, isCrawling]);
 
   const handleSitemapParse = async () => {
     if (!sitemapUrl) {
@@ -359,6 +379,9 @@ const MonacoUrlEditor = ({
             theme="vs-light"
             value={value}
             onChange={onChange}
+            onMount={(editor) => {
+              editorRef.current = editor;
+            }}
           />
           {!value && (
             <div className="monaco-placeholder absolute top-0 left-0 right-0 bottom-0 pointer-events-none">
