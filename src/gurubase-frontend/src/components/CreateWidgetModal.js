@@ -5,22 +5,24 @@ import { useState } from "react";
 import { createWidgetId } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CustomToast } from "@/components/CustomToast";
 
 export default function CreateWidgetModal({ onWidgetCreate, guruSlug }) {
   const [domain, setDomain] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
 
     try {
       const response = await createWidgetId(guruSlug, domain);
 
       if (response?.error) {
-        setError(response.message);
+        CustomToast({
+          message: response?.message || "Failed to create widget ID",
+          variant: "error"
+        });
 
         return;
       }
@@ -29,7 +31,10 @@ export default function CreateWidgetModal({ onWidgetCreate, guruSlug }) {
         setDomain("");
       }
     } catch (error) {
-      setError(error.message || "Failed to create widget ID");
+      CustomToast({
+        message: error.message || "Failed to create widget ID",
+        variant: "error"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +71,6 @@ export default function CreateWidgetModal({ onWidgetCreate, guruSlug }) {
             </Button>
           </div>
         </div>
-        {error && <p className="text-red-500 text-sm mt-2 px-2">{error}</p>}
       </div>
     </div>
   );
