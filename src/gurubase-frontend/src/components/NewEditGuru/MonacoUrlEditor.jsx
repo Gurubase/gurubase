@@ -277,7 +277,7 @@ const MonacoUrlEditor = ({
                           <span className="text-sm">Crawl Website</span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent side="right">
                         <p>
                           Automatically discover and import URLs by crawling
                           your website
