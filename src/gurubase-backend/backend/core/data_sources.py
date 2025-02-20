@@ -5,7 +5,7 @@ import time
 import traceback
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
-from core.proxy import get_random_proxy
+from core.proxy import format_proxies, get_random_proxies
 from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
@@ -338,6 +338,7 @@ class InternalLinkSpider(scrapy.Spider):
         self.crawl_state_id = kwargs.get('crawl_state_id')
         self.link_limit = kwargs.get('link_limit', 1500)
         self.should_close = False
+        self.proxies = format_proxies(get_random_proxies())
 
     def check_crawl_state(self):
         """Check if the crawl should be stopped"""
@@ -422,7 +423,7 @@ class InternalLinkSpider(scrapy.Spider):
                             full_url, 
                             callback=self.parse,
                             errback=self.handle_error,
-                            meta={'download_timeout': 10, 'proxy': get_random_proxy()}
+                            meta={'download_timeout': 10, 'proxy': random.choice(self.proxies)}
                         )
         except Exception as e:
             logger.error(f"Exception {e} for url {response.url}")

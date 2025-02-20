@@ -20,7 +20,6 @@ from core.models import (APIKey,
                          LLMEvalResult, Thread, 
                          WidgetId,
                          GithubFile,
-                         Proxy
                          )
 from django.utils.html import format_html
 import logging
@@ -459,18 +458,3 @@ class CrawlStateAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     search_fields = ['id', 'url']
     ordering = ('-id',)
-
-@admin.register(Proxy)
-class ProxyAdmin(admin.ModelAdmin):
-    list_display = ['id', 'address', 'port', 'country', 'continent', 'is_active', 'is_locked', 'provider', 'response_time', 'last_checked']
-    list_filter = ('is_active', 'is_locked', 'provider', 'country', 'continent')
-    search_fields = ['address', 'port', 'country', 'username']
-    ordering = ('-date_created',)
-    readonly_fields = ['location_code', 'last_checked', 'response_time']
-    actions = ['check_selected_proxies']
-
-    def check_selected_proxies(self, request, queryset):
-        from core.tasks import check_proxies
-        check_proxies.delay('https://www.google.com', timeout=10)
-        self.message_user(request, f"Checking {queryset.count()} proxies. This may take a few minutes.")
-    check_selected_proxies.short_description = "Check selected proxies"
