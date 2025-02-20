@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import GuruBaseLogo from "@/components/GuruBaseLogo";
 import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { getNavigationItems } from "./navigationConfig";
 
 const MobileSidebar = ({ isOpen, onClose, user }) => {
   const pathname = usePathname();
@@ -22,6 +23,20 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
   }, [isOpen]);
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  const renderNavigationItem = (item) => (
+    <div key={item.id} className="w-full">
+      <Link
+        className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
+          hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
+        href={item.href}
+        prefetch={false}
+        onClick={onClose}>
+        <Icon className={`w-5 h-5 text-[${item.iconColor}]`} icon={item.icon} />
+        <span className={`text-sm text-[${item.textColor}]`}>{item.label}</span>
+      </Link>
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -58,65 +73,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
 
                 {/* Menu Section */}
                 <div className="space-y-1">
-                  <div className="w-full">
-                    <Link
-                      className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-                      hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
-                      href="/my-gurus"
-                      prefetch={false}
-                      onClick={onClose}>
-                      <Icon
-                        className="w-5 h-5 text-[#6D6D6D]"
-                        icon="solar:notes-linear"
-                      />
-                      <span className="text-sm text-[#6D6D6D]">My Gurus</span>
-                    </Link>
-                  </div>
-                  <div className="w-full">
-                    <Link
-                      className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-                        hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
-                      href="/binge-history"
-                      prefetch={false}
-                      onClick={onClose}>
-                      <Icon
-                        className="w-5 h-5 text-[#6D6D6D]"
-                        icon="solar:history-linear"
-                      />
-                      <span className="text-sm text-[#6D6D6D]">
-                        Binge History
-                      </span>
-                    </Link>
-                  </div>
-                  <div className="w-full">
-                    <Link
-                      className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-                        hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
-                      href="/api-keys"
-                      prefetch={false}
-                      onClick={onClose}>
-                      <Icon
-                        className="w-5 h-5 text-[#6D6D6D]"
-                        icon="solar:key-linear"
-                      />
-                      <span className="text-sm text-[#6D6D6D]"> API Keys</span>
-                    </Link>
-                  </div>
-                  {!isSelfHosted && (
-                    <div className="w-full">
-                      <Link
-                        className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-                          hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
-                        href="/api/auth/logout"
-                        prefetch={false}>
-                        <Icon
-                          className="w-5 h-5 text-[#DC2626]"
-                          icon="solar:logout-outline"
-                        />
-                        <span className="text-sm text-[#DC2626]">Log out</span>
-                      </Link>
-                    </div>
-                  )}
+                  {getNavigationItems(isSelfHosted).map(renderNavigationItem)}
                 </div>
               </>
             ) : (
