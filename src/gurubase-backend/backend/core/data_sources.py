@@ -478,6 +478,7 @@ class InternalLinkSpider(scrapy.Spider):
                     if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
                         if settings.ENV == 'selfhosted':
                             meta = {'download_timeout': 10}
+                            time.sleep(0.2)
                         else:
                             meta = {'download_timeout': 10, 'proxy': random.choice(self.proxies)}
                         # logger.info(f"Crawling URL: {normalized_url}")
