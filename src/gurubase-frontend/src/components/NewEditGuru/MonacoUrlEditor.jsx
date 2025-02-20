@@ -228,7 +228,7 @@ const MonacoUrlEditor = ({
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 ${showSitemapInput || showCrawlInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -245,17 +245,16 @@ const MonacoUrlEditor = ({
             </TooltipProvider>
           </div>
           {title === "Website Links" && (
-            <div
-              className={`flex items-center gap-2 ${showSitemapInput || showCrawlInput ? "guru-sm:w-full" : ""}`}>
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
               {!showSitemapInput && !showCrawlInput ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
                           onClick={() => setShowSitemapInput(true)}>
                           <Icon icon="mdi:sitemap" className="h-4 w-4" />
                           <span className="text-sm">Import from Sitemap</span>
@@ -272,7 +271,7 @@ const MonacoUrlEditor = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
                           onClick={() => setShowCrawlInput(true)}>
                           <Icon icon="mdi:spider" className="h-4 w-4" />
                           <span className="text-sm">Crawl Website</span>
