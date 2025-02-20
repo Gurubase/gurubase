@@ -146,6 +146,21 @@ const formSchema = z.object({
 export default function NewGuru({ guruData, isProcessing }) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
+  // Add useCrawler here with other hooks
+  const { isCrawling, handleStartCrawl, handleStopCrawl } = useCrawler(
+    (discoveredUrls) => {
+      const currentContent = urlEditorContent || "";
+      const existingUrls = currentContent
+        .split("\n")
+        .filter((url) => url.trim());
+      setCrawledUrls(discoveredUrls);
+      const allUrls = [...new Set([...existingUrls, ...discoveredUrls])];
+      const newContent = allUrls.join("\n");
+      setUrlEditorContent(newContent);
+      form.setValue("websiteUrls", allUrls);
+    }
+  );
+
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user, isLoading: authLoading } = isSelfHosted
@@ -1925,29 +1940,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       />
     );
   };
-
-  // Add crawler hook
-  const { isCrawling, handleStartCrawl, handleStopCrawl } = useCrawler(
-    (discoveredUrls) => {
-      // Get current editor content
-      const currentContent = urlEditorContent || "";
-      const existingUrls = currentContent
-        .split("\n")
-        .filter((url) => url.trim());
-
-      setCrawledUrls(discoveredUrls); // Required to reset it with a new crawl
-
-      // Combine existing URLs with new ones and remove duplicates
-      const allUrls = [...new Set([...existingUrls, ...discoveredUrls])];
-
-      // Update the editor content
-      const newContent = allUrls.join("\n");
-      setUrlEditorContent(newContent);
-
-      // Update form values
-      form.setValue("websiteUrls", allUrls);
-    }
-  );
 
   // Modify the form component
   return (
