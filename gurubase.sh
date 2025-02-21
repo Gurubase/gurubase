@@ -196,6 +196,61 @@ echo "⚡ Installing Gurubase Self Hosted..."
 
 echo "🔍 Checking prerequisites..."
 
+check_docker_requirements() {
+    UPGRADE_NEEDED=false
+    ERROR_MESSAGES=""
+
+    # Check if docker is installed
+    if ! command -v docker &> /dev/null; then
+        echo "❌ Docker is not installed. Please install Docker before running this script."
+        exit 1
+    fi
+
+    # Check if docker is running
+    if ! docker info &> /dev/null; then
+        echo "❌ Docker is not running. Please start Docker before running this script."
+        exit 1
+    fi
+
+    # Check for either docker-compose or docker compose
+    if ! (command -v docker-compose &> /dev/null || docker compose version &> /dev/null); then
+        echo "❌ Docker Compose is not installed. Please install Docker Compose before running this script."
+        exit 1
+    fi
+
+    # Check Docker version
+    DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || docker version | grep -i "version" | head -n 1 | awk '{print $2}')
+    DOCKER_MAJOR_VERSION=$(echo $DOCKER_VERSION | cut -d. -f1)
+    DOCKER_MINOR_VERSION=$(echo $DOCKER_VERSION | cut -d. -f2)
+    if [ "$DOCKER_MAJOR_VERSION" -lt 27 ] || ([ "$DOCKER_MAJOR_VERSION" -eq 27 ] && [ "$DOCKER_MINOR_VERSION" -lt 3 ]); then
+        UPGRADE_NEEDED=true
+        ERROR_MESSAGES+="❌ Docker version $DOCKER_VERSION is not supported. Minimum required version is 27.3.x\n\n"
+    fi
+
+    # Check Docker Compose version
+    if command -v docker compose &> /dev/null; then
+        COMPOSE_VERSION=$(docker compose version --short 2>/dev/null || docker compose version | awk '{print $4}')
+    elif command -v docker-compose &> /dev/null; then
+        COMPOSE_VERSION=$(docker-compose version --short 2>/dev/null || docker-compose version --short)
+    fi
+
+    if [ -n "$COMPOSE_VERSION" ]; then
+        COMPOSE_MAJOR_VERSION=$(echo $COMPOSE_VERSION | cut -d. -f1)
+        COMPOSE_MINOR_VERSION=$(echo $COMPOSE_VERSION | cut -d. -f2)
+        if [ "$COMPOSE_MAJOR_VERSION" -lt 2 ] || ([ "$COMPOSE_MAJOR_VERSION" -eq 2 ] && [ "$COMPOSE_MINOR_VERSION" -lt 30 ]); then
+            UPGRADE_NEEDED=true
+            ERROR_MESSAGES+="❌ Docker Compose version $COMPOSE_VERSION is not supported. Minimum required version is 2.30.x\n"
+        fi
+    fi
+
+    if [ "$UPGRADE_NEEDED" = true ]; then
+        echo -e "\n⚠️ Version Requirements Not Met:\n"
+        echo -e "$ERROR_MESSAGES"
+        echo "Please upgrade the required components and try again."
+        exit 1
+    fi
+}
+
 is_port_available() {
   local port="$1"
 
@@ -215,26 +270,11 @@ check_milvus_health() {
     return $?
 }
 
+check_docker_requirements
+
 is_port_available 8028
 is_port_available 8029
 
-# Check if docker is installed
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker before running this script."
-    exit 1
-fi
-
-# Check for either docker-compose or docker compose
-if ! (command -v docker-compose &> /dev/null || docker compose version &> /dev/null); then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose before running this script."
-    exit 1
-fi
-
-# Check if docker is running
-if ! docker info &> /dev/null; then
-    echo "❌ Docker is not running. Please start Docker before running this script."
-    exit 1
-fi
 
 if [ ! -d "$GURUBASE_DIR" ]; then
     mkdir -p "$GURUBASE_DIR/milvus"
