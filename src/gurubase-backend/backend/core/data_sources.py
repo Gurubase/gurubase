@@ -386,17 +386,24 @@ class InternalLinkSpider(scrapy.Spider):
     name = 'internal_links'
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.start_url = self.start_urls[0]
-        self.original_url = kwargs.get('original_url')
-        self.internal_links: Set[str] = set()
-        self.crawl_state_id = kwargs.get('crawl_state_id')
-        self.link_limit = kwargs.get('link_limit', 1500)
-        self.should_close = False
-        if settings.ENV != 'selfhosted':
-            self.proxies = format_proxies(get_random_proxies())
-        else:
-            self.proxies = None
+        try:
+            super().__init__(*args, **kwargs)
+            self.start_url = self.start_urls[0]
+            self.original_url = kwargs.get('original_url')
+            self.internal_links: Set[str] = set()
+            self.crawl_state_id = kwargs.get('crawl_state_id')
+            self.link_limit = kwargs.get('link_limit', 1500)
+            self.should_close = False
+            if settings.ENV != 'selfhosted':
+                self.proxies = format_proxies(get_random_proxies())
+            else:
+                self.proxies = None
+        except Exception as e:
+            logger.error(f"Error initializing InternalLinkSpider: {str(e)}", traceback.format_exc())
+            CrawlState.objects.get(id=self.crawl_state_id).status = CrawlState.Status.FAILED
+            CrawlState.objects.get(id=self.crawl_state_id).error_message = str(e)
+            CrawlState.objects.get(id=self.crawl_state_id).end_time = timezone.now()
+            CrawlState.objects.get(id=self.crawl_state_id).save()
 
     def check_crawl_state(self):
         """Check if the crawl should be stopped"""
