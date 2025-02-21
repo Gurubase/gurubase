@@ -20,7 +20,7 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
+from core.data_sources import CrawlService, PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer, CrawlStateSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
@@ -2763,107 +2763,65 @@ def parse_sitemap(request):
 
 @api_view(['POST'])
 @jwt_auth
-def start_crawl(request, guru_slug):
-    """
-    Start crawling a website and return the crawl ID.
-    """
-    url = request.data.get('url')
-    link_limit = request.data.get('link_limit', 1500)
+def start_crawl_admin(request, guru_slug):
+    data, status = CrawlService.start_crawl(
+        guru_slug,
+        request.user,
+        request.data.get('url'),
+        request.data.get('link_limit', 1500)
+    )
+    return Response(data, status=status)
 
-    if not url:
-        return Response({'msg': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Validate URL format
-    url_pattern = r'^https?:\/\/([\w\d\-]+\.)+\w{2,}(\/.*)?$'
-    if not re.match(url_pattern, url):
-        return Response({'msg': 'Invalid URL format'}, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
-    except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    try:
-        existing_crawl = CrawlState.objects.filter(guru_type=guru_type, status=CrawlState.Status.RUNNING).first()
-        if existing_crawl:
-            return Response({'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, status=status.HTTP_400_BAD_REQUEST)
-    except CrawlState.DoesNotExist:
-        pass
-    
-    try:
-        # Create a new crawl state
-        crawl_state = CrawlState.objects.create(
-            url=url,
-            status=CrawlState.Status.RUNNING,
-            link_limit=link_limit,
-            guru_type=guru_type,
-            user=request.user if request.user and request.user.is_authenticated else None
-        )
-        
-        # Start the crawl in the background using Celery
-        from core.tasks import crawl_website
-        crawl_website.delay(url, crawl_state.id, link_limit)
-        
-        return Response(CrawlStateSerializer(crawl_state).data)
-        
-    except Exception as e:
-        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def start_crawl_api(request, guru_slug):
+    data, status = CrawlService.start_crawl(
+        guru_slug,
+        request.user,
+        request.data.get('url'),
+        request.data.get('link_limit', 1500)
+    )
+    return Response(data, status=status)
 
 @api_view(['POST'])
 @jwt_auth
-def stop_crawl(request, guru_slug, crawl_id):
-    """
-    Stop a running crawl.
-    """
+def stop_crawl_admin(request, guru_slug, crawl_id):
+    data, status = CrawlService.stop_crawl(
+        guru_slug,
+        request.user,
+        crawl_id
+    )
+    return Response(data, status=status)
 
-    try:
-        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
-    except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    try:
-        crawl_state = CrawlState.objects.get(id=crawl_id)
-        if crawl_state.status == CrawlState.Status.RUNNING:
-            crawl_state.status = CrawlState.Status.STOPPED
-            crawl_state.end_time = datetime.now(UTC)
-            crawl_state.save()
-        
-        return Response(CrawlStateSerializer(crawl_state).data)
-        
-    except CrawlState.DoesNotExist:
-        return Response({'msg': 'Crawl not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def stop_crawl_api(request, guru_slug, crawl_id):
+    data, status = CrawlService.stop_crawl(
+        guru_slug,
+        request.user,
+        crawl_id
+    )
+    return Response(data, status=status)
 
 @api_view(['GET'])
 @jwt_auth
-def get_crawl_status(request, guru_slug, crawl_id):
-    """
-    Get the status and discovered URLs of a crawl.
-    """
+def get_crawl_status_admin(request, guru_slug, crawl_id):
+    data, status = CrawlService.get_crawl_status(
+        guru_slug,
+        request.user,
+        crawl_id
+    )
+    return Response(data, status=status)
 
-    try:
-        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
-    except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
-
-
-    try:
-        crawl_state = CrawlState.objects.get(id=crawl_id)
-        response_data = CrawlStateSerializer(crawl_state).data
-        
-        if crawl_state.error_message:
-            response_data['error_message'] = crawl_state.error_message
-            
-        return Response(response_data)
-        
-    except CrawlState.DoesNotExist:
-        return Response({'msg': 'Crawl not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def get_crawl_status_api(request, guru_slug, crawl_id):
+    data, status = CrawlService.get_crawl_status(
+        guru_slug,
+        request.user,
+        crawl_id
+    )
+    return Response(data, status=status)

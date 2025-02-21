@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 import logging
 import random
 import re
@@ -6,6 +7,7 @@ import traceback
 from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
+from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
 from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
@@ -525,3 +527,72 @@ class InternalLinkSpider(scrapy.Spider):
                 logger.error(f"Error updating crawl state on spider close: {str(e)}")
                 logger.error(traceback.format_exc())
 
+class CrawlService:
+    @staticmethod
+    def validate_and_get_guru_type(guru_slug, user):
+        """Shared validation logic"""
+        return get_guru_type_object_by_maintainer(guru_slug, user)
+
+    @staticmethod
+    def get_user(user):
+        if settings.ENV == 'selfhosted':
+            return None
+        return user
+
+    @staticmethod
+    def start_crawl(guru_slug, user, url, link_limit):
+        from core.serializers import CrawlStateSerializer
+        from core.tasks import crawl_website
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing crawl start logic
+        existing_crawl = CrawlState.objects.filter(
+            guru_type=guru_type, 
+            status=CrawlState.Status.RUNNING
+        ).first()
+        if existing_crawl:
+            return {'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, 400
+        
+        crawl_state = CrawlState.objects.create(
+            url=url,
+            status=CrawlState.Status.RUNNING,
+            link_limit=link_limit,
+            guru_type=guru_type,
+            user=user
+        )
+        crawl_website.delay(url, crawl_state.id, link_limit)
+        return CrawlStateSerializer(crawl_state).data, 200
+
+    @staticmethod
+    def stop_crawl(guru_slug, user, crawl_id):
+        from core.serializers import CrawlStateSerializer
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing stop logic
+        try:
+            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            if crawl_state.status == CrawlState.Status.RUNNING:
+                crawl_state.status = CrawlState.Status.STOPPED
+                crawl_state.end_time = datetime.now(UTC)
+                crawl_state.save()
+            return CrawlStateSerializer(crawl_state).data, 200
+        except CrawlState.DoesNotExist:
+            return {'msg': 'Crawl not found'}, 404
+
+    @staticmethod
+    def get_crawl_status(guru_slug, user, crawl_id):
+        from core.serializers import CrawlStateSerializer
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing status logic
+        try:
+            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            response_data = CrawlStateSerializer(crawl_state).data
+            if crawl_state.error_message:
+                response_data['error_message'] = crawl_state.error_message
+            return response_data, 200
+        except CrawlState.DoesNotExist:
+            return {'msg': 'Crawl not found'}, 404

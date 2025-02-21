@@ -62,6 +62,9 @@ urlpatterns += [
     path('api/v1/<str:guru_type>/data-sources/', core_views.api_data_sources, name='api-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/reindex/', core_views.api_reindex_data_sources, name='api-reindex-data-sources'),
     # path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
+    path('api/v1/<str:guru_type>/crawl/start/', core_views.start_crawl_api, name='start_crawl_api'),
+    path('api/v1/<str:guru_type>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_api, name='stop_crawl_api'),
+    path('api/v1/<str:guru_type>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_api, name='get_crawl_status_api'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
     path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
@@ -70,9 +73,10 @@ urlpatterns += [
     path('integrations/create/', core_views.create_integration, name='create_integration'),
     path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
     path('analytics/', include('analytics.urls')),
-    path('<str:guru_slug>/crawl/start/', core_views.start_crawl, name='start_crawl'),
-    path('<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl, name='stop_crawl'),
-    path('<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status, name='get_crawl_status'),
+
+    path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
+    path('<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
+    path('<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
 ]
 
 if settings.STREAM_ENABLED:
