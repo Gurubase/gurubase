@@ -171,6 +171,20 @@ upgrade_gurubase() {
     exit 0
 }
 
+show_version() {
+    echo "📦 Gurubase Version Information:"
+    if [ -f "$DOCKER_COMPOSE_FILE" ]; then
+        BACKEND_VERSION=$(grep "gurubase-backend:" "$DOCKER_COMPOSE_FILE" | head -n 1 | cut -d: -f3)
+        FRONTEND_VERSION=$(grep "gurubase-frontend:" "$DOCKER_COMPOSE_FILE" | head -n 1 | cut -d: -f3)
+        echo "Backend Version: $BACKEND_VERSION"
+        echo "Frontend Version: $FRONTEND_VERSION"
+    else
+        echo "❌ docker-compose.yml not found in $GURUBASE_DIR"
+        exit 1
+    fi
+    exit 0
+}
+
 # Update the argument handling section:
 case "$1" in
     "rm")
@@ -179,15 +193,19 @@ case "$1" in
     "upgrade")
         upgrade_gurubase
         ;;
+    "version")
+        show_version
+        ;;
     "")
         # Continue with installation
         ;;
     *)
         echo "❌ Unknown argument: $1"
-        echo "Usage: $0 [rm|upgrade]"
+        echo "Usage: $0 [rm|upgrade|version]"
         echo "  - No argument: Install Gurubase"
         echo "  - rm: Remove Gurubase containers and networks"
         echo "  - upgrade: Upgrade Gurubase to the latest version"
+        echo "  - version: Show current Gurubase version"
         exit 1
         ;;
 esac

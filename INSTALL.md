@@ -131,6 +131,9 @@ Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
 | Website Widget | ✅ Available | ✅ Available |
 | Base LLM | ✅ OpenAI GPT-4o | ✅ OpenAI GPT-4o |
 
+## Troubleshooting
+Please open an issue on [GitHub](https://github.com/Gurubase/gurubase/issues/new?template=bug_report.md) or ask on [Discord](https://discord.gg/9CMRSQPqx6).
+
 ## Additional Information
 
 For frequently asked questions about Gurubase, including system architecture, use cases, data handling, and more, please check the [FAQ section in README.md](README.md#frequently-asked-questions).
