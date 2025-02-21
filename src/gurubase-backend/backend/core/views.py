@@ -2799,7 +2799,7 @@ def start_crawl(request, guru_slug):
             status=CrawlState.Status.RUNNING,
             link_limit=link_limit,
             guru_type=guru_type,
-            user=request.user
+            user=request.user if request.user and request.user.is_authenticated else None
         )
         
         # Start the crawl in the background using Celery
