@@ -2768,7 +2768,6 @@ def start_crawl_admin(request, guru_slug):
         guru_slug,
         request.user,
         request.data.get('url'),
-        request.data.get('link_limit', 1500)
     )
     return Response(data, status=status)
 
@@ -2780,7 +2779,6 @@ def start_crawl_api(request, guru_slug):
         guru_slug,
         request.user,
         request.data.get('url'),
-        request.data.get('link_limit', 1500)
     )
     return Response(data, status=status)
 

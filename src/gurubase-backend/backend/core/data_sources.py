@@ -540,7 +540,7 @@ class CrawlService:
         return user
 
     @staticmethod
-    def start_crawl(guru_slug, user, url, link_limit):
+    def start_crawl(guru_slug, user, url, link_limit=1500):
         from core.serializers import CrawlStateSerializer
         from core.tasks import crawl_website
         user = CrawlService.get_user(user)
