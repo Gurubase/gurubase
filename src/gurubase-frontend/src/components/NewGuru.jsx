@@ -175,7 +175,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         const allUrls = [...existingUrls, ...uniqueNewUrls];
         form.setValue("websiteUrls", allUrls);
       }
-    }
+    },
+    guruData?.slug
   );
 
   // Only initialize Auth0 hooks if in selfhosted mode

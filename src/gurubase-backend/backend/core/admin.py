@@ -454,7 +454,7 @@ class ThreadAdmin(admin.ModelAdmin):
 
 @admin.register(CrawlState)
 class CrawlStateAdmin(admin.ModelAdmin):
-    list_display = ['id', 'url', 'status', 'start_time', 'end_time', 'error_message']
+    list_display = ['id', 'url', 'guru_type', 'user', 'status', 'start_time', 'end_time', 'error_message']
     list_filter = ('status',)
     search_fields = ['id', 'url']
     ordering = ('-id',)

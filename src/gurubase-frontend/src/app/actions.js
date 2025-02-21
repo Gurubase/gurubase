@@ -1116,10 +1116,10 @@ export async function parseSitemapUrls(sitemapUrl) {
   }
 }
 
-export async function startCrawl(url) {
+export async function startCrawl(url, guruSlug) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/crawl/start/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/start/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1137,10 +1137,10 @@ export async function startCrawl(url) {
   }
 }
 
-export async function stopCrawl(crawlId) {
+export async function stopCrawl(crawlId, guruSlug) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/crawl/${crawlId}/stop/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/${crawlId}/stop/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" }
@@ -1157,10 +1157,10 @@ export async function stopCrawl(crawlId) {
   }
 }
 
-export async function getCrawlStatus(crawlId) {
+export async function getCrawlStatus(crawlId, guruSlug) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/crawl/${crawlId}/status/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/${crawlId}/status/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }

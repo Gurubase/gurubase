@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { startCrawl, getCrawlStatus, stopCrawl } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 
-export const useCrawler = (onUrlsDiscovered) => {
+export const useCrawler = (onUrlsDiscovered, guruSlug) => {
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlId, setCrawlId] = useState(null);
   const [discoveredUrls, setDiscoveredUrls] = useState(new Set());
@@ -14,7 +14,7 @@ export const useCrawler = (onUrlsDiscovered) => {
       if (!crawlId) return;
 
       try {
-        const data = await getCrawlStatus(crawlId);
+        const data = await getCrawlStatus(crawlId, guruSlug);
 
         if (data.error) {
           throw new Error(data.message);
@@ -105,7 +105,7 @@ export const useCrawler = (onUrlsDiscovered) => {
 
     try {
       setIsCrawling(true);
-      const data = await startCrawl(url);
+      const data = await startCrawl(url, guruSlug);
 
       if (data.error) {
         CustomToast({
@@ -116,7 +116,7 @@ export const useCrawler = (onUrlsDiscovered) => {
         return;
       }
 
-      setCrawlId(data.crawl_id);
+      setCrawlId(data.id);
     } catch (error) {
       setIsCrawling(false);
       CustomToast({
@@ -130,7 +130,7 @@ export const useCrawler = (onUrlsDiscovered) => {
     if (!crawlId) return;
 
     try {
-      const data = await stopCrawl(crawlId);
+      const data = await stopCrawl(crawlId, guruSlug);
       if (data.error) {
         throw new Error(data.message);
       }

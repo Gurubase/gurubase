@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
 from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer, CrawlStateSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
 from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings, CrawlState
@@ -2763,7 +2763,7 @@ def parse_sitemap(request):
 
 @api_view(['POST'])
 @jwt_auth
-def start_crawl(request):
+def start_crawl(request, guru_slug):
     """
     Start crawling a website and return the crawl ID.
     """
@@ -2777,34 +2777,54 @@ def start_crawl(request):
     url_pattern = r'^https?:\/\/([\w\d\-]+\.)+\w{2,}(\/.*)?$'
     if not re.match(url_pattern, url):
         return Response({'msg': 'Invalid URL format'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        existing_crawl = CrawlState.objects.filter(guru_type=guru_type, status=CrawlState.Status.RUNNING).first()
+        if existing_crawl:
+            return Response({'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, status=status.HTTP_400_BAD_REQUEST)
+    except CrawlState.DoesNotExist:
+        pass
     
     try:
         # Create a new crawl state
         crawl_state = CrawlState.objects.create(
             url=url,
             status=CrawlState.Status.RUNNING,
-            link_limit=link_limit
+            link_limit=link_limit,
+            guru_type=guru_type,
+            user=request.user
         )
         
         # Start the crawl in the background using Celery
         from core.tasks import crawl_website
         crawl_website.delay(url, crawl_state.id, link_limit)
         
-        return Response({
-            'crawl_id': crawl_state.id,
-            'status': crawl_state.status,
-            'url': crawl_state.url
-        })
+        return Response(CrawlStateSerializer(crawl_state).data)
         
     except Exception as e:
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @jwt_auth
-def stop_crawl(request, crawl_id):
+def stop_crawl(request, guru_slug, crawl_id):
     """
     Stop a running crawl.
     """
+
+    try:
+        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+
     try:
         crawl_state = CrawlState.objects.get(id=crawl_id)
         if crawl_state.status == CrawlState.Status.RUNNING:
@@ -2812,12 +2832,7 @@ def stop_crawl(request, crawl_id):
             crawl_state.end_time = datetime.now(UTC)
             crawl_state.save()
         
-        return Response({
-            'crawl_id': crawl_state.id,
-            'status': crawl_state.status,
-            'url': crawl_state.url,
-            'discovered_urls': crawl_state.discovered_urls
-        })
+        return Response(CrawlStateSerializer(crawl_state).data)
         
     except CrawlState.DoesNotExist:
         return Response({'msg': 'Crawl not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -2826,21 +2841,22 @@ def stop_crawl(request, crawl_id):
 
 @api_view(['GET'])
 @jwt_auth
-def get_crawl_status(request, crawl_id):
+def get_crawl_status(request, guru_slug, crawl_id):
     """
     Get the status and discovered URLs of a crawl.
     """
+
+    try:
+        guru_type = get_guru_type_object_by_maintainer(guru_slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
     try:
         crawl_state = CrawlState.objects.get(id=crawl_id)
-        response_data = {
-            'crawl_id': crawl_state.id,
-            'status': crawl_state.status,
-            'url': crawl_state.url,
-            'discovered_urls': crawl_state.discovered_urls,
-            'start_time': crawl_state.start_time,
-            'end_time': crawl_state.end_time,
-            'link_limit': crawl_state.link_limit
-        }
+        response_data = CrawlStateSerializer(crawl_state).data
         
         if crawl_state.error_message:
             response_data['error_message'] = crawl_state.error_message

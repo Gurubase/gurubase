@@ -1415,7 +1415,9 @@ class CrawlState(models.Model):
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
     link_limit = models.IntegerField(default=1500)
+    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE,)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"Crawl {self.id} - {self.url} ({self.status})"
+        return f"Crawl {self.id} - {self.url} ({self.status}) - {self.guru_type.name} - {self.user.email}"
 
