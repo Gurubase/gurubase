@@ -157,7 +157,7 @@ class SettingsSerializer(serializers.ModelSerializer):
 class CrawlStateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CrawlState
-        fields = ['id', 'url', 'status', 'guru_type', 'user', 'discovered_urls', 'start_time', 'end_time', 'link_limit']
+        fields = ['id', 'url', 'status', 'guru_type', 'discovered_urls', 'start_time', 'end_time', 'link_limit']
 
     def to_representation(self, instance):
         repr = super().to_representation(instance)
