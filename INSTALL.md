@@ -18,9 +18,8 @@ bash gurubase.sh
 
 The installer will:
 1. Create a `.gurubase` directory in your home folder
-2. Prompt for required API keys
-3. Download and start all necessary [services](#services)
-4. Open the web interface at http://localhost:8029
+2. Download and start all necessary [services](#services)
+3. Open the web interface at http://localhost:8029
 
 ### Upgrade
 
