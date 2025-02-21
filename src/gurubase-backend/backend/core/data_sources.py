@@ -613,3 +613,4 @@ class CrawlService:
             return response_data, 200
         except CrawlState.DoesNotExist:
             return {'msg': 'Crawl not found'}, 404
+
