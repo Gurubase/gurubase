@@ -53,4 +53,3 @@ discord.py==2.4.0
 slack-sdk==3.34.0
 crawl4ai==0.4.247
 scrapy==2.12.0
-crochet==2.1.1
