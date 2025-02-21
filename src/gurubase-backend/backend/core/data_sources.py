@@ -9,7 +9,7 @@ from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
+from core.exceptions import NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
@@ -531,7 +531,10 @@ class CrawlService:
     @staticmethod
     def validate_and_get_guru_type(guru_slug, user):
         """Shared validation logic"""
-        return get_guru_type_object_by_maintainer(guru_slug, user)
+        guru_type = get_guru_type_object_by_maintainer(guru_slug, user)
+        if not guru_type:
+            raise NotFoundError(f'Guru type {guru_slug} not found')
+        return guru_type
 
     @staticmethod
     def get_user(user):
@@ -543,6 +546,20 @@ class CrawlService:
     def start_crawl(guru_slug, user, url, link_limit=1500):
         from core.serializers import CrawlStateSerializer
         from core.tasks import crawl_website
+        import re
+
+        # Validate URL format
+        url_pattern = re.compile(
+            r'^https?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+            r'localhost|'  # localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+            r'(?::\d+)?'  # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+        if not url_pattern.match(url):
+            return {'msg': 'Invalid URL format'}, 400
+
         user = CrawlService.get_user(user)
         guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
         
