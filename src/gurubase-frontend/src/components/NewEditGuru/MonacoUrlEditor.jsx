@@ -166,6 +166,7 @@ const MonacoUrlEditor = ({
           variant: "warning"
         });
       }
+      setShowSitemapInput(false);
     } catch (error) {
       CustomToast({
         message:
