@@ -38,9 +38,8 @@ bash gurubase.sh version
 ``` 
 --> 
 
-
 ## Docker Compose Logs (For self-hosted)
-<!-- Copy and paste the logs from `cd ~/.gurubase && docker compose logs > logs.txt`. If it is too large, you can put it in a [Gist](https://gist.github.com/) and link it here -->
+<!-- Copy and paste the logs from `docker compose logs > logs.txt`. If it is too large, you can put it in a [Gist](https://gist.github.com/) and link it here -->
 
 
 
