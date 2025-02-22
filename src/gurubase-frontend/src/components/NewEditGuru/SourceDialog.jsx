@@ -57,7 +57,11 @@ const SourceDialog = React.memo(
     readOnly = false,
     onStartCrawl,
     isCrawling,
-    onStopCrawl
+    onStopCrawl,
+    showCrawlInput,
+    setShowCrawlInput,
+    crawlUrl,
+    setCrawlUrl
   }) => {
     const [showCrawlStopConfirmation, setShowCrawlStopConfirmation] =
       React.useState(false);
@@ -174,6 +178,10 @@ const SourceDialog = React.memo(
                     onStartCrawl={onStartCrawl}
                     isCrawling={isCrawling}
                     onStopCrawl={() => handleCrawlStop("stop")}
+                    showCrawlInput={showCrawlInput}
+                    setShowCrawlInput={setShowCrawlInput}
+                    crawlUrl={crawlUrl}
+                    setCrawlUrl={setCrawlUrl}
                   />
                 ) : (
                   <div className="h-full">

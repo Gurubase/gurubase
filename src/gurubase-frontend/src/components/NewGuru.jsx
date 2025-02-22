@@ -147,37 +147,38 @@ export default function NewGuru({ guruData, isProcessing }) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Add useCrawler here with other hooks
-  const { isCrawling, handleStartCrawl, handleStopCrawl } = useCrawler(
-    (newUrls) => {
-      // Get current content and split into lines
-      const currentContent = urlEditorContent || "";
-      const existingUrls = currentContent
-        .split("\n")
-        .filter((url) => url.trim());
+  const {
+    isCrawling,
+    handleStartCrawl,
+    handleStopCrawl,
+    showCrawlInput,
+    setShowCrawlInput,
+    crawlUrl,
+    setCrawlUrl
+  } = useCrawler((newUrls) => {
+    // Get current content and split into lines
+    const currentContent = urlEditorContent || "";
+    const existingUrls = currentContent.split("\n").filter((url) => url.trim());
 
-      // Filter out URLs that already exist in the editor
-      const uniqueNewUrls = newUrls.filter(
-        (url) => !existingUrls.includes(url)
-      );
+    // Filter out URLs that already exist in the editor
+    const uniqueNewUrls = newUrls.filter((url) => !existingUrls.includes(url));
 
-      // Only proceed if there are new unique URLs to add
-      if (uniqueNewUrls.length > 0) {
-        // Add new URLs line by line
-        const updatedContent =
-          currentContent +
-          (currentContent ? "\n" : "") +
-          uniqueNewUrls.join("\n");
+    // Only proceed if there are new unique URLs to add
+    if (uniqueNewUrls.length > 0) {
+      // Add new URLs line by line
+      const updatedContent =
+        currentContent +
+        (currentContent ? "\n" : "") +
+        uniqueNewUrls.join("\n");
 
-        // Update editor content
-        setUrlEditorContent(updatedContent);
+      // Update editor content
+      setUrlEditorContent(updatedContent);
 
-        // Update form value with all unique URLs
-        const allUrls = [...existingUrls, ...uniqueNewUrls];
-        form.setValue("websiteUrls", allUrls);
-      }
-    },
-    guruData?.slug
-  );
+      // Update form value with all unique URLs
+      const allUrls = [...existingUrls, ...uniqueNewUrls];
+      form.setValue("websiteUrls", allUrls);
+    }
+  }, guruData?.slug);
 
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -2550,6 +2551,10 @@ export default function NewGuru({ guruData, isProcessing }) {
         onStartCrawl={handleStartCrawl}
         onStopCrawl={handleStopCrawl}
         isCrawling={isCrawling}
+        showCrawlInput={showCrawlInput}
+        setShowCrawlInput={setShowCrawlInput}
+        crawlUrl={crawlUrl}
+        setCrawlUrl={setCrawlUrl}
       />
       <SourceDialog
         clickedSource={clickedSource}

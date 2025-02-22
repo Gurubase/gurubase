@@ -71,15 +71,16 @@ const MonacoUrlEditor = ({
   placeholder,
   onStartCrawl,
   isCrawling,
-  onStopCrawl
+  onStopCrawl,
+  showCrawlInput,
+  setShowCrawlInput,
+  crawlUrl,
+  setCrawlUrl
 }) => {
   const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
   const [isLoadingSitemap, setIsLoadingSitemap] = useState(false);
   const [showSitemapInput, setShowSitemapInput] = useState(false);
-  const [showCrawlInput, setShowCrawlInput] = useState(false);
-  const [crawlUrl, setCrawlUrl] = useState("");
-  const [isProcessingCrawl, setIsProcessingCrawl] = useState(false);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);

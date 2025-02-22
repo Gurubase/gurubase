@@ -6,6 +6,8 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
   const [isCrawling, setIsCrawling] = useState(false);
   const [crawlId, setCrawlId] = useState(null);
   const [discoveredUrls, setDiscoveredUrls] = useState(new Set());
+  const [showCrawlInput, setShowCrawlInput] = useState(false);
+  const [crawlUrl, setCrawlUrl] = useState("");
 
   useEffect(() => {
     let pollInterval;
@@ -40,6 +42,8 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
           setCrawlId(null);
           clearInterval(pollInterval);
           setDiscoveredUrls(new Set()); // Reset discovered URLs
+          setShowCrawlInput(false);
+          setCrawlUrl("");
 
           if (data.discovered_urls?.length > 0) {
             CustomToast({
@@ -57,11 +61,15 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
           setCrawlId(null);
           clearInterval(pollInterval);
           setDiscoveredUrls(new Set()); // Reset discovered URLs
+          setShowCrawlInput(false);
+          setCrawlUrl("");
         } else if (data.status === "FAILED") {
           setIsCrawling(false);
           setCrawlId(null);
           clearInterval(pollInterval);
           setDiscoveredUrls(new Set()); // Reset discovered URLs
+          setShowCrawlInput(false);
+          setCrawlUrl("");
 
           CustomToast({
             message: data.error_message || "Crawling failed",
@@ -148,6 +156,10 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
   return {
     isCrawling,
     handleStartCrawl,
-    handleStopCrawl
+    handleStopCrawl,
+    showCrawlInput,
+    setShowCrawlInput,
+    crawlUrl,
+    setCrawlUrl
   };
 };
