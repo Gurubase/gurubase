@@ -16,12 +16,8 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
       try {
         const data = await getCrawlStatus(crawlId, guruSlug);
 
-        if (data.error) {
-          throw new Error(data.message);
-        }
-
         // Filter out already discovered URLs
-        if (data.discovered_urls?.length > 0) {
+        if (data?.discovered_urls?.length > 0) {
           const newUrls = data.discovered_urls.filter(
             (url) => !discoveredUrls.has(url)
           );
@@ -32,6 +28,10 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
             // Only pass new URLs to callback
             onUrlsDiscovered(newUrls);
           }
+        }
+
+        if (data.error) {
+          throw new Error(data.message);
         }
 
         // Handle different status conditions
