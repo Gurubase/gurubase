@@ -104,11 +104,23 @@ const SourceDialog = React.memo(
         }
       }
 
+      // Reset showCrawlInput when closing
+      setShowCrawlInput(false);
+      setCrawlUrl("");
+
       setTimeout(() => {
         document.body.style.pointerEvents = "";
       }, 500);
       onOpenChange(false);
-    }, [editorContent, form, isCrawling, onAddUrls, onOpenChange, sourceType]);
+    }, [
+      editorContent,
+      form,
+      isCrawling,
+      onAddUrls,
+      onOpenChange,
+      sourceType,
+      setShowCrawlInput
+    ]);
 
     const handleConfirmStopCrawl = React.useCallback(async () => {
       if (isClosing) return;
@@ -123,6 +135,8 @@ const SourceDialog = React.memo(
           onOpenChange(false);
         }
       } finally {
+        setShowCrawlInput(false);
+        setCrawlUrl("");
         setIsClosing(false);
         setStopAction(null);
       }
@@ -216,6 +230,7 @@ const SourceDialog = React.memo(
           onConfirm={handleConfirmStopCrawl}
           isClosing={isClosing}
           action={stopAction}
+          setShowCrawlInput={setShowCrawlInput}
         />
       </>
     );
