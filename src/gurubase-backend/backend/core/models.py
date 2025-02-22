@@ -9,7 +9,7 @@ from django.db.models import Index
 from datetime import datetime
 from django.core.exceptions import ValidationError
 from urllib.parse import urlparse
-from django.core.validators import URLValidator
+from django.core.validators import URLValidator, MaxValueValidator
 
 from accounts.models import User
 
@@ -1395,3 +1395,29 @@ class Integration(models.Model):
 
     class Meta:
         unique_together = ['type', 'guru_type']
+
+
+class CrawlState(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "RUNNING", "Running"
+        COMPLETED = "COMPLETED", "Completed"
+        STOPPED = "STOPPED", "Stopped"
+        FAILED = "FAILED", "Failed"
+
+    url = models.URLField(max_length=2000)
+    status = models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.RUNNING,
+    )
+    discovered_urls = models.JSONField(default=list)
+    error_message = models.TextField(blank=True, null=True)
+    start_time = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    link_limit = models.IntegerField(default=1500)
+    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True) # null on selfhosted
+
+    def __str__(self):
+        return f"Crawl {self.id} - {self.url} ({self.status}) - {self.guru_type.name} - {self.user.email if self.user else 'selfhosted'}"
+

@@ -10,7 +10,7 @@ import redis
 import requests
 from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 from core import milvus_utils
-from core.data_sources import fetch_data_source_content
+from core.data_sources import fetch_data_source_content, get_internal_links
 from core.requester import GuruRequester, OpenAIRequester
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
 from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile
@@ -1493,3 +1493,28 @@ def update_github_repositories():
             continue
     
     logger.info("Completed GitHub repositories update task")
+
+@shared_task
+def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
+    """
+    Celery task to crawl a website and collect internal links.
+    
+    Args:
+        url (str): The URL to crawl
+        crawl_state_id (int): ID of the CrawlState object to update during crawling
+        link_limit (int): Maximum number of links to collect (default: 1500)
+    """
+    try:
+        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
+    except Exception as e:
+        logger.error(f"Error in crawl_website task: {str(e)}", exc_info=True)
+        # Update crawl state to failed
+        from core.models import CrawlState
+        try:
+            crawl_state = CrawlState.objects.get(id=crawl_state_id)
+            crawl_state.status = CrawlState.Status.FAILED
+            crawl_state.error_message = str(e)
+            crawl_state.end_time = timezone.now()
+            crawl_state.save()
+        except Exception as e:
+            logger.error(f"Error updating crawl state: {str(e)}", exc_info=True)

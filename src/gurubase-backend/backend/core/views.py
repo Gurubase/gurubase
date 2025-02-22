@@ -7,7 +7,7 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Generator
 import re
 from core.integrations import NotEnoughData, NotRelated
@@ -20,11 +20,11 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
+from core.data_sources import CrawlService, PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer, CrawlStateSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings, CrawlState
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -2763,3 +2763,89 @@ def parse_sitemap(request):
     except Exception as e:
         logger.error(f"Unexpected error parsing sitemap: {e}", exc_info=True)
         return Response({'msg': 'Error processing sitemap'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@jwt_auth
+def start_crawl_admin(request, guru_slug):
+    try:
+        data, return_status = CrawlService.start_crawl(
+            guru_slug,
+            request.user,
+            request.data.get('url'),
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def start_crawl_api(request, guru_slug):
+    try:
+        data, return_status = CrawlService.start_crawl(
+            guru_slug,
+            request.user,
+            request.data.get('url'),
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@jwt_auth
+def stop_crawl_admin(request, guru_slug, crawl_id):
+    try:
+        data, return_status = CrawlService.stop_crawl(
+            guru_slug,
+            request.user,
+            crawl_id
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def stop_crawl_api(request, guru_slug, crawl_id):
+    try:
+        data, return_status = CrawlService.stop_crawl(
+            guru_slug,
+            request.user,
+            crawl_id
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
+
+@api_view(['GET'])
+@jwt_auth
+def get_crawl_status_admin(request, guru_slug, crawl_id):
+    try:
+        data, return_status = CrawlService.get_crawl_status(
+            guru_slug,
+            request.user,
+            crawl_id
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
+
+@api_view(['GET'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def get_crawl_status_api(request, guru_slug, crawl_id):
+    try:
+        data, return_status = CrawlService.get_crawl_status(
+            guru_slug,
+            request.user,
+            crawl_id
+        )
+    except Exception as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
