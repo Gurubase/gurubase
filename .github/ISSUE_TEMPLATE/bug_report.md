@@ -29,11 +29,17 @@ assignees: 'kursataktas'
 <!-- output of `docker compose --version` -->
 
 **Gurubase Version:** 
-<!-- output of `bash gurubase.sh version`-->
-
+<!-- 
+Output of `cd ~/ && bash gurubase.sh version`
+If this does not work try the following command: 
+```
+curl -sSL https://raw.githubusercontent.com/Gurubase/gurubase/refs/heads/master/gurubase.sh -o gurubase.sh
+bash gurubase.sh version
+``` 
+--> 
 
 ## Docker Compose Logs (For self-hosted)
-<!-- Copy and paste the logs from `docker compose logs > logs.txt`. If it is too large, you can put it in a [Gist](https://gist.github.com/) and link it here -->
+<!-- Copy and paste the logs from `cd ~/.gurubase && docker compose logs > logs.txt`. If it is too large, you can put it in a [Gist](https://gist.github.com/) and link it here -->
 
 
 
