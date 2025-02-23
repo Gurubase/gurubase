@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings
+from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
+
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
@@ -150,4 +151,15 @@ class SettingsSerializer(serializers.ModelSerializer):
             key = instance.firecrawl_api_key
             repr['firecrawl_api_key'] = f"{key[:3]}{'.' * 10}{key[-4:]}"
             
+        return repr
+
+
+class CrawlStateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CrawlState
+        fields = ['id', 'url', 'status', 'guru_type', 'discovered_urls', 'start_time', 'end_time', 'link_limit']
+
+    def to_representation(self, instance):
+        repr = super().to_representation(instance)
+        repr['guru_type'] = instance.guru_type.slug
         return repr

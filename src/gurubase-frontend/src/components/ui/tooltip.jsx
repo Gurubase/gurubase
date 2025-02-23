@@ -12,7 +12,7 @@ const Tooltip = TooltipPrimitive.Root;
 const TooltipTrigger = TooltipPrimitive.Trigger;
 
 const TooltipContent = React.forwardRef(
-  ({ className, sideOffset = 4, ...props }, ref) => (
+  ({ className, sideOffset = 4, side = "center", ...props }, ref) => (
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
@@ -27,7 +27,7 @@ const TooltipContent = React.forwardRef(
         className="absolute h-2 w-2 rotate-45 bg-primary"
         style={{
           bottom: "-4px",
-          left: "50%",
+          left: side === "left" ? "20%" : side === "right" ? "80%" : "50%",
           transform: "translateX(-50%) rotate(45deg)",
           zIndex: -1
         }}
