@@ -1208,6 +1208,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         websiteUrls: data.websiteUrls || []
       });
 
+      fetchDataSources(guruSlug);
       setDirtyChanges({ sources: [], guruUpdated: false });
     } catch (error) {
       CustomToast({
