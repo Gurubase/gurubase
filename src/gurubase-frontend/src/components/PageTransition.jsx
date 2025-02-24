@@ -2,7 +2,6 @@
 import { useAppSelector } from "@/redux/hooks";
 import { useState, useEffect, useRef } from "react";
 import { useNavigation } from "@/hooks/useNavigation";
-import { useAppDispatch } from "@/redux/hooks";
 
 export const PageTransition = () => {
   const isNavigating = useNavigation((state) => state.isNavigating);
@@ -16,7 +15,6 @@ export const PageTransition = () => {
     if (isNavigating || isPageTransitioning) {
       setIsVisible(true);
     } else if (isVisible && progressRef.current) {
-      // Stop the current animation and keep it on the last frame
       const element = progressRef.current;
       const computedStyle = window.getComputedStyle(element);
       const currentWidth = computedStyle.getPropertyValue("width");
@@ -28,18 +26,21 @@ export const PageTransition = () => {
       element.offsetHeight;
 
       // Start the completion animation
-      element.style.animation = "progress-to-complete 500ms ease-out forwards";
+      element.style.animation = "progress-to-complete 300ms ease-out forwards";
 
       // Hide when animation ends
       element.addEventListener(
         "animationend",
         () => {
           setIsVisible(false);
+          // Reset the animation state
+          element.style.animation = "";
+          element.style.width = "0%";
         },
         { once: true }
       );
     }
-  }, [isNavigating, isPageTransitioning]);
+  }, [isNavigating, isPageTransitioning, isVisible]);
 
   if (!isVisible) return null;
 

@@ -1,9 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
 
 import { SettingsIcon } from "@/components/Icons";
+import { Link } from "@/components/Link";
 import { useAppNavigation } from "@/lib/navigation";
 import { useAppDispatch } from "@/redux/hooks";
 import { resetErrors, setResetMainForm } from "@/redux/slices/mainFormSlice";

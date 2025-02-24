@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 import { useNavigation } from "@/hooks/useNavigation";
 
@@ -27,108 +28,79 @@ import { useNavigation } from "@/hooks/useNavigation";
 // };
 
 // Create a singleton instance for the navigation state
-let navigationInstance = null;
+// UNUSED:
+// let navigationInstance = null;
 
-export const getNavigation = () => {
-  if (!navigationInstance) {
-    const router = useRouter();
-    const { startNavigation, endNavigation } = useNavigation();
+// export const getNavigation = () => {
+//   if (!navigationInstance) {
+//     const router = useRouter();
+//     const { startNavigation, handleNavigationComplete } = useNavigation();
 
-    navigationInstance = {
-      push: async (path) => {
-        startNavigation();
-        try {
-          router.push(path);
-        } finally {
-          setTimeout(endNavigation, 1000);
-        }
-      },
-      replace: async (path) => {
-        startNavigation();
-        try {
-          router.replace(path);
-        } finally {
-          setTimeout(endNavigation, 1000);
-        }
-      },
-      back: () => {
-        startNavigation();
-        try {
-          router.back();
-        } finally {
-          setTimeout(endNavigation, 1000);
-        }
-      },
-      setHref: (url) => {
-        startNavigation();
-        // Don't need to end navigation as the page will reload
-        window.location.href = url;
-      },
-      pushState: (state, title, url) => {
-        startNavigation();
-        window.history.pushState(state, title, url);
-        setTimeout(endNavigation, 1000);
-      }
-    };
-  }
+//     navigationInstance = {
+//       push: async (path) => {
+//         startNavigation();
+//         router.push(path);
+//       },
+//       replace: async (path) => {
+//         startNavigation();
+//         router.replace(path);
+//       },
+//       back: () => {
+//         startNavigation();
+//         router.back();
+//       },
+//       setHref: (url) => {
+//         startNavigation();
+//         // Don't need to end navigation as the page will reload
+//         window.location.href = url;
+//       },
+//       pushState: (state, title, url) => {
+//         startNavigation();
+//         window.history.pushState(state, title, url);
+//         handleNavigationComplete();
+//       }
+//     };
+//   }
 
-  return navigationInstance;
-};
+//   return navigationInstance;
+// };
 
 // Hook version for use within components
 export const useAppNavigation = () => {
   const router = useRouter();
-  const { startNavigation, endNavigation } = useNavigation();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { startNavigation, handleNavigationComplete } = useNavigation();
+
+  // Listen for route changes
+  useEffect(() => {
+    handleNavigationComplete();
+  }, [pathname, searchParams, handleNavigationComplete]);
 
   return {
     push: async (path) => {
       if (!useNavigation.getState().isNavigating) {
-        // Only start if not already navigating
         startNavigation();
-        try {
-          router.push(path);
-        } finally {
-          // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
-        }
+        router.push(path);
       }
     },
     replace: async (path) => {
       if (!useNavigation.getState().isNavigating) {
-        // Only start if not already navigating
         startNavigation();
-        try {
-          router.replace(path);
-        } finally {
-          // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
-        }
+        router.replace(path);
       }
     },
     back: () => {
       if (!useNavigation.getState().isNavigating) {
-        // Only start if not already navigating
         startNavigation();
-        try {
-          router.back();
-        } finally {
-          // Increased delay to ensure the animation completes smoothly
-          setTimeout(endNavigation, 1000);
-        }
+        router.back();
       }
     },
     setHref: (url) => {
       if (!useNavigation.getState().isNavigating) {
-        // Only start if not already navigating
         startNavigation();
-        // Don't need to end navigation as the page will reload
         window.location.href = url;
       }
-    },
-    pushState: (state, title, url) => {
-      startNavigation();
-      window.history.pushState(state, title, url);
-      setTimeout(endNavigation, 1000);
     }
   };
 };
