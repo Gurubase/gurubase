@@ -8,7 +8,7 @@ from core.tasks import data_source_retrieval
 
 
 class DataSourceService:
-    """Service layer for data source operations"""
+    """Service layer for data source CRUD operations"""
     
     def __init__(self, guru_type_object: GuruType, user):
         self.guru_type_object = guru_type_object
@@ -156,4 +156,23 @@ class DataSourceService:
         for datasource in datasources:
             datasource.reindex()
 
-        data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug) 
+        data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)
+
+    def delete_data_sources(self, datasource_ids: List[str]) -> None:
+        """
+        Deletes specified data sources
+        
+        Args:
+            datasource_ids: List of data source IDs to delete
+            
+        Raises:
+            ValueError: If no valid data sources found
+        """
+        if not datasource_ids:
+            raise ValueError('No data sources provided')
+        
+        data_sources = DataSource.objects.filter(guru_type=self.guru_type_object, id__in=datasource_ids)
+        if not data_sources:
+            raise ValueError('No data sources found to delete')
+        
+        data_sources.delete() 

@@ -239,6 +239,14 @@ periodic_tasks = {
         'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
+    },
+    'task_stop_inactive_ui_crawls': {
+        'every': 15,
+        'period': SECONDS,
+        'task': 'core.tasks.stop_inactive_ui_crawls',
+        'enabled': True,
+        'last_run_at': datetime.utcnow() - timedelta(days=90),
+        'kwargs': {}
     }
 }
 

@@ -543,7 +543,7 @@ class CrawlService:
         return user
 
     @staticmethod
-    def start_crawl(guru_slug, user, url, link_limit=1500):
+    def start_crawl(guru_slug, user, url, link_limit=1500, source=CrawlState.Source.API):
         from core.serializers import CrawlStateSerializer
         from core.tasks import crawl_website
         import re
@@ -576,7 +576,8 @@ class CrawlService:
             status=CrawlState.Status.RUNNING,
             link_limit=link_limit,
             guru_type=guru_type,
-            user=user
+            user=user,
+            source=source
         )
         crawl_website.delay(url, crawl_state.id, link_limit)
         return CrawlStateSerializer(crawl_state).data, 200
@@ -607,6 +608,10 @@ class CrawlService:
         # Existing status logic
         try:
             crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            # Update last_polled_at
+            crawl_state.last_polled_at = datetime.now(UTC)
+            crawl_state.save(update_fields=['last_polled_at'])
+            
             response_data = CrawlStateSerializer(crawl_state).data
             if crawl_state.error_message:
                 response_data['error_message'] = crawl_state.error_message

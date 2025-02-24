@@ -1404,16 +1404,26 @@ class CrawlState(models.Model):
         STOPPED = "STOPPED", "Stopped"
         FAILED = "FAILED", "Failed"
 
+    class Source(models.TextChoices):
+        UI = "UI", "User Interface"
+        API = "API", "API"
+
     url = models.URLField(max_length=2000)
     status = models.CharField(
         max_length=50,
         choices=Status.choices,
         default=Status.RUNNING,
     )
+    source = models.CharField(
+        max_length=30,
+        choices=Source.choices,
+        default=Source.API,
+    )
     discovered_urls = models.JSONField(default=list)
     error_message = models.TextField(blank=True, null=True)
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
+    last_polled_at = models.DateTimeField(auto_now_add=True)
     link_limit = models.IntegerField(default=1500)
     guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True) # null on selfhosted
