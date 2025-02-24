@@ -24,7 +24,7 @@ from core.data_sources import CrawlService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
+from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
