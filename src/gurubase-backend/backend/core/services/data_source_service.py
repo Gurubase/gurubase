@@ -8,7 +8,7 @@ from core.tasks import data_source_retrieval
 
 
 class DataSourceService:
-    """Service layer for data source operations"""
+    """Service layer for data source CRUD operations"""
     
     def __init__(self, guru_type_object: GuruType, user):
         self.guru_type_object = guru_type_object
