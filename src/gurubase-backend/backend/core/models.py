@@ -1443,6 +1443,12 @@ class GithubFile(models.Model):
         from core.milvus_utils import delete_vectors
         collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
         delete_vectors(collection_name, self.doc_ids)
+
+        data_source = self.data_source
+        for doc_id in self.doc_ids:
+            data_source.doc_ids.remove(doc_id)
+        data_source.save()
+
         self.in_milvus = False
         self.doc_ids = []
         self.save()
