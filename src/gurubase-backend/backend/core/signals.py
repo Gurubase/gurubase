@@ -779,7 +779,7 @@ def manage_github_repo_datasource(sender, instance, **kwargs):
                 status=DataSource.Status.NOT_PROCESSED
             )
 
-        data_source_retrieval.delay(guru_type_slug=instance.slug)
+        data_source_retrieval.delay(guru_type_slug=instance.slug, countdown=1)
 
     # Case 2: Either URL is empty or index_repo is False - Delete DataSource
     elif existing_datasource:
@@ -790,7 +790,7 @@ def data_source_retrieval_on_creation(sender, instance: DataSource, created, **k
     from core.tasks import data_source_retrieval
 
     if created and instance.status == DataSource.Status.NOT_PROCESSED:
-        data_source_retrieval.delay(guru_type_slug=instance.guru_type.slug)
+        data_source_retrieval.delay(guru_type_slug=instance.guru_type.slug, countdown=1)
 
 @receiver(pre_save, sender=Integration)
 def create_api_key_for_integration(sender, instance, **kwargs):

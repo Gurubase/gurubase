@@ -7,7 +7,7 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
 from core.integrations import NotEnoughData, NotRelated
@@ -20,11 +20,11 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import CrawlService, PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer, CrawlStateSerializer
+from core.data_sources import CrawlService
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings, CrawlState
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -41,18 +41,16 @@ from core.utils import (
     generate_og_image, 
     
     # Data management
-    clean_data_source_urls, create_binge_helper, create_custom_guru_type_slug,
+    create_binge_helper, create_custom_guru_type_slug,
     create_guru_type_object, upload_image_to_storage,
     
 )
-from core.tasks import data_source_retrieval
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
 from core.exceptions import PermissionError, NotFoundError
-from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from .integrations import IntegrationError, IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
@@ -67,12 +65,6 @@ from core.auth import (
     jwt_auth,
     stream_combined_auth,
     widget_id_auth,
-)
-from core.data_sources import (
-    GitHubRepoStrategy,
-    PDFStrategy,
-    WebsiteStrategy,
-    YouTubeStrategy,
 )
 from core.exceptions import NotFoundError, PermissionError
 from core.gcp import replace_media_root_with_nginx_base_url
@@ -110,14 +102,12 @@ from core.serializers import (
     WidgetIdSerializer,
 )
 from core.services.data_source_service import DataSourceService
-from core.tasks import data_source_retrieval
 from core.throttling import ConcurrencyThrottleApiKey
 from core.utils import (
     APIAskResponse,
     APIType,
     api_ask,
     check_binge_auth,
-    clean_data_source_urls,
     create_binge_helper,
     create_custom_guru_type_slug,
     create_guru_type_object,
@@ -811,37 +801,33 @@ def create_data_sources(request, guru_type):
     if not pdf_files and not youtube_urls and not website_urls and not github_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-    results = []
-    strategies = {
-        'pdf': PDFStrategy(),
-        'youtube': YouTubeStrategy(),
-        'website': WebsiteStrategy(),
-        'github': GitHubRepoStrategy()
-    }
-
-    for i, pdf_file in enumerate(pdf_files):
-        results.append(strategies['pdf'].create(guru_type_object, pdf_file, pdf_privacies[i]))
-
-    youtube_urls = clean_data_source_urls(youtube_urls)
-    for youtube_url in youtube_urls:
-        results.append(strategies['youtube'].create(guru_type_object, youtube_url))
-
-    website_urls = clean_data_source_urls(website_urls)
-    for website_url in website_urls:
-        results.append(strategies['website'].create(guru_type_object, website_url))
-
-    github_urls = clean_data_source_urls(github_urls)
-    for github_url in github_urls:
-        results.append(strategies['github'].create(guru_type_object, github_url))
+    service = DataSourceService(guru_type_object, request.user)
     
-    data_source_retrieval.delay(guru_type_slug=guru_type_object.slug)
+    try:
+        # Validate limits
+        service.validate_pdf_files(pdf_files, pdf_privacies)
+        service.validate_url_limits(youtube_urls, 'youtube')
+        service.validate_url_limits(website_urls, 'website')
+        
+        # Create data sources
+        results = service.create_data_sources(
+            pdf_files=pdf_files,
+            pdf_privacies=pdf_privacies,
+            youtube_urls=youtube_urls,
+            website_urls=website_urls
+        )
+        
+        return Response({
+            'msg': 'Data sources processing completed',
+            'results': results
+        }, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f'Error creating data sources: {e}', exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return Response({
-        'msg': 'Data sources processing completed',
-        'results': results
-    }, status=status.HTTP_200_OK)
 
-    
 @api_view(['GET'])
 @jwt_auth
 def get_data_sources_detailed(request, guru_type):
@@ -873,19 +859,17 @@ def delete_data_sources(request, guru_type):
     if 'ids' not in request.data:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-    ids = request.data.get('ids', [])
-
-    logger.info(f'Deleting {guru_type} data sources: {ids}')
-
-    data_sources = DataSource.objects.filter(guru_type=guru_type_object, id__in=ids)
-    if len(data_sources) == 0:
-        return Response({'msg': 'No data sources found to delete'}, status=status.HTTP_404_NOT_FOUND)
+    datasource_ids = request.data.get('ids', [])
+    service = DataSourceService(guru_type_object, request.user)
     
-    data_sources.delete()
-
-    return Response({
-        'msg': 'Data sources deleted successfully'
-    }, status=status.HTTP_200_OK)
+    try:
+        service.delete_data_sources(datasource_ids)
+        return Response({'msg': 'Data sources deleted successfully'}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f'Error deleting data sources: {e}', exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["POST"])
@@ -987,19 +971,18 @@ def data_sources_reindex(request, guru_type):
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
     
     datasource_ids = request.data.get('ids', [])
-    if not datasource_ids:
-        return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
     
-    datasources = DataSource.objects.filter(id__in=datasource_ids, guru_type=guru_type_object)
-    if not datasources:
-        return Response({'msg': 'No data sources found to reindex'}, status=status.HTTP_404_NOT_FOUND)
+    service = DataSourceService(guru_type_object, request.user)
     
-    for datasource in datasources:
-        datasource.reindex()
+    try:
+        service.reindex_data_sources(datasource_ids)
+        return Response({'msg': 'Data sources reindexed successfully'}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f'Error reindexing data sources: {e}', exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    data_source_retrieval.delay(guru_type_slug=guru_type_object.slug)
-    
-    return Response({'msg': 'Data sources reindexed successfully'}, status=status.HTTP_200_OK)
 @api_view(['PUT'])
 @jwt_auth
 def update_guru_type(request, guru_type):
