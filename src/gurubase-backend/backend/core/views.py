@@ -2755,6 +2755,7 @@ def start_crawl_admin(request, guru_slug):
             guru_slug,
             request.user,
             request.data.get('url'),
+            source=CrawlState.Source.UI
         )
     except Exception as e:
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -2769,6 +2770,7 @@ def start_crawl_api(request, guru_slug):
             guru_slug,
             request.user,
             request.data.get('url'),
+            source=CrawlState.Source.API
         )
     except Exception as e:
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
