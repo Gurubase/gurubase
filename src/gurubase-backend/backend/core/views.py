@@ -7,7 +7,7 @@ import aiohttp
 import random
 import string
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
 from core.integrations import NotEnoughData, NotRelated
@@ -20,11 +20,11 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import CrawlService, PDFStrategy, WebsiteStrategy, YouTubeStrategy, GitHubRepoStrategy
-from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer, CrawlStateSerializer
+from core.data_sources import CrawlService
+from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_nginx_base_url
-from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, Settings, CrawlState
+from core.models import FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -41,18 +41,16 @@ from core.utils import (
     generate_og_image, 
     
     # Data management
-    clean_data_source_urls, create_binge_helper, create_custom_guru_type_slug,
+    create_binge_helper, create_custom_guru_type_slug,
     create_guru_type_object, upload_image_to_storage,
     
 )
-from core.tasks import data_source_retrieval
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
 from core.exceptions import PermissionError, NotFoundError
-from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from .integrations import IntegrationError, IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
@@ -67,12 +65,6 @@ from core.auth import (
     jwt_auth,
     stream_combined_auth,
     widget_id_auth,
-)
-from core.data_sources import (
-    GitHubRepoStrategy,
-    PDFStrategy,
-    WebsiteStrategy,
-    YouTubeStrategy,
 )
 from core.exceptions import NotFoundError, PermissionError
 from core.gcp import replace_media_root_with_nginx_base_url
@@ -110,14 +102,12 @@ from core.serializers import (
     WidgetIdSerializer,
 )
 from core.services.data_source_service import DataSourceService
-from core.tasks import data_source_retrieval
 from core.throttling import ConcurrencyThrottleApiKey
 from core.utils import (
     APIAskResponse,
     APIType,
     api_ask,
     check_binge_auth,
-    clean_data_source_urls,
     create_binge_helper,
     create_custom_guru_type_slug,
     create_guru_type_object,
