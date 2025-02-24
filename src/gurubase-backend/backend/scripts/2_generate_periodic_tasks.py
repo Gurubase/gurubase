@@ -241,7 +241,7 @@ periodic_tasks = {
         'kwargs': {}
     },
     'task_stop_inactive_ui_crawls': {
-        'every': 15,
+        'every': 3,
         'period': SECONDS,
         'task': 'core.tasks.stop_inactive_ui_crawls',
         'enabled': True,
