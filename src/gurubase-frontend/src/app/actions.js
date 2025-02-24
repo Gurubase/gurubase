@@ -1130,3 +1130,64 @@ export async function parseSitemapUrls(sitemapUrl) {
     });
   }
 }
+
+export async function startCrawl(url, guruSlug) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/start/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "startCrawl",
+      url
+    });
+  }
+}
+
+export async function stopCrawl(crawlId, guruSlug) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/${crawlId}/stop/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "stopCrawl",
+      crawlId
+    });
+  }
+}
+
+export async function getCrawlStatus(crawlId, guruSlug) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruSlug}/crawl/${crawlId}/status/`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "getCrawlStatus",
+      crawlId
+    });
+  }
+}

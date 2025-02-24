@@ -1,14 +1,26 @@
+from datetime import UTC, datetime
 import logging
+import random
 import re
+import time
 import traceback
+from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
-from core.exceptions import PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
-from core.models import DataSource, DataSourceExists
+from core.guru_types import get_guru_type_object_by_maintainer
+from core.proxy import format_proxies, get_random_proxies
+from core.exceptions import NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
+from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
 from core.requester import get_web_scraper
+import scrapy
+from scrapy.crawler import CrawlerProcess
+from multiprocessing import Process
+from urllib.parse import urljoin
+from typing import List, Set
+from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
@@ -313,4 +325,292 @@ class GitHubRepoStrategy(DataSourceStrategy):
                 'status': 'error',
                 'message': str(e)
             }
+
+
+def run_spider_process(url, crawl_state_id, link_limit):
+    """Run spider in a separate process"""
+    try:
+        settings = {
+            'LOG_ENABLED': False,
+            'ROBOTSTXT_OBEY': False,
+            'DOWNLOAD_TIMEOUT': 10,
+            'USER_AGENT': 'Mozilla/5.0',
+            'CONCURRENT_REQUESTS': 50,
+            'CONCURRENT_REQUESTS_PER_DOMAIN': 50,
+            'CONCURRENT_REQUESTS_PER_IP': 50,
+            'AUTOTHROTTLE_ENABLED': True,
+            'AUTOTHROTTLE_START_DELAY': 0,
+            'AUTOTHROTTLE_MAX_DELAY': 1,
+            'AUTOTHROTTLE_TARGET_CONCURRENCY': 50,
+        }
+        
+        process = CrawlerProcess(settings)
+        process.crawl(
+            InternalLinkSpider,
+            start_urls=[url],
+            original_url=url,
+            crawl_state_id=crawl_state_id,
+            link_limit=link_limit
+        )
+        process.start()
+    except Exception as e:
+        logger.error(f"Error in spider process: {str(e)}")
+        logger.error(traceback.format_exc())
+
+
+def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1500) -> List[str]:
+    """
+    Crawls a website starting from the given URL and returns a list of all internal links found.
+    The crawler only follows links that start with the same domain as the initial URL.
+    """
+    try:
+        # Start the spider in a separate process
+        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit))
+        crawler_process.start()
+        
+    except Exception as e:
+        logger.error(f"Error in get_internal_links: {str(e)}")
+        logger.error(traceback.format_exc())
+        if crawl_state_id:
+            try:
+                crawl_state = CrawlState.objects.get(id=crawl_state_id)
+                crawl_state.status = CrawlState.Status.FAILED
+                crawl_state.error_message = str(e)
+                crawl_state.end_time = timezone.now()
+                crawl_state.save()
+            except Exception as save_error:
+                logger.error(f"Error updating crawl state: {str(save_error)}")
+                logger.error(traceback.format_exc())
+        raise
+
+
+class InternalLinkSpider(scrapy.Spider):
+    name = 'internal_links'
+
+    def __init__(self, *args, **kwargs):
+        try:
+            super().__init__(*args, **kwargs)
+            self.start_url = self.start_urls[0]
+            self.original_url = kwargs.get('original_url')
+            self.internal_links: Set[str] = set()
+            self.crawl_state_id = kwargs.get('crawl_state_id')
+            self.link_limit = kwargs.get('link_limit', 1500)
+            self.should_close = False
+            if settings.ENV != 'selfhosted':
+                self.proxies = format_proxies(get_random_proxies())
+            else:
+                self.proxies = None
+        except Exception as e:
+            logger.error(f"Error initializing InternalLinkSpider: {str(e)}", traceback.format_exc())
+            CrawlState.objects.get(id=self.crawl_state_id).status = CrawlState.Status.FAILED
+            CrawlState.objects.get(id=self.crawl_state_id).error_message = str(e)
+            CrawlState.objects.get(id=self.crawl_state_id).end_time = timezone.now()
+            CrawlState.objects.get(id=self.crawl_state_id).save()
+
+    def check_crawl_state(self):
+        """Check if the crawl should be stopped"""
+        if self.crawl_state_id:
+            crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+            if crawl_state.status == CrawlState.Status.STOPPED:
+                self.should_close = True
+                # Tell scrapy to stop the spider
+                self.crawler.engine.close_spider(self, 'Crawl stopped by user')
+                return True
+        return False
+
+    def parse(self, response):
+        try:
+            # First check if crawl has been stopped
+            if self.check_crawl_state():
+                return
+
+            content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
+            if 'text/html' not in content_type:
+                return
+
+            html_lang = response.xpath('//html/@lang').get()
+            html_lang = html_lang.strip() if html_lang else None
+            content_lang = response.headers.get('Content-Language', b'')
+            content_lang = content_lang.decode('utf-8').strip() if content_lang else None
+
+            is_english = (
+                not html_lang and not content_lang or
+                (html_lang and html_lang.lower().startswith('en')) or
+                (content_lang and content_lang.lower().startswith('en'))
+            )
+            
+            if response.status == 200 and is_english:
+                if response.url.startswith(self.start_url) or response.url.startswith(self.original_url):
+                    self.internal_links.add(response.url)
+                    if self.crawl_state_id:
+                        crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                        if crawl_state.status == CrawlState.Status.RUNNING:
+                            crawl_state.discovered_urls = list(self.internal_links)
+                            crawl_state.save(update_fields=['discovered_urls'])
+
+                if settings.ENV != 'selfhosted' and len(self.internal_links) >= self.link_limit:
+                    if self.crawl_state_id:
+                        crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                        crawl_state.status = CrawlState.Status.FAILED
+                        crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
+                        crawl_state.end_time = timezone.now()
+                        crawl_state.save()
+                    return
+
+                if len(self.internal_links) % 100 == 0:
+                    logger.info(f"Found {len(self.internal_links)} internal links")
+
+                # Check again if crawl has been stopped before scheduling new requests
+                if self.check_crawl_state():
+                    return
+
+                for href in response.css('a::attr(href)').getall():
+                    full_url = urljoin(response.url, href)
+                    clean_url = full_url.split('#')[0].split('?')[0]
+
+                    if not clean_url.startswith(self.start_url) and not clean_url.startswith(self.original_url):
+                        continue
+                    
+                    if any(clean_url.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.css', '.js']):
+                        continue
+
+                    if re.search(r"/v\d+.*(?:/|$)", clean_url):
+                        continue
+
+                    not_follow_words = ["/release-notes/", "/releases/","/generated", "/cdn-cgi/", "/_modules/", 
+                                      "/_static/", "/_sources/", "/_generated/", "/_downloads/", "/_sources/", 
+                                      "/_autosummary/", "/tags/", "/tag/"]
+                    if any(word in clean_url for word in not_follow_words):
+                        continue
+                    
+                    normalized_url = clean_url.rstrip('/')
+                    if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
+                        if settings.ENV == 'selfhosted':
+                            meta = {'download_timeout': 10}
+                            time.sleep(0.1)
+                        else:
+                            meta = {'download_timeout': 10, 'proxy': random.choice(self.proxies)}
+                        # logger.info(f"Crawling URL: {normalized_url}")
+                        yield scrapy.Request(
+                            full_url, 
+                            callback=self.parse,
+                            errback=self.handle_error,
+                            meta=meta
+                        )
+        except Exception as e:
+            logger.error(f"Exception {e} for url {response.url}")
+            logger.error(f"Exception traceback: {traceback.format_exc()}")
+            if self.crawl_state_id:
+                crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                crawl_state.status = CrawlState.Status.FAILED
+                crawl_state.error_message = str(e)
+                crawl_state.end_time = timezone.now()
+                crawl_state.save()
+    
+    def handle_error(self, failure):
+        failed_url = failure.request.url.split('#')[0].split('?')[0]
+        self.internal_links.discard(failed_url)
+        logger.warning(f"Failed to crawl URL: {failed_url}, Reason: {failure.value}")
+
+    def closed(self, reason):
+        """Handle spider closure"""
+        if self.crawl_state_id:
+            try:
+                crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
+                # Only update if not already FAILED (from error handling)
+                if crawl_state.status != CrawlState.Status.FAILED:
+                    crawl_state.status = CrawlState.Status.STOPPED if self.should_close else CrawlState.Status.COMPLETED
+                    crawl_state.end_time = timezone.now()
+                    crawl_state.discovered_urls = list(self.internal_links)
+                    crawl_state.save()
+            except Exception as e:
+                logger.error(f"Error updating crawl state on spider close: {str(e)}")
+                logger.error(traceback.format_exc())
+
+class CrawlService:
+    @staticmethod
+    def validate_and_get_guru_type(guru_slug, user):
+        """Shared validation logic"""
+        guru_type = get_guru_type_object_by_maintainer(guru_slug, user)
+        if not guru_type:
+            raise NotFoundError(f'Guru type {guru_slug} not found')
+        return guru_type
+
+    @staticmethod
+    def get_user(user):
+        if settings.ENV == 'selfhosted':
+            return None
+        return user
+
+    @staticmethod
+    def start_crawl(guru_slug, user, url, link_limit=1500):
+        from core.serializers import CrawlStateSerializer
+        from core.tasks import crawl_website
+        import re
+
+        # Validate URL format
+        url_pattern = re.compile(
+            r'^https?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+            r'localhost|'  # localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+            r'(?::\d+)?'  # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+        if not url_pattern.match(url):
+            return {'msg': 'Invalid URL format'}, 400
+
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing crawl start logic
+        existing_crawl = CrawlState.objects.filter(
+            guru_type=guru_type, 
+            status=CrawlState.Status.RUNNING
+        ).first()
+        if existing_crawl:
+            return {'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, 400
+        
+        crawl_state = CrawlState.objects.create(
+            url=url,
+            status=CrawlState.Status.RUNNING,
+            link_limit=link_limit,
+            guru_type=guru_type,
+            user=user
+        )
+        crawl_website.delay(url, crawl_state.id, link_limit)
+        return CrawlStateSerializer(crawl_state).data, 200
+
+    @staticmethod
+    def stop_crawl(guru_slug, user, crawl_id):
+        from core.serializers import CrawlStateSerializer
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing stop logic
+        try:
+            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            if crawl_state.status == CrawlState.Status.RUNNING:
+                crawl_state.status = CrawlState.Status.STOPPED
+                crawl_state.end_time = datetime.now(UTC)
+                crawl_state.save()
+            return CrawlStateSerializer(crawl_state).data, 200
+        except CrawlState.DoesNotExist:
+            return {'msg': 'Crawl not found'}, 404
+
+    @staticmethod
+    def get_crawl_status(guru_slug, user, crawl_id):
+        from core.serializers import CrawlStateSerializer
+        user = CrawlService.get_user(user)
+        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        
+        # Existing status logic
+        try:
+            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            response_data = CrawlStateSerializer(crawl_state).data
+            if crawl_state.error_message:
+                response_data['error_message'] = crawl_state.error_message
+            return response_data, 200
+        except CrawlState.DoesNotExist:
+            return {'msg': 'Crawl not found'}, 404
 

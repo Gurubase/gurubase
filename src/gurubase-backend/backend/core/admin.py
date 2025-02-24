@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from core.models import (APIKey,
-                         Binge, Integration, 
+                         Binge, CrawlState, Integration, 
                          LLMEval, 
                          LinkReference, 
                          LinkValidity, 
@@ -9,7 +9,6 @@ from core.models import (APIKey,
                          RawQuestion, 
                          RawQuestionGeneration, 
                          ContentPageStatistics, 
-                         QuestionValidityCheckPricing, 
                          GuruType, 
                          DataSource, 
                          Favicon, 
@@ -20,7 +19,7 @@ from core.models import (APIKey,
                          Settings, 
                          LLMEvalResult, Thread, 
                          WidgetId,
-                         GithubFile
+                         GithubFile,
                          )
 from django.utils.html import format_html
 import logging
@@ -452,3 +451,10 @@ class ThreadAdmin(admin.ModelAdmin):
     list_filter = ('binge__guru_type__slug', 'integration')
     ordering = ('-id',)
     raw_id_fields = ('binge', 'integration')
+
+@admin.register(CrawlState)
+class CrawlStateAdmin(admin.ModelAdmin):
+    list_display = ['id', 'url', 'guru_type', 'user', 'status', 'start_time', 'end_time', 'error_message']
+    list_filter = ('status',)
+    search_fields = ['id', 'url']
+    ordering = ('-id',)

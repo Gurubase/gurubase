@@ -2,10 +2,9 @@
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) `19.0.3` or later.
-- [Docker Compose](https://docs.docker.com/compose/install/) (`docker compose` or `docker-compose`) `2.6.1` or later.
+- [Docker](https://docs.docker.com/get-docker/) `27.3.x` or later.
+- [Docker Compose](https://docs.docker.com/compose/install/) (`docker compose` or `docker-compose`) `2.30.x` or later.
 - OpenAI API key (for answer generation and embeddings). Get it from [here](https://platform.openai.com/api-keys).
-- Firecrawl API key (for website scraping). Get it from [here](https://www.firecrawl.dev/app/api-keys).
 
 ### Quick Install
 
@@ -18,9 +17,8 @@ bash gurubase.sh
 
 The installer will:
 1. Create a `.gurubase` directory in your home folder
-2. Prompt for required API keys
-3. Download and start all necessary [services](#services)
-4. Open the web interface at http://localhost:8029
+2. Download and start all necessary [services](#services)
+3. Open the web interface at http://localhost:8029
 
 ### Upgrade
 
@@ -132,6 +130,9 @@ Here's a detailed comparison between Gurubase Cloud and Self-hosted versions:
 | GitHub Codebase Indexing | ✅ Available | ✅ Available |
 | Website Widget | ✅ Available | ✅ Available |
 | Base LLM | ✅ OpenAI GPT-4o | ✅ OpenAI GPT-4o |
+
+## Troubleshooting
+Please open an issue on [GitHub](https://github.com/Gurubase/gurubase/issues/new?template=bug_report.md) or ask on [Discord](https://discord.gg/9CMRSQPqx6).
 
 ## Additional Information
 
