@@ -1435,7 +1435,7 @@ def update_github_repositories():
                             # Create new files in DB
                             if files_to_create:
                                 created_files = GithubFile.objects.bulk_create(files_to_create)
-                                logger.info(f"Created {len(created_files)} files for data source {data_source.id}")
+                                logger.info(f"Created {len(created_files)} files for data source {str(data_source)}")
                         
                         # Update data source timestamp
                         data_source.save()  # This will update date_updated
