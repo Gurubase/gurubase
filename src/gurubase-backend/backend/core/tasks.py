@@ -287,7 +287,7 @@ def process_titles():
     logger.info('Processed titles')
 
 @shared_task
-def data_source_retrieval(guru_type_slug=None):
+def data_source_retrieval(guru_type_slug=None, countdown=0):
     logger.info('Data source retrieval')
 
     @with_redis_lock(
@@ -296,6 +296,10 @@ def data_source_retrieval(guru_type_slug=None):
         settings.DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS,
     )
     def process_guru_type_data_sources(guru_type_slug, is_github=False):
+        if not is_github and countdown > 0:
+            # Wait for a bit for the data sources to be synced
+            time.sleep(countdown)
+
         guru_type_object = get_guru_type_object(guru_type_slug)
         if is_github:
             data_sources = DataSource.objects.filter(
