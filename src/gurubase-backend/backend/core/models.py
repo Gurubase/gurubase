@@ -661,23 +661,125 @@ class DataSource(models.Model):
 
 
     def write_to_milvus(self):
-        from core.utils import embed_texts, split_text
+        from core.utils import embed_texts, split_text, map_extension_to_language, split_code
         from core.milvus_utils import insert_vectors
+        from django.conf import settings
 
         if self.in_milvus:
             return
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
-            logger.info(f"Writing {len(github_files)} GitHub files to Milvus")
-            doc_ids = []
-            for file in github_files:
+            logger.info(f"Writing {len(github_files)} GitHub files to Milvus. Repository: {self.url}")
+            doc_ids = self.doc_ids
+            
+            # Process files in batches
+            batch_size = settings.GITHUB_FILE_BATCH_SIZE
+            for i in range(0, len(github_files), batch_size):
+                batch = github_files[i:i + batch_size]
+                logger.info(f"Processing batch {i//batch_size + 1} of {(len(github_files) + batch_size - 1)//batch_size}. Repository: {self.url}")
+                
+                # First update all links in the batch
+                files_to_update = []
+                for file in batch:
+                    if not file.link:
+                        file.link = f'{file.repository_link}/tree/{file.data_source.default_branch}/{file.path}'
+                        files_to_update.append(file)
+                
+                if files_to_update:
+                    GithubFile.objects.bulk_update(files_to_update, ['link'])
+                
+                # Prepare all texts and metadata for the batch
+                all_texts = []
+                all_metadata = []
+                file_text_counts = []  # Keep track of how many text chunks each file has
+                
+                for file in batch:
+                    # Split the content into chunks
+                    extension = file.path.split('/')[-1].split('.')[-1]
+                    language = map_extension_to_language(extension)
+                    if language:
+                        splitted = split_code(
+                            file.content,
+                            settings.SPLIT_SIZE,
+                            settings.SPLIT_MIN_LENGTH,
+                            settings.SPLIT_OVERLAP,
+                            language
+                        )
+                    else:
+                        splitted = split_text(
+                            file.content,
+                            settings.SPLIT_SIZE,
+                            settings.SPLIT_MIN_LENGTH,
+                            settings.SPLIT_OVERLAP,
+                            separators=["\n\n", "\n", ".", "?", "!", " ", ""]
+                        )
+                    
+                    metadata = {
+                        "type": file.data_source.type,
+                        "repo_link": file.repository_link,
+                        "link": file.link,  # Now we can safely use file.link as it's been updated
+                        "repo_title": file.repo_title,
+                        "title": file.title,
+                        "file_path": file.path
+                    }
+                    
+                    # Add texts and metadata
+                    all_texts.extend(splitted)
+                    all_metadata.extend([metadata] * len(splitted))
+                    file_text_counts.append(len(splitted))  # Store count of chunks for this file
+
+                # Batch embed all texts
                 try:
-                    ids = file.write_to_milvus()
-                    doc_ids += ids
+                    embeddings = embed_texts(all_texts)
                 except Exception as e:
-                    logger.error(f"Error writing file {file.path} to Milvus: {str(e)}")
-                    continue            
+                    logger.error(f"Error embedding texts in batch: {traceback.format_exc()}")
+                    continue
+
+                if embeddings is None:
+                    logger.error("Embeddings is None for batch")
+                    continue
+
+                # Prepare documents for Milvus
+                docs = []
+                split_num = 0
+                guru_slug = self.guru_type.slug
+                
+                for i, (text, metadata, embedding) in enumerate(zip(all_texts, all_metadata, embeddings)):
+                    split_num += 1
+                    docs.append({
+                        "metadata": {**metadata, "split_num": split_num},
+                        "text": text,
+                        "vector": embedding,
+                        "guru_slug": guru_slug,
+                    })
+
+                # Write batch to Milvus
+                collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
+                try:
+                    batch_ids = list(insert_vectors(collection_name, docs, code=True))
+                    if len(batch_ids) != len(docs):
+                        logger.error(f"Error writing batch to Milvus: {len(batch_ids)} != {len(docs)}")
+                        continue
+                    
+                    # Distribute IDs back to files based on chunk counts and prepare for bulk update
+                    start_idx = 0
+                    files_to_update = []
+                    for file, chunk_count in zip(batch, file_text_counts):
+                        end_idx = start_idx + chunk_count
+                        file_ids = batch_ids[start_idx:end_idx]
+                        file.doc_ids = file_ids
+                        file.in_milvus = True
+                        files_to_update.append(file)
+                        start_idx = end_idx
+                        doc_ids.extend(file_ids)
+                    
+                    # Bulk update all files in this batch
+                    GithubFile.objects.bulk_update(files_to_update, ['doc_ids', 'in_milvus'])
+                    
+                except Exception as e:
+                    logger.error(f"Error writing batch to Milvus: {str(e)}")
+                    continue
 
             self.doc_ids = doc_ids
         else:

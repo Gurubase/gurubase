@@ -1436,16 +1436,12 @@ def update_github_repositories():
                             if files_to_create:
                                 created_files = GithubFile.objects.bulk_create(files_to_create)
                                 logger.info(f"Created {len(created_files)} files for data source {data_source.id}")
-                                
-                                # Write new files to Milvus
-                                for file in created_files:
-                                    try:
-                                        file.write_to_milvus()
-                                    except Exception as e:
-                                        logger.error(f"Error writing file {file.path} to Milvus: {str(e)}")
                         
                         # Update data source timestamp
                         data_source.save()  # This will update date_updated
+
+                    data_source.in_milvus = False
+                    data_source.write_to_milvus()
                     
                 finally:
                     # Clean up
