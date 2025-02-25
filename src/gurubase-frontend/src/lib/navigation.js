@@ -77,15 +77,36 @@ export const useAppNavigation = () => {
     handleNavigationComplete();
   }, [pathname, searchParams, handleNavigationComplete]);
 
+  // Helper to normalize paths for comparison
+  const normalizePath = (path) => {
+    // Remove trailing slash if present (except for root path)
+    return path === "/" ? path : path.replace(/\/$/, "");
+  };
+
+  // Helper to check if paths are the same
+  const isSamePath = (targetPath) => {
+    // Get current URL with query params
+    const currentFullPath =
+      pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+
+    // Normalize both paths
+    const normalizedCurrentPath = normalizePath(currentFullPath);
+    const normalizedTargetPath = normalizePath(targetPath);
+
+    return normalizedCurrentPath === normalizedTargetPath;
+  };
+
   return {
     push: async (path) => {
-      if (!useNavigation.getState().isNavigating) {
+      // Don't start navigation if already navigating or if it's the same path
+      if (!useNavigation.getState().isNavigating && !isSamePath(path)) {
         startNavigation();
         router.push(path);
       }
     },
     replace: async (path) => {
-      if (!useNavigation.getState().isNavigating) {
+      // Don't start navigation if already navigating or if it's the same path
+      if (!useNavigation.getState().isNavigating && !isSamePath(path)) {
         startNavigation();
         router.replace(path);
       }
@@ -97,7 +118,8 @@ export const useAppNavigation = () => {
       }
     },
     setHref: (url) => {
-      if (!useNavigation.getState().isNavigating) {
+      // Don't start navigation if already navigating or if it's the same URL
+      if (!useNavigation.getState().isNavigating && !isSamePath(url)) {
         startNavigation();
         window.location.href = url;
       }
