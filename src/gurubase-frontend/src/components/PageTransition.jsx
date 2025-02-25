@@ -19,6 +19,7 @@ export const PageTransition = () => {
       const computedStyle = window.getComputedStyle(element);
       const currentWidth = computedStyle.getPropertyValue("width");
 
+      // Stop the progress animation
       element.style.animation = "none";
       element.style.width = currentWidth;
 
