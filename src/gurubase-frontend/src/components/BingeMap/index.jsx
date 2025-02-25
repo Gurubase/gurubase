@@ -473,7 +473,8 @@ export function BingeMap({
       setPan(optimalPan);
 
       if (isDesktop) {
-        if (clickedNode.slug) {
+        // Skip handleQuestionUpdate if the clicked node is already the current question
+        if (clickedNode.slug && clickedNode.slug !== currentQuestionSlug) {
           dispatch(setIsBingeMapOpen(false));
           dispatch(setInputQuery(""));
 
@@ -508,24 +509,27 @@ export function BingeMap({
   };
 
   const handleNodeSelect = async (selectedNode) => {
+    // Skip handleQuestionUpdate if the selected node is already the current question
     dispatch(setIsBingeMapOpen(false));
     setPan({ x: 0, y: 0 });
     setActiveNode(null);
     setHoveredNode(null);
     dispatch(setInputQuery(""));
 
-    await handleQuestionUpdate({
-      guruType,
-      newSlug: selectedNode.slug,
-      oldSlug: currentQuestionSlug,
-      treeData,
-      dispatch,
-      setContent,
-      setQuestion,
-      setDescription,
-      bingeId,
-      questionText
-    });
+    if (selectedNode.slug !== currentQuestionSlug) {
+      await handleQuestionUpdate({
+        guruType,
+        newSlug: selectedNode.slug,
+        oldSlug: currentQuestionSlug,
+        treeData,
+        dispatch,
+        setContent,
+        setQuestion,
+        setDescription,
+        bingeId,
+        questionText
+      });
+    }
   };
 
   const handleZoomIn = () => {
