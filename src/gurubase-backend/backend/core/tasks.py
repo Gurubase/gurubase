@@ -13,7 +13,7 @@ from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links
 from core.requester import GuruRequester, OpenAIRequester
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
-from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile
+from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, generate_similar_questions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache
 from django.conf import settings
 import time
@@ -22,6 +22,8 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Avg, StdDev, Count, Sum, Exists, OuterRef
 from statistics import median, mean, stdev
 from django.utils import timezone
+from django.utils.timezone import now
+from datetime import timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -287,7 +289,7 @@ def process_titles():
     logger.info('Processed titles')
 
 @shared_task
-def data_source_retrieval(guru_type_slug=None):
+def data_source_retrieval(guru_type_slug=None, countdown=0):
     logger.info('Data source retrieval')
 
     @with_redis_lock(
@@ -296,6 +298,10 @@ def data_source_retrieval(guru_type_slug=None):
         settings.DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS,
     )
     def process_guru_type_data_sources(guru_type_slug, is_github=False):
+        if not is_github and countdown > 0:
+            # Wait for a bit for the data sources to be synced
+            time.sleep(countdown)
+
         guru_type_object = get_guru_type_object(guru_type_slug)
         if is_github:
             data_sources = DataSource.objects.filter(
@@ -1429,17 +1435,13 @@ def update_github_repositories():
                             # Create new files in DB
                             if files_to_create:
                                 created_files = GithubFile.objects.bulk_create(files_to_create)
-                                logger.info(f"Created {len(created_files)} files for data source {data_source.id}")
-                                
-                                # Write new files to Milvus
-                                for file in created_files:
-                                    try:
-                                        file.write_to_milvus()
-                                    except Exception as e:
-                                        logger.error(f"Error writing file {file.path} to Milvus: {str(e)}")
+                                logger.info(f"Created {len(created_files)} files for data source {str(data_source)}")
                         
                         # Update data source timestamp
                         data_source.save()  # This will update date_updated
+
+                    data_source.in_milvus = False
+                    data_source.write_to_milvus()
                     
                 finally:
                     # Clean up
@@ -1518,3 +1520,25 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
             crawl_state.save()
         except Exception as e:
             logger.error(f"Error updating crawl state: {str(e)}", exc_info=True)
+
+@shared_task
+def stop_inactive_ui_crawls():
+    """
+    Periodic task to stop UI crawls that haven't been polled for more than 10 seconds
+    """
+    threshold_seconds = settings.CRAWL_INACTIVE_THRESHOLD_SECONDS
+    inactivity_threshold = now() - timedelta(seconds=threshold_seconds)
+    
+    inactive_crawls = CrawlState.objects.filter(
+        source=CrawlState.Source.UI,
+        status=CrawlState.Status.RUNNING,
+        last_polled_at__lt=inactivity_threshold
+    )
+    
+    for crawl in inactive_crawls:
+        crawl.status = CrawlState.Status.STOPPED
+        crawl.end_time = now()
+        crawl.error_message = f"Crawl automatically stopped due to inactivity (no status checks for over {threshold_seconds} seconds)"
+        crawl.save()
+        
+    return f"Stopped {inactive_crawls.count()} inactive UI crawls"
