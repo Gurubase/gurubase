@@ -936,6 +936,9 @@ input[data-follow-up-input] {
 }
 
 @keyframes progress {
+  0% {
+    width: 0%;
+  }
   5% {
     width: 5%;
   }
@@ -943,7 +946,7 @@ input[data-follow-up-input] {
     width: 40%;
   }
   100% {
-    width: 98%;
+    width: 80%;
   }
 }
 
@@ -954,7 +957,7 @@ input[data-follow-up-input] {
 }
 
 .animate-progress {
-  animation: progress 2s ease-in-out infinite;
+  animation: progress 2s ease-in-out forwards;
 }
 
 .anteon-prose
