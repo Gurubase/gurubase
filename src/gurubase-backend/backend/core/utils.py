@@ -2316,7 +2316,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             break
 
     if chunk is None:
-        log_error_with_stack(f'No chunk is given to calculate the tokens. Will find the last one.')
+        log_error_with_stack('No chunk is given to calculate the tokens. Will find the last one.')
         # Get last non-null chunk
         for c in reversed(chunks):
             if c is not None:
@@ -3297,11 +3297,32 @@ def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str
 def string_to_boolean(value: str) -> bool:
     return value.lower() in ['true']
 
-def format_github_repo_error(error: str) -> str:
+def format_github_repo_error(error: str, user_error: str = None) -> str:
+    """Format GitHub repository error messages for user display.
+    
+    Args:
+        error: The raw error message string
+        user_error: Optional user-friendly error message
+        
+    Returns:
+        A user-friendly formatted error message
+    """
+    # Return user_error if it exists
+    if user_error:
+        return user_error
+        
+    # Check if it's our custom error message format
+    if "Technical details:" in error:
+        # Return just the user-friendly part
+        return error.split("Technical details:")[0].strip()
+        
+    # Handle specific error cases
     if error.startswith('No repository exists at this URL'):
         return error
     elif error.startswith('The codebase'):
         return error
+    elif 'not found' in error.lower():
+        return 'No repository exists at this URL.'
     else:
         return 'Something went wrong. The team has been notified about the issue. You can also contact us on Discord.'
 

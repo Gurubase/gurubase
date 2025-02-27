@@ -232,13 +232,21 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    'task_update_github_repositories': {
+    'task_update_github_repositories_for_successful_repos': {
         'every': 12,
         'period': HOURS,
         'task': 'core.tasks.update_github_repositories',
         'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
+        'kwargs': {'successful_repos': True}
+    },
+    'task_update_github_repositories_for_failed_repos': {
+        'every': 1,
+        'period': HOURS,
+        'task': 'core.tasks.update_github_repositories',
+        'enabled': True,
+        'last_run_at': datetime.utcnow() - timedelta(days=90),
+        'kwargs': {'successful_repos': False}
     },
     'task_stop_inactive_ui_crawls': {
         'every': 3,
