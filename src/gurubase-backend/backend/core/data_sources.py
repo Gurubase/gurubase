@@ -397,9 +397,10 @@ class InternalLinkSpider(scrapy.Spider):
             self.link_limit = kwargs.get('link_limit', 1500)
             self.should_close = False
             if settings.ENV != 'selfhosted':
-                self.proxies = format_proxies(get_random_proxies())
+                proxies = format_proxies(get_random_proxies())
             else:
-                self.proxies = None
+                proxies = None
+            self.proxies = proxies
         except Exception as e:
             logger.error(f"Error initializing InternalLinkSpider: {str(e)}", traceback.format_exc())
             CrawlState.objects.get(id=self.crawl_state_id).status = CrawlState.Status.FAILED
