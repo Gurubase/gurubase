@@ -1459,7 +1459,7 @@ def update_github_repositories():
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                    user_error = f"An issue occurred while reindexing the codebase. The repository may have been deleted, made private, or renamed. Please verify that the repository still exists and is public. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = str(e)
                 data_source.user_error = user_error
@@ -1472,7 +1472,7 @@ def update_github_repositories():
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our size limit of {data_source.guru_type.github_repo_size_limit_mb} MB. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = str(e)
                 data_source.user_error = user_error
@@ -1485,7 +1485,7 @@ def update_github_repositories():
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our file count limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = str(e)
                 data_source.user_error = user_error
@@ -1498,7 +1498,7 @@ def update_github_repositories():
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                    user_error = f"An issue occurred while reindexing the codebase. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = "Failed to index the repository. Please try again or contact support if the issue persists."
                 data_source.user_error = user_error
