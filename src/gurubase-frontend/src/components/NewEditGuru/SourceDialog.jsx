@@ -105,8 +105,10 @@ const SourceDialog = React.memo(
       }
 
       // Reset showCrawlInput when closing
-      setShowCrawlInput(false);
-      setCrawlUrl("");
+      if (showCrawlInput) {
+        setShowCrawlInput(false);
+        setCrawlUrl("");
+      }
 
       setTimeout(() => {
         document.body.style.pointerEvents = "";

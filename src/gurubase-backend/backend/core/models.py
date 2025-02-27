@@ -313,6 +313,10 @@ class GuruType(models.Model):
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
     github_file_count_limit_per_repo_hard = models.IntegerField(default=1500)  # Absolute maximum
     github_repo_size_limit_mb = models.IntegerField(default=100)
+    # Data source limits
+    website_count_limit = models.IntegerField(default=1500)
+    youtube_count_limit = models.IntegerField(default=100)
+    pdf_size_limit_mb = models.IntegerField(default=100)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -450,12 +454,12 @@ class GuruType(models.Model):
                 total_pdf_mb += source.file.size / (1024 * 1024)  # Convert bytes to MB
 
         # Check website limit
-        if (website_count + website_urls_count) > settings.DATA_SOURCES_LIMIT_TOTAL_WEBSITES_COUNT:
-            return False, f"Website limit ({settings.DATA_SOURCES_LIMIT_TOTAL_WEBSITES_COUNT}) reached"
+        if (website_count + website_urls_count) > self.website_count_limit:
+            return False, f"Website limit ({self.website_count_limit}) reached"
 
         # Check YouTube limit
-        if (youtube_count + youtube_urls_count) > settings.DATA_SOURCES_LIMIT_TOTAL_YOUTUBE_COUNT:
-            return False, f"YouTube video limit ({settings.DATA_SOURCES_LIMIT_TOTAL_YOUTUBE_COUNT}) reached"
+        if (youtube_count + youtube_urls_count) > self.youtube_count_limit:
+            return False, f"YouTube video limit ({self.youtube_count_limit}) reached"
 
         # Check GitHub repo limit
         if (github_count + github_urls_count) > self.github_repo_count_limit:
@@ -464,8 +468,8 @@ class GuruType(models.Model):
         # Check PDF size limit if file provided
         if file:
             file_size_mb = file.size / (1024 * 1024)
-            if total_pdf_mb + file_size_mb > settings.DATA_SOURCES_LIMIT_TOTAL_PDF_MB:
-                return False, f"Total PDF size limit ({settings.DATA_SOURCES_LIMIT_TOTAL_PDF_MB}MB) would be exceeded"
+            if total_pdf_mb + file_size_mb > self.pdf_size_limit_mb:
+                return False, f"Total PDF size limit ({self.pdf_size_limit_mb}MB) would be exceeded"
 
         return True, None
 
