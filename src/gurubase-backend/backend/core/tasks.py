@@ -1331,7 +1331,7 @@ def update_github_repositories():
         # Get all GitHub repo data sources for this guru type
         data_sources = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status=DataSource.Status.SUCCESS,
+            status__in=[DataSource.Status.SUCCESS, DataSource.Status.FAIL],
             guru_type=guru_type
         )
         
