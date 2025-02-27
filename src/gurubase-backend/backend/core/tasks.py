@@ -324,12 +324,14 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 logger.warning(f"Throttled for Website URL {data_source.url}. Error: {e}")
                 data_source.status = DataSource.Status.NOT_PROCESSED
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             except Exception as e:
                 logger.error(f"Error while fetching data source: {traceback.format_exc()}")
                 data_source.status = DataSource.Status.FAIL
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             
@@ -1441,8 +1443,11 @@ def update_github_repositories():
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
+                    data_source.error = ""
+                    data_source.user_error = ""
+                    data_source.save()
                     data_source.write_to_milvus()
-                    
+
                 finally:
                     # Clean up
                     repo.close()
@@ -1457,7 +1462,8 @@ def update_github_repositories():
                     user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
                 else:
                     user_error = str(e)
-                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoSizeLimitError as e:
@@ -1469,7 +1475,8 @@ def update_github_repositories():
                     user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
                 else:
                     user_error = str(e)
-                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoFileCountLimitError as e:
@@ -1481,7 +1488,8 @@ def update_github_repositories():
                     user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
                 else:
                     user_error = str(e)
-                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except Exception as e:
@@ -1493,7 +1501,8 @@ def update_github_repositories():
                     user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
                 else:
                     user_error = "Failed to index the repository. Please try again or contact support if the issue persists."
-                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
         

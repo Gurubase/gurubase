@@ -3297,15 +3297,20 @@ def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str
 def string_to_boolean(value: str) -> bool:
     return value.lower() in ['true']
 
-def format_github_repo_error(error: str) -> str:
+def format_github_repo_error(error: str, user_error: str = None) -> str:
     """Format GitHub repository error messages for user display.
     
     Args:
         error: The raw error message string
+        user_error: Optional user-friendly error message
         
     Returns:
         A user-friendly formatted error message
     """
+    # Return user_error if it exists
+    if user_error:
+        return user_error
+        
     # Check if it's our custom error message format
     if "Technical details:" in error:
         # Return just the user-friendly part

@@ -564,6 +564,7 @@ class DataSource(models.Model):
         default=Status.NOT_PROCESSED.value,
     )
     error = models.TextField(default='', blank=True, null=False)
+    user_error = models.TextField(default='', blank=True, null=False)
     content_rewritten = models.BooleanField(default=False)
     original_content = models.TextField(null=True, blank=True)
 
