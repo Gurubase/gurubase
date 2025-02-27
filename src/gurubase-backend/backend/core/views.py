@@ -498,7 +498,7 @@ def my_gurus(request, guru_slug=None):
                 'icon': icon_url,
                 'icon_url': icon_url,
                 'domain_knowledge': guru.domain_knowledge,
-                'github_repo': guru.github_repo,
+                'github_repos': guru.github_repos,
                 'index_repo': guru.index_repo,
                 'youtubeCount': 0,
                 'pdfCount': 0,
@@ -663,7 +663,7 @@ def get_guru_type_resources(request, guru_type):
         logger.error(f'Error while getting guru type resources: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stackoverflow_source, github_repo, image, maintainer=None):
+def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stackoverflow_source, github_repos, image, maintainer=None):
     """Utility function to handle guru type creation logic"""
     if not name or len(name) < 2:
         raise ValueError('Guru type name must be at least 2 characters')
@@ -696,7 +696,7 @@ def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stac
     try:
         guru_type_object = create_guru_type_object(
             slug, name, intro_text, domain_knowledge, icon_url, 
-            stackoverflow_tag, stackoverflow_source, github_repo, maintainer
+            stackoverflow_tag, stackoverflow_source, github_repos, maintainer
         )
     except Exception as e:
         logger.error(f'Error while creating guru type: {e}', exc_info=True)
@@ -715,7 +715,7 @@ def create_guru_type_internal(request):
             intro_text=data.get('intro_text'),
             stackoverflow_tag=data.get('stackoverflow_tag', ""),
             stackoverflow_source=data.get('stackoverflow_source', False),
-            github_repo=data.get('github_repo', ""),
+            github_repos=data.get('github_repos', ""),
             image=request.FILES.get('icon_image'),
         )
         return Response(GuruTypeSerializer(guru_type_object).data, status=status.HTTP_200_OK)
@@ -743,7 +743,7 @@ def create_guru_type_frontend(request):
             intro_text=data.get('intro_text'),
             stackoverflow_tag=data.get('stackoverflow_tag', ""),
             stackoverflow_source=data.get('stackoverflow_source', False),
-            github_repo=data.get('github_repo', ""),
+            github_repos=data.get('github_repos', ""),
             image=request.FILES.get('icon_image'),
             maintainer=user
         )
@@ -996,7 +996,7 @@ def update_guru_type(request, guru_type):
     data = request.data
     domain_knowledge = data.get('domain_knowledge', guru_type_object.prompt_map['domain_knowledge'])
     intro_text = data.get('intro_text', guru_type_object.intro_text)
-    github_repo = data.get('github_repo', guru_type_object.github_repo)
+    github_repos = data.get('github_repos', guru_type_object.github_repos)
     
     # Handle image upload if provided
     image = request.FILES.get('icon_image')
@@ -1016,7 +1016,7 @@ def update_guru_type(request, guru_type):
     # Update other fields
     guru_type_object.domain_knowledge = domain_knowledge
     guru_type_object.intro_text = intro_text
-    guru_type_object.github_repo = github_repo
+    guru_type_object.github_repos = github_repos
     try:
         guru_type_object.save()
     except ValidationError as e:

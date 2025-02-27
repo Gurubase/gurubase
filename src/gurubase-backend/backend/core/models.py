@@ -292,7 +292,7 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repo = models.URLField(max_length=2000, default="", blank=True, null=True)
+    github_repos = models.JSONField(default=list)
     github_details = models.JSONField(default=dict, blank=True, null=False)
     github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
@@ -654,8 +654,8 @@ class DataSource(models.Model):
                 raise Exception("Invalid URL format")
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            if DataSource.objects.filter(type=self.type, guru_type=self.guru_type).exists():
-                raise Exception("Cannot add more than one GitHub repository to a guru type")
+            if DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
+                raise Exception(f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type.")
 
         super().save(*args, **kwargs)
 

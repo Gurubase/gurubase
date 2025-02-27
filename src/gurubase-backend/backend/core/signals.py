@@ -723,67 +723,77 @@ def clear_github_file(sender, instance: GithubFile, **kwargs):
         instance.delete_from_milvus()
 
 @receiver(pre_save, sender=GuruType)
-def validate_github_repo(sender, instance, **kwargs):
-    """Validate GitHub repo URL format if provided"""
-    if instance.github_repo:
-        # Normalize URL by removing trailing slash
-        instance.github_repo = instance.github_repo.rstrip('/')
-        
-        # Validate URL format
-        url_validator = URLValidator()
-        try:
-            url_validator(instance.github_repo)
-        except ValidationError:
-            raise ValidationError({'msg': 'Invalid URL format'})
-
-        # Ensure it's a GitHub URL
-        parsed_url = urlparse(instance.github_repo)
-        if not parsed_url.netloc.lower() in ['github.com', 'www.github.com']:
-            raise ValidationError({'msg': 'URL must be a GitHub repository'})
+def validate_github_repos(sender, instance, **kwargs):
+    """Validate GitHub repo URLs format if provided"""
+    if instance.github_repos:
+        # Ensure github_repos is a list
+        if not isinstance(instance.github_repos, list):
+            raise ValidationError({'msg': 'github_repos must be a list'})
             
-        # Ensure it has a path (repository)
-        if not parsed_url.path or parsed_url.path == '/':
-            raise ValidationError({'msg': 'Invalid GitHub repository URL'})
+        for repo_url in instance.github_repos:
+            # Normalize URL by removing trailing slash
+            repo_url = repo_url.rstrip('/')
+            
+            # Validate URL format
+            url_validator = URLValidator()
+            try:
+                url_validator(repo_url)
+            except ValidationError:
+                raise ValidationError({'msg': f'Invalid URL format: {repo_url}'})
 
-        # Ensure URL has valid scheme
-        if parsed_url.scheme not in ['http', 'https']:
-            raise ValidationError({'msg': 'URL must start with http:// or https://'})
+            # Ensure it's a GitHub URL
+            parsed_url = urlparse(repo_url)
+            if not parsed_url.netloc.lower() in ['github.com', 'www.github.com']:
+                raise ValidationError({'msg': f'URL must be a GitHub repository: {repo_url}'})
+                
+            # Ensure it has a path (repository)
+            if not parsed_url.path or parsed_url.path == '/':
+                raise ValidationError({'msg': f'Invalid GitHub repository URL: {repo_url}'})
+
+            # Ensure URL has valid scheme
+            if parsed_url.scheme not in ['http', 'https']:
+                raise ValidationError({'msg': f'URL must start with http:// or https://: {repo_url}'})
 
 @receiver(post_save, sender=GuruType)
 def manage_github_repo_datasource(sender, instance, **kwargs):
     from core.tasks import data_source_retrieval
-    """Manage DataSource based on github_repo and index_repo fields"""
-    existing_datasource = DataSource.objects.filter(
+    """Manage DataSource based on github_repos and index_repo fields"""
+    
+    # Get all existing GitHub repo data sources for this guru type
+    existing_datasources = DataSource.objects.filter(
         guru_type=instance,
         type=DataSource.Type.GITHUB_REPO,
-    ).first()
-
-    # Case 1: URL exists and index_repo is True - Create/Update DataSource
-    if instance.github_repo and instance.index_repo:
-        if existing_datasource:
-            if existing_datasource.url != instance.github_repo:
-                # URL changed - delete old and create new
-                existing_datasource.delete()
-                DataSource.objects.create(
-                    guru_type=instance,
-                    type=DataSource.Type.GITHUB_REPO,
-                    url=instance.github_repo,
-                    status=DataSource.Status.NOT_PROCESSED
-                )
-        else:
-            # No existing datasource - create new
+    )
+    
+    # Create a map of existing data sources by URL
+    existing_datasources_map = {ds.url: ds for ds in existing_datasources}
+    
+    # Case 1: URLs exist and index_repo is True - Create/Update DataSources
+    if instance.github_repos and instance.index_repo:
+        current_urls = set(instance.github_repos)
+        existing_urls = set(existing_datasources_map.keys())
+        
+        # URLs to add
+        urls_to_add = current_urls - existing_urls
+        for url in urls_to_add:
             DataSource.objects.create(
                 guru_type=instance,
                 type=DataSource.Type.GITHUB_REPO,
-                url=instance.github_repo,
+                url=url,
                 status=DataSource.Status.NOT_PROCESSED
             )
+        
+        # URLs to remove
+        urls_to_remove = existing_urls - current_urls
+        for url in urls_to_remove:
+            existing_datasources_map[url].delete()
+            
+        if urls_to_add or urls_to_remove:
+            data_source_retrieval.delay(guru_type_slug=instance.slug, countdown=1)
 
-        data_source_retrieval.delay(guru_type_slug=instance.slug, countdown=1)
-
-    # Case 2: Either URL is empty or index_repo is False - Delete DataSource
-    elif existing_datasource:
-        existing_datasource.delete()
+    # Case 2: Either URLs list is empty or index_repo is False - Delete all DataSources
+    elif existing_datasources.exists():
+        existing_datasources.delete()
 
 @receiver(post_save, sender=DataSource)
 def data_source_retrieval_on_creation(sender, instance: DataSource, created, **kwargs):
