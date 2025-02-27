@@ -1451,22 +1451,37 @@ def update_github_repositories():
             except GithubInvalidRepoError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                else:
+                    user_error = str(e)
+                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
                 data_source.save()
                 continue
             except GithubRepoSizeLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                else:
+                    user_error = str(e)
+                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
                 data_source.save()
                 continue
             except GithubRepoFileCountLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                else:
+                    user_error = str(e)
+                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
                 data_source.save()
                 continue
             except Exception as e:
@@ -1474,6 +1489,11 @@ def update_github_repositories():
                 logger.error(error_msg)
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"The repository was previously indexed successfully on {data_source.last_successful_index_date.strftime('%B %d, %Y')}. However, we encountered an issue while attempting to update the index with the latest changes. The existing index will remain available, but recent repository updates will not be reflected."
+                else:
+                    user_error = "Failed to index the repository. Please try again or contact support if the issue persists."
+                data_source.error = f"{user_error}\n\nTechnical details:\n{error_msg}"
                 data_source.save()
                 continue
         
