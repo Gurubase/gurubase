@@ -1313,7 +1313,7 @@ def update_guru_type_sitemap_status():
     logger.info("Completed updating GuruType sitemap status")
 
 @shared_task
-def update_github_repositories():
+def update_github_repositories(successful_repos=True):
     """
     Periodic task to update GitHub repositories:
     1. For each successfully synced GitHub repo data source, clone the repo again
@@ -1331,9 +1331,10 @@ def update_github_repositories():
         logger.info(f"Processing GitHub repositories for guru type: {guru_type.slug}")
         
         # Get all GitHub repo data sources for this guru type
+        status = DataSource.Status.SUCCESS if successful_repos else DataSource.Status.FAIL
         data_sources = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status__in=[DataSource.Status.SUCCESS, DataSource.Status.FAIL],
+            status=status,
             guru_type=guru_type
         )
         
