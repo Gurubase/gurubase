@@ -38,7 +38,7 @@ export default function WidgetModal({
     data-light-mode="true"${
       isSelfHosted
         ? `
-    data-baseUrl="http://localhost:8029/api/"`
+    data-baseUrl="http://localhost:8029/api/" // Change this URL to your gurubase-nginx deployment URL for self-hosted instances`
         : ""
     }
     id="guru-widget-id">
@@ -190,12 +190,6 @@ export default function WidgetModal({
               </a>
               .
             </p>
-            {isSelfHosted && (
-              <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                Note: For self-hosted deployments, make sure to change the
-                data-baseUrl to point to your nginx deployment URL.
-              </p>
-            )}
 
             <div className="space-y-2">
               <h3 className="text-[#191919] font-inter text-[14px] font-semibold">
