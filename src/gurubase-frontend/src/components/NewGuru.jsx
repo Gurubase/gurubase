@@ -2044,12 +2044,6 @@ export default function NewGuru({ guruData, isProcessing }) {
                   Add Repository
                 </Button>
               )}
-              {field.value.length >= repoLimit &&
-                process.env.NEXT_PUBLIC_NODE_ENV !== "selfhosted" && (
-                  <div className="text-sm text-gray-500 text-center">
-                    Maximum {repoLimit} repositories allowed
-                  </div>
-                )}
             </div>
           </FormItem>
         )}
