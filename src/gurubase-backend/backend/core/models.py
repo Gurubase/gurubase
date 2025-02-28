@@ -403,6 +403,13 @@ class GuruType(models.Model):
         if self.slug == '':
             raise ValidationError({'msg': 'Guru type name cannot be empty'})
 
+        unique_github_repos = set(self.github_repos)
+
+        if len(unique_github_repos) > self.github_repo_count_limit:
+            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
+
+        self.github_repos = list(unique_github_repos)
+
         super().save(*args, **kwargs)
 
     def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
@@ -651,11 +658,11 @@ class DataSource(models.Model):
         else:
             # Check if url format is valid
             if not self.url.startswith(('http://', 'https://')):
-                raise ValidationError("Invalid URL format")
+                raise ValidationError({'msg': 'Invalid URL format'})
 
         if self.type == DataSource.Type.GITHUB_REPO:
             if DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
-                raise ValidationError(f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type.")
+                raise ValidationError({'msg': f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type."})
 
         super().save(*args, **kwargs)
 
