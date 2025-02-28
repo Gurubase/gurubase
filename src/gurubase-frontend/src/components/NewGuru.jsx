@@ -2010,13 +2010,28 @@ export default function NewGuru({ guruData, isProcessing }) {
                     </FormControl>
 
                     {repo && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <div className="absolute right-8 top-1/2 -translate-y-1/2">
                         {renderGithubBadge({
                           url: repo,
                           status: githubRepoStatuses[repo]
                         })}
                       </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      {
+                        <button
+                          type="button"
+                          className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group flex-shrink-0"
+                          onClick={() => {
+                            const newValue = field.value.filter(
+                              (_, i) => i !== index
+                            );
+                            field.onChange(newValue);
+                          }}>
+                          <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
+                        </button>
+                      }
+                    </div>
                   </div>
                   {/* Show form validation error first, then indexing error */}
                   {form.formState.errors.githubRepos?.[index] && (
