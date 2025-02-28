@@ -29,12 +29,18 @@ export default function WidgetModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const widgetScript = `<!-- Gurubase Widget -->
 <script async src="https://widget.gurubase.io/widget.latest.min.js" 
     data-widget-id="${widgetId}"
     data-text="Ask AI"
     data-margins='{"bottom": "1rem", "right": "1rem"}'
-    data-light-mode="true"
+    data-light-mode="true"${
+      isSelfHosted
+        ? `
+    data-baseUrl="http://localhost:8029/api/"`
+        : ""
+    }
     id="guru-widget-id">
 </script>`;
 
@@ -173,8 +179,8 @@ export default function WidgetModal({
           <div className="space-y-8">
             <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
               The Widget ID is a unique identifier for each domain. To add the
-              widget, inject the Widget Script into your website. Here's a guide
-              to{" "}
+              widget, inject the Widget Script into your website. Here is the
+              guide to{" "}
               <a
                 className="text-blue-600 hover:underline"
                 href="https://github.com/getanteon/gurubase-widget"
@@ -184,6 +190,12 @@ export default function WidgetModal({
               </a>
               .
             </p>
+            {isSelfHosted && (
+              <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                Note: For self-hosted deployments, make sure to change the
+                data-baseUrl to point to your nginx deployment URL.
+              </p>
+            )}
 
             <div className="space-y-2">
               <h3 className="text-[#191919] font-inter text-[14px] font-semibold">
