@@ -997,6 +997,12 @@ def update_guru_type(request, guru_type):
     domain_knowledge = data.get('domain_knowledge', guru_type_object.prompt_map['domain_knowledge'])
     intro_text = data.get('intro_text', guru_type_object.intro_text)
     github_repos = data.get('github_repos', guru_type_object.github_repos)
+
+    try:
+        github_repos = json.loads(github_repos)
+    except Exception as e:
+        logger.error(f'Error while parsing github repos: {e}', exc_info=True)
+        return Response({'msg': 'Github repos must be a list of strings'}, status=status.HTTP_400_BAD_REQUEST)
     
     # Handle image upload if provided
     image = request.FILES.get('icon_image')
