@@ -405,7 +405,7 @@ class GuruType(models.Model):
 
         unique_github_repos = set(self.github_repos)
 
-        if len(unique_github_repos) > self.github_repo_count_limit:
+        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
             raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
 
         self.github_repos = list(unique_github_repos)
@@ -661,7 +661,7 @@ class DataSource(models.Model):
                 raise ValidationError({'msg': 'Invalid URL format'})
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            if DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
+            if settings.ENV != 'selfhosted' and DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
                 raise ValidationError({'msg': f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type."})
 
         super().save(*args, **kwargs)
