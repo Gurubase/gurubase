@@ -38,7 +38,7 @@ export default function WidgetModal({
     data-light-mode="true"${
       isSelfHosted
         ? `
-    data-baseUrl="http://localhost:8029/api/" // Change this URL to your gurubase-nginx deployment URL for self-hosted instances`
+    data-baseUrl="http://localhost:8029/api/"  <!-- Change this URL to your gurubase-nginx deployment URL for self-hosted instances -->`
         : ""
     }
     id="guru-widget-id">
