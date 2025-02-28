@@ -309,7 +309,7 @@ class GuruType(models.Model):
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
     # GitHub repository limits
-    github_repo_count_limit = models.IntegerField(default=2)
+    github_repo_count_limit = models.IntegerField(default=1)
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
     github_file_count_limit_per_repo_hard = models.IntegerField(default=1500)  # Absolute maximum
     github_repo_size_limit_mb = models.IntegerField(default=100)
