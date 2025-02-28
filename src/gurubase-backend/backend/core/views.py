@@ -1020,7 +1020,7 @@ def update_guru_type(request, guru_type):
     try:
         guru_type_object.save()
     except ValidationError as e:
-        return Response({'msg': str(e.message_dict['msg'][0])}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'msg': e.message}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f'Error while updating guru type: {e}', exc_info=True)
         return Response({'msg': 'Error updating guru type'}, status=status.HTTP_400_BAD_REQUEST)
