@@ -695,10 +695,18 @@ def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stac
         raise ValueError(f'Guru type {slug} already exists')
 
     try:
+        github_repos = json.loads(github_repos)
+    except Exception as e:
+        logger.error(f'Error while parsing github repos: {e}', exc_info=True)
+        raise ValueError('Github repos must be a list of strings')
+
+    try:
         guru_type_object = create_guru_type_object(
             slug, name, intro_text, domain_knowledge, icon_url, 
             stackoverflow_tag, stackoverflow_source, github_repos, maintainer
         )
+    except ValidationError as e:
+        raise
     except Exception as e:
         logger.error(f'Error while creating guru type: {e}', exc_info=True)
         raise ValueError(e.args[0])
@@ -749,6 +757,8 @@ def create_guru_type_frontend(request):
             maintainer=user
         )
         return Response(GuruTypeSerializer(guru_type_object).data, status=status.HTTP_200_OK)
+    except ValidationError as e:
+        return Response({'msg': str(e.message_dict['msg'][0])}, status=status.HTTP_400_BAD_REQUEST)
     except ValueError as e:
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
