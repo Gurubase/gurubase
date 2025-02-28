@@ -1141,14 +1141,22 @@ def update_guru_type_details():
     for guru_type in guru_types:
         # Update GitHub details if missing
         if not guru_type.github_details:
-            github_repo = guru_type.github_repo or get_github_url_from_data_source(guru_type.slug)
-            if github_repo:
+            github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
+            if github_repos:
                 try:
-                    github_details = github_requester.get_github_repo_details(github_repo)
-                    guru_type.github_details = github_details
-                    guru_type.github_repo = github_repo
-                    guru_type.save()
-                    logger.info(f'Updated github details for {guru_type.slug}')
+                    all_github_details = []
+                    for github_repo in github_repos:
+                        try:
+                            github_details = github_requester.get_github_repo_details(github_repo)
+                            all_github_details.append(github_details)
+                        except Exception as e:
+                            logger.error(f"Error getting github details for repo {github_repo} in {guru_type.slug}: {traceback.format_exc()}")
+                            continue
+                    
+                    if all_github_details:  # Only update if we got at least one repo's details
+                        guru_type.github_details = all_github_details
+                        guru_type.save()
+                        logger.info(f'Updated github details for {guru_type.slug}')
                 except Exception as e:
                     logger.error(f"Error getting github details for {guru_type.slug}: {traceback.format_exc()}")
                     continue
@@ -1163,14 +1171,26 @@ def update_guru_type_details():
                 continue
 
             try:
-                github_topics = guru_type.github_details.get('topics', [])
-                github_description = guru_type.github_details.get('description', '')
+                # Combine topics and descriptions from all repos
+                all_github_topics = set()
+                all_github_descriptions = []
+                
+                if isinstance(guru_type.github_details, list):
+                    for details in guru_type.github_details:
+                        all_github_topics.update(details.get('topics', []))
+                        if desc := details.get('description'):
+                            all_github_descriptions.append(desc)
+                else:
+                    # Handle legacy format where github_details is a single dict
+                    all_github_topics.update(guru_type.github_details.get('topics', []))
+                    if desc := guru_type.github_details.get('description'):
+                        all_github_descriptions.append(desc)
                 
                 gemini_response = gemini_requester.generate_topics_from_summary(
                     root_summarization.result_content, 
                     guru_type.name,
-                    github_topics,
-                    github_description
+                    list(all_github_topics),
+                    '. '.join(all_github_descriptions)
                 )
                 
                 new_topics = gemini_response.get('topics', [])
@@ -1242,8 +1262,8 @@ def update_github_details():
     guru_types = GuruType.objects.filter(
         models.Q(github_details_updated_date__isnull=True) | 
         models.Q(github_details_updated_date__lt=cutoff_time),
-        github_repo__isnull=False,
-        github_repo__gt='',  # Exclude empty strings
+        github_repos__isnull=False,
+        github_repos__len__gt=0,  # Has at least one repo
         active=True
     ).order_by('github_details_updated_date')[:200]
     logger.info(f'Guru types to update: {guru_types.count()} with cutoff time: {cutoff_time}')
@@ -1251,12 +1271,22 @@ def update_github_details():
     updated_count = 0
     for guru_type in guru_types:
         try:
-            github_details = github_requester.get_github_repo_details(guru_type.github_repo)
-            guru_type.github_details = github_details
-            guru_type.github_details_updated_date = timezone.now()
-            guru_type.save()
-            updated_count += 1
-            logger.info(f'Updated GitHub details for {guru_type.slug}')
+            # Get details for all repos
+            all_details = []
+            for repo_url in guru_type.github_repos:
+                try:
+                    details = github_requester.get_github_repo_details(repo_url)
+                    all_details.append(details)
+                except Exception as e:
+                    logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
+                    continue
+            
+            if all_details:  # Only update if we got at least one repo's details
+                guru_type.github_details = all_details
+                guru_type.github_details_updated_date = timezone.now()
+                guru_type.save()
+                updated_count += 1
+                logger.info(f'Updated GitHub details for {guru_type.slug}')
         except Exception as e:
             logger.error(f"Error updating GitHub details for {guru_type.slug}: {traceback.format_exc()}")
             # Still update the timestamp to avoid repeatedly trying failed updates

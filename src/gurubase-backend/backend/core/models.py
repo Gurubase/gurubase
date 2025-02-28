@@ -292,7 +292,7 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repo = models.URLField(max_length=2000, default="", blank=True, null=True)
+    github_repos = models.JSONField(default=list, blank=True)
     github_details = models.JSONField(default=dict, blank=True, null=False)
     github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
@@ -309,7 +309,7 @@ class GuruType(models.Model):
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
     # GitHub repository limits
-    github_repo_count_limit = models.IntegerField(default=2)
+    github_repo_count_limit = models.IntegerField(default=1)
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
     github_file_count_limit_per_repo_hard = models.IntegerField(default=1500)  # Absolute maximum
     github_repo_size_limit_mb = models.IntegerField(default=100)
@@ -402,6 +402,13 @@ class GuruType(models.Model):
 
         if self.slug == '':
             raise ValidationError({'msg': 'Guru type name cannot be empty'})
+
+        unique_github_repos = set(self.github_repos)
+
+        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
+            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
+
+        self.github_repos = list(unique_github_repos)
 
         super().save(*args, **kwargs)
 
@@ -651,11 +658,11 @@ class DataSource(models.Model):
         else:
             # Check if url format is valid
             if not self.url.startswith(('http://', 'https://')):
-                raise Exception("Invalid URL format")
+                raise ValidationError({'msg': 'Invalid URL format'})
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            if DataSource.objects.filter(type=self.type, guru_type=self.guru_type).exists():
-                raise Exception("Cannot add more than one GitHub repository to a guru type")
+            if settings.ENV != 'selfhosted' and DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
+                raise ValidationError({'msg': f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type."})
 
         super().save(*args, **kwargs)
 

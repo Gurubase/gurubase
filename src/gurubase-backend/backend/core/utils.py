@@ -1883,7 +1883,7 @@ def lighten_color(hex_color):
     # Convert to 6-digit hex and return
     return '#{:02x}{:02x}{:02x}'.format(*lightened_rgb)
 
-def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, stackoverflow_tag, stackoverflow_source, github_repo, maintainer=None):
+def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, stackoverflow_tag, stackoverflow_source, github_repos, maintainer=None):
     base_color = get_dominant_color(icon_url)
     light_color = lighten_color(base_color)
     colors = {"base_color": base_color, "light_color": light_color}
@@ -1900,7 +1900,7 @@ def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, 
         ogimage_url=ogimage_url,
         stackoverflow_tag=stackoverflow_tag,
         stackoverflow_source=stackoverflow_source,
-        github_repo=github_repo,
+        github_repos=github_repos,
         active=active
     )
     if maintainer:
