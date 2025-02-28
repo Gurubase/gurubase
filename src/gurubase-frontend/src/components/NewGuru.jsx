@@ -121,13 +121,16 @@ const formSchema = z.object({
     .string()
     .min(10, { message: "Guru context must be at least 10 characters." })
     .max(100, { message: "Guru context must not exceed 100 characters." }),
-  githubRepo: z
-    .string()
-    .refine((value) => !value || value.startsWith("https://github.com"), {
-      message: "Must be a valid GitHub repository URL."
-    })
-    .optional()
-    .or(z.literal("")),
+  githubRepos: z
+    .array(
+      z
+        .string()
+        .refine((value) => !value || value.startsWith("https://github.com"), {
+          message: "Must be a valid GitHub repository URL."
+        })
+    )
+    .default([])
+    .optional(),
   uploadedFiles: z
     .array(
       z.object({
@@ -299,7 +302,8 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // First, add a state to track the GitHub repository source status
-  const [githubRepoStatus, setGithubRepoStatus] = useState(null);
+  const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
+  const [githubRepoErrors, setGithubRepoErrors] = useState({});
 
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
@@ -321,7 +325,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       guruName: customGuruData?.name || "",
       guruLogo: customGuruData?.icon_url || "",
       guruContext: customGuruData?.domain_knowledge || "",
-      githubRepo: customGuruData?.github_repo || "",
+      githubRepos: customGuruData?.github_repos || [],
       uploadedFiles: [],
       youtubeLinks: [],
       websiteUrls: []
@@ -482,6 +486,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   // Update the useEffect where we process dataSources to find and set GitHub repo status
   useEffect(() => {
+    console.log("dataSources", dataSources);
     if (customGuruData && dataSources?.results) {
       const newSources = dataSources.results.map((source) => ({
         id: source.id,
@@ -502,17 +507,33 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
 
       // Find GitHub repository source status
-      if (customGuruData.github_repo) {
-        const githubSource = dataSources.results.find(
-          (source) => source.url === customGuruData.github_repo
+      console.log("customGuruData", customGuruData);
+      if (customGuruData?.github_repos) {
+        const githubSources = dataSources.results.filter(
+          (source) => source.url && source.url.startsWith("https://github.com")
         );
-        const status = githubSource?.status || null;
-        setGithubRepoStatus(status);
 
-        // Start polling if status is NOT_PROCESSED
-        if (status === "NOT_PROCESSED") {
-          setIsSourcesProcessing(true);
-          pollForGuruReadiness(customGuru);
+        if (githubSources.length > 0) {
+          const newStatuses = {};
+          const newErrors = {};
+          let hasUnprocessed = false;
+
+          githubSources.forEach((source) => {
+            newStatuses[source.url] = source.status;
+            newErrors[source.url] = source.error || null;
+            if (source.status === "NOT_PROCESSED") {
+              hasUnprocessed = true;
+            }
+          });
+
+          console.log("newStatuses", newStatuses);
+          setGithubRepoStatuses(newStatuses);
+          setGithubRepoErrors(newErrors);
+
+          if (hasUnprocessed) {
+            setIsSourcesProcessing(true);
+            pollForGuruReadiness(customGuru);
+          }
         }
       }
 
@@ -772,11 +793,28 @@ export default function NewGuru({ guruData, isProcessing }) {
 
           if (latestSources?.results) {
             // Check GitHub repository status if it exists
-            if (customGuruData?.github_repo) {
-              const githubSource = latestSources.results.find(
-                (source) => source.url === customGuruData.github_repo
+            if (customGuruData?.github_repos) {
+              const githubSources = latestSources.results.filter(
+                (source) =>
+                  source.url && source.url.startsWith("https://github.com")
               );
-              setGithubRepoStatus(githubSource?.status || null);
+
+              if (githubSources.length > 0) {
+                const newStatuses = {};
+                const newErrors = {};
+                let hasUnprocessed = false;
+
+                githubSources.forEach((source) => {
+                  newStatuses[source.url] = source.status;
+                  newErrors[source.url] = source.error || null;
+                  if (source.status === "NOT_PROCESSED") {
+                    hasUnprocessed = true;
+                  }
+                });
+
+                setGithubRepoStatuses(newStatuses);
+                setGithubRepoErrors(newErrors);
+              }
             }
 
             // Create a map of existing privacy settings
@@ -922,8 +960,8 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       // Add check for GitHub repo changes
       const hasGithubChanges = isEditMode
-        ? (data.githubRepo || "") !== (customGuruData?.github_repo || "")
-        : !!data.githubRepo;
+        ? (data.githubRepos || []) !== (customGuruData?.github_repos || [])
+        : !!data.githubRepos;
 
       if (
         (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
@@ -951,7 +989,10 @@ export default function NewGuru({ guruData, isProcessing }) {
         formData.append("name", data.guruName);
       }
       formData.append("domain_knowledge", data.guruContext);
-      formData.append("github_repo", data.githubRepo || "");
+      formData.append(
+        "github_repos",
+        JSON.stringify(data.githubRepos.filter(Boolean))
+      );
 
       // Handle guruLogo
       if (data.guruLogo instanceof File) {
@@ -1291,7 +1332,11 @@ export default function NewGuru({ guruData, isProcessing }) {
     // Check for changes in basic fields
     const basicFieldsChanged =
       currentValues.guruContext !== initialFormValues.guruContext ||
-      (currentValues.githubRepo || "") !== (initialFormValues.githubRepo || "");
+      (currentValues.githubRepos || []).some(
+        (repo) => !initialFormValues.githubRepos.includes(repo)
+      ) ||
+      (currentValues.githubRepos || []).length !==
+        (initialFormValues.githubRepos || []).length;
 
     // Check for changes in arrays (files, links, urls)
     const compareArrays = (arr1 = [], arr2 = []) => {
@@ -1342,7 +1387,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         guruName: customGuruData.name || "",
         guruLogo: customGuruData.icon_url || "",
         guruContext: customGuruData.domain_knowledge || "",
-        githubRepo: customGuruData.github_repo || "",
+        githubRepos: customGuruData.github_repos || [],
         uploadedFiles: dataSources.results
           .filter((s) => s.type.toLowerCase() === "pdf")
           .map((s) => ({ name: s.title })),
@@ -1565,8 +1610,59 @@ export default function NewGuru({ guruData, isProcessing }) {
     });
   };
 
+  const renderGithubBadge = (source) => {
+    return (
+      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+        {(() => {
+          let badgeProps = {
+            className:
+              "flex items-center rounded-full gap-1 px-2 text-body4 font-medium pointer-events-none",
+            icon: Clock,
+            iconColor: "text-gray-500",
+            text: "Not Indexed"
+          };
+
+          switch (source.status) {
+            case "SUCCESS":
+              badgeProps.icon = Check;
+              badgeProps.iconColor = "text-green-700";
+              badgeProps.text = "Indexed";
+              badgeProps.className += " bg-green-50 text-green-700";
+              break;
+            case "FAIL":
+              badgeProps.icon = AlertTriangle;
+              badgeProps.iconColor = "text-red-700";
+              badgeProps.text = "Failed";
+              badgeProps.className += " bg-red-50 text-red-700";
+              break;
+            case "NOT_PROCESSED":
+              badgeProps.icon = Clock;
+              badgeProps.iconColor = "text-yellow-700";
+              badgeProps.text = "Processing";
+              badgeProps.className += " bg-yellow-50 text-yellow-700";
+              break;
+            default:
+              return null;
+              badgeProps.className += " bg-gray-50 text-gray-700";
+              break;
+          }
+
+          return (
+            <Badge {...badgeProps}>
+              <badgeProps.icon
+                className={cn("h-3 w-3", badgeProps.iconColor)}
+              />
+              {badgeProps.text}
+            </Badge>
+          );
+        })()}
+      </div>
+    );
+  };
+
   // Update the renderBadges function to include the click handler
   const renderBadges = (source) => {
+    // For PDF files (existing code)
     if (source?.type?.toLowerCase() === "pdf") {
       return (
         <div className="flex items-center gap-1">
@@ -1741,6 +1837,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     );
   };
 
+  useEffect(() => {
+    console.log("githubRepoStatuses", githubRepoStatuses);
+  }, [githubRepoStatuses]);
+
+  useEffect(() => {
+    console.log("githubRepoErrors", githubRepoErrors);
+  }, [githubRepoErrors]);
+
   // Add cleanup when closing dialogs
   useEffect(() => {
     if (!isUrlSidebarOpen && !isYoutubeSidebarOpen) {
@@ -1847,111 +1951,92 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Only show GitHub-related UI and logic if index_repo is true
   const renderCodebaseIndexing = () => {
     if (!index_repo && isEditMode) return null;
-    // Find GitHub repository source and its error if it exists
-    const githubSource = dataSources?.results?.find(
-      (source) => source.url === customGuruData?.github_repo
-    );
-    const githubError = githubSource?.error;
 
-    // Check if the current value matches the original repo URL
-    const isOriginalUrl =
-      form.getValues("githubRepo") === customGuruData?.github_repo;
+    // Find GitHub repository sources and their errors if they exist
+    const githubSources =
+      dataSources?.results?.filter(
+        (source) => source.url && source.url.startsWith("https://github.com")
+      ) || [];
 
     return (
       <FormField
         control={form.control}
-        name="githubRepo"
+        name="githubRepos"
         render={({ field }) => (
           <FormItem className="flex-1">
             <div className="flex items-center space-x-2">
               <FormLabel>Codebase Indexing</FormLabel>
               <HeaderTooltip
                 text={
-                  "Provide a link to a GitHub repository to index its codebase. The Guru can then use this codebase to generate answers based on it."
+                  "Provide links to GitHub repositories to index their codebases. The Guru can then use these codebases to generate answers based on them."
                 }
               />
             </div>
-            <div className="relative">
-              <FormControl>
-                <Input
-                  placeholder="https://github.com/username/repository"
-                  {...field}
-                  className={cn(
-                    "w-full pr-[110px]",
-                    githubRepoStatus === "NOT_PROCESSED" &&
-                      "bg-gray-100 cursor-not-allowed",
-                    (form.formState.errors.githubRepo ||
-                      (isOriginalUrl && githubError)) &&
-                      "border-red-500"
-                  )}
-                  type="url"
-                  disabled={
-                    isSourcesProcessing ||
-                    isProcessing ||
-                    form.formState.isSubmitting ||
-                    githubRepoStatus === "NOT_PROCESSED"
-                  }
-                  onChange={(e) => {
-                    field.onChange(e);
-                    form.trigger("githubRepo");
-                  }}
-                />
-              </FormControl>
-              {field.value &&
-                field.value === customGuruData?.github_repo &&
-                githubRepoStatus &&
-                index_repo && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    {(() => {
-                      let badgeProps = {
-                        className:
-                          "flex items-center rounded-full gap-1 px-2 text-body4 font-medium pointer-events-none",
-                        icon: Clock,
-                        iconColor: "text-gray-500",
-                        text: "Not Indexed"
-                      };
+            <div className="space-y-2">
+              {field.value.map((repo, index) => (
+                <div key={index} className="flex flex-col gap-2">
+                  <div className="relative flex gap-2">
+                    <FormControl>
+                      <Input
+                        placeholder="https://github.com/username/repository"
+                        value={repo}
+                        className={cn(
+                          "w-full pr-[110px]",
+                          githubRepoStatuses[repo] === "NOT_PROCESSED" &&
+                            "bg-gray-100 cursor-not-allowed",
+                          form.formState.errors.githubRepos?.[index] &&
+                            "border-red-500"
+                        )}
+                        type="url"
+                        disabled={
+                          isSourcesProcessing ||
+                          isProcessing ||
+                          form.formState.isSubmitting ||
+                          githubRepoStatuses[repo] === "NOT_PROCESSED"
+                        }
+                        onChange={(e) => {
+                          const newValue = [...field.value];
+                          newValue[index] = e.target.value;
+                          field.onChange(newValue);
+                          form.trigger("githubRepos");
+                        }}
+                      />
+                    </FormControl>
 
-                      switch (githubRepoStatus) {
-                        case "SUCCESS":
-                          badgeProps.icon = Check;
-                          badgeProps.iconColor = "text-green-700";
-                          badgeProps.text = "Indexed";
-                          badgeProps.className += " bg-green-50 text-green-700";
-                          break;
-                        case "FAIL":
-                          badgeProps.icon = AlertTriangle;
-                          badgeProps.iconColor = "text-red-700";
-                          badgeProps.text = "Failed";
-                          badgeProps.className += " bg-red-50 text-red-700";
-                          break;
-                        case "NOT_PROCESSED":
-                          badgeProps.icon = Clock;
-                          badgeProps.iconColor = "text-yellow-700";
-                          badgeProps.text = "Processing";
-                          badgeProps.className +=
-                            " bg-yellow-50 text-yellow-700";
-                          break;
-                        default:
-                          badgeProps.className += " bg-gray-50 text-gray-700";
-                          break;
-                      }
-
-                      return (
-                        <Badge {...badgeProps}>
-                          <badgeProps.icon
-                            className={cn("h-3 w-3", badgeProps.iconColor)}
-                          />
-                          {badgeProps.text}
-                        </Badge>
-                      );
-                    })()}
+                    {repo && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {renderGithubBadge({
+                          url: repo,
+                          status: githubRepoStatuses[repo]
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
+                  {/* Show form validation error first, then indexing error */}
+                  {form.formState.errors.githubRepos?.[index] && (
+                    <div className="text-sm text-red-600 pl-1">
+                      {form.formState.errors.githubRepos[index].message}
+                    </div>
+                  )}
+                  {repo &&
+                    githubRepoErrors[repo] &&
+                    !form.formState.errors.githubRepos?.[index] && (
+                      <div className="text-sm text-red-600 pl-1">
+                        {githubRepoErrors[repo]}
+                      </div>
+                    )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  field.onChange([...field.value, ""]);
+                }}
+                className="w-full">
+                Add Repository
+              </Button>
             </div>
-            <FormMessage>
-              {form.formState.errors.githubRepo?.message ||
-                (isOriginalUrl && githubRepoStatus === "FAIL" && githubError)}
-            </FormMessage>
           </FormItem>
         )}
       />
@@ -1961,6 +2046,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Modify the form component
   return (
     <>
+      {" "}
       {isSelfHosted && !isCheckingApiKey && !isApiKeyValid && (
         <div className="w-full border-b border-red-200 bg-red-50">
           <div className="flex items-center gap-3 px-6 py-3">
@@ -1978,7 +2064,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           </div>
         </div>
       )}
-
       <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
         <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
@@ -2528,7 +2613,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         type="file"
         onChange={handleFileUpload}
       />
-
       <SourceDialog
         clickedSource={clickedSource}
         editorContent={urlEditorContent}
