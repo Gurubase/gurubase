@@ -486,7 +486,6 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   // Update the useEffect where we process dataSources to find and set GitHub repo status
   useEffect(() => {
-    console.log("dataSources", dataSources);
     if (customGuruData && dataSources?.results) {
       const newSources = dataSources.results.map((source) => ({
         id: source.id,
@@ -507,7 +506,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
 
       // Find GitHub repository source status
-      console.log("customGuruData", customGuruData);
       if (customGuruData?.github_repos) {
         const githubSources = dataSources.results.filter(
           (source) => source.url && source.url.startsWith("https://github.com")
@@ -526,7 +524,6 @@ export default function NewGuru({ guruData, isProcessing }) {
             }
           });
 
-          console.log("newStatuses", newStatuses);
           setGithubRepoStatuses(newStatuses);
           setGithubRepoErrors(newErrors);
 
@@ -1836,14 +1833,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       </div>
     );
   };
-
-  useEffect(() => {
-    console.log("githubRepoStatuses", githubRepoStatuses);
-  }, [githubRepoStatuses]);
-
-  useEffect(() => {
-    console.log("githubRepoErrors", githubRepoErrors);
-  }, [githubRepoErrors]);
 
   // Add cleanup when closing dialogs
   useEffect(() => {
