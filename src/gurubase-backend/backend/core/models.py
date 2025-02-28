@@ -292,7 +292,7 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repos = models.JSONField(default=list)
+    github_repos = models.JSONField(default=list, blank=True)
     github_details = models.JSONField(default=dict, blank=True, null=False)
     github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
