@@ -1958,6 +1958,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         (source) => source.url && source.url.startsWith("https://github.com")
       ) || [];
 
+    // Get the repo limit from customGuruData
+    const repoLimit = customGuruData?.github_repo_limit || 1;
+
     return (
       <FormField
         control={form.control}
@@ -2027,15 +2030,22 @@ export default function NewGuru({ guruData, isProcessing }) {
                     )}
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  field.onChange([...field.value, ""]);
-                }}
-                className="w-full">
-                Add Repository
-              </Button>
+              {field.value.length < repoLimit && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    field.onChange([...field.value, ""]);
+                  }}
+                  className="w-full">
+                  Add Repository
+                </Button>
+              )}
+              {field.value.length >= repoLimit && (
+                <div className="text-sm text-gray-500 text-center">
+                  Maximum {repoLimit} repositories allowed
+                </div>
+              )}
             </div>
           </FormItem>
         )}

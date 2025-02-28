@@ -503,7 +503,8 @@ def my_gurus(request, guru_slug=None):
                 'youtubeCount': 0,
                 'pdfCount': 0,
                 'websiteCount': 0,
-                'widget_ids': WidgetIdSerializer(widget_ids, many=True).data
+                'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
+                'github_repo_limit': guru.github_repo_count_limit
             })
         
         if guru_slug:
