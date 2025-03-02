@@ -294,6 +294,10 @@ def get_interval_schedule(task_configuration):
 
 
 if __name__ == '__main__':
+    # Clean up existing tasks except system tasks
+    PeriodicTask.objects.exclude(name__startswith='celery.').delete()
+    
+    # Task creation logic
     for task_name, task_configuration in periodic_tasks.items():
         if 'cron' in task_configuration:
             cron_configuration = task_configuration['cron']
