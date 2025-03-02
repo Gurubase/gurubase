@@ -324,12 +324,14 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 logger.warning(f"Throttled for Website URL {data_source.url}. Error: {e}")
                 data_source.status = DataSource.Status.NOT_PROCESSED
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             except Exception as e:
                 logger.error(f"Error while fetching data source: {traceback.format_exc()}")
                 data_source.status = DataSource.Status.FAIL
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             
@@ -1341,7 +1343,7 @@ def update_guru_type_sitemap_status():
     logger.info("Completed updating GuruType sitemap status")
 
 @shared_task
-def update_github_repositories():
+def update_github_repositories(successful_repos=True):
     """
     Periodic task to update GitHub repositories:
     1. For each successfully synced GitHub repo data source, clone the repo again
@@ -1359,9 +1361,10 @@ def update_github_repositories():
         logger.info(f"Processing GitHub repositories for guru type: {guru_type.slug}")
         
         # Get all GitHub repo data sources for this guru type
+        status = DataSource.Status.SUCCESS if successful_repos else DataSource.Status.FAIL
         data_sources = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status=DataSource.Status.SUCCESS,
+            status=status,
             guru_type=guru_type
         )
         
@@ -1471,8 +1474,11 @@ def update_github_repositories():
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
+                    data_source.error = ""
+                    data_source.user_error = ""
+                    data_source.save()
                     data_source.write_to_milvus()
-                    
+
                 finally:
                     # Clean up
                     repo.close()
@@ -1481,22 +1487,40 @@ def update_github_repositories():
             except GithubInvalidRepoError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository may have been deleted, made private, or renamed. Please verify that the repository still exists and is public. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoSizeLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our size limit of {data_source.guru_type.github_repo_size_limit_mb} MB. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoFileCountLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our file count limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except Exception as e:
@@ -1504,6 +1528,12 @@ def update_github_repositories():
                 logger.error(error_msg)
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = "Failed to index the repository. Please try again or contact support if the issue persists."
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
         

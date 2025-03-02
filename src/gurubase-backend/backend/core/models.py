@@ -575,6 +575,7 @@ class DataSource(models.Model):
         default=Status.NOT_PROCESSED.value,
     )
     error = models.TextField(default='', blank=True, null=False)
+    user_error = models.TextField(default='', blank=True, null=False)
     content_rewritten = models.BooleanField(default=False)
     original_content = models.TextField(null=True, blank=True)
 
@@ -591,6 +592,7 @@ class DataSource(models.Model):
     reindex_count = models.IntegerField(default=0)
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
+    last_successful_index_date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ["url", "guru_type"]
@@ -847,6 +849,7 @@ class DataSource(models.Model):
 
         self.in_milvus = True
         self.status = DataSource.Status.SUCCESS
+        self.last_successful_index_date = datetime.now()
         self.save()
 
     def delete_from_milvus(self):
