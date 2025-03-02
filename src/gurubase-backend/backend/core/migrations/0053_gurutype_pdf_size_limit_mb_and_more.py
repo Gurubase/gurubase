@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0048_crawlstate_last_polled_at_crawlstate_source'),
+        ('core', '0052_alter_gurutype_github_repo_count_limit'),
     ]
 
     operations = [
