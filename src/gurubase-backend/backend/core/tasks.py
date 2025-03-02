@@ -1527,14 +1527,14 @@ def update_github_repositories():
     logger.info("Completed GitHub repositories update task")
 
 @shared_task
-def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
+def crawl_website(url: str, crawl_state_id: int, link_limit: int):
     """
     Celery task to crawl a website and collect internal links.
     
     Args:
         url (str): The URL to crawl
         crawl_state_id (int): ID of the CrawlState object to update during crawling
-        link_limit (int): Maximum number of links to collect (default: 1500)
+        link_limit (int): Maximum number of links to collect
     """
     try:
         get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
