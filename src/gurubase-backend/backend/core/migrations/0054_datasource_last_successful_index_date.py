@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0048_crawlstate_last_polled_at_crawlstate_source'),
+        ('core', '0053_gurutype_pdf_size_limit_mb_and_more'),
     ]
 
     operations = [

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0049_datasource_last_successful_index_date'),
+        ('core', '0054_datasource_last_successful_index_date'),
     ]
 
     operations = [
