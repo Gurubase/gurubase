@@ -15,6 +15,15 @@ def replace_media_root_with_nginx_base_url(url):
         return url
     return url
 
+def replace_media_root_with_localhost(url):
+    if settings.ENV == 'selfhosted':
+        port = settings.NGINX_BASE_URL[settings.NGINX_BASE_URL.rfind(":"):][1:]
+        # Replace also for development environment
+        url = url.replace(settings.MEDIA_ROOT, f'http://localhost:{port}/media')
+        url = url.replace("/workspace/backend/media", f'http://localhost:{port}/media')
+        return url
+    return url
+
 
 class GCP:
     def __init__(self, bucket_name=settings.GS_BUCKET_NAME):

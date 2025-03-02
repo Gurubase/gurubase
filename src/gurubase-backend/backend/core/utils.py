@@ -3206,7 +3206,10 @@ def format_references(references: list, api: bool = False) -> list:
                     reference['link'] = None
         else:
             if settings.ENV == 'selfhosted':
-                reference['link'] = reference['link'].replace("/workspace/backend", "")
+                for reference in processed_references:
+                    if reference['link'] == pdf_data_source.url:
+                        reference['link'] = reference['link'].replace("/workspace/backend", "")
+
 
     return processed_references
 
