@@ -249,7 +249,7 @@ periodic_tasks = {
         'kwargs': {'successful_repos': False}
     },
     'task_stop_inactive_ui_crawls': {
-        'every': 3,
+        'every': 3,  # Change settings.LOGGING.filters.hide_info_specific_task when changing this
         'period': SECONDS,
         'task': 'core.tasks.stop_inactive_ui_crawls',
         'enabled': True,

@@ -15,6 +15,7 @@ from decouple import config, Csv
 import os
 import sys
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -213,12 +214,34 @@ LOGGING = {
         },
     },
     'loggers': {
-        '': {  # This means all loggers will use this configuration
+        '': {  # Default logger
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
+        'celery.tasks.core.tasks.stop_inactive_ui_crawls': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+        'celery.beat': {  # Beat scheduler logger
+            'handlers': ['console'],
+            'level': 'INFO',
+            'filters': ['hide_info_specific_task'],
+        },
     },
+    'filters': {
+        # Show info logs for stop_inactive_ui_crawls once per hour
+        'hide_info_specific_task': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: not (
+                'task_stop_inactive_ui_crawls' in record.getMessage() and 
+                record.levelno == logging.INFO and
+                not (datetime.fromtimestamp(record.created).minute == 0 and 
+                     datetime.fromtimestamp(record.created).second <= 3)
+            )
+        }
+    }
 }
 
 
