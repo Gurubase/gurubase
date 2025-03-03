@@ -1600,4 +1600,4 @@ def stop_inactive_ui_crawls():
         crawl.error_message = f"Crawl automatically stopped due to inactivity (no status checks for over {threshold_seconds} seconds)"
         crawl.save()
         
-    return f"Stopped {inactive_crawls.count()} inactive UI crawls"
+    # return f"Stopped {inactive_crawls.count()} inactive UI crawls"
