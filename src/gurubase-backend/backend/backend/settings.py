@@ -207,10 +207,18 @@ REST_FRAMEWORK = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s] [%(levelname)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose', 
+            'filters': ['hide_info_specific_task'],
         },
     },
     'loggers': {
@@ -219,23 +227,21 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-        'celery.tasks.core.tasks.stop_inactive_ui_crawls': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': True,
-        },
-        'celery.beat': {  # Beat scheduler logger
+        'celery': {
             'handlers': ['console'],
             'level': 'INFO',
-            'filters': ['hide_info_specific_task'],
+            'propagate': False,
+        },
+        'celery.beat': {  
+            'handlers': ['console'],
+            'level': 'INFO',
         },
     },
     'filters': {
-        # Show info logs for stop_inactive_ui_crawls once per hour
         'hide_info_specific_task': {
             '()': 'django.utils.log.CallbackFilter',
             'callback': lambda record: not (
-                'task_stop_inactive_ui_crawls' in record.getMessage() and 
+                ('task_stop_inactive_ui_crawls' in record.getMessage() or 'core.tasks.stop_inactive_ui_crawls' in record.getMessage()) and 
                 record.levelno == logging.INFO and
                 not (datetime.fromtimestamp(record.created).minute == 0 and 
                      datetime.fromtimestamp(record.created).second <= 3)
