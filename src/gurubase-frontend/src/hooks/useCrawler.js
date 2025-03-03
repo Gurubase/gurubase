@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { startCrawl, getCrawlStatus, stopCrawl } from "@/app/actions";
+import { useCallback, useEffect, useState } from "react";
+
+import { getCrawlStatus, startCrawl, stopCrawl } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 
 export const useCrawler = (onUrlsDiscovered, guruSlug) => {
@@ -8,6 +9,44 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
   const [discoveredUrls, setDiscoveredUrls] = useState(new Set());
   const [showCrawlInput, setShowCrawlInput] = useState(false);
   const [crawlUrl, setCrawlUrl] = useState("");
+
+  // Process new URLs in a race-condition safe way
+  const processNewUrls = useCallback(
+    (allDiscoveredUrls) => {
+      if (!allDiscoveredUrls || !Array.isArray(allDiscoveredUrls)) return [];
+
+      // Use functional update to ensure we're working with the latest state
+      setDiscoveredUrls((prevUrls) => {
+        const newUrlSet = new Set(prevUrls);
+        const newUrls = [];
+
+        // Find truly new URLs that haven't been processed yet
+        allDiscoveredUrls.forEach((url) => {
+          if (!newUrlSet.has(url)) {
+            newUrlSet.add(url);
+            newUrls.push(url);
+          }
+        });
+
+        // Only notify if we have new URLs
+        if (newUrls.length > 0 && onUrlsDiscovered) {
+          onUrlsDiscovered(newUrls);
+        }
+
+        return newUrlSet;
+      });
+    },
+    [onUrlsDiscovered]
+  );
+
+  // Reset crawler state
+  const resetCrawlerState = useCallback(() => {
+    setIsCrawling(false);
+    setCrawlId(null);
+    setDiscoveredUrls(new Set());
+    setShowCrawlInput(false);
+    setCrawlUrl("");
+  }, []);
 
   useEffect(() => {
     let pollInterval;
@@ -18,18 +57,9 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
       try {
         const data = await getCrawlStatus(crawlId, guruSlug);
 
-        // Filter out already discovered URLs
-        if (data?.discovered_urls?.length > 0) {
-          const newUrls = data.discovered_urls.filter(
-            (url) => !discoveredUrls.has(url)
-          );
-          if (newUrls.length > 0) {
-            // Update discovered URLs set
-            newUrls.forEach((url) => discoveredUrls.add(url));
-            setDiscoveredUrls(discoveredUrls);
-            // Only pass new URLs to callback
-            onUrlsDiscovered(newUrls);
-          }
+        // Process any discovered URLs
+        if (data && data.discovered_urls && data.discovered_urls.length > 0) {
+          processNewUrls(data.discovered_urls);
         }
 
         if (data.error) {
@@ -38,14 +68,10 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
 
         // Handle different status conditions
         if (data.status === "COMPLETED") {
-          setIsCrawling(false);
-          setCrawlId(null);
           clearInterval(pollInterval);
-          setDiscoveredUrls(new Set()); // Reset discovered URLs
-          setShowCrawlInput(false);
-          setCrawlUrl("");
+          resetCrawlerState();
 
-          if (data.discovered_urls?.length > 0) {
+          if (data.discovered_urls && data.discovered_urls.length > 0) {
             CustomToast({
               message: `Successfully crawled ${data.discovered_urls.length} URL(s)`,
               variant: "success"
@@ -57,19 +83,11 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
             });
           }
         } else if (data.status === "STOPPED") {
-          setIsCrawling(false);
-          setCrawlId(null);
           clearInterval(pollInterval);
-          setDiscoveredUrls(new Set()); // Reset discovered URLs
-          setShowCrawlInput(false);
-          setCrawlUrl("");
+          resetCrawlerState();
         } else if (data.status === "FAILED") {
-          setIsCrawling(false);
-          setCrawlId(null);
           clearInterval(pollInterval);
-          setDiscoveredUrls(new Set()); // Reset discovered URLs
-          setShowCrawlInput(false);
-          setCrawlUrl("");
+          resetCrawlerState();
 
           CustomToast({
             message: data.error_message || "Crawling failed",
@@ -77,10 +95,8 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
           });
         }
       } catch (error) {
-        setIsCrawling(false);
-        setCrawlId(null);
         clearInterval(pollInterval);
-        setDiscoveredUrls(new Set()); // Reset discovered URLs
+        resetCrawlerState();
 
         CustomToast({
           message: "Error checking crawl status",
@@ -100,7 +116,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
         clearInterval(pollInterval);
       }
     };
-  }, [crawlId, onUrlsDiscovered, discoveredUrls]);
+  }, [crawlId, guruSlug, processNewUrls, resetCrawlerState]);
 
   const handleStartCrawl = async (url) => {
     if (!url) {
@@ -108,6 +124,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
         message: "Please enter a URL to crawl",
         variant: "error"
       });
+
       return;
     }
 
@@ -121,6 +138,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
           variant: "error"
         });
         setIsCrawling(false);
+
         return;
       }
 
@@ -139,6 +157,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
 
     try {
       const data = await stopCrawl(crawlId, guruSlug);
+
       if (data.error) {
         throw new Error(data.message);
       }
