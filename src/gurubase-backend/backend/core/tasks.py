@@ -1585,19 +1585,22 @@ def stop_inactive_ui_crawls():
     """
     Periodic task to stop UI crawls that haven't been polled for more than 10 seconds
     """
-    threshold_seconds = settings.CRAWL_INACTIVE_THRESHOLD_SECONDS
-    inactivity_threshold = now() - timedelta(seconds=threshold_seconds)
-    
-    inactive_crawls = CrawlState.objects.filter(
-        source=CrawlState.Source.UI,
-        status=CrawlState.Status.RUNNING,
-        last_polled_at__lt=inactivity_threshold
-    )
-    
-    for crawl in inactive_crawls:
-        crawl.status = CrawlState.Status.STOPPED
-        crawl.end_time = now()
-        crawl.error_message = f"Crawl automatically stopped due to inactivity (no status checks for over {threshold_seconds} seconds)"
-        crawl.save()
+    try:
+        threshold_seconds = settings.CRAWL_INACTIVE_THRESHOLD_SECONDS
+        inactivity_threshold = now() - timedelta(seconds=threshold_seconds)
+        
+        inactive_crawls = CrawlState.objects.filter(
+            source=CrawlState.Source.UI,
+            status=CrawlState.Status.RUNNING,
+            last_polled_at__lt=inactivity_threshold
+        )
+        
+        for crawl in inactive_crawls:
+            crawl.status = CrawlState.Status.STOPPED
+            crawl.end_time = now()
+            crawl.error_message = f"Crawl automatically stopped due to inactivity (no status checks for over {threshold_seconds} seconds)"
+            crawl.save()
+    except Exception as e:
+        logger.error(f"Error stopping inactive UI crawls: {str(e)}", exc_info=True)
         
     # return f"Stopped {inactive_crawls.count()} inactive UI crawls"
