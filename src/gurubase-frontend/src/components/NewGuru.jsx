@@ -2056,7 +2056,18 @@ export default function NewGuru({ guruData, isProcessing }) {
                   onClick={() => {
                     field.onChange([...field.value, ""]);
                   }}
-                  className="w-full">
+                  disabled={
+                    isSourcesProcessing ||
+                    isProcessing ||
+                    form.formState.isSubmitting
+                  }
+                  className={`w-full ${
+                    isSourcesProcessing ||
+                    isProcessing ||
+                    form.formState.isSubmitting
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}>
                   Add Repository
                 </Button>
               )}
