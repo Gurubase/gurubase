@@ -157,28 +157,35 @@ export default function NewGuru({ guruData, isProcessing }) {
     crawlUrl,
     setCrawlUrl
   } = useCrawler((newUrls) => {
-    // Get current content and split into lines
-    const currentContent = urlEditorContent || "";
-    const existingUrls = currentContent.split("\n").filter((url) => url.trim());
+    // Use functional update to ensure we're working with the latest state
+    setUrlEditorContent((prevContent) => {
+      const prevContent_trimmed = prevContent || "";
+      const currentUrls = prevContent_trimmed
+        .split("\n")
+        .filter((url) => url.trim());
 
-    // Filter out URLs that already exist in the editor
-    const uniqueNewUrls = newUrls.filter((url) => !existingUrls.includes(url));
+      // Filter out URLs that already exist in the editor
+      const filteredNewUrls = newUrls.filter(
+        (url) => !currentUrls.includes(url)
+      );
 
-    // Only proceed if there are new unique URLs to add
-    if (uniqueNewUrls.length > 0) {
-      // Add new URLs line by line
+      // Only proceed if there are new unique URLs to add
+      if (filteredNewUrls.length === 0) {
+        return prevContent_trimmed;
+      }
+
+      // Add new URLs line by line, preserving existing URLs
       const updatedContent =
-        currentContent +
-        (currentContent ? "\n" : "") +
-        uniqueNewUrls.join("\n");
-
-      // Update editor content
-      setUrlEditorContent(updatedContent);
+        prevContent_trimmed +
+        (prevContent_trimmed ? "\n" : "") +
+        filteredNewUrls.join("\n");
 
       // Update form value with all unique URLs
-      const allUrls = [...existingUrls, ...uniqueNewUrls];
+      const allUrls = [...currentUrls, ...filteredNewUrls];
       form.setValue("websiteUrls", allUrls);
-    }
+
+      return updatedContent;
+    });
   }, guruData?.slug);
 
   // Only initialize Auth0 hooks if in selfhosted mode
@@ -1953,104 +1960,129 @@ export default function NewGuru({ guruData, isProcessing }) {
         ? Infinity
         : customGuruData?.github_repo_limit || 1;
 
+    // Always get the current githubRepos values directly from the form
+    const currentGithubRepos = form.getValues("githubRepos") || [];
+
     return (
       <FormField
         control={form.control}
         name="githubRepos"
-        render={({ field }) => (
-          <FormItem className="flex-1">
-            <div className="flex items-center space-x-2">
-              <FormLabel>Codebase Indexing</FormLabel>
-              <HeaderTooltip
-                text={
-                  "Provide links to GitHub repositories to index their codebases. The Guru can then use these codebases to generate answers based on them."
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              {field.value.map((repo, index) => (
-                <div key={index} className="flex flex-col gap-2">
-                  <div className="relative flex gap-2">
-                    <FormControl>
-                      <Input
-                        placeholder="https://github.com/username/repository"
-                        value={repo}
-                        className={cn(
-                          "w-full pr-[110px]",
-                          githubRepoStatuses[repo] === "NOT_PROCESSED" &&
-                            "bg-gray-100 cursor-not-allowed",
-                          form.formState.errors.githubRepos?.[index] &&
-                            "border-red-500"
-                        )}
-                        type="url"
-                        disabled={
-                          isSourcesProcessing ||
-                          isProcessing ||
-                          form.formState.isSubmitting ||
-                          githubRepoStatuses[repo] === "NOT_PROCESSED"
-                        }
-                        onChange={(e) => {
-                          const newValue = [...field.value];
-                          newValue[index] = e.target.value;
-                          field.onChange(newValue);
-                          form.trigger("githubRepos");
-                        }}
-                      />
-                    </FormControl>
+        render={({ field }) => {
+          // Ensure we're always using the latest values from the form
+          const repos =
+            currentGithubRepos.length > 0 ? currentGithubRepos : field.value;
 
-                    {repo && (
-                      <div className="absolute right-8 top-1/2 -translate-y-1/2">
-                        {renderGithubBadge({
-                          url: repo,
-                          status: githubRepoStatuses[repo]
-                        })}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2">
-                      {
-                        <button
-                          type="button"
-                          className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group flex-shrink-0"
-                          onClick={() => {
-                            const newValue = field.value.filter(
-                              (_, i) => i !== index
-                            );
+          return (
+            <FormItem className="flex-1">
+              <div className="flex items-center space-x-2">
+                <FormLabel>Codebase Indexing</FormLabel>
+                <HeaderTooltip
+                  text={
+                    "Provide links to GitHub repositories to index their codebases. The Guru can then use these codebases to generate answers based on them."
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                {repos.map((repo, index) => (
+                  <div key={index} className="flex flex-col gap-2">
+                    <div className="relative flex gap-2">
+                      <FormControl>
+                        <Input
+                          placeholder="https://github.com/username/repository"
+                          value={repo}
+                          className={cn(
+                            "w-full pr-[110px]",
+                            githubRepoStatuses[repo] === "NOT_PROCESSED" &&
+                              "bg-gray-100 cursor-not-allowed",
+                            form.formState.errors.githubRepos?.[index] &&
+                              "border-red-500"
+                          )}
+                          type="url"
+                          disabled={
+                            isSourcesProcessing ||
+                            isProcessing ||
+                            form.formState.isSubmitting ||
+                            githubRepoStatuses[repo] === "NOT_PROCESSED"
+                          }
+                          onChange={(e) => {
+                            const newValue = [...repos];
+                            newValue[index] = e.target.value;
                             field.onChange(newValue);
-                          }}>
-                          <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
-                        </button>
-                      }
+                            form.trigger("githubRepos");
+                          }}
+                        />
+                      </FormControl>
+
+                      {repo && (
+                        <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                          {renderGithubBadge({
+                            url: repo,
+                            status: githubRepoStatuses[repo]
+                          })}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {
+                          <button
+                            type="button"
+                            disabled={
+                              isSourcesProcessing || form.formState.isSubmitting
+                            }
+                            className={`${isSourcesProcessing || form.formState.isSubmitting ? "opacity-50 text-gray-300 pointer-events-none cursor-not-allowed" : "text-[#BABFC8] hover:text-[#DC2626]"} transition-colors group flex-shrink-0`}
+                            onClick={() => {
+                              const newValue = repos.filter(
+                                (_, i) => i !== index
+                              );
+                              field.onChange(newValue);
+                            }}>
+                            <SolarTrashBinTrashBold
+                              className={`h-6 w-6 ${isSourcesProcessing || form.formState.isSubmitting ? "text-gray-300 opacity-50" : "text-[#BABFC8] group-hover:text-[#DC2626]"} transition-colors`}
+                            />
+                          </button>
+                        }
+                      </div>
                     </div>
-                  </div>
-                  {/* Show form validation error first, then indexing error */}
-                  {form.formState.errors.githubRepos?.[index] && (
-                    <div className="text-sm text-red-600 pl-1">
-                      {form.formState.errors.githubRepos[index].message}
-                    </div>
-                  )}
-                  {repo &&
-                    githubRepoErrors[repo] &&
-                    !form.formState.errors.githubRepos?.[index] && (
+                    {/* Show form validation error first, then indexing error */}
+                    {form.formState.errors.githubRepos?.[index] && (
                       <div className="text-sm text-red-600 pl-1">
-                        {githubRepoErrors[repo]}
+                        {form.formState.errors.githubRepos[index].message}
                       </div>
                     )}
-                </div>
-              ))}
-              {field.value.length < repoLimit && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    field.onChange([...field.value, ""]);
-                  }}
-                  className="w-full">
-                  Add Repository
-                </Button>
-              )}
-            </div>
-          </FormItem>
-        )}
+                    {repo &&
+                      githubRepoErrors[repo] &&
+                      !form.formState.errors.githubRepos?.[index] && (
+                        <div className="text-sm text-red-600 pl-1">
+                          {githubRepoErrors[repo]}
+                        </div>
+                      )}
+                  </div>
+                ))}
+                {repos.length < repoLimit && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      field.onChange([...repos, ""]);
+                    }}
+                    disabled={
+                      isSourcesProcessing ||
+                      isProcessing ||
+                      form.formState.isSubmitting
+                    }
+                    className={`w-full ${
+                      isSourcesProcessing ||
+                      isProcessing ||
+                      form.formState.isSubmitting
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}>
+                    Add Repository
+                  </Button>
+                )}
+              </div>
+            </FormItem>
+          );
+        }}
       />
     );
   };

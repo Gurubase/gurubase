@@ -452,10 +452,11 @@ class InternalLinkSpider(scrapy.Spider):
                 if settings.ENV != 'selfhosted' and len(self.internal_links) >= self.link_limit:
                     if self.crawl_state_id:
                         crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
-                        crawl_state.status = CrawlState.Status.FAILED
-                        crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
-                        crawl_state.end_time = timezone.now()
-                        crawl_state.save()
+                        if not crawl_state.user.is_admin:
+                            crawl_state.status = CrawlState.Status.FAILED
+                            crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
+                            crawl_state.end_time = timezone.now()
+                            crawl_state.save()
                     return
 
                 if len(self.internal_links) % 100 == 0:
