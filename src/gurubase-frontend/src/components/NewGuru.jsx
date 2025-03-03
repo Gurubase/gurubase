@@ -2713,35 +2713,35 @@ export default function NewGuru({ guruData, isProcessing }) {
 
 const DeleteConfirmationModal = ({ isOpen, onOpenChange, onDelete }) => {
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
-        isOpen ? "visible" : "hidden"
-      }`}>
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={() => onOpenChange(false)}
-      />
-      <div className="relative bg-white rounded-xl p-6 shadow-lg max-w-md w-full">
-        <h2 className="text-xl font-semibold mb-4">Confirm Deletion</h2>
-        <p className="mb-6">
-          Are you sure you want to delete this item? This action cannot be
-          undone.
-        </p>
-        <div className="flex justify-end space-x-4">
-          <Button
-            className="h-12 px-4 justify-center items-center rounded-lg bg-red-600 text-white"
-            onClick={onDelete}>
-            Delete
-          </Button>
-          ,
-          <Button
-            className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
-            variant="outline"
-            onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[400px] p-0">
+        <div className="p-6 text-center">
+          <DialogHeader>
+            <div className="mx-auto mb-4 h-[60px] w-[60px] rounded-full text-gray-600">
+              <SolarTrashBinTrashBold className="h-full w-full" />
+            </div>
+            <DialogTitle className="text-base font-semibold text-center text-[#191919] font-inter">
+              You are about to remove the Guru
+            </DialogTitle>
+            <DialogDescription className="text-[14px] text-[#6D6D6D] text-center font-inter font-normal">
+              If you confirm, the Guru will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button
+              className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
+              onClick={onDelete}>
+              Delete
+            </Button>
+            <Button
+              className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
+              variant="outline"
+              onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
