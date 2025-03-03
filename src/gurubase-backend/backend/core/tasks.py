@@ -1580,7 +1580,7 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int):
         except Exception as e:
             logger.error(f"Error updating crawl state: {str(e)}", exc_info=True)
 
-@shared_task
+@shared_task(ignore_result=True)
 def stop_inactive_ui_crawls():
     """
     Periodic task to stop UI crawls that haven't been polled for more than 10 seconds
