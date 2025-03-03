@@ -1128,7 +1128,7 @@ def process_sitemap():
 def update_guru_type_details():
     """
     Updates GuruType details:
-    1. Adds github details if missing
+    1. Adds github details if missing (only for the first GitHub repo)
     2. Updates domain knowledge if it's the default value
     """
     logger.info("Updating guru type details")
@@ -1146,19 +1146,18 @@ def update_guru_type_details():
             github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
             if github_repos:
                 try:
-                    all_github_details = []
-                    for github_repo in github_repos:
-                        try:
-                            github_details = github_requester.get_github_repo_details(github_repo)
-                            all_github_details.append(github_details)
-                        except Exception as e:
-                            logger.error(f"Error getting github details for repo {github_repo} in {guru_type.slug}: {traceback.format_exc()}")
-                            continue
-                    
-                    if all_github_details:  # Only update if we got at least one repo's details
-                        guru_type.github_details = all_github_details
+                    # Only fetch details for the first GitHub repo
+                    first_repo = github_repos[0]
+                    if not first_repo:
+                        continue
+                    try:
+                        github_details = github_requester.get_github_repo_details(first_repo)
+                        # Store as a list with a single item to maintain compatibility with the rest of the code
+                        guru_type.github_details = [github_details]
                         guru_type.save()
-                        logger.info(f'Updated github details for {guru_type.slug}')
+                        logger.info(f'Updated github details for {guru_type.slug} (first repo only: {first_repo})')
+                    except Exception as e:
+                        logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
                 except Exception as e:
                     logger.error(f"Error getting github details for {guru_type.slug}: {traceback.format_exc()}")
                     continue
