@@ -5,7 +5,8 @@ import { format, parseISO } from "date-fns";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 import { createApiKey, deleteApiKey, getApiKeys } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
@@ -28,6 +29,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const APIKeys = ({}) => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -40,9 +42,17 @@ const APIKeys = ({}) => {
   const [copied, setCopied] = useState(null);
   const router = useRouter();
   const [apiKeys, setApiKeys] = useState([]);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // useEffect only runs on the client, so now we can safely show the UI
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchApiKeys = async () => {
     const keys = await getApiKeys();
+
     setApiKeys(keys);
   };
 
@@ -129,22 +139,22 @@ const APIKeys = ({}) => {
     <main className="flex justify-center items-center px-16 guru-sm:px-0 w-full flex-grow guru-sm:max-w-full polygon-fill">
       <div className="guru-md:max-w-[870px] guru-lg:max-w-[1180px] w-full gap-4 h-full">
         <div className="grid grid-cols-1 h-full">
-          <div className="bg-white shadow-md guru-sm:border-none border-l border-r guru-lg:border-r-0 border-solid border-neutral-200">
-            <div className="block guru-sm:hidden border-r border-gray-200">
-              <div className="h-full polygon-fill bg-repeat opacity-[0.02]" />
+          <div className="bg-white dark:bg-[rgb(var(--card))] shadow-md guru-sm:border-none border-l border-r guru-lg:border-r-0 border-solid border-neutral-200 dark:border-[rgb(var(--border))]">
+            <div className="block guru-sm:hidden border-r border-gray-200 dark:border-[rgb(var(--border))]">
+              <div className="h-full polygon-fill bg-repeat opacity-[0.02] dark:opacity-[0.05]" />
             </div>
 
-            <section className="bg-white border-gray-200">
+            <section className="bg-white dark:bg-[rgb(var(--card))] border-gray-200 dark:border-[rgb(var(--border))]">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h1 className="text-[20px] font-semibold text-[#191919] font-inter mb-2">
+                    <h1 className="text-[20px] font-semibold text-[#191919] dark:text-[rgb(var(--foreground))] font-inter mb-2">
                       API Keys
                     </h1>
-                    <p className="text-[14px] font-normal text-[#6D6D6D] font-inter">
+                    <p className="text-[14px] font-normal text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))] font-inter">
                       Manage your API keys for accessing the{" "}
                       <Link
-                        className="text-blue-500 hover:text-blue-600"
+                        className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
                         href="https://docs.gurubase.ai/api-reference/introduction"
                         rel="noopener noreferrer"
                         target="_blank">
@@ -153,9 +163,10 @@ const APIKeys = ({}) => {
                       .
                     </p>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
+                    <ThemeToggle />
                     <Button
-                      className="rounded-lg bg-gray-800 text-white hover:bg-gray-700"
+                      className="rounded-lg bg-gray-800 text-white hover:bg-gray-700 dark:bg-[rgb(var(--primary))] dark:text-[rgb(var(--primary-foreground))] dark:hover:opacity-90"
                       size="lg"
                       onClick={() => setShowCreateDialog(true)}>
                       Create API Key
@@ -177,8 +188,8 @@ const APIKeys = ({}) => {
                       {apiKeys.length === 0 ? (
                         <TableRow key="empty-row">
                           <TableCell className="h-32 text-center" colSpan={4}>
-                            <div className="flex flex-col items-center justify-center text-[#6D6D6D]">
-                              <p className="text-sm text-[#6D6D6D]">
+                            <div className="flex flex-col items-center justify-center text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))]">
+                              <p className="text-sm text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))]">
                                 No API keys found
                               </p>
                             </div>
@@ -192,7 +203,7 @@ const APIKeys = ({}) => {
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                <span className="relative rounded bg-gray-50 px-[0.5rem] py-[0.3rem] font-mono text-sm min-w-[300px] text-[#191919]">
+                                <span className="relative rounded bg-gray-50 dark:bg-gray-800 px-[0.5rem] py-[0.3rem] font-mono text-sm min-w-[300px] text-[#191919] dark:text-[rgb(var(--foreground))]">
                                   {visibleKeys[key.id]
                                     ? key.key
                                     : `gb-${"*".repeat(26)}${key.key.slice(-4)}`}
@@ -228,7 +239,9 @@ const APIKeys = ({}) => {
                                   "MMM d, yyyy 'at' h:mm a"
                                 )
                               ) : (
-                                <span className="text-[#6D6D6D]">-</span>
+                                <span className="text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))]">
+                                  -
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -252,12 +265,12 @@ const APIKeys = ({}) => {
       </div>
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] dark:bg-[rgb(var(--card))] dark:text-[rgb(var(--card-foreground))] dark:border-[rgb(var(--border))]">
           <DialogHeader className="space-y-1.5">
-            <DialogTitle className="text-xl font-semibold text-[#191919] font-inter">
+            <DialogTitle className="text-xl font-semibold text-[#191919] dark:text-[rgb(var(--foreground))] font-inter">
               New API Key
             </DialogTitle>
-            <DialogDescription className="text-sm text-[#6D6D6D] font-normal">
+            <DialogDescription className="text-sm text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))] font-normal">
               Name your key to start using the API
             </DialogDescription>
           </DialogHeader>
@@ -274,14 +287,14 @@ const APIKeys = ({}) => {
             </div>
             <DialogFooter>
               <Button
-                className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
+                className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] dark:text-[rgb(var(--card-foreground))]"
                 type="button"
                 variant="outline"
                 onClick={() => setShowCreateDialog(false)}>
                 Cancel
               </Button>
               <Button
-                className="h-12 px-6 justify-center items-center rounded-lg bg-gray-800 hover:bg-gray-700 text-white"
+                className="h-12 px-6 justify-center items-center rounded-lg bg-gray-800 hover:bg-gray-700 dark:bg-[rgb(var(--primary))] dark:text-[rgb(var(--primary-foreground))] dark:hover:opacity-90 text-white"
                 disabled={isLoading || !name.trim()}
                 type="submit">
                 {isLoading ? "Creating..." : "Create"}
@@ -292,16 +305,16 @@ const APIKeys = ({}) => {
       </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-[400px] p-0">
+        <DialogContent className="max-w-[400px] p-0 dark:bg-[rgb(var(--card))] dark:text-[rgb(var(--card-foreground))] dark:border-[rgb(var(--border))]">
           <div className="p-6 text-center">
             <DialogHeader>
-              <div className="mx-auto mb-4 h-[60px] w-[60px] rounded-full text-gray-600">
+              <div className="mx-auto mb-4 h-[60px] w-[60px] rounded-full text-gray-600 dark:text-gray-400">
                 <SolarTrashBinTrashBold className="h-full w-full" />
               </div>
-              <DialogTitle className="text-base font-semibold text-center text-[#191919] font-inter">
+              <DialogTitle className="text-base font-semibold text-center text-[#191919] dark:text-[rgb(var(--foreground))] font-inter">
                 You are about to remove the API Key
               </DialogTitle>
-              <DialogDescription className="text-[14px] text-[#6D6D6D] text-center font-inter font-normal">
+              <DialogDescription className="text-[14px] text-[#6D6D6D] dark:text-[rgb(var(--muted-foreground))] text-center font-inter font-normal">
                 If you confirm, the API key will be removed.
               </DialogDescription>
             </DialogHeader>
@@ -320,7 +333,7 @@ const APIKeys = ({}) => {
                 )}
               </Button>
               <Button
-                className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
+                className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] dark:text-[rgb(var(--card-foreground))]"
                 variant="outline"
                 onClick={() => setDeleteDialogOpen(false)}>
                 Close

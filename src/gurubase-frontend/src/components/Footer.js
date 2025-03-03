@@ -8,7 +8,7 @@ import useIsSmallScreen from "@/utils/hooks/useIsSmallScreen";
 
 import NotificationCard from "./NotificationCard/NotificationCard";
 
-export default function Footer({ guruType, slug, sidebarExists = false }) {
+export default function Footer({ sidebarExists = false }) {
   const isSmallScreen = useIsSmallScreen();
 
   // Don't render footer on mobile screens
@@ -17,7 +17,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
   }
 
   return (
-    <main className="flex justify-center items-center text-xs bg-white border-t border-solid border-neutral-200 w-full py-3 guru-sm:mb-0 guru-sm:pb-2 z-40 guru-md:z-auto">
+    <main className="flex justify-center items-center text-xs bg-white dark:bg-[rgb(var(--background))] border-t border-solid border-neutral-200 dark:border-[rgb(var(--border))] w-full py-3 guru-sm:mb-0 guru-sm:pb-2 z-40 guru-md:z-auto">
       <section
         className={clsx(
           "flex flex-col justify-center border-0 border-solid border-neutral-200 flex-grow mx-6 guru-sm:mx-5",
@@ -29,7 +29,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
           <section className="flex flex-row justify-between guru-sm:justify-between guru-sm:flex-row flex-1 self-stretch">
             <Image
               alt="Gurubase Logo"
-              className="max-w-full aspect-[5] w-[119px] guru-sm:hidden"
+              className="max-w-full aspect-[5] w-[119px] guru-sm:hidden dark:invert dark:brightness-200 dark:contrast-200"
               height={0}
               loading="lazy"
               src={GurubaseLogo}
@@ -38,15 +38,19 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
             />
             <SocialMediaHeader isMobile={true} />
 
-            <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
+            <p className="text-gray-400 dark:text-gray-300 guru-sm:hidden italic text-base font-medium">
               AI-powered Q&A assistants for any topic
             </p>
             <div className="flex justify-end items-center guru-sm:gap-2 gap-4">
               <Link href="/privacy-policy" prefetch={false}>
-                <span className="text-gray-400">Privacy Policy</span>
+                <span className="text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-100 transition-colors">
+                  Privacy Policy
+                </span>
               </Link>
               <Link href="/terms-of-use" prefetch={false}>
-                <span className="text-gray-400">Terms of Use</span>
+                <span className="text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-100 transition-colors">
+                  Terms of Use
+                </span>
               </Link>
             </div>
           </section>

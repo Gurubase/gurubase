@@ -12,7 +12,7 @@ const SocialMediaHeader = ({ isMobile = false }) => {
       )}>
       <Link
         aria-label="TwitterX"
-        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] focus:outline-none"
+        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] dark:text-[rgb(var(--foreground))] focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800"
         href="https://x.com/gurubaseio"
         prefetch={false}
         target="_blank">
@@ -27,7 +27,7 @@ const SocialMediaHeader = ({ isMobile = false }) => {
       </Link>
       <Link
         aria-label="Discord"
-        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] focus:outline-none"
+        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] dark:text-[rgb(var(--foreground))] focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800"
         href="https://discord.gg/9CMRSQPqx6"
         prefetch={false}
         target="_blank">
@@ -42,7 +42,7 @@ const SocialMediaHeader = ({ isMobile = false }) => {
       </Link>
       <Link
         aria-label="GitHub Repository"
-        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] focus:outline-none"
+        className="flex gap-2 justify-center items-center px-2 h-9 rounded-full transition-colors text-[#191919] dark:text-[rgb(var(--foreground))] focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800"
         href="https://github.com/Gurubase/gurubase?utm_source=gurubase&utm_medium=header&utm_campaign=social"
         prefetch={false}
         target="_blank">

@@ -5,7 +5,7 @@ import Header from "@/components/Header/index";
 
 const APIKeysMainPage = () => {
   return (
-    <div className="flex flex-col bg-white h-screen">
+    <div className="flex flex-col bg-white dark:bg-[rgb(var(--background))] h-screen">
       <Header />
       <APIKeys />
       <Footer />

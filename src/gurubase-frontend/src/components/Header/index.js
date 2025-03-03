@@ -26,8 +26,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setResetMainForm } from "@/redux/slices/mainFormSlice";
 
 import MobileSidebar from "./MobileSidebar";
-import SocialMediaHeader from "./SocialMediaHeader";
 import { getNavigationItems } from "./navigationConfig";
+import SocialMediaHeader from "./SocialMediaHeader";
 
 // Create a memoized UserAvatar component with loading optimization
 const UserAvatar = memo(({ user }) => {
@@ -114,7 +114,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
       return (
         <div className="guru-sm:hidden">
           <div className="flex items-center gap-2 p-1 rounded-full">
-            <div className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 bg-gray-100 animate-pulse" />
+            <div className="flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 animate-pulse" />
           </div>
         </div>
       );
@@ -136,7 +136,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-[220px] p-0.5 rounded-[10px] border-[0.5px] border-[#E2E2E2] bg-white shadow-[4px_4px_10px_0px_rgba(210,210,210,0.20)]">
+              className="w-[220px] p-0.5 rounded-[10px] border-[0.5px] border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] dark:text-[rgb(var(--card-foreground))] shadow-[4px_4px_10px_0px_rgba(210,210,210,0.20)] dark:shadow-[4px_4px_10px_0px_rgba(0,0,0,0.25)]">
               {!isSelfHosted && (
                 <>
                   <DropdownMenuLabel className="px-3 py-2.5">
@@ -149,7 +149,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
                       </p>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-[#E2E2E2]" />
+                  <DropdownMenuSeparator className="bg-[#E2E2E2] dark:bg-[rgb(var(--border))]" />
                 </>
               )}
               {getNavigationItems(isSelfHosted).map(renderNavigationItem)}
@@ -162,12 +162,12 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
     return (
       <div className="flex items-center gap-3 guru-sm:hidden">
         <a
-          className="flex h-9 px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] bg-white text-sm font-medium text-black hover:bg-gray-50 transition-colors"
+          className="flex h-9 px-4 justify-center items-center gap-2 rounded-full border border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] text-sm font-medium text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
           Log in
         </a>
         <a
-          className="flex h-9 px-4 items-center gap-1.5 rounded-full bg-[#1B242D] text-sm font-medium text-white hover:bg-[#2C3642] transition-colors"
+          className="flex h-9 px-4 items-center gap-1.5 rounded-full bg-[#1B242D] dark:bg-[rgb(var(--primary))] text-sm font-medium text-white dark:text-[rgb(var(--primary-foreground))] hover:bg-[#2C3642] dark:hover:opacity-90 transition-colors"
           href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
           Sign Up
         </a>
@@ -176,7 +176,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
   };
 
   const getBackgroundColor = () => {
-    return "#FFFFFF";
+    return "transparent";
   };
 
   const activeGuruName = useAppSelector(
@@ -200,7 +200,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
       />
       <header
         className={clsx(
-          "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 z-50 bg-white",
+          "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] dark:border-[rgb(var(--border))] guru-sm:border-none border-b border-solid border-neutral-200 dark:border-[rgb(var(--border))] fixed top-0 z-50 bg-white dark:bg-[rgb(var(--background))] dark:text-[rgb(var(--foreground))]",
           isMobileSidebarOpen && "guru-sm:hidden",
           guruType || !guruType || postContentExist || isLoading
             ? "guru-sm:mt-0"
@@ -208,8 +208,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
           guruType || !guruType || postContentExist || isLoading
             ? "guru-sm:mb-0"
             : "guru-sm:mb-8"
-        )}
-        style={{ backgroundColor: getBackgroundColor() }}>
+        )}>
         <div
           className={clsx(
             "flex guru-sm:flex-wrap gap-5 justify-between guru-sm:px-5 flex-grow shrink",
@@ -224,7 +223,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
             <div className="flex items-center gap-4">
               <button
                 aria-label="Open menu"
-                className="flex items-center justify-center w-8 h-8 text-gray-700"
+                className="flex items-center justify-center w-8 h-8 text-gray-700 dark:text-gray-300"
                 onClick={() => setIsMobileSidebarOpen(true)}>
                 <Icon className="w-6 h-6" icon="solar:hamburger-menu-outline" />
               </button>

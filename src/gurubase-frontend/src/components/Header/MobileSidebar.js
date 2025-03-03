@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import GuruBaseLogo from "@/components/GuruBaseLogo";
 import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { getNavigationItems } from "./navigationConfig";
 
 const MobileSidebar = ({ isOpen, onClose, user }) => {
@@ -28,12 +29,14 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
     <div key={item.id} className="w-full">
       <Link
         className="flex items-center gap-2 py-3 rounded-lg transition-all duration-200
-          hover:bg-[#F5F5F5] hover:pl-1 active:bg-[#EAEAEA]"
+          hover:bg-[#F5F5F5] dark:hover:bg-gray-800 hover:pl-1 active:bg-[#EAEAEA] dark:active:bg-gray-700"
         href={item.href}
         prefetch={false}
         onClick={onClose}>
         <Icon className={`w-5 h-5 text-[${item.iconColor}]`} icon={item.icon} />
-        <span className={`text-sm text-[${item.textColor}]`}>{item.label}</span>
+        <span className={`text-sm text-[${item.textColor}] dark:text-gray-200`}>
+          {item.label}
+        </span>
       </Link>
     </div>
   );
@@ -41,7 +44,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="fixed left-0 top-0 h-full w-[240px] p-0 border-r border-[#E2E2E2] bg-white shadow-lg 
+        className="fixed left-0 top-0 h-full w-[240px] p-0 border-r border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--background))] shadow-lg 
         data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left
         transition-all duration-300 ease-in-out touch-pan-x
         focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
@@ -62,12 +65,14 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
             {user ? (
               <>
                 {/* User Profile Section */}
-                <div className="pb-6 border-b border-[#E2E2E2]">
+                <div className="pb-6 border-b border-[#E2E2E2] dark:border-[rgb(var(--border))]">
                   <div className="flex flex-col">
-                    <p className="text-base font-semibold text-[#191919] mb-1">
+                    <p className="text-base font-semibold text-[#191919] dark:text-[rgb(var(--foreground))] mb-1">
                       {user.name}
                     </p>
-                    <p className="text-sm text-[#6D6D6D]">{user.email}</p>
+                    <p className="text-sm text-[#6D6D6D] dark:text-gray-400">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
 
@@ -79,12 +84,12 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
             ) : (
               <div className="flex flex-col justify-center items-start gap-3">
                 <a
-                  className="flex h-9 justify-center items-center rounded-full bg-[#1B242D] text-sm text-white hover:bg-[#2C3642] transition-colors py-2 w-full"
+                  className="flex h-9 justify-center items-center rounded-full bg-[#1B242D] dark:bg-[rgb(var(--primary))] text-sm text-white dark:text-[rgb(var(--primary-foreground))] hover:bg-[#2C3642] dark:hover:opacity-90 transition-colors py-2 w-full"
                   href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
                   Sign Up
                 </a>
                 <a
-                  className="flex h-9 justify-center items-center rounded-full border border-[#E2E2E2] bg-white text-sm text-black hover:bg-gray-50 transition-colors py-2 w-full"
+                  className="flex h-9 justify-center items-center rounded-full border border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] text-sm text-black dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors py-2 w-full"
                   href={`/api/auth/login?returnTo=${encodeURIComponent(pathname)}`}>
                   Log in
                 </a>
@@ -93,7 +98,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
           </div>
 
           {/* Footer Section */}
-          <div className="w-full space-y-6 mt-auto pt-6 border-t border-[#E2E2E2]">
+          <div className="w-full space-y-6 mt-auto pt-6 border-t border-[#E2E2E2] dark:border-[rgb(var(--border))]">
             {/* Social Links */}
             <div className="space-y-2">
               <Link
@@ -109,28 +114,28 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
               </Link>
               <Link
                 className="flex h-8 px-2 justify-center items-center gap-2 rounded 
-                  border border-[#E2E2E2] bg-white text-[#191919] text-sm w-full
-                  hover:bg-[#F5F5F5] active:bg-[#EAEAEA]
+                  border border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] text-[#191919] dark:text-[rgb(var(--foreground))] text-sm w-full
+                  hover:bg-[#F5F5F5] dark:hover:bg-gray-800 active:bg-[#EAEAEA] dark:active:bg-gray-700
                   transition-all duration-200"
                 href="https://x.com/gurubaseio"
                 prefetch={false}
                 target="_blank">
                 <Icon
-                  className="w-5 h-5 text-[#191919]"
+                  className="w-5 h-5 text-[#191919] dark:text-[rgb(var(--foreground))]"
                   icon="ri:twitter-x-fill"
                 />
                 Follow Us
               </Link>
               <Link
                 className="flex h-8 px-2 justify-center items-center gap-2 rounded 
-                  border border-[#E2E2E2] bg-white text-[#191919] text-sm w-full
-                  hover:bg-[#F5F5F5] active:bg-[#EAEAEA]
+                  border border-[#E2E2E2] dark:border-[rgb(var(--border))] bg-white dark:bg-[rgb(var(--card))] text-[#191919] dark:text-[rgb(var(--foreground))] text-sm w-full
+                  hover:bg-[#F5F5F5] dark:hover:bg-gray-800 active:bg-[#EAEAEA] dark:active:bg-gray-700
                   transition-all duration-200"
                 href="https://github.com/Gurubase/gurubase?utm_source=gurubase&utm_medium=mobile_menu&utm_campaign=social"
                 prefetch={false}
                 target="_blank">
                 <Icon
-                  className="w-5 h-5 text-[#191919]"
+                  className="w-5 h-5 text-[#191919] dark:text-[rgb(var(--foreground))]"
                   icon="simple-icons:github"
                 />
                 Star Us
@@ -138,16 +143,16 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
             </div>
 
             {/* Legal Links */}
-            <div className="flex items-center justify-center gap-2 text-xs text-[#6D6D6D]">
+            <div className="flex items-center justify-center gap-2 text-xs text-[#6D6D6D] dark:text-gray-400">
               <Link
-                className="hover:text-gray-800 transition-colors"
+                className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 href="/privacy-policy"
                 prefetch={false}>
                 Privacy Policy
               </Link>
               <span>•</span>
               <Link
-                className="hover:text-gray-800 transition-colors"
+                className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 href="/terms-of-use"
                 prefetch={false}>
                 Terms of Use

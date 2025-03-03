@@ -2,10 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force dark mode styles to be applied */
+.dark {
+  color-scheme: dark;
+}
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
+
+  /* Light mode colors */
+  --background: 255, 255, 255;
+  --foreground: 25, 25, 25;
+  --card: 255, 255, 255;
+  --card-foreground: 25, 25, 25;
+  --popover: 255, 255, 255;
+  --popover-foreground: 25, 25, 25;
+  --primary: 27, 36, 45;
+  --primary-foreground: 255, 255, 255;
+  --secondary: 243, 244, 246;
+  --secondary-foreground: 25, 25, 25;
+  --muted: 243, 244, 246;
+  --muted-foreground: 109, 109, 109;
+  --accent: 243, 244, 246;
+  --accent-foreground: 25, 25, 25;
+  --destructive: 220, 38, 38;
+  --destructive-foreground: 255, 255, 255;
+  --border: 226, 226, 226;
+  --input: 226, 226, 226;
+  --ring: 27, 36, 45;
+}
+
+.dark {
+  /* Dark mode colors */
+  --background: 25, 25, 25;
+  --foreground: 255, 255, 255;
+  --card: 35, 35, 35;
+  --card-foreground: 255, 255, 255;
+  --popover: 35, 35, 35;
+  --popover-foreground: 255, 255, 255;
+  --primary: 255, 255, 255;
+  --primary-foreground: 25, 25, 25;
+  --secondary: 45, 45, 45;
+  --secondary-foreground: 255, 255, 255;
+  --muted: 45, 45, 45;
+  --muted-foreground: 160, 160, 160;
+  --accent: 45, 45, 45;
+  --accent-foreground: 255, 255, 255;
+  --destructive: 220, 38, 38;
+  --destructive-foreground: 255, 255, 255;
+  --border: 60, 60, 60;
+  --input: 60, 60, 60;
+  --ring: 200, 200, 200;
 }
 
 @layer base {
@@ -87,8 +136,8 @@
     --blue-50: #eff6ff;
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
+    /* --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%; */
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
     --primary-foreground: 0 0% 9%;
@@ -181,6 +230,32 @@
   background-image: url("/images/polygon-repeat.png");
   background-size: 31px 29px;
   background-repeat: repeat-x repeat-y;
+}
+
+/* Dark mode version of polygon-fill */
+.dark .polygon-fill {
+  background-image: none;
+  position: relative;
+}
+
+.dark .polygon-fill::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(35, 35, 35, 1); /* Dark gray background */
+  background-image: url("data:image/svg+xml,%3Csvg width='31' height='29' viewBox='0 0 31 29' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15.5 0L30.9833 11.25V23.75L15.5 29L0.0166626 23.75V11.25L15.5 0Z' fill='rgba(255, 255, 255, 0.05)'/%3E%3C/svg%3E");
+  background-size: 31px 29px;
+  background-repeat: repeat-x repeat-y;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .polygon-fill > * {
+  position: relative;
+  z-index: 1;
 }
 
 @layer utilities {

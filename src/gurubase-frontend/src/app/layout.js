@@ -9,6 +9,7 @@ import Script from "next/script";
 import { PublicEnvScript } from "next-runtime-env";
 
 import StoreProvider from "@/app/StoreProvider";
+import { ThemeProviderWrapper } from "@/app/theme-provider-wrapper";
 import { Toaster } from "@/components/ui/Sonner";
 
 import { CSPostHogProvider } from "./providers";
@@ -66,7 +67,10 @@ export default function RootLayout({ children }) {
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
   const content = (
-    <html className={`${inter.variable} ${gilroy.variable}`} lang="en">
+    <html
+      className={`${inter.variable} ${gilroy.variable}`}
+      lang="en"
+      suppressHydrationWarning>
       <head>
         <PublicEnvScript />
         <meta content="yes" name="apple-mobile-web-app-capable" />
@@ -74,32 +78,34 @@ export default function RootLayout({ children }) {
         <meta content="yes" name="mobile-web-app-capable" />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
-        <div className="flex min-h-screen flex-col">
-          <PageTransition />
-          {children}
-          <Toaster />
-          {process.env.NEXT_PUBLIC_NODE_ENV === "production" && (
-            <>
-              <GoogleAnalytics gaId="G-SF3K4F9EQ6" strategy="lazyOnload" />
-              <Script
-                dangerouslySetInnerHTML={{
-                  __html: `
-                    (function(h,o,t,j,a,r){
-                      h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
-                      h._hjSettings={hjid:5125159,hjsv:6};
-                      a=o.getElementsByTagName('head')[0];
-                      r=o.createElement('script');r.async=1;
-                      r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
-                      a.appendChild(r);
-                  })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
-                `
-                }}
-                id="HotjarIntegration"
-                strategy="lazyOnload"
-              />
-            </>
-          )}
-        </div>
+        <ThemeProviderWrapper>
+          <div className="flex min-h-screen flex-col">
+            <PageTransition />
+            {children}
+            <Toaster />
+            {process.env.NEXT_PUBLIC_NODE_ENV === "production" && (
+              <>
+                <GoogleAnalytics gaId="G-SF3K4F9EQ6" strategy="lazyOnload" />
+                <Script
+                  dangerouslySetInnerHTML={{
+                    __html: `
+                      (function(h,o,t,j,a,r){
+                        h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+                        h._hjSettings={hjid:5125159,hjsv:6};
+                        a=o.getElementsByTagName('head')[0];
+                        r=o.createElement('script');r.async=1;
+                        r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+                        a.appendChild(r);
+                    })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+                  `
+                  }}
+                  id="HotjarIntegration"
+                  strategy="lazyOnload"
+                />
+              </>
+            )}
+          </div>
+        </ThemeProviderWrapper>
       </body>
     </html>
   );
