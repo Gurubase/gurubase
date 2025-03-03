@@ -2010,14 +2010,19 @@ export default function NewGuru({ guruData, isProcessing }) {
                       {
                         <button
                           type="button"
-                          className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group flex-shrink-0"
+                          disabled={
+                            isSourcesProcessing || form.formState.isSubmitting
+                          }
+                          className={`${isSourcesProcessing || form.formState.isSubmitting ? "opacity-50 text-gray-300 pointer-events-none cursor-not-allowed" : "text-[#BABFC8] hover:text-[#DC2626]"} transition-colors group flex-shrink-0`}
                           onClick={() => {
                             const newValue = field.value.filter(
                               (_, i) => i !== index
                             );
                             field.onChange(newValue);
                           }}>
-                          <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
+                          <SolarTrashBinTrashBold
+                            className={`h-6 w-6 ${isSourcesProcessing || form.formState.isSubmitting ? "text-gray-300 opacity-50" : "text-[#BABFC8] group-hover:text-[#DC2626]"} transition-colors`}
+                          />
                         </button>
                       }
                     </div>
