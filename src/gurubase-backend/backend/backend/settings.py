@@ -226,7 +226,7 @@ LOGGING = {
         },
         'celery.beat': {  # Beat scheduler logger
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'WARNING',
             'filters': ['hide_info_specific_task'],
         },
     },
