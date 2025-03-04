@@ -186,7 +186,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       return updatedContent;
     });
-  }, guruData?.slug);
+  }, guruData?.slug || null);
 
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";

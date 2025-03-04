@@ -1547,7 +1547,7 @@ class CrawlState(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
     last_polled_at = models.DateTimeField(auto_now_add=True)
     link_limit = models.IntegerField(default=1500)
-    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
+    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True) # null on selfhosted
 
     def __str__(self):
