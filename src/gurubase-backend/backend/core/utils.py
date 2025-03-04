@@ -2691,9 +2691,6 @@ def get_github_url_from_data_source(guru_type_slug):
     if not data_sources.exists():
         logger.info(f'No github data source found for {guru_type_slug}')
         return None
-    if data_sources.count() > 1:
-        logger.error(f'Multiple github data sources found for {guru_type_slug}')
-        return None
     return data_sources[0].url
 
 def check_binge_auth(binge, user):
