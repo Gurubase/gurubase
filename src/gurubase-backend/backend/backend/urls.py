@@ -93,6 +93,7 @@ if settings.STREAM_ENABLED:
             path('api/widget/guru/', core_views.get_guru_visuals, name='get_guru_visuals_api'),
             path('api/widget/binge/', core_views.widget_create_binge, name='widget_create_binge_api'),
             path('api/<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples_api'),
+            path('api/slack/events/', core_views.slack_events, name='slack_events_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
         ]
 
