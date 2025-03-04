@@ -329,26 +329,44 @@ class GuruType(models.Model):
         Generates a new widget ID for this guru type and domain.
         If an active key exists for the domain, raises ValidationError.
         Validates that the domain URL is properly formatted.
+        
+        Supports the following domain URL formats:
+        - Standard URLs: 'https://example.com', 'http://subdomain.example.com'
+        - Wildcard patterns:
+          - '*': Match any domain (universal wildcard)
+          - 'http://localhost:*': Match localhost with any port
+          - 'https://*.example.com': Match any subdomain of example.com
+        
+        Examples:
+        - '*' → Allow from any domain
+        - 'http://localhost:*' → Allow from localhost with any port (localhost:3000, localhost:8080, etc.)
+        - 'https://*.example.com' → Allow from any subdomain of example.com (app.example.com, api.example.com, etc.)
+        - 'https://example.com' → Allow only from exact domain example.com
         """
         if domain_url:
             # Normalize domain_url
             domain_url = domain_url.rstrip('/')
 
-            # Validate URL format
-            url_validator = URLValidator()
-            try:
-                url_validator(domain_url)
-            except ValidationError:
-                raise ValidationError({'msg': 'Invalid URL format'})
+            # Check if this is a wildcard pattern
+            is_wildcard = '*' in domain_url
+            
+            # For non-wildcard URLs, perform standard validation
+            if not is_wildcard:
+                # Standard URL validation
+                url_validator = URLValidator()
+                try:
+                    url_validator(domain_url)
+                except ValidationError:
+                    raise ValidationError({'msg': 'Invalid URL format'})
 
-            # Additional domain validation
-            parsed_url = urlparse(domain_url)
-            if not parsed_url.netloc:
-                raise ValidationError({'msg': 'Invalid domain URL'})
+                # Additional domain validation
+                parsed_url = urlparse(domain_url)
+                if not parsed_url.netloc:
+                    raise ValidationError({'msg': 'Invalid domain URL'})
 
-            # Ensure URL has valid scheme
-            if parsed_url.scheme not in ['http', 'https']:
-                raise ValidationError({'msg': 'URL must start with http:// or https://'})
+                # Ensure URL has valid scheme
+                if parsed_url.scheme not in ['http', 'https']:
+                    raise ValidationError({'msg': 'URL must start with http:// or https://'})
 
         # Check for existing widget for this domain/guru type combination
         existing_key = WidgetId.objects.filter(
@@ -364,7 +382,8 @@ class GuruType(models.Model):
         WidgetId.objects.create(
             guru_type=self,
             key=key,
-            domain_url=domain_url
+            domain_url=domain_url,
+            is_wildcard=is_wildcard if domain_url else False
         )
         return key
 
@@ -1295,6 +1314,7 @@ class WidgetId(models.Model):
     key = models.CharField(max_length=100, unique=True)
     domain_url = models.URLField(max_length=2000)
     domain = models.URLField(max_length=2000)  # New field to store the base domain
+    is_wildcard = models.BooleanField(default=False)  # Flag to indicate if this is a wildcard pattern
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1310,9 +1330,17 @@ class WidgetId(models.Model):
         if self.domain_url:
             # Remove trailing slashes and normalize domain
             self.domain_url = self.domain_url.rstrip('/')
-            # Extract and store the domain
-            parsed_url = urlparse(self.domain_url)
-            self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            
+            # Check if this is a wildcard pattern
+            self.is_wildcard = '*' in self.domain_url
+            
+            # For non-wildcard URLs, extract and store the domain
+            if not self.is_wildcard:
+                parsed_url = urlparse(self.domain_url)
+                self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            else:
+                # For wildcard patterns, store the pattern as is
+                self.domain = self.domain_url
 
         # Ensure domain is unique per guru type if specified
         if self.domain_url and WidgetId.objects.filter(
@@ -1335,6 +1363,72 @@ class WidgetId(models.Model):
             return cls.objects.get(key=widget_id)
         except cls.DoesNotExist:
             return None
+            
+    @classmethod
+    def domain_matches_pattern(cls, domain, pattern):
+        """
+        Check if a domain matches a wildcard pattern.
+        
+        Supports patterns like:
+        * - Match any domain
+        http://localhost:* - Match localhost with any port
+        https://*.example.com - Match any subdomain of example.com
+        *example.com - Match any domain ending with example.com
+        example* - Match any domain starting with example
+        *example* - Match any domain containing example
+        
+        Matching is case insensitive.
+        """
+        import re
+        
+        # Convert both domain and pattern to lowercase for case-insensitive matching
+        if domain:
+            domain = domain.lower()
+        if pattern:
+            pattern = pattern.lower()
+        else:
+            return False
+            
+        # Exact match
+        if domain == pattern:
+            return True
+            
+        # Universal wildcard
+        if pattern == '*':
+            return True
+            
+        # Convert wildcard pattern to regex pattern
+        # Replace * with appropriate regex
+        regex_pattern = pattern.replace('.', r'\.').replace('*', '.*')
+        
+        # Add start/end anchors if not already wildcarded
+        if not pattern.startswith('*'):
+            regex_pattern = '^' + regex_pattern
+        if not pattern.endswith('*'):
+            regex_pattern = regex_pattern + '$'
+            
+        # Try to match using regex
+        try:
+            return bool(re.match(regex_pattern, domain))
+        except re.error:
+            # If regex fails, fall back to simpler checks
+            
+            # Port wildcard (e.g., http://localhost:*)
+            if pattern.endswith(':*'):
+                base_pattern = pattern[:-2]  # Remove :* from the end
+                return domain.startswith(base_pattern)
+                
+            # Subdomain wildcard (e.g., https://*.example.com)
+            if '*.' in pattern:
+                prefix, suffix = pattern.split('*.', 1)
+                return domain.endswith(suffix) and domain.startswith(prefix)
+                
+            # Contains wildcard
+            if '*' in pattern:
+                parts = pattern.split('*')
+                return all(part in domain for part in parts if part)
+                
+            return False
 
 
 class GithubFile(models.Model):

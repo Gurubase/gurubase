@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def cors_allow_api_keys(sender, request, **kwargs):
     """
     Signal handler to allow CORS for domains registered with widget IDs.
-    Checks if the requesting origin matches any widget ID's domain.
+    Checks if the requesting origin matches any widget ID's domain or wildcard pattern.
     """
     try:
         # Get origin from headers
@@ -21,8 +21,17 @@ def cors_allow_api_keys(sender, request, **kwargs):
         parsed_origin = urlparse(origin)
         request_domain = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
         
-        # Check if this domain exists in any widget ID
-        return WidgetId.objects.filter(domain=request_domain).exists()
+        # First check for exact domain matches (more efficient query)
+        if WidgetId.objects.filter(domain=request_domain, is_wildcard=False).exists():
+            return True
+            
+        # Then check for wildcard patterns
+        wildcard_patterns = WidgetId.objects.filter(is_wildcard=True).values_list('domain', flat=True)
+        for pattern in wildcard_patterns:
+            if WidgetId.domain_matches_pattern(request_domain, pattern):
+                return True
+                
+        return False
 
     except Exception as e:
         # Log the error but don't block the request - let other CORS rules handle it
