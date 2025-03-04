@@ -86,10 +86,13 @@ if settings.STREAM_ENABLED:
     ]
     if settings.ENV == 'selfhosted':
         urlpatterns += [
+            # Define the urls that are accessed by the selfhosted nginx proxy ('localhost:8029/api/')
             path('api/<str:guru_type>/answer/', core_views.answer, name="answer-api"),
             path('api/analytics/', include('analytics.urls')),
             path('api/widget/ask/', core_views.ask_widget, name='ask_widget_api'),
             path('api/widget/guru/', core_views.get_guru_visuals, name='get_guru_visuals_api'),
+            path('api/widget/binge/', core_views.widget_create_binge, name='widget_create_binge_api'),
+            path('api/<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
         ]
 
