@@ -15,6 +15,7 @@ from decouple import config, Csv
 import os
 import sys
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -206,19 +207,47 @@ REST_FRAMEWORK = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s] [%(levelname)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
     'handlers': {
         'console': {
             'level': 'INFO',
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose', 
+            'filters': ['hide_info_specific_task'],
         },
     },
     'loggers': {
-        '': {  # This means all loggers will use this configuration
+        '': {  # Default logger
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
+        'celery': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery.beat': {  
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
     },
+    'filters': {
+        'hide_info_specific_task': {
+            '()': 'django.utils.log.CallbackFilter',
+            'callback': lambda record: not (
+                ('task_stop_inactive_ui_crawls' in record.getMessage() or 'core.tasks.stop_inactive_ui_crawls' in record.getMessage()) and 
+                record.levelno == logging.INFO and
+                not (datetime.fromtimestamp(record.created).minute == 0 and 
+                     datetime.fromtimestamp(record.created).second <= 3)
+            )
+        }
+    }
 }
 
 
@@ -388,10 +417,6 @@ GENERATE_FOLLOW_UP_EXAMPLES = config('GENERATE_FOLLOW_UP_EXAMPLES', default=True
 FOLLOW_UP_EXAMPLE_COUNT = config('FOLLOW_UP_EXAMPLE_COUNT', default=3, cast=int)
 
 BINGE_HISTORY_PAGE_SIZE = config('BINGE_HISTORY_PAGE_SIZE', default=30, cast=int)
-
-DATA_SOURCES_LIMIT_TOTAL_WEBSITES_COUNT = config('DATA_SOURCES_LIMIT_TOTAL_WEBSITES_COUNT', default=1500, cast=int)
-DATA_SOURCES_LIMIT_TOTAL_YOUTUBE_COUNT = config('DATA_SOURCES_LIMIT_TOTAL_YOUTUBE_COUNT', default=100, cast=int)
-DATA_SOURCES_LIMIT_TOTAL_PDF_MB = config('DATA_SOURCES_LIMIT_TOTAL_PDF_MB', default=100, cast=int)
 
 GITHUB_REPO_CODE_COLLECTION_NAME = config('GITHUB_REPO_CODE_COLLECTION_NAME', default='github_repo_code')
 

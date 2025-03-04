@@ -358,7 +358,7 @@ def run_spider_process(url, crawl_state_id, link_limit):
         logger.error(traceback.format_exc())
 
 
-def get_internal_links(url: str, crawl_state_id: int = None, link_limit: int = 1500) -> List[str]:
+def get_internal_links(url: str, crawl_state_id: int, link_limit: int) -> List[str]:
     """
     Crawls a website starting from the given URL and returns a list of all internal links found.
     The crawler only follows links that start with the same domain as the initial URL.
@@ -397,9 +397,10 @@ class InternalLinkSpider(scrapy.Spider):
             self.link_limit = kwargs.get('link_limit', 1500)
             self.should_close = False
             if settings.ENV != 'selfhosted':
-                self.proxies = format_proxies(get_random_proxies())
+                proxies = format_proxies(get_random_proxies())
             else:
-                self.proxies = None
+                proxies = None
+            self.proxies = proxies
         except Exception as e:
             logger.error(f"Error initializing InternalLinkSpider: {str(e)}", traceback.format_exc())
             CrawlState.objects.get(id=self.crawl_state_id).status = CrawlState.Status.FAILED
@@ -451,10 +452,11 @@ class InternalLinkSpider(scrapy.Spider):
                 if settings.ENV != 'selfhosted' and len(self.internal_links) >= self.link_limit:
                     if self.crawl_state_id:
                         crawl_state = CrawlState.objects.get(id=self.crawl_state_id)
-                        crawl_state.status = CrawlState.Status.FAILED
-                        crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
-                        crawl_state.end_time = timezone.now()
-                        crawl_state.save()
+                        if not crawl_state.user.is_admin:
+                            crawl_state.status = CrawlState.Status.FAILED
+                            crawl_state.error_message = f"Link limit of {self.link_limit} exceeded"
+                            crawl_state.end_time = timezone.now()
+                            crawl_state.save()
                     return
 
                 if len(self.internal_links) % 100 == 0:
@@ -543,7 +545,7 @@ class CrawlService:
         return user
 
     @staticmethod
-    def start_crawl(guru_slug, user, url, link_limit=1500, source=CrawlState.Source.API):
+    def start_crawl(guru_slug, user, url, source=CrawlState.Source.API):
         from core.serializers import CrawlStateSerializer
         from core.tasks import crawl_website
         import re
@@ -574,12 +576,12 @@ class CrawlService:
         crawl_state = CrawlState.objects.create(
             url=url,
             status=CrawlState.Status.RUNNING,
-            link_limit=link_limit,
+            link_limit=guru_type.website_count_limit,
             guru_type=guru_type,
             user=user,
             source=source
         )
-        crawl_website.delay(url, crawl_state.id, link_limit)
+        crawl_website.delay(url, crawl_state.id, guru_type.website_count_limit)
         return CrawlStateSerializer(crawl_state).data, 200
 
     @staticmethod

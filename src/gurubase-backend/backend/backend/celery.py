@@ -1,6 +1,4 @@
 import os
-
-import celery.signals
 from celery import Celery
 
 # Set the default Django settings module for the 'celery' program.
@@ -13,6 +11,9 @@ app = Celery('backend')
 # - namespace='CELERY' means all celery-related configuration keys
 #   should have a `CELERY_` prefix.
 app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Disable worker hijacking the root logger
+app.conf.worker_hijack_root_logger = False
 
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()

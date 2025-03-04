@@ -232,16 +232,24 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    'task_update_github_repositories': {
+    'task_update_github_repositories_for_successful_repos': {
         'every': 12,
         'period': HOURS,
         'task': 'core.tasks.update_github_repositories',
         'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
+        'kwargs': {'successful_repos': True}
+    },
+    'task_update_github_repositories_for_failed_repos': {
+        'every': 1,
+        'period': HOURS,
+        'task': 'core.tasks.update_github_repositories',
+        'enabled': True,
+        'last_run_at': datetime.utcnow() - timedelta(days=90),
+        'kwargs': {'successful_repos': False}
     },
     'task_stop_inactive_ui_crawls': {
-        'every': 3,
+        'every': 3,  # Change settings.LOGGING.filters.hide_info_specific_task when changing this
         'period': SECONDS,
         'task': 'core.tasks.stop_inactive_ui_crawls',
         'enabled': True,
@@ -286,6 +294,10 @@ def get_interval_schedule(task_configuration):
 
 
 if __name__ == '__main__':
+    # Clean up existing tasks except system tasks
+    PeriodicTask.objects.exclude(name__startswith='celery.').delete()
+    
+    # Task creation logic
     for task_name, task_configuration in periodic_tasks.items():
         if 'cron' in task_configuration:
             cron_configuration = task_configuration['cron']

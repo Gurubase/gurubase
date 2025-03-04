@@ -324,12 +324,14 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 logger.warning(f"Throttled for Website URL {data_source.url}. Error: {e}")
                 data_source.status = DataSource.Status.NOT_PROCESSED
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             except Exception as e:
                 logger.error(f"Error while fetching data source: {traceback.format_exc()}")
                 data_source.status = DataSource.Status.FAIL
                 data_source.error = str(e)
+                data_source.user_error = str(e)
                 data_source.save()
                 continue
             
@@ -1126,7 +1128,7 @@ def process_sitemap():
 def update_guru_type_details():
     """
     Updates GuruType details:
-    1. Adds github details if missing
+    1. Adds github details if missing (only for the first GitHub repo)
     2. Updates domain knowledge if it's the default value
     """
     logger.info("Updating guru type details")
@@ -1141,14 +1143,20 @@ def update_guru_type_details():
     for guru_type in guru_types:
         # Update GitHub details if missing
         if not guru_type.github_details:
-            github_repo = guru_type.github_repo or get_github_url_from_data_source(guru_type.slug)
-            if github_repo:
+            github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
+            if github_repos:
                 try:
-                    github_details = github_requester.get_github_repo_details(github_repo)
-                    guru_type.github_details = github_details
-                    guru_type.github_repo = github_repo
-                    guru_type.save()
-                    logger.info(f'Updated github details for {guru_type.slug}')
+                    # Only fetch details for the first GitHub repo
+                    first_repo = github_repos[0]
+                    if not first_repo:
+                        continue
+                    try:
+                        github_details = github_requester.get_github_repo_details(first_repo)
+                        guru_type.github_details = github_details
+                        guru_type.save()
+                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
+                    except Exception as e:
+                        logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
                 except Exception as e:
                     logger.error(f"Error getting github details for {guru_type.slug}: {traceback.format_exc()}")
                     continue
@@ -1163,8 +1171,13 @@ def update_guru_type_details():
                 continue
 
             try:
-                github_topics = guru_type.github_details.get('topics', [])
-                github_description = guru_type.github_details.get('description', '')
+                # Get topics and description from github_details
+                github_topics = []
+                github_description = ""
+                
+                if guru_type.github_details:
+                    github_topics = guru_type.github_details.get('topics', [])
+                    github_description = guru_type.github_details.get('description', '')
                 
                 gemini_response = gemini_requester.generate_topics_from_summary(
                     root_summarization.result_content, 
@@ -1242,8 +1255,8 @@ def update_github_details():
     guru_types = GuruType.objects.filter(
         models.Q(github_details_updated_date__isnull=True) | 
         models.Q(github_details_updated_date__lt=cutoff_time),
-        github_repo__isnull=False,
-        github_repo__gt='',  # Exclude empty strings
+        github_repos__isnull=False,
+        github_repos__len__gt=0,  # Has at least one repo
         active=True
     ).order_by('github_details_updated_date')[:200]
     logger.info(f'Guru types to update: {guru_types.count()} with cutoff time: {cutoff_time}')
@@ -1251,12 +1264,22 @@ def update_github_details():
     updated_count = 0
     for guru_type in guru_types:
         try:
-            github_details = github_requester.get_github_repo_details(guru_type.github_repo)
-            guru_type.github_details = github_details
-            guru_type.github_details_updated_date = timezone.now()
-            guru_type.save()
-            updated_count += 1
-            logger.info(f'Updated GitHub details for {guru_type.slug}')
+            # Get details for all repos
+            all_details = []
+            for repo_url in guru_type.github_repos:
+                try:
+                    details = github_requester.get_github_repo_details(repo_url)
+                    all_details.append(details)
+                except Exception as e:
+                    logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
+                    continue
+            
+            if all_details:  # Only update if we got at least one repo's details
+                guru_type.github_details = all_details
+                guru_type.github_details_updated_date = timezone.now()
+                guru_type.save()
+                updated_count += 1
+                logger.info(f'Updated GitHub details for {guru_type.slug}')
         except Exception as e:
             logger.error(f"Error updating GitHub details for {guru_type.slug}: {traceback.format_exc()}")
             # Still update the timestamp to avoid repeatedly trying failed updates
@@ -1311,7 +1334,7 @@ def update_guru_type_sitemap_status():
     logger.info("Completed updating GuruType sitemap status")
 
 @shared_task
-def update_github_repositories():
+def update_github_repositories(successful_repos=True):
     """
     Periodic task to update GitHub repositories:
     1. For each successfully synced GitHub repo data source, clone the repo again
@@ -1329,9 +1352,10 @@ def update_github_repositories():
         logger.info(f"Processing GitHub repositories for guru type: {guru_type.slug}")
         
         # Get all GitHub repo data sources for this guru type
+        status = DataSource.Status.SUCCESS if successful_repos else DataSource.Status.FAIL
         data_sources = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status=DataSource.Status.SUCCESS,
+            status=status,
             guru_type=guru_type
         )
         
@@ -1441,8 +1465,11 @@ def update_github_repositories():
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
+                    data_source.error = ""
+                    data_source.user_error = ""
+                    data_source.save()
                     data_source.write_to_milvus()
-                    
+
                 finally:
                     # Clean up
                     repo.close()
@@ -1451,22 +1478,40 @@ def update_github_repositories():
             except GithubInvalidRepoError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository may have been deleted, made private, or renamed. Please verify that the repository still exists and is public. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoSizeLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our size limit of {data_source.guru_type.github_repo_size_limit_mb} MB. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except GithubRepoFileCountLimitError as e:
                 error_msg = f"Error processing repository {data_source.url}: {traceback.format_exc()}"
                 logger.error(error_msg)
-                data_source.error = str(e)
+                data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our file count limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = str(e)
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
             except Exception as e:
@@ -1474,6 +1519,12 @@ def update_github_repositories():
                 logger.error(error_msg)
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
+                if data_source.last_successful_index_date:
+                    user_error = f"An issue occurred while reindexing the codebase. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                else:
+                    user_error = "Failed to index the repository. Please try again or contact support if the issue persists."
+                data_source.user_error = user_error
+                data_source.error = error_msg
                 data_source.save()
                 continue
         
@@ -1497,14 +1548,14 @@ def update_github_repositories():
     logger.info("Completed GitHub repositories update task")
 
 @shared_task
-def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
+def crawl_website(url: str, crawl_state_id: int, link_limit: int):
     """
     Celery task to crawl a website and collect internal links.
     
     Args:
         url (str): The URL to crawl
         crawl_state_id (int): ID of the CrawlState object to update during crawling
-        link_limit (int): Maximum number of links to collect (default: 1500)
+        link_limit (int): Maximum number of links to collect
     """
     try:
         get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
@@ -1521,7 +1572,7 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int = 1500):
         except Exception as e:
             logger.error(f"Error updating crawl state: {str(e)}", exc_info=True)
 
-@shared_task
+@shared_task(ignore_result=True, task_track_started=False)
 def stop_inactive_ui_crawls():
     """
     Periodic task to stop UI crawls that haven't been polled for more than 10 seconds
@@ -1541,4 +1592,4 @@ def stop_inactive_ui_crawls():
         crawl.error_message = f"Crawl automatically stopped due to inactivity (no status checks for over {threshold_seconds} seconds)"
         crawl.save()
         
-    return f"Stopped {inactive_crawls.count()} inactive UI crawls"
+    # return f"Stopped {inactive_crawls.count()} inactive UI crawls"
