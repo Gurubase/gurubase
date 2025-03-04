@@ -1152,10 +1152,9 @@ def update_guru_type_details():
                         continue
                     try:
                         github_details = github_requester.get_github_repo_details(first_repo)
-                        # Store as a list with a single item to maintain compatibility with the rest of the code
-                        guru_type.github_details = [github_details]
+                        guru_type.github_details = github_details
                         guru_type.save()
-                        logger.info(f'Updated github details for {guru_type.slug} (first repo only: {first_repo})')
+                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
                     except Exception as e:
                         logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
                 except Exception as e:
