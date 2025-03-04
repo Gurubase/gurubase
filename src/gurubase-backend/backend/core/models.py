@@ -686,7 +686,7 @@ class DataSource(models.Model):
                 raise ValidationError({'msg': 'Invalid URL format'})
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            if settings.ENV != 'selfhosted' and DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() >= self.guru_type.github_repo_count_limit:
+            if settings.ENV != 'selfhosted' and DataSource.objects.filter(type=self.type, guru_type=self.guru_type).count() > self.guru_type.github_repo_count_limit:
                 raise ValidationError({'msg': f"You have reached the maximum number ({self.guru_type.github_repo_count_limit}) of GitHub repositories for this guru type."})
 
         super().save(*args, **kwargs)

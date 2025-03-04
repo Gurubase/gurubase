@@ -1152,10 +1152,9 @@ def update_guru_type_details():
                         continue
                     try:
                         github_details = github_requester.get_github_repo_details(first_repo)
-                        # Store as a list with a single item to maintain compatibility with the rest of the code
-                        guru_type.github_details = [github_details]
+                        guru_type.github_details = github_details
                         guru_type.save()
-                        logger.info(f'Updated github details for {guru_type.slug} (first repo only: {first_repo})')
+                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
                     except Exception as e:
                         logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
                 except Exception as e:
@@ -1172,26 +1171,19 @@ def update_guru_type_details():
                 continue
 
             try:
-                # Combine topics and descriptions from all repos
-                all_github_topics = set()
-                all_github_descriptions = []
+                # Get topics and description from github_details
+                github_topics = []
+                github_description = ""
                 
-                if isinstance(guru_type.github_details, list):
-                    for details in guru_type.github_details:
-                        all_github_topics.update(details.get('topics', []))
-                        if desc := details.get('description'):
-                            all_github_descriptions.append(desc)
-                else:
-                    # Handle legacy format where github_details is a single dict
-                    all_github_topics.update(guru_type.github_details.get('topics', []))
-                    if desc := guru_type.github_details.get('description'):
-                        all_github_descriptions.append(desc)
+                if guru_type.github_details:
+                    github_topics = guru_type.github_details.get('topics', [])
+                    github_description = guru_type.github_details.get('description', '')
                 
                 gemini_response = gemini_requester.generate_topics_from_summary(
                     root_summarization.result_content, 
                     guru_type.name,
-                    list(all_github_topics),
-                    '. '.join(all_github_descriptions)
+                    github_topics,
+                    github_description
                 )
                 
                 new_topics = gemini_response.get('topics', [])
