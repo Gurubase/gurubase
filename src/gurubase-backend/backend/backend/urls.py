@@ -75,8 +75,8 @@ urlpatterns += [
     path('analytics/', include('analytics.urls')),
 
     path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
-    path('<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
-    path('<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
+    path('crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
+    path('crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
 ]
 
 if settings.STREAM_ENABLED:

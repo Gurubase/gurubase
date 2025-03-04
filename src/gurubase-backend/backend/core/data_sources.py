@@ -585,14 +585,13 @@ class CrawlService:
         return CrawlStateSerializer(crawl_state).data, 200
 
     @staticmethod
-    def stop_crawl(guru_slug, user, crawl_id):
+    def stop_crawl(user, crawl_id):
         from core.serializers import CrawlStateSerializer
         user = CrawlService.get_user(user)
-        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
         
         # Existing stop logic
         try:
-            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            crawl_state = CrawlState.objects.get(id=crawl_id)
             if crawl_state.status == CrawlState.Status.RUNNING:
                 crawl_state.status = CrawlState.Status.STOPPED
                 crawl_state.end_time = datetime.now(UTC)
@@ -602,14 +601,13 @@ class CrawlService:
             return {'msg': 'Crawl not found'}, 404
 
     @staticmethod
-    def get_crawl_status(guru_slug, user, crawl_id):
+    def get_crawl_status(user, crawl_id):
         from core.serializers import CrawlStateSerializer
         user = CrawlService.get_user(user)
-        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
         
         # Existing status logic
         try:
-            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            crawl_state = CrawlState.objects.get(id=crawl_id)
             # Update last_polled_at
             crawl_state.last_polled_at = datetime.now(UTC)
             crawl_state.save(update_fields=['last_polled_at'])

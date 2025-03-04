@@ -55,7 +55,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
       if (!crawlId) return;
 
       try {
-        const data = await getCrawlStatus(crawlId, guruSlug);
+        const data = await getCrawlStatus(crawlId);
 
         // Process any discovered URLs
         if (data && data.discovered_urls && data.discovered_urls.length > 0) {
@@ -116,7 +116,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
         clearInterval(pollInterval);
       }
     };
-  }, [crawlId, guruSlug, processNewUrls, resetCrawlerState]);
+  }, [crawlId, processNewUrls, resetCrawlerState]);
 
   const handleStartCrawl = async (url) => {
     if (!url) {
@@ -156,7 +156,7 @@ export const useCrawler = (onUrlsDiscovered, guruSlug) => {
     if (!crawlId) return;
 
     try {
-      const data = await stopCrawl(crawlId, guruSlug);
+      const data = await stopCrawl(crawlId);
 
       if (data.error) {
         throw new Error(data.message);
