@@ -1969,8 +1969,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         name="githubRepos"
         render={({ field }) => {
           // Ensure we're always using the latest values from the form
-          const repos =
-            currentGithubRepos.length > 0 ? currentGithubRepos : field.value;
+          const repos = field.value;
 
           return (
             <FormItem className="flex-1">
