@@ -1191,3 +1191,48 @@ export async function getCrawlStatus(crawlId, guruSlug) {
     });
   }
 }
+
+export async function submitGuruCreationForm(formData) {
+  try {
+    const session = await getUserSession();
+    const payload = {
+      email: formData.get("email"),
+      github_repo: formData.get("github_repo"),
+      docs_url: formData.get("docs_url"),
+      use_case: formData.get("use_case"),
+      source: formData.get("source")
+    };
+
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/submit_form/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response) return null;
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/submit_form/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response) return null;
+      return await response.json();
+    }
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "submitGuruCreationForm"
+    });
+  }
+}

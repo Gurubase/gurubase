@@ -67,16 +67,15 @@ const GuruCreationForm = ({
 
       // Show success message
       CustomToast({
-        message: "Information submitted successfully!",
+        message: "Guru creation request submitted successfully!",
         variant: "success"
       });
 
       // Reset form
       form.reset();
     } catch (error) {
-      console.error("Error submitting form:", error);
       CustomToast({
-        message: "Failed to submit information. Please try again.",
+        message: "Failed to submit guru creation request. Please try again.",
         variant: "error"
       });
     } finally {

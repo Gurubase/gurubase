@@ -24,7 +24,7 @@ from core.data_sources import CrawlService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_localhost, replace_media_root_with_nginx_base_url
-from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey
+from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -2851,3 +2851,40 @@ def get_crawl_status_api(request, guru_slug, crawl_id):
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(data, status=return_status)
+
+@api_view(['POST'])
+@combined_auth
+def submit_guru_creation_form(request):
+    """
+    Handle submission of guru creation forms.
+    """
+    try:
+        email = request.data.get('email')
+        github_repo = request.data.get('github_repo')
+        docs_url = request.data.get('docs_url')
+        use_case = request.data.get('use_case')
+        source = request.data.get('source', 'unknown')
+
+        if not all([email, github_repo, docs_url]):
+            return Response({
+                'error': 'Missing required fields. Please provide email, Github repository, and documentation root url.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create form submission
+        GuruCreationForm.objects.create(
+            email=email,
+            github_repo=github_repo,
+            docs_url=docs_url,
+            use_case=use_case,
+            source=source
+        )
+
+        return Response({
+            'message': 'Your guru creation request has been submitted successfully.'
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.error(f'Error processing guru creation form: {e}', exc_info=True)
+        return Response({
+            'error': 'An error occurred while processing your request.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
