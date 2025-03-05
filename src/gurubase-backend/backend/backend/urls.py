@@ -50,7 +50,6 @@ urlpatterns += [
     path('binge-history/', core_views.get_binges, name='get_binges'),
     path('api_keys/', core_views.api_keys, name='api_keys'),
     path('guru_types/create_frontend/', core_views.create_guru_type_frontend, name='create_guru_type_frontend'),
-    path('guru_types/submit_form/', core_views.submit_guru_creation_form, name='submit_guru_creation_form'),
     path('health/', core_views.health_check, name='health_check'),
     path('widget/ask/', core_views.ask_widget, name='ask_widget'),
     path('widget/binge/', core_views.widget_create_binge, name='widget_create_binge'),
@@ -99,6 +98,7 @@ if settings.ENV != 'selfhosted':
     from django.views.decorators.cache import cache_page
     sitemaps = get_sitemaps()
     urlpatterns += [
+        path('guru_types/submit_form/', core_views.submit_guru_creation_form, name='submit_guru_creation_form'),
         path(
             "sitemap.xml",
             cache_page(3600)(views.index),
