@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { CustomToast } from "@/components/CustomToast";
+import { Loader2 } from "lucide-react";
 
 // Form validation schema
 const formSchema = z.object({
@@ -93,12 +94,16 @@ const GuruCreationForm = ({
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="w-full flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full mx-auto p-6 bg-white rounded-lg">
-      <div className="flex guru-sm:flex-col">
+    <div className="h-full w-full mx-auto p-6 bg-white rounded-lg">
+      <div className="h-full flex guru-sm:flex-col">
         <div className="w-1/2 pr-6 guru-sm:w-full guru-sm:pr-0">
           <h2 className="text-2xl font-semibold mb-6">Create New Guru</h2>
 
