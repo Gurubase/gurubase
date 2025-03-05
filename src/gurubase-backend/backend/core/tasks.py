@@ -1152,10 +1152,9 @@ def update_guru_type_details():
                         continue
                     try:
                         github_details = github_requester.get_github_repo_details(first_repo)
-                        # Store as a list with a single item to maintain compatibility with the rest of the code
-                        guru_type.github_details = [github_details]
+                        guru_type.github_details = github_details
                         guru_type.save()
-                        logger.info(f'Updated github details for {guru_type.slug} (first repo only: {first_repo})')
+                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
                     except Exception as e:
                         logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
                 except Exception as e:
@@ -1172,26 +1171,19 @@ def update_guru_type_details():
                 continue
 
             try:
-                # Combine topics and descriptions from all repos
-                all_github_topics = set()
-                all_github_descriptions = []
+                # Get topics and description from github_details
+                github_topics = []
+                github_description = ""
                 
-                if isinstance(guru_type.github_details, list):
-                    for details in guru_type.github_details:
-                        all_github_topics.update(details.get('topics', []))
-                        if desc := details.get('description'):
-                            all_github_descriptions.append(desc)
-                else:
-                    # Handle legacy format where github_details is a single dict
-                    all_github_topics.update(guru_type.github_details.get('topics', []))
-                    if desc := guru_type.github_details.get('description'):
-                        all_github_descriptions.append(desc)
+                if guru_type.github_details:
+                    github_topics = guru_type.github_details.get('topics', [])
+                    github_description = guru_type.github_details.get('description', '')
                 
                 gemini_response = gemini_requester.generate_topics_from_summary(
                     root_summarization.result_content, 
                     guru_type.name,
-                    list(all_github_topics),
-                    '. '.join(all_github_descriptions)
+                    github_topics,
+                    github_description
                 )
                 
                 new_topics = gemini_response.get('topics', [])
@@ -1450,14 +1442,7 @@ def update_github_repositories(successful_repos=True):
                     # Bulk process the changes in a transaction
                     if files_to_delete or files_to_create:
                         with transaction.atomic():
-                            # First remove from Milvus
-                            for file in files_to_delete:
-                                try:
-                                    file.delete_from_milvus()
-                                except Exception as e:
-                                    logger.error(f"Error deleting file {file.path} from Milvus: {str(e)}")
-                            
-                            # Then delete from DB
+                            # Delete from DB (no need to delete from Milvus as it is handled by signals)
                             if files_to_delete:
                                 deleted_count = GithubFile.objects.filter(
                                     id__in=[f.id for f in files_to_delete]
@@ -1470,6 +1455,7 @@ def update_github_repositories(successful_repos=True):
                                 logger.info(f"Created {len(created_files)} files for data source {str(data_source)}")
                         
                         # Update data source timestamp
+                        data_source.doc_ids = DataSource.objects.get(id=data_source.id).doc_ids # Reflect the latest doc_ids updated by the signals
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
