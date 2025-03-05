@@ -43,7 +43,7 @@ export default function UserInfoPage() {
 
       return response;
     } catch (error) {
-      console.error("Error submitting form:", error);
+      // console.error("Error submitting form:", error);
       throw error;
     }
   };

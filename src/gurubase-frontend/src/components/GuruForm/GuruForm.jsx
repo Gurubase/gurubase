@@ -63,8 +63,6 @@ const GuruCreationForm = ({
         source
       };
 
-      console.log("Form submitted with data:", submissionData);
-
       // Call external onSubmit if provided
       if (externalOnSubmit) {
         await externalOnSubmit(submissionData);
