@@ -22,13 +22,8 @@ import { Loader2 } from "lucide-react";
 // Form validation schema
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  githubLink: z
-    .string()
-    .url({ message: "Please enter a valid URL" })
-    .refine((url) => url.includes("github.com"), {
-      message: "Please enter a valid GitHub URL"
-    }),
   docsRootUrl: z.string().url({ message: "Please enter a valid URL" }),
+  githubLink: z.string().optional(),
   useCase: z.string().optional()
 });
 
@@ -105,7 +100,13 @@ const GuruCreationForm = ({
     <div className="h-full w-full mx-auto p-6 bg-white rounded-lg">
       <div className="h-full flex guru-sm:flex-col">
         <div className="w-1/2 pr-6 guru-sm:w-full guru-sm:pr-0">
-          <h2 className="text-2xl font-semibold mb-6">Create New Guru</h2>
+          <h3 className="text-xl font-semibold mb-2">Guru Creation Request</h3>
+          <p className="text-gray-600 mb-6 text-sm">
+            Currently, only the Gurubase team can create a Guru. For this
+            reason, we evaluate all Guru creation requests and get back to you
+            via email as quickly as possible. We highly recommend filling out
+            the Use Case section, as this helps us prioritize creation requests.
+          </p>
 
           <Form {...form}>
             <form
@@ -117,32 +118,12 @@ const GuruCreationForm = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
-                    </FormControl>
                     <FormDescription>
                       We'll use this email to contact you about your guru.
                     </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="githubLink"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GitHub Repository</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="https://github.com/username/repository"
-                        {...field}
-                      />
+                      <Input placeholder="your.email@example.com" {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Link to your open source GitHub repository.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -153,16 +134,37 @@ const GuruCreationForm = ({
                 name="docsRootUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Documentation Root URL</FormLabel>
+                    <FormLabel>URL</FormLabel>
+                    <FormDescription>
+                      The documentation or the homepage of the product for which
+                      you want to create a Guru.
+                    </FormDescription>
                     <FormControl>
                       <Input
                         placeholder="https://docs.example.com"
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="githubLink"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>GitHub Repository (Optional)</FormLabel>
                     <FormDescription>
-                      The root URL of your project documentation.
+                      Link to your open source GitHub repository.
                     </FormDescription>
+                    <FormControl>
+                      <Input
+                        placeholder="https://github.com/username/repository"
+                        {...field}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -174,6 +176,9 @@ const GuruCreationForm = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Use Case (Optional)</FormLabel>
+                    <FormDescription>
+                      Provide additional context about your use case.
+                    </FormDescription>
                     <FormControl>
                       <Textarea
                         placeholder="Describe how you plan to use this guru..."
@@ -181,9 +186,6 @@ const GuruCreationForm = ({
                         {...field}
                       />
                     </FormControl>
-                    <FormDescription>
-                      Provide additional context about your use case.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
