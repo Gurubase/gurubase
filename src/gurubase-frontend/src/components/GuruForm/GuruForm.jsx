@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,7 +33,9 @@ const formSchema = z.object({
 
 const GuruCreationForm = ({
   source = "unknown",
-  onSubmit: externalOnSubmit
+  onSubmit: externalOnSubmit,
+  defaultEmail = "",
+  isLoading
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,6 +49,13 @@ const GuruCreationForm = ({
       useCase: ""
     }
   });
+
+  // Update email field when defaultEmail changes
+  useEffect(() => {
+    if (defaultEmail) {
+      form.setValue("email", defaultEmail);
+    }
+  }, [defaultEmail]);
 
   // Handle form submission
   const handleSubmit = async (data) => {
@@ -82,6 +91,10 @@ const GuruCreationForm = ({
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="w-full mx-auto p-6 bg-white rounded-lg">

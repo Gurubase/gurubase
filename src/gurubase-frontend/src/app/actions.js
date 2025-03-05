@@ -1236,3 +1236,13 @@ export async function submitGuruCreationForm(formData) {
     });
   }
 }
+
+export async function getCurrentUserEmail() {
+  try {
+    const session = await getUserSession();
+    return session?.user?.email || "";
+  } catch (error) {
+    console.error("Error fetching user email:", error);
+    return "";
+  }
+}
