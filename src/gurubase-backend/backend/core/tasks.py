@@ -1463,6 +1463,7 @@ def update_github_repositories(successful_repos=True):
                                 logger.info(f"Created {len(created_files)} files for data source {str(data_source)}")
                         
                         # Update data source timestamp
+                        data_source.doc_ids = DataSource.objects.get(id=data_source.id).doc_ids # Reflect the latest doc_ids updated by the signals
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
