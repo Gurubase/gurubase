@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0056_alter_gurutype_github_repos'),
+        ('core', '0059_gurucreationform_source'),
     ]
 
     operations = [
