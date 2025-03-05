@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { submitGuruCreationForm, getCurrentUserEmail } from "@/app/actions";
 import GuruForm from "@/components/GuruForm/GuruForm";
 import HeaderFooterWrap from "@/components/GuruForm/HeaderFooterWrap";
+import { redirect } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function UserInfoPage() {
@@ -11,6 +12,7 @@ export default function UserInfoPage() {
   const source = searchParams.get("source") || "unknown";
   const [userEmail, setUserEmail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
   useEffect(() => {
     const fetchUserEmail = async () => {
@@ -47,6 +49,10 @@ export default function UserInfoPage() {
       throw error;
     }
   };
+
+  if (isSelfHosted) {
+    redirect("not-found");
+  }
 
   return (
     <HeaderFooterWrap>
