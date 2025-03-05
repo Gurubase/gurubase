@@ -19,6 +19,7 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.ERROR)
+from core.exceptions import ThrottlingException
 
 logger = logging.getLogger(__name__)
 
@@ -816,3 +817,35 @@ class WebshareRequester():
             return []
 
         return response.json()
+
+
+class MailgunRequester():
+    def __init__(self):
+        self.base_url = "https://api.mailgun.net/v3"
+        self.api_key = settings.MAILGUN_API_KEY
+
+    def send_email(self, to, subject, body):
+        data = {
+            "from": "Anteon (formerly Ddosify) <support@getanteon.com>",
+            "to": to,
+            "subject": subject,
+            "text": body
+        }
+        try:
+            email_response = requests.post(url="https://api.mailgun.net/v3/mail.getanteon.com/messages",
+                                        auth=("api", self.api_key),
+                                        data=data)
+
+            if not email_response.ok:
+                if email_response.status_code >= 400:
+                    raise ThrottlingException(f"Email send error: {email_response.text} - Status Code: {email_response.status_code}")
+                raise Exception(f"Email send error: {email_response.text} - Status Code: {email_response.status_code}")
+
+            logger.info(f"Email sent to: {to}. Subject: {subject}")
+        except ThrottlingException as e:
+            exception_code = "E-101"
+            logger.fatal(f"Can not send email. Email: {to}. Subject: {subject} Code: {exception_code}")
+            raise
+        except Exception as e:
+            exception_code = "E-100"
+            logger.fatal(f"Can not send email. Email: {to}. Subject: {subject} Code: {exception_code}")

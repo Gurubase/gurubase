@@ -71,11 +71,15 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
         </section>
         <section className="flex flex-col flex-grow w-full guru-sm:ml-0 px-6 guru-sm:px-5 py-4">
           <div className="flex flex-wrap flex-1 w-full gap-x-2 gap-y-2">
-            {isSelfHosted && (
+            {
               <Link
                 aria-label="Create New Guru"
                 className="flex flex-col justify-center text-center items-center cursor-pointer guru-xs:w-[calc(50%-4px)] w-[calc(25%-0.4rem)] pt-6 px-6 pb-3 h-32 border-gray-85 border-dashed border-2 rounded-xl text-body2 font-medium transition-colors"
-                href="/guru/new-12hsh25ksh2"
+                href={
+                  isSelfHosted
+                    ? "/guru/new-12hsh25ksh2"
+                    : "/guru/create?source=/"
+                }
                 prefetch={false}
                 role="button"
                 tabIndex={0}>
@@ -84,7 +88,7 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
                 </div>
                 <span className="mt-4 text-gray-600">Create New Guru</span>
               </Link>
-            )}
+            }
 
             {filteredGurus &&
               filteredGurus?.map((guru) => {
