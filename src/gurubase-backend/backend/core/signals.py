@@ -14,7 +14,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
 import secrets
-from .models import Integration, APIKey
+from .models import Integration, APIKey, GuruCreationForm
+from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
 
@@ -926,3 +927,25 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         if instance.api_key:
             instance.api_key.delete()
+
+@receiver(post_save, sender=GuruCreationForm)
+def notify_admin_on_guru_creation_form_submission(sender, instance, **kwargs):
+    if instance.notified:
+        return
+
+    # Send email notification
+    subject = 'New Guru Creation Request'
+    message = f"""
+A new guru creation request has been submitted:
+
+Email: {instance.email}
+GitHub Repository: {instance.github_repo}
+Documentation URL: {instance.docs_url}
+Use Case: {instance.use_case}
+
+View this request in the admin panel.
+"""
+        
+    MailgunRequester().send_email(settings.ADMIN_EMAIL, subject, message)
+    instance.notified = True
+    instance.save()

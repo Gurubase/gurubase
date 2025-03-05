@@ -53,3 +53,7 @@ class PermissionError(Exception):
 class NotFoundError(Exception):
     """Exception raised for not found errors."""
     pass
+
+class ThrottlingException(Exception):
+    """Exception raised for throttling errors."""
+    pass

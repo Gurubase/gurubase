@@ -462,7 +462,7 @@ class CrawlStateAdmin(admin.ModelAdmin):
 
 @admin.register(GuruCreationForm)
 class GuruCreationFormAdmin(admin.ModelAdmin):
-    list_display = ['id', 'notified', 'source', 'email', 'github_repo', 'docs_url', 'use_case', 'date_created', 'date_updated']
+    list_display = ['id', 'notified', 'source', 'email', 'github_repo', 'docs_url', 'date_created', 'date_updated']
     search_fields = ['id', 'email', 'github_repo', 'docs_url', 'use_case']
     list_filter = ('notified', 'source')
     ordering = ('-id',)
