@@ -1553,9 +1553,18 @@ class GithubFile(models.Model):
         delete_vectors(collection_name, self.doc_ids)
 
         data_source = self.data_source
-        for doc_id in self.doc_ids:
-            data_source.doc_ids.remove(doc_id)
-        data_source.save()
+
+        # Check for invalid doc_ids
+        invalid_doc_ids = [doc_id for doc_id in self.doc_ids if doc_id not in data_source.doc_ids]
+        valid_doc_ids = [doc_id for doc_id in self.doc_ids if doc_id in data_source.doc_ids]
+
+        if invalid_doc_ids:
+            logger.error(f"Found doc_ids of github file {self.path} that don't exist in data_source: {invalid_doc_ids}. guru_type: {self.data_source.guru_type.slug}. Github link: {self.link}")
+
+        if valid_doc_ids:
+            for doc_id in valid_doc_ids:
+                data_source.doc_ids.remove(doc_id)
+            data_source.save()
 
         self.in_milvus = False
         self.doc_ids = []
