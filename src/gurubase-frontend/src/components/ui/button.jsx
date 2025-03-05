@@ -29,6 +29,7 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md px-3 text-xs",
         smButtonLgText: "h-8 rounded-md px-3 text-sm",
         lg: "h-10 rounded-md px-8 text-sm",
+        lgButtonLgText: "h-10 rounded-md px-8 text-sm",
         lgRounded: "h-10 rounded-full px-4 text-sm",
         icon: "h-9 w-9 text-sm",
         action: "h-12 guru-sm:px-2 guru-md:px-4 guru-lg:px-4 py-2 text-sm",

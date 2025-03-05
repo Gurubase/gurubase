@@ -96,6 +96,30 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
           <div className="flex flex-col px-3 mt-4 w-full text-sm text-gray-400">
             <SearchBar setFilter={setFilter} filter={filter} loading={false} />
           </div>
+          <div className="flex justify-center items-center px-3 py-5 w-full rounded-t-xl bg-white border-solid border-b-[0.5px] border-b-neutral-200 min-h-[56px] text-zinc-900 hidden guru-sm:flex">
+            <Button
+              variant="outline"
+              size="lgButtonLgText"
+              className="text-black hover:bg-gray-800 hover:text-white rounded-full w-full"
+              onClick={handleClickCreateGuru}>
+              <div className="inline-flex items-center gap-2">
+                <span>Create a Guru</span>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M6 4.5C5.72386 4.5 5.5 4.27614 5.5 4C5.5 3.72386 5.72386 3.5 6 3.5H12C12.2761 3.5 12.5 3.72386 12.5 4V10C12.5 10.2761 12.2761 10.5 12 10.5C11.7239 10.5 11.5 10.2761 11.5 10V5.20711L4.35355 12.3536C4.15829 12.5488 3.84171 12.5488 3.64645 12.3536C3.45118 12.1583 3.45118 11.8417 3.64645 11.6464L10.7929 4.5H6Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </div>
+            </Button>
+          </div>
         </div>
         {false ? (
           <header className="flex flex-col w-full px-3">
