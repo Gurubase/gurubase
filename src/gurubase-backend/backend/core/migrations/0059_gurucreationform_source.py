@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0057_gurucreationform'),
+        ('core', '0058_gurucreationform'),
     ]
 
     operations = [
