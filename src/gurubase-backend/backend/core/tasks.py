@@ -1442,14 +1442,7 @@ def update_github_repositories(successful_repos=True):
                     # Bulk process the changes in a transaction
                     if files_to_delete or files_to_create:
                         with transaction.atomic():
-                            # First remove from Milvus
-                            for file in files_to_delete:
-                                try:
-                                    file.delete_from_milvus()
-                                except Exception as e:
-                                    logger.error(f"Error deleting file {file.path} from Milvus: {str(e)}")
-                            
-                            # Then delete from DB
+                            # Delete from DB (no need to delete from Milvus as it is handled by signals)
                             if files_to_delete:
                                 deleted_count = GithubFile.objects.filter(
                                     id__in=[f.id for f in files_to_delete]
@@ -1462,6 +1455,7 @@ def update_github_repositories(successful_repos=True):
                                 logger.info(f"Created {len(created_files)} files for data source {str(data_source)}")
                         
                         # Update data source timestamp
+                        data_source.doc_ids = DataSource.objects.get(id=data_source.id).doc_ids # Reflect the latest doc_ids updated by the signals
                         data_source.save()  # This will update date_updated
 
                     data_source.in_milvus = False
