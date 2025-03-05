@@ -939,9 +939,10 @@ def notify_admin_on_guru_creation_form_submission(sender, instance, **kwargs):
 A new guru creation request has been submitted:
 
 Email: {instance.email}
-GitHub Repository: {instance.github_repo}
 Documentation URL: {instance.docs_url}
+GitHub Repository: {instance.github_repo}
 Use Case: {instance.use_case}
+Source: {instance.source}
 
 View this request in the admin panel.
 """

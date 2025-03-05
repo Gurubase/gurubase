@@ -2865,9 +2865,9 @@ def submit_guru_creation_form(request):
         use_case = request.data.get('use_case')
         source = request.data.get('source', 'unknown')
 
-        if not all([email, github_repo, docs_url]):
+        if not all([email, docs_url]):
             return Response({
-                'error': 'Missing required fields. Please provide email, Github repository, and documentation root url.'
+                'error': 'Missing required fields. Please provide email, and documentation root url.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create form submission
