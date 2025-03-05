@@ -1553,9 +1553,18 @@ class GithubFile(models.Model):
         delete_vectors(collection_name, self.doc_ids)
 
         data_source = self.data_source
-        for doc_id in self.doc_ids:
-            data_source.doc_ids.remove(doc_id)
-        data_source.save()
+
+        # Check for invalid doc_ids
+        invalid_doc_ids = [doc_id for doc_id in self.doc_ids if doc_id not in data_source.doc_ids]
+        valid_doc_ids = [doc_id for doc_id in self.doc_ids if doc_id in data_source.doc_ids]
+
+        if invalid_doc_ids:
+            logger.error(f"Found doc_ids of github file {self.path} that don't exist in data_source: {invalid_doc_ids}. guru_type: {self.data_source.guru_type.slug}. Github link: {self.link}")
+
+        if valid_doc_ids:
+            for doc_id in valid_doc_ids:
+                data_source.doc_ids.remove(doc_id)
+            data_source.save()
 
         self.in_milvus = False
         self.doc_ids = []
@@ -1646,4 +1655,22 @@ class CrawlState(models.Model):
 
     def __str__(self):
         return f"Crawl {self.id} - {self.url} ({self.status}) - {self.guru_type.name} - {self.user.email if self.user else 'selfhosted'}"
+
+
+class GuruCreationForm(models.Model):
+
+    email = models.EmailField()
+    github_repo = models.URLField(max_length=2000)
+    docs_url = models.URLField(max_length=2000)
+    use_case = models.TextField(blank=True, null=True)
+    notified = models.BooleanField(default=False)
+    source = models.CharField(max_length=50)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.email} - {self.github_repo}"
+
+    class Meta:
+        ordering = ['-date_created']
 

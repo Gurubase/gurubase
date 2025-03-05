@@ -17,10 +17,11 @@ from core.models import (APIKey,
                          Summarization, 
                          SummaryQuestionGeneration, 
                          Settings, 
-                         LLMEvalResult, Thread, 
+                         LLMEvalResult, 
+                         Thread, 
                          WidgetId,
                          GithubFile,
-                         )
+                         GuruCreationForm)
 from django.utils.html import format_html
 import logging
 from django.contrib.admin import SimpleListFilter
@@ -457,4 +458,11 @@ class CrawlStateAdmin(admin.ModelAdmin):
     list_display = ['id', 'url', 'guru_type', 'user', 'status', 'start_time', 'end_time', 'error_message']
     list_filter = ('status',)
     search_fields = ['id', 'url']
+    ordering = ('-id',)
+
+@admin.register(GuruCreationForm)
+class GuruCreationFormAdmin(admin.ModelAdmin):
+    list_display = ['id', 'notified', 'source', 'email', 'github_repo', 'docs_url', 'date_created', 'date_updated']
+    search_fields = ['id', 'email', 'github_repo', 'docs_url', 'use_case']
+    list_filter = ('notified', 'source')
     ordering = ('-id',)

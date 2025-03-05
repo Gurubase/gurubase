@@ -3,7 +3,7 @@ import React from "react";
 
 const CommonContentLayout = ({ children, sidebar }) => {
   return (
-    <main className="z-10 flex justify-center w-full flex-grow guru-sm:px-0 px-8">
+    <main className="z-10 flex justify-center w-full flex-grow guru-sm:px-0 px-8 polygon-fill">
       <div
         className={clsx(
           "flex guru-sm:flex-col gap-6 guru-sm:gap-0 h-full w-full",
