@@ -193,6 +193,7 @@ const GuruCreationForm = ({
                 <Button
                   type="submit"
                   className="w-full"
+                  size="lgRounded"
                   disabled={isSubmitting}>
                   {isSubmitting ? "Creating..." : "Create Guru"}
                 </Button>
