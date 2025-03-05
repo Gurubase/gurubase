@@ -6,7 +6,7 @@ import CommonContentLayout from "../CommonContentLayout";
 
 export default function HeaderFooterWrap({ children }) {
   return (
-    <div className={`flex flex-col bg-white guru-md:h-screen h-full`}>
+    <div className="flex flex-col bg-white h-screen">
       <Header />
       <CommonContentLayout>{children}</CommonContentLayout>
       <Footer />
