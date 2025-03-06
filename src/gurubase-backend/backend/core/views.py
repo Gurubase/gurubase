@@ -2796,10 +2796,9 @@ def start_crawl_api(request, guru_slug):
 
 @api_view(['POST'])
 @jwt_auth
-def stop_crawl_admin(request, guru_slug, crawl_id):
+def stop_crawl_admin(request, crawl_id):
     try:
         data, return_status = CrawlService.stop_crawl(
-            guru_slug,
             request.user,
             crawl_id
         )
@@ -2811,10 +2810,9 @@ def stop_crawl_admin(request, guru_slug, crawl_id):
 @api_view(['POST'])
 @api_key_auth
 @throttle_classes([ConcurrencyThrottleApiKey])
-def stop_crawl_api(request, guru_slug, crawl_id):
+def stop_crawl_api(request, crawl_id):
     try:
         data, return_status = CrawlService.stop_crawl(
-            guru_slug,
             request.user,
             crawl_id
         )
@@ -2825,10 +2823,9 @@ def stop_crawl_api(request, guru_slug, crawl_id):
 
 @api_view(['GET'])
 @jwt_auth
-def get_crawl_status_admin(request, guru_slug, crawl_id):
+def get_crawl_status_admin(request, crawl_id):
     try:
         data, return_status = CrawlService.get_crawl_status(
-            guru_slug,
             request.user,
             crawl_id
         )
@@ -2840,10 +2837,9 @@ def get_crawl_status_admin(request, guru_slug, crawl_id):
 @api_view(['GET'])
 @api_key_auth
 @throttle_classes([ConcurrencyThrottleApiKey])
-def get_crawl_status_api(request, guru_slug, crawl_id):
+def get_crawl_status_api(request, crawl_id):
     try:
         data, return_status = CrawlService.get_crawl_status(
-            guru_slug,
             request.user,
             crawl_id
         )

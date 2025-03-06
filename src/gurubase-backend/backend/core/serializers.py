@@ -161,5 +161,5 @@ class CrawlStateSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         repr = super().to_representation(instance)
-        repr['guru_type'] = instance.guru_type.slug
+        repr['guru_type'] = instance.guru_type.slug if instance.guru_type else None
         return repr

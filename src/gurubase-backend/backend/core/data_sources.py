@@ -563,36 +563,44 @@ class CrawlService:
             return {'msg': 'Invalid URL format'}, 400
 
         user = CrawlService.get_user(user)
-        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+        try:
+            guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+            link_limit = guru_type.website_count_limit
+        except NotFoundError as e:
+            if source == CrawlState.Source.UI:
+                guru_type = None
+                link_limit = 1500
+            else:
+                raise e
         
         # Existing crawl start logic
-        existing_crawl = CrawlState.objects.filter(
-            guru_type=guru_type, 
-            status=CrawlState.Status.RUNNING
-        ).first()
-        if existing_crawl:
-            return {'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, 400
+        if guru_type:
+            existing_crawl = CrawlState.objects.filter(
+                guru_type=guru_type, 
+                status=CrawlState.Status.RUNNING
+            ).first()
+            if existing_crawl:
+                return {'msg': 'A crawl is already running for this guru type. Please wait for it to complete or stop it.'}, 400
         
         crawl_state = CrawlState.objects.create(
             url=url,
             status=CrawlState.Status.RUNNING,
-            link_limit=guru_type.website_count_limit,
+            link_limit=link_limit,
             guru_type=guru_type,
             user=user,
             source=source
         )
-        crawl_website.delay(url, crawl_state.id, guru_type.website_count_limit)
+        crawl_website.delay(url, crawl_state.id, link_limit)
         return CrawlStateSerializer(crawl_state).data, 200
 
     @staticmethod
-    def stop_crawl(guru_slug, user, crawl_id):
+    def stop_crawl(user, crawl_id):
         from core.serializers import CrawlStateSerializer
         user = CrawlService.get_user(user)
-        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
         
         # Existing stop logic
         try:
-            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            crawl_state = CrawlState.objects.get(id=crawl_id)
             if crawl_state.status == CrawlState.Status.RUNNING:
                 crawl_state.status = CrawlState.Status.STOPPED
                 crawl_state.end_time = datetime.now(UTC)
@@ -602,14 +610,13 @@ class CrawlService:
             return {'msg': 'Crawl not found'}, 404
 
     @staticmethod
-    def get_crawl_status(guru_slug, user, crawl_id):
+    def get_crawl_status(user, crawl_id):
         from core.serializers import CrawlStateSerializer
         user = CrawlService.get_user(user)
-        guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
         
         # Existing status logic
         try:
-            crawl_state = CrawlState.objects.get(id=crawl_id, guru_type=guru_type)
+            crawl_state = CrawlState.objects.get(id=crawl_id)
             # Update last_polled_at
             crawl_state.last_polled_at = datetime.now(UTC)
             crawl_state.save(update_fields=['last_polled_at'])
