@@ -109,18 +109,24 @@ const GuruCreationForm = ({
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-6">
+              className="space-y-5">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormDescription>
-                      We'll use this email to contact you about your guru.
-                    </FormDescription>
+                  <FormItem className="space-y-2">
+                    <div>
+                      <FormLabel>Email</FormLabel>
+                      <FormDescription className="mt-1">
+                        We'll use this email to contact you about your guru.
+                      </FormDescription>
+                    </div>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input
+                        className="text-[16px]"
+                        placeholder="your.email@example.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -131,14 +137,17 @@ const GuruCreationForm = ({
                 control={form.control}
                 name="docsRootUrl"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL</FormLabel>
-                    <FormDescription>
-                      The documentation or the homepage of the product for which
-                      you want to create a Guru.
-                    </FormDescription>
+                  <FormItem className="space-y-2">
+                    <div>
+                      <FormLabel>URL</FormLabel>
+                      <FormDescription className="mt-1">
+                        The documentation or the homepage of the product for
+                        which you want to create a Guru.
+                      </FormDescription>
+                    </div>
                     <FormControl>
                       <Input
+                        className="text-[16px]"
                         placeholder="https://docs.example.com"
                         {...field}
                       />
@@ -152,13 +161,16 @@ const GuruCreationForm = ({
                 control={form.control}
                 name="githubLink"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>GitHub Repository (Optional)</FormLabel>
-                    <FormDescription>
-                      Link to your open source GitHub repository.
-                    </FormDescription>
+                  <FormItem className="space-y-2">
+                    <div>
+                      <FormLabel>GitHub Repository (Optional)</FormLabel>
+                      <FormDescription className="mt-1">
+                        Link to your open source GitHub repository.
+                      </FormDescription>
+                    </div>
                     <FormControl>
                       <Input
+                        className="text-[16px]"
                         placeholder="https://github.com/username/repository"
                         {...field}
                       />
@@ -172,15 +184,17 @@ const GuruCreationForm = ({
                 control={form.control}
                 name="useCase"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Use Case (Optional)</FormLabel>
-                    <FormDescription>
-                      Provide additional context about your use case.
-                    </FormDescription>
+                  <FormItem className="space-y-2">
+                    <div>
+                      <FormLabel>Use Case (Optional)</FormLabel>
+                      <FormDescription className="mt-1">
+                        Provide additional context about your use case.
+                      </FormDescription>
+                    </div>
                     <FormControl>
                       <Textarea
                         placeholder="Describe how you plan to use this guru..."
-                        className="min-h-[100px]"
+                        className="min-h-[100px] text-[16px]"
                         {...field}
                       />
                     </FormControl>
@@ -189,7 +203,7 @@ const GuruCreationForm = ({
                 )}
               />
 
-              <div className="pt-4">
+              <div className="pt-0">
                 <Button
                   type="submit"
                   className="w-full"
