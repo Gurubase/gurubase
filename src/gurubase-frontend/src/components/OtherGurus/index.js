@@ -32,11 +32,11 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
   };
 
   const handleClickCreateGuru = () => {
-    if (isSelfHosted) {
-      navigation.push("/guru/new-12hsh25ksh2");
-    } else {
-      navigation.push("/guru/create?source=/g/");
-    }
+    const url = isSelfHosted
+      ? "/guru/new-12hsh25ksh2"
+      : "/guru/create?source=/g/";
+
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const activeGuruServerResponse = findActiveGuru(allGuruTypes, guruType);

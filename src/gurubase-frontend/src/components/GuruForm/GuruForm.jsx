@@ -209,7 +209,7 @@ const GuruCreationForm = ({
                   className="w-full"
                   size="lgRounded"
                   disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Guru"}
+                  {isSubmitting ? "Submitting..." : "Submit Request"}
                 </Button>
               </div>
             </form>
