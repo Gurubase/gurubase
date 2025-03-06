@@ -10,8 +10,12 @@ logger = logging.getLogger(__name__)
 def replace_media_root_with_nginx_base_url(url):
     if settings.ENV == 'selfhosted':
         # Replace also for development environment
+        print("url: ", url)
+        print("settings.MEDIA_ROOT: ", settings.MEDIA_ROOT)
+        print("settings.NGINX_BASE_URL: ", settings.NGINX_BASE_URL)
         url = url.replace(settings.MEDIA_ROOT, f'{settings.NGINX_BASE_URL}/media')
         url = url.replace("/workspace/backend/media", f'{settings.NGINX_BASE_URL}/media')
+        print("url2: ", url)
         return url
     return url
 
@@ -19,6 +23,10 @@ def replace_media_root_with_localhost(url):
     if settings.ENV == 'selfhosted':
         port = settings.NGINX_BASE_URL[settings.NGINX_BASE_URL.rfind(":"):][1:]
         # Replace also for development environment
+        print("url1: ", url)
+        print("settings.MEDIA_ROOT2: ", settings.MEDIA_ROOT)
+        print("settings.NGINX_BASE_URL3: ", settings.NGINX_BASE_URL)
+        print("port4: ", port)
         url = url.replace(settings.MEDIA_ROOT, f'http://localhost:{port}/media')
         url = url.replace("/workspace/backend/media", f'http://localhost:{port}/media')
         return url
