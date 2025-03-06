@@ -122,7 +122,11 @@ const GuruCreationForm = ({
                       </FormDescription>
                     </div>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input
+                        className="text-[16px]"
+                        placeholder="your.email@example.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -143,6 +147,7 @@ const GuruCreationForm = ({
                     </div>
                     <FormControl>
                       <Input
+                        className="text-[16px]"
                         placeholder="https://docs.example.com"
                         {...field}
                       />
@@ -165,6 +170,7 @@ const GuruCreationForm = ({
                     </div>
                     <FormControl>
                       <Input
+                        className="text-[16px]"
                         placeholder="https://github.com/username/repository"
                         {...field}
                       />
@@ -188,7 +194,7 @@ const GuruCreationForm = ({
                     <FormControl>
                       <Textarea
                         placeholder="Describe how you plan to use this guru..."
-                        className="min-h-[100px]"
+                        className="min-h-[100px] text-[16px]"
                         {...field}
                       />
                     </FormControl>
