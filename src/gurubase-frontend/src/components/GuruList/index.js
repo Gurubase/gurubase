@@ -18,6 +18,12 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const navigation = useAppNavigation();
 
+  const newGuruLink = isSelfHosted
+    ? "/guru/new-12hsh25ksh2"
+    : isMyGurusPage
+      ? "/guru/create?source=/my-gurus"
+      : "/guru/create?source=/";
+
   const [filter, setFilter] = useState("");
   const [filteredGurus, setFilteredGurus] = useState(guruTypes);
 
@@ -71,11 +77,11 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
         </section>
         <section className="flex flex-col flex-grow w-full guru-sm:ml-0 px-6 guru-sm:px-5 py-4">
           <div className="flex flex-wrap flex-1 w-full gap-x-2 gap-y-2">
-            {isSelfHosted && (
+            {
               <Link
                 aria-label="Create New Guru"
                 className="flex flex-col justify-center text-center items-center cursor-pointer guru-xs:w-[calc(50%-4px)] w-[calc(25%-0.4rem)] pt-6 px-6 pb-3 h-32 border-gray-85 border-dashed border-2 rounded-xl text-body2 font-medium transition-colors"
-                href="/guru/new-12hsh25ksh2"
+                href={newGuruLink}
                 prefetch={false}
                 role="button"
                 tabIndex={0}>
@@ -84,7 +90,7 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
                 </div>
                 <span className="mt-4 text-gray-600">Create New Guru</span>
               </Link>
-            )}
+            }
 
             {filteredGurus &&
               filteredGurus?.map((guru) => {

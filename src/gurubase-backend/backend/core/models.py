@@ -1656,3 +1656,21 @@ class CrawlState(models.Model):
     def __str__(self):
         return f"Crawl {self.id} - {self.url} ({self.status}) - {self.guru_type.name} - {self.user.email if self.user else 'selfhosted'}"
 
+
+class GuruCreationForm(models.Model):
+
+    email = models.EmailField()
+    github_repo = models.URLField(max_length=2000)
+    docs_url = models.URLField(max_length=2000)
+    use_case = models.TextField(blank=True, null=True)
+    notified = models.BooleanField(default=False)
+    source = models.CharField(max_length=50)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.email} - {self.github_repo}"
+
+    class Meta:
+        ordering = ['-date_created']
+

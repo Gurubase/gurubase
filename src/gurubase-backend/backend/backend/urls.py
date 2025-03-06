@@ -98,6 +98,7 @@ if settings.ENV != 'selfhosted':
     from django.views.decorators.cache import cache_page
     sitemaps = get_sitemaps()
     urlpatterns += [
+        path('guru_types/submit_form/', core_views.submit_guru_creation_form, name='submit_guru_creation_form'),
         path(
             "sitemap.xml",
             cache_page(3600)(views.index),
