@@ -258,7 +258,12 @@ export const UrlTableContent = ({
                     {/* Add trash icon that appears on hover */}
                     <button
                       className="invisible group-hover:visible p-2"
-                      onClick={() => onDeleteUrls([url.id])}>
+                      onClick={() => {
+                        onDeleteUrls([url.id]);
+                        setSelectedUrls((prev) =>
+                          prev.filter((id) => id !== url.id)
+                        );
+                      }}>
                       <Trash2 className="h-4 w-4 text-[#DC2626]" />
                     </button>
                   </div>
