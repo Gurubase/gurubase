@@ -271,7 +271,7 @@ const MonacoUrlEditor = ({
           disabled={!isLoadingSitemapRef.current}
           variant="outline">
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-          Importing...
+          Stop
         </Button>
       );
     }

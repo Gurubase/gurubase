@@ -42,7 +42,7 @@ export default function GuruEditPageSidebar({ guruData }) {
 
   const handleNavigation = (path) => {
     if (!guruSlug) return;
-    navigation.push(path);
+    window.open(path, "_blank", "noopener,noreferrer");
   };
 
   if (!guruName) {
