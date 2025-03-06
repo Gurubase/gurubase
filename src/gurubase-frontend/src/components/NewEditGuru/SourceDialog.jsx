@@ -6,7 +6,7 @@ import MonacoUrlEditor from "@/components/NewEditGuru/MonacoUrlEditor";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isValidUrl } from "@/utils/common";
-import ProcessStopConfirmationDialog from "@/components/NewEditGuru/CrawlStopConfirmationDialog";
+import ProcessStopConfirmationDialog from "@/components/NewEditGuru/ProcessStopConfirmationDialog";
 
 import { UrlTableContent } from "./UrlTableContent";
 
