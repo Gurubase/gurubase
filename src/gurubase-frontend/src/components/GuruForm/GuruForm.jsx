@@ -99,7 +99,7 @@ const GuruCreationForm = ({
       <div className="h-full flex guru-sm:flex-col">
         <div className="w-1/2 pr-6 guru-sm:w-full guru-sm:pr-0">
           <h3 className="text-xl font-semibold mb-2">Guru Creation Request</h3>
-          <p className="text-gray-600 mb-6 text-sm">
+          <p className="text-gray-600 mb-6 guru-sm:text-[16px] text-sm">
             Currently, only the Gurubase team can create a Guru. For this
             reason, we evaluate all Guru creation requests and get back to you
             via email as quickly as possible. We highly recommend filling out
@@ -123,7 +123,7 @@ const GuruCreationForm = ({
                     </div>
                     <FormControl>
                       <Input
-                        className="text-sm"
+                        className="guru-sm:text-[16px] text-sm"
                         placeholder="your.email@example.com"
                         {...field}
                       />
@@ -147,7 +147,7 @@ const GuruCreationForm = ({
                     </div>
                     <FormControl>
                       <Input
-                        className="text-sm"
+                        className="guru-sm:text-[16px] text-sm"
                         placeholder="https://docs.example.com"
                         {...field}
                       />
@@ -170,7 +170,7 @@ const GuruCreationForm = ({
                     </div>
                     <FormControl>
                       <Input
-                        className="text-sm"
+                        className="guru-sm:text-[16px] text-sm"
                         placeholder="https://github.com/username/repository"
                         {...field}
                       />
@@ -194,7 +194,7 @@ const GuruCreationForm = ({
                     <FormControl>
                       <Textarea
                         placeholder="Describe how you plan to use this guru..."
-                        className="min-h-[100px] text-sm"
+                        className="min-h-[100px] guru-sm:text-[16px] text-sm"
                         {...field}
                       />
                     </FormControl>
