@@ -1461,6 +1461,7 @@ def update_github_repositories(successful_repos=True):
                     data_source.in_milvus = False
                     data_source.error = ""
                     data_source.user_error = ""
+                    data_source.status = DataSource.Status.SUCCESS
                     data_source.save()
                     data_source.write_to_milvus()
 
