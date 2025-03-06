@@ -18,6 +18,12 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const navigation = useAppNavigation();
 
+  const newGuruLink = isSelfHosted
+    ? "/guru/new-12hsh25ksh2"
+    : isMyGurusPage
+      ? "/guru/create?source=/my-gurus"
+      : "/guru/create?source=/";
+
   const [filter, setFilter] = useState("");
   const [filteredGurus, setFilteredGurus] = useState(guruTypes);
 
@@ -75,11 +81,7 @@ const GuruList = ({ allGuruTypes, title = "Find a Guru" }) => {
               <Link
                 aria-label="Create New Guru"
                 className="flex flex-col justify-center text-center items-center cursor-pointer guru-xs:w-[calc(50%-4px)] w-[calc(25%-0.4rem)] pt-6 px-6 pb-3 h-32 border-gray-85 border-dashed border-2 rounded-xl text-body2 font-medium transition-colors"
-                href={
-                  isSelfHosted
-                    ? "/guru/new-12hsh25ksh2"
-                    : "/guru/create?source=/"
-                }
+                href={newGuruLink}
                 prefetch={false}
                 role="button"
                 tabIndex={0}>
