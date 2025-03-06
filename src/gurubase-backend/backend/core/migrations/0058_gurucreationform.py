@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0056_alter_gurutype_github_repos'),
+        ('core', '0057_widgetid_is_wildcard'),
     ]
 
     operations = [
