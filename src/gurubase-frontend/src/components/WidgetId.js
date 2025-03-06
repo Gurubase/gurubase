@@ -181,7 +181,7 @@ export default function WidgetModal({
               guide to{" "}
               <a
                 className="text-blue-600 hover:underline"
-                href="https://github.com/getanteon/gurubase-widget"
+                href="https://docs.gurubase.ai/integrations/website-widget"
                 rel="noreferrer"
                 target="_blank">
                 learn more
