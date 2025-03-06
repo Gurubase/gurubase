@@ -101,7 +101,13 @@ const SourceDialog = React.memo(
             ...(form.getValues(`${sourceType}Links`) || []),
             ...newUrls.map((url) => url.url)
           ]);
+        } else {
+          onAddUrls([]);
+          form.setValue(`${sourceType}Links`, []);
         }
+      } else {
+        onAddUrls([]);
+        form.setValue(`${sourceType}Links`, []);
       }
 
       // Reset showCrawlInput when closing
