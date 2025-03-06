@@ -6,7 +6,7 @@ import MonacoUrlEditor from "@/components/NewEditGuru/MonacoUrlEditor";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isValidUrl } from "@/utils/common";
-import CrawlStopConfirmationDialog from "@/components/NewEditGuru/CrawlStopConfirmationDialog";
+import ProcessStopConfirmationDialog from "@/components/NewEditGuru/CrawlStopConfirmationDialog";
 
 import { UrlTableContent } from "./UrlTableContent";
 
@@ -63,19 +63,34 @@ const SourceDialog = React.memo(
     crawlUrl,
     setCrawlUrl
   }) => {
-    const [showCrawlStopConfirmation, setShowCrawlStopConfirmation] =
+    const [showStopConfirmation, setShowStopConfirmation] =
       React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
     const [stopAction, setStopAction] = React.useState(null);
+    const [processType, setProcessType] = React.useState("crawling");
+    const [isLoadingSitemap, setIsLoadingSitemap] = React.useState(false);
+    const isLoadingSitemapRef = React.useRef(false);
 
-    const handleCrawlStop = React.useCallback((action) => {
+    const handleProcessStop = React.useCallback((action, type) => {
       setStopAction(action);
-      setShowCrawlStopConfirmation(true);
+      setProcessType(type);
+      setShowStopConfirmation(true);
+    }, []);
+
+    // Create a wrapper function to update both state and ref
+    const updateSitemapLoadingState = React.useCallback((loading) => {
+      setIsLoadingSitemap(loading);
+      isLoadingSitemapRef.current = loading;
     }, []);
 
     const handleClose = React.useCallback(async () => {
       if (isCrawling) {
-        handleCrawlStop("close");
+        handleProcessStop("close", "crawling");
+        return;
+      }
+
+      if (isLoadingSitemap) {
+        handleProcessStop("close", "sitemap");
         return;
       }
 
@@ -124,31 +139,50 @@ const SourceDialog = React.memo(
       editorContent,
       form,
       isCrawling,
+      isLoadingSitemap,
       onAddUrls,
       onOpenChange,
       sourceType,
       setShowCrawlInput
     ]);
 
-    const handleConfirmStopCrawl = React.useCallback(async () => {
+    const handleConfirmStop = React.useCallback(async () => {
       if (isClosing) return;
       setIsClosing(true);
 
       try {
-        await onStopCrawl();
+        if (processType === "crawling") {
+          await onStopCrawl();
+        } else if (processType === "sitemap") {
+          // Reset sitemap loading state using the wrapper function
+          updateSitemapLoadingState(false);
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 100));
-        setShowCrawlStopConfirmation(false);
+        setShowStopConfirmation(false);
 
         if (stopAction === "close") {
+          // Reset states before closing
+          if (processType === "crawling") {
+            setShowCrawlInput(false);
+            setCrawlUrl("");
+          }
           onOpenChange(false);
         }
       } finally {
-        setShowCrawlInput(false);
-        setCrawlUrl("");
         setIsClosing(false);
         setStopAction(null);
+        setProcessType("crawling");
       }
-    }, [onStopCrawl, onOpenChange, stopAction]);
+    }, [
+      onStopCrawl,
+      onOpenChange,
+      stopAction,
+      processType,
+      setShowCrawlInput,
+      setCrawlUrl,
+      updateSitemapLoadingState
+    ]);
 
     const handleDialogClose = React.useCallback(
       (e) => {
@@ -199,11 +233,16 @@ const SourceDialog = React.memo(
                     onChange={onEditorChange}
                     onStartCrawl={onStartCrawl}
                     isCrawling={isCrawling}
-                    onStopCrawl={() => handleCrawlStop("stop")}
+                    onStopCrawl={() => handleProcessStop("stop", "crawling")}
                     showCrawlInput={showCrawlInput}
                     setShowCrawlInput={setShowCrawlInput}
                     crawlUrl={crawlUrl}
                     setCrawlUrl={setCrawlUrl}
+                    isLoadingSitemapRef={isLoadingSitemapRef}
+                    onSitemapLoadingChange={updateSitemapLoadingState}
+                    onStopSitemapLoading={() =>
+                      handleProcessStop("stop", "sitemap")
+                    }
                   />
                 ) : (
                   <div className="h-full">
@@ -232,13 +271,13 @@ const SourceDialog = React.memo(
           </StyledDialogContent>
         </Dialog>
 
-        <CrawlStopConfirmationDialog
-          isOpen={showCrawlStopConfirmation}
-          onOpenChange={setShowCrawlStopConfirmation}
-          onConfirm={handleConfirmStopCrawl}
+        <ProcessStopConfirmationDialog
+          isOpen={showStopConfirmation}
+          onOpenChange={setShowStopConfirmation}
+          onConfirm={handleConfirmStop}
           isClosing={isClosing}
           action={stopAction}
-          setShowCrawlInput={setShowCrawlInput}
+          processType={processType}
         />
       </>
     );
