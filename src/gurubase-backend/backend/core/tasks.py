@@ -1370,14 +1370,14 @@ def update_github_repositories(successful_repos=True):
 
                     if len(structure) > data_source.guru_type.github_file_count_limit_per_repo_hard:
                         raise GithubRepoFileCountLimitError(
-                            f"The codebase exceeds the maximum file limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files supported."
+                            f"The codebase ({len(structure)}) exceeds the maximum file limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files supported."
                         )
 
                     # Calculate total size
                     total_size = sum(file['size'] for file in structure)
                     if total_size > data_source.guru_type.github_repo_size_limit_mb * 1024 * 1024:
                         raise GithubRepoSizeLimitError(
-                            f"The codebase exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported."
+                            f"The codebase ({total_size / (1024 * 1024):.2f} MB) exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported."
                         )
                     
                     # Get existing files for this data source
@@ -1461,6 +1461,7 @@ def update_github_repositories(successful_repos=True):
                     data_source.in_milvus = False
                     data_source.error = ""
                     data_source.user_error = ""
+                    data_source.status = DataSource.Status.SUCCESS
                     data_source.save()
                     data_source.write_to_milvus()
 
@@ -1488,7 +1489,7 @@ def update_github_repositories(successful_repos=True):
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our size limit of {data_source.guru_type.github_repo_size_limit_mb} MB. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                    user_error = f"An issue occurred while reindexing the codebase. The repository size ({total_size / (1024 * 1024):.2f} MB) has grown beyond our size limit of {data_source.guru_type.github_repo_size_limit_mb} MB. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = str(e)
                 data_source.user_error = user_error
@@ -1501,7 +1502,7 @@ def update_github_repositories(successful_repos=True):
                 data_source.error = error_msg
                 data_source.status = DataSource.Status.FAIL
                 if data_source.last_successful_index_date:
-                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown beyond our file count limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
+                    user_error = f"An issue occurred while reindexing the codebase. The repository has grown to {len(structure)} files, which exceeds our file count limit of {data_source.guru_type.github_file_count_limit_per_repo_hard} files. No worries though - this guru still uses the codebase indexed on {data_source.last_successful_index_date.strftime('%B %d')}. Reindexing will be attempted again later."
                 else:
                     user_error = str(e)
                 data_source.user_error = user_error
