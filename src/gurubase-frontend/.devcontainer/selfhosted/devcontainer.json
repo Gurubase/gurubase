@@ -14,10 +14,13 @@
     "--network",
     "selfhosted-dev-gurubase",
     "--hostname",
-    "gurubase-frontend-dev",
-    "-p",
-    "3000:3000"
+    "gurubase-frontend-dev"
   ],
+  "forwardPorts": [],
+  "portsAttributes": {},
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -37,7 +40,6 @@
       }
     }
   },
-  "forwardPorts": [3000],
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "yarn",
   "remoteUser": "node"
 }
