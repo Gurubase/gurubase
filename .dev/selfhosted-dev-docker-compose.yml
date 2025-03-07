@@ -11,17 +11,13 @@ services:
       ETCD_USE_EMBED: "true"
       ETCD_DATA_DIR: /var/lib/milvus/etcd
       COMMON_STORAGETYPE: local
-    ports:
-      - "19530:19530"
     volumes:
-      - ./.devdata/milvus:/var/lib/milvus
+      - ./.devdata/selfhosted/milvus:/var/lib/milvus
     restart: always
 
   rabbitmq:
     image: rabbitmq:3.13.7-alpine
     container_name: selfhosted-dev-gurubase-rabbitmq
-    ports:
-      - "5672:5672"
     restart: always
 
   postgres:
@@ -31,19 +27,15 @@ services:
       POSTGRES_DB: gurubase
       POSTGRES_PASSWORD: ChangeMe
       POSTGRES_USER: postgres
-    ports:
-      - "5432:5432"
     volumes:
-      - ./.devdata/postgres:/var/lib/postgresql/data
+      - ./.devdata/selfhosted/postgres:/var/lib/postgresql/data
     restart: always
 
   redis:
     image: redis:7.2.6-alpine
     container_name: selfhosted-dev-gurubase-redis
-    ports:
-      - "6379:6379"
     volumes:
-      - ./.devdata/redis:/data
+      - ./.devdata/selfhosted/redis:/data
     restart: always
 
   nginx:
@@ -51,7 +43,7 @@ services:
     container_name: selfhosted-dev-gurubase-nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./.devdata/backend_media:/django_media_files
+      - ./.devdata/selfhosted/backend_media:/django_media_files
     ports:
       - "8029:8029"
     restart: always
