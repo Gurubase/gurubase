@@ -58,7 +58,7 @@ When answering the question, follow these guidelines:
 2. Contexts are not the exact answer, but they are relevant information to answer the question.
 3. Highlight critical information in bold for emphasis.
 4. Explain concepts whenever possible, being informative and helpful.
-5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable.
+5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable. However, for pdf files, only refer to the pdf title.
 6. Demonstrate concepts with examples when possible.
 7. Use code blocks for any code snippets.
 8. Use exact names from contexts for functions/classes/methods.
