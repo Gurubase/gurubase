@@ -3167,6 +3167,7 @@ def format_date_updated(date_updated: datetime) -> str:
     return date_updated.strftime('%-d %B %Y') if date_updated else None
 
 def format_references(references: list, api: bool = False) -> list:
+    from core.gcp import replace_media_root_with_localhost
     processed_references = []
     for reference in references:
         if 'question' in reference and 'link' in reference:
@@ -3205,7 +3206,8 @@ def format_references(references: list, api: bool = False) -> list:
             if settings.ENV == 'selfhosted':
                 for reference in processed_references:
                     if reference['link'] == pdf_data_source.url:
-                        reference['link'] = reference['link'].replace("/workspace/backend", "")
+                        reference['link'] = replace_media_root_with_localhost(reference['link'])
+                    
 
 
     return processed_references
