@@ -11,7 +11,7 @@
 		"-v",
 		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
 		"-v",
-		"/Users/kursataktas/projects/gurubase/gurubase/.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
+		"${localWorkspaceFolder}/../../.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
 		"--ipc",
 		"host",
 		"--network",

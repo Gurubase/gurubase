@@ -11,7 +11,7 @@
 		"-v",
 		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
 		"-v",
-		"/Users/kursataktas/projects/gurubase/gurubase/.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
+		"${localWorkspaceFolder}/../../.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
 		"--ipc",
 		"host",
 		"--network",
@@ -63,5 +63,5 @@
 			]
 		}
 	},
-	"postCreateCommand": "mkdir -p ~/.ssh && cp -r ~/.ssh-localhost/* ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/* && echo 'alias g=\"git\"' >> ~/.bashrc && echo 'alias gps=\"git push\"' >> ~/.bashrc && echo 'alias gp=\"git pull\"' >> ~/.bashrc && echo 'alias gf=\"git fetch\"' >> ~/.bashrc && echo 'alias gm=\"git merge\"' >> ~/.bashrc" 
+	"postCreateCommand": "mkdir -p ~/.ssh && cp -r ~/.ssh-localhost/* ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/* && echo 'alias g=\"git\"' >> ~/.bashrc && echo 'alias gps=\"git push\"' >> ~/.bashrc && echo 'alias gp=\"git pull\"' >> ~/.bashrc && echo 'alias gf=\"git fetch\"' >> ~/.bashrc && echo 'alias gm=\"git merge\"' >> ~/.bashrc"
 }
