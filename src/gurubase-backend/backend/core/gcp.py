@@ -18,16 +18,15 @@ def replace_media_root_with_nginx_base_url(url):
         return f'{settings.NGINX_BASE_URL}/media{path}'
     return url
 
-def replace_media_root_with_localhost(url):
+def replace_media_root_with_base_url(url):
+    # TODO: Update this when selfhosted url setting is added
     if settings.ENV == 'selfhosted':
         if not url:
             logger.error("URL is None", traceback.format_exc())
             return ''
-        port = settings.NGINX_BASE_URL[settings.NGINX_BASE_URL.rfind(":"):][1:]
-        host = settings.BASE_URL.split("//")[1].split(":")[0]
         # Replace also for development environment
         path = url.split(settings.MEDIA_ROOT)[1]
-        return f'http://{host}:{port}/media{path}'
+        return f'{settings.BASE_URL}/media{path}'
     return url
 
 
