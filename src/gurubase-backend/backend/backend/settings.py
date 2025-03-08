@@ -445,5 +445,5 @@ GITHUB_FILE_BATCH_SIZE = config('GITHUB_FILE_BATCH_SIZE', default=100, cast=int)
 CRAWL_INACTIVE_THRESHOLD_SECONDS = config('CRAWL_INACTIVE_THRESHOLD_SECONDS', default=7, cast=int)
 ADMIN_EMAIL = config('ADMIN_EMAIL', default='')
 MAILGUN_API_KEY = config('MAILGUN_API_KEY', default='')
-
+FIRECRAWL_BATCH_SIZE = config('FIRECRAWL_BATCH_SIZE', default=5, cast=int)
 
