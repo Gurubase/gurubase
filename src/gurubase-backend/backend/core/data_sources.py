@@ -61,7 +61,6 @@ def youtube_content_extraction(youtube_url):
 
 def pdf_content_extraction(pdf_path):
     try:
-        pdf_path = replace_media_root_with_nginx_base_url(pdf_path)
         loader = PyPDFLoader(pdf_path)
         pages = loader.load()
     except Exception as e:

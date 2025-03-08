@@ -23,7 +23,7 @@ from core.requester import GeminiRequester, OpenAIRequester
 from core.data_sources import CrawlService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
-from core.gcp import replace_media_root_with_localhost, replace_media_root_with_nginx_base_url
+from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
 from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
 from accounts.models import User
 from core.utils import (
@@ -1519,7 +1519,7 @@ def get_guru_visuals(request):
     guru_type = request.guru_type
     response = {
         'colors': guru_type.colors,
-        'icon_url': replace_media_root_with_localhost(guru_type.icon_url),
+        'icon_url': replace_media_root_with_base_url(guru_type.icon_url),
         'name': guru_type.name,
         'slug': guru_type.slug,
     }

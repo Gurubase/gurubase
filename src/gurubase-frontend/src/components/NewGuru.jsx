@@ -1016,6 +1016,11 @@ export default function NewGuru({ guruData, isProcessing }) {
         throw new Error(guruResponse.message);
       }
 
+      if (data.guruLogo instanceof File) {
+        setSelectedFile(null);
+        setIconUrl(guruResponse.icon_url || customGuruData?.icon_url);
+      }
+
       const guruSlug = isEditMode ? customGuru : guruResponse.slug;
 
       // Fetch updated guru data after create/update
@@ -2243,7 +2248,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                               document.getElementById("logo-upload").click()
                             }>
                             <Upload className="mr-2 h-4 w-4" />{" "}
-                            {iconUrl ? "Change Logo" : "Upload Logo"}
+                            {isEditMode ? "Change Logo" : "Upload Logo"}
                           </Button>
                           <FormDescription>
                             We support PNG, JPEG under 1MB.
