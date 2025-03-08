@@ -40,8 +40,6 @@ jobs:
         tags: ${{ env.REPOSITORY_SELFHOSTED }}:${{ env.IMAGE_TAG }}
         platforms: linux/amd64,linux/arm64
         file: src/gurubase-backend/Dockerfile
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Image Tag
       env:
