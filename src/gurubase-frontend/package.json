@@ -46,7 +46,7 @@
     "@reduxjs/toolkit": "^2.2.7",
     "@sentry/nextjs": "^8.54.0",
     "@tailwindcss/typography": "^0.5.13",
-    "axios": "1.7.8",
+    "axios": "1.8.2",
     "class-variance-authority": "^0.7.0",
     "clientjs": "^0.2.1",
     "clsx": "^2.1.1",
