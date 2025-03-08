@@ -75,11 +75,13 @@ const MonacoUrlEditor = ({
   showCrawlInput,
   setShowCrawlInput,
   crawlUrl,
-  setCrawlUrl
+  setCrawlUrl,
+  isLoadingSitemapRef,
+  onSitemapLoadingChange,
+  onStopSitemapLoading
 }) => {
   const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
-  const [isLoadingSitemap, setIsLoadingSitemap] = useState(false);
   const [showSitemapInput, setShowSitemapInput] = useState(false);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
@@ -127,8 +129,12 @@ const MonacoUrlEditor = ({
     }
 
     try {
-      setIsLoadingSitemap(true);
+      onSitemapLoadingChange(true);
       const response = await parseSitemapUrls(sitemapUrl);
+      // If the sitemap loading state was reset (due to stop action), don't process the response
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
 
       if (response.error || response.msg) {
         CustomToast({
@@ -175,7 +181,7 @@ const MonacoUrlEditor = ({
         variant: "error"
       });
     } finally {
-      setIsLoadingSitemap(false);
+      onSitemapLoadingChange(false);
     }
   };
 
@@ -197,7 +203,7 @@ const MonacoUrlEditor = ({
     }
   };
 
-  const buttonContent = () => {
+  const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
         <Button
@@ -246,6 +252,30 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const sitemapButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={!sitemapUrl}
+          onClick={handleSitemapParse}
+          variant="outline">
+          Parse Sitemap
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+          onClick={() => onStopSitemapLoading()}
+          disabled={!isLoadingSitemapRef.current}
+          variant="outline">
+          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          Stop
+        </Button>
+      );
+    }
+  };
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
@@ -317,24 +347,12 @@ const MonacoUrlEditor = ({
                     onChange={(e) => setSitemapUrl(e.target.value)}
                   />
                   <div className="flex items-center gap-2 guru-sm:w-full">
-                    <Button
-                      className="h-8 guru-sm:flex-1"
-                      disabled={isLoadingSitemap || !sitemapUrl}
-                      onClick={handleSitemapParse}
-                      variant="outline">
-                      {isLoadingSitemap ? (
-                        <>
-                          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                          Fetching...
-                        </>
-                      ) : (
-                        "Parse Sitemap"
-                      )}
-                    </Button>
+                    {sitemapButtonContent()}
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2 hover:bg-gray-100"
+                      disabled={isLoadingSitemapRef.current}
                       onClick={() => {
                         setShowSitemapInput(false);
                         setSitemapUrl("");
@@ -353,7 +371,7 @@ const MonacoUrlEditor = ({
                     disabled={isCrawling}
                   />
                   <div className="flex items-center gap-2 guru-sm:w-full">
-                    {buttonContent()}
+                    {crawlButtonContent()}
                     <Button
                       variant="ghost"
                       size="sm"

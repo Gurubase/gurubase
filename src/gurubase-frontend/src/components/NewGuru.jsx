@@ -186,7 +186,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       return updatedContent;
     });
-  }, guruData?.slug);
+  }, guruData?.slug || null);
 
   // Only initialize Auth0 hooks if in selfhosted mode
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -1014,6 +1014,11 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       if (guruResponse.error) {
         throw new Error(guruResponse.message);
+      }
+
+      if (data.guruLogo instanceof File) {
+        setSelectedFile(null);
+        setIconUrl(guruResponse.icon_url || customGuruData?.icon_url);
       }
 
       const guruSlug = isEditMode ? customGuru : guruResponse.slug;
@@ -1969,8 +1974,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         name="githubRepos"
         render={({ field }) => {
           // Ensure we're always using the latest values from the form
-          const repos =
-            currentGithubRepos.length > 0 ? currentGithubRepos : field.value;
+          const repos = field.value;
 
           return (
             <FormItem className="flex-1">
@@ -2244,7 +2248,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                               document.getElementById("logo-upload").click()
                             }>
                             <Upload className="mr-2 h-4 w-4" />{" "}
-                            {iconUrl ? "Change Logo" : "Upload Logo"}
+                            {isEditMode ? "Change Logo" : "Upload Logo"}
                           </Button>
                           <FormDescription>
                             We support PNG, JPEG under 1MB.

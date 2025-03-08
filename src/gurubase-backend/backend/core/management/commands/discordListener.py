@@ -78,7 +78,7 @@ class Command(BaseCommand):
                     clean_title
                 ).strip()
 
-                formatted_msg.append(f"• [_{clean_title}_](<{ref['link']}>)")
+                formatted_msg.append(f"• [*{clean_title}*](<{ref['link']}>)")
 
         # Add space for frontend link
         formatted_msg.append(f":eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)")
@@ -453,7 +453,7 @@ class Command(BaseCommand):
                                     ' ',
                                     clean_title
                                 ).strip()
-                                metadata += f"\n• [_{clean_title}_](<{ref['link']}>)"
+                                metadata += f"\n• [*{clean_title}*](<{ref['link']}>)"
                         
                         metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
                         

@@ -9,20 +9,41 @@ import { Button } from "@/components/ui/button";
 
 // Create a new component for the confirmation dialog
 
-const CrawlStopConfirmationDialog = ({
+const ProcessStopConfirmationDialog = ({
   isOpen,
   onOpenChange,
   onConfirm,
   isClosing,
-  action
+  action,
+  processType = "crawling" // can be "crawling" or "sitemap"
 }) => {
   const dialogTitle =
-    action === "close" ? "Close While Crawling?" : "Stop Crawling?";
+    action === "close"
+      ? `Close While ${processType === "crawling" ? "Crawling" : "Importing"}?`
+      : processType === "crawling"
+        ? "Stop Crawling?"
+        : "Stop Import?";
 
   const dialogDescription =
     action === "close"
-      ? "This will stop the crawling process and close the dialog. The URLs discovered so far will still be available."
-      : "This will stop the crawling process. The URLs discovered so far will still be available.";
+      ? `This will stop the ${processType} process and close the dialog. ${
+          processType === "crawling"
+            ? "The URLs discovered so far will still be available."
+            : ""
+        }`
+      : `This will stop the ${processType} process. ${
+          processType === "crawling"
+            ? "The URLs discovered so far will still be available."
+            : ""
+        }`;
+
+  const buttonText = isClosing
+    ? "Stopping..."
+    : `Stop ${processType === "crawling" ? "Crawling" : "Import"}`;
+
+  const continueText = `Continue ${
+    processType === "crawling" ? "Crawling" : "Import"
+  }`;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -40,14 +61,14 @@ const CrawlStopConfirmationDialog = ({
             className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
             disabled={isClosing}
             onClick={onConfirm}>
-            {isClosing ? "Stopping..." : "Stop Crawling"}
+            {buttonText}
           </Button>
           <Button
             className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
             variant="outline"
             disabled={isClosing}
             onClick={() => onOpenChange(false)}>
-            Continue Crawling
+            {continueText}
           </Button>
         </div>
       </AlertDialogContent>
@@ -55,4 +76,4 @@ const CrawlStopConfirmationDialog = ({
   );
 };
 
-export default CrawlStopConfirmationDialog;
+export default ProcessStopConfirmationDialog;

@@ -568,7 +568,7 @@ const Content = (props) => {
                     <Clock className="w-8 h-8 text-white" />
                   </div>
                   <h1 className="text-2xl font-semibold">Bot Conversation</h1>
-                  <p className="text-md text-muted-foreground text-center max-w-lg">
+                  <p className="text-md text-muted-foreground text-center max-w-lg mx-4">
                     This binge is from a conversation on{" "}
                     {finalSource?.charAt(0).toUpperCase() +
                       finalSource?.slice(1).toLowerCase()}
@@ -763,7 +763,8 @@ const Content = (props) => {
       {/* Mobile Binge Map section */}
       {typeof window !== "undefined" && slug && (
         <>
-          {finalBingeId &&
+          {treeData?.children?.length > 0 &&
+            finalBingeId &&
             !isBingeMapOpen &&
             !isLoading &&
             !streamingStatus &&
