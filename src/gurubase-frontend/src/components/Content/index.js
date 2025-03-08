@@ -763,7 +763,7 @@ const Content = (props) => {
       {/* Mobile Binge Map section */}
       {typeof window !== "undefined" && slug && (
         <>
-          {!shouldHideFollowUp &&
+          {treeData?.children?.length > 0 &&
             finalBingeId &&
             !isBingeMapOpen &&
             !isLoading &&

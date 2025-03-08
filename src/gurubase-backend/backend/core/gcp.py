@@ -1,6 +1,6 @@
 import logging
 from django.conf import settings
-
+import traceback
 from django.core.files.storage import FileSystemStorage as DjangoFileSystemStorage
 
 # storage = GoogleCloudStorage()
@@ -8,20 +8,25 @@ logger = logging.getLogger(__name__)
 
 
 def replace_media_root_with_nginx_base_url(url):
+    # TODO: Update this when selfhosted url setting is added
     if settings.ENV == 'selfhosted':
         # Replace also for development environment
-        url = url.replace(settings.MEDIA_ROOT, f'{settings.NGINX_BASE_URL}/media')
-        url = url.replace("/workspace/backend/media", f'{settings.NGINX_BASE_URL}/media')
-        return url
+        if not url:
+            logger.error("URL is None", traceback.format_exc())
+            return ''
+        path = url.split(settings.MEDIA_ROOT)[1]
+        return f'{settings.NGINX_BASE_URL}/media{path}'
     return url
 
-def replace_media_root_with_localhost(url):
+def replace_media_root_with_base_url(url):
+    # TODO: Update this when selfhosted url setting is added
     if settings.ENV == 'selfhosted':
-        port = settings.NGINX_BASE_URL[settings.NGINX_BASE_URL.rfind(":"):][1:]
+        if not url:
+            logger.error("URL is None", traceback.format_exc())
+            return ''
         # Replace also for development environment
-        url = url.replace(settings.MEDIA_ROOT, f'http://localhost:{port}/media')
-        url = url.replace("/workspace/backend/media", f'http://localhost:{port}/media')
-        return url
+        path = url.split(settings.MEDIA_ROOT)[1]
+        return f'{settings.BASE_URL}/media{path}'
     return url
 
 
