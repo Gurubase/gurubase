@@ -46,4 +46,5 @@ src/components/_exampleStreaming.js
 # Environment files
 .env*
 !.env.example
+!.env.selfhosted.dev
 .cursorrules
