@@ -77,7 +77,9 @@ export default function GuruEditPageSidebar({ guruData }) {
               variant="outline"
               size="smButtonLgText"
               className="w-full text-black hover:bg-gray-800 hover:text-white rounded-full"
-              onClick={() => handleNavigation(`/g/${guruSlug}`)}>
+              onClick={() =>
+                window.open(`/g/${guruSlug}`, "_blank", "noopener,noreferrer")
+              }>
               <div className="inline-flex items-center gap-1">
                 <span>Visit Guru</span>
                 <svg

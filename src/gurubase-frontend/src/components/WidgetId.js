@@ -37,7 +37,7 @@ export default function WidgetModal({
     data-margins='{"bottom": "1rem", "right": "1rem"}'
     data-light-mode="true"${isSelfHosted
       ? `
-    data-baseUrl="http://localhost:8029/api/"  <!-- If you haven't changed it, this is the default Gurubase Self-Hosted backend URL. -->`
+    data-baseUrl="http://localhost:8029/api/"  <!-- If you haven't changed it, this is the default Gurubase instance URL. -->`
       : ""
     }
     id="guru-widget-id">
