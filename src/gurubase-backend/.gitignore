@@ -165,6 +165,7 @@ backend/api/static
 backend/backend/static
 .DS_Store
 envs/*.env
+!envs/selfhosted-dev.env
 backend/gcp/credentials.json
 local_scripts
 media/

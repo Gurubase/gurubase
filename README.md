@@ -30,6 +30,7 @@
 - [How to Claim a Guru](#how-to-claim-a-guru)
 - [Showcase Your Guru](#showcase-your-guru)
 - [How to Update Datasources](#how-to-update-datasources)
+- [Contributing](#contributing)
 - [License](#license)
 - [Help](#help)
 - [Used By](#used-by)
@@ -112,6 +113,10 @@ Click the Guru you want to update. On the edit page, click "Reindex" for the dat
 You can also see the "Last Index Date" on the URL pages.
 
 <img src="imgs/image-2.png" alt="Gurubase Last Index Date" width="720"/><br/>
+
+## Contributing
+
+We welcome contributions to Gurubase! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute, including code standards, testing requirements, and the pull request process.
 
 ## License
 
