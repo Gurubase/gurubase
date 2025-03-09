@@ -80,9 +80,13 @@ class DataSourceSerializer(serializers.ModelSerializer):
         if instance.type == DataSource.Type.PDF:
             del repr['url']
 
+        if instance.user_error:
+            repr['error'] = instance.user_error
+
         if instance.type == DataSource.Type.GITHUB_REPO:
             if instance.error:
                 repr['error'] = format_github_repo_error(instance.error, instance.user_error)
+
         return repr
 
 class DataSourceAPISerializer(serializers.ModelSerializer):
@@ -96,9 +100,13 @@ class DataSourceAPISerializer(serializers.ModelSerializer):
         if instance.type == DataSource.Type.PDF:
             del repr['url']
 
+        if instance.user_error:
+            repr['error'] = instance.user_error
+
         if instance.type == DataSource.Type.GITHUB_REPO:
             if instance.error:
                 repr['error'] = format_github_repo_error(instance.error, instance.user_error)
+
         return repr
 
 

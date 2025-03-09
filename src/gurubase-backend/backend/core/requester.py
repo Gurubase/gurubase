@@ -140,6 +140,92 @@ class FirecrawlScraper(WebScraper):
 
         return title, scrape_status['markdown']
 
+    def _check_throttling(self, response):
+        """Check if response indicates throttling and raise appropriate exception"""
+        if 'metadata' in response and 'statusCode' in response['metadata']:
+            status_code = response['metadata']['statusCode']
+            if status_code == 429:
+                description = response['metadata'].get('description', '')
+                error_msg = f"Status code: {status_code}. Description: {description}"
+                raise WebsiteContentExtractionThrottleError(error_msg)
+
+    def _process_successful_item(self, item) -> Tuple[str, str, str]:
+        """Process a single successful item from batch response"""
+        url = item.get('metadata', {}).get('sourceURL', '')
+        title = item.get('metadata', {}).get('title', url) or url
+        content = item.get('markdown', '')
+        
+        if not content:
+            raise ValueError("No content found")
+            
+        return url, title, content
+
+    def _extract_failing_indices(self, error_str: str, urls: List[str]) -> List[Tuple[str, str]]:
+        """Extract failing URLs from error message using regex"""
+        import re
+        failed_urls = []
+        
+        try:
+            path_matches = re.finditer(r"'path':\s*(\[[^\]]+\])", error_str)
+            failing_indices = {
+                path_list[1] 
+                for match in path_matches
+                if len(path_list := eval(match.group(1))) > 1 
+                and isinstance(path_list[1], int)
+            }
+            
+            failed_urls = [(urls[i], error_str) for i in failing_indices]
+        except Exception as parse_error:
+            logger.error(f"Error parsing failure response: {parse_error}. Original error: {error_str}")
+            
+        return failed_urls
+
+    def scrape_urls_batch(self, urls: List[str]) -> Tuple[List[Tuple[str, str, str]], List[Tuple[str, str]]]:
+        """
+        Scrape multiple URLs in a batch.
+        Returns: Tuple[
+            List[Tuple[url: str, title: str, content: str]],  # Successful results
+            List[Tuple[url: str, error: str]]  # Failed URLs with their error messages
+        ]
+        """
+        try:
+            batch_scrape_result = self.app.batch_scrape_urls(
+                urls,
+                params={'formats': ['markdown'], 'onlyMainContent': True}
+            )
+
+            # batch_scrape_result = {'metadata': {'statusCode': 429, 'description': 'Rate limit exceeded'}}
+
+            # Check for throttling first
+            self._check_throttling(batch_scrape_result)
+            
+            successful_results = []
+            failed_urls = []
+            
+            # Process successful results
+            for item in batch_scrape_result.get('data', []):
+                try:
+                    result = self._process_successful_item(item)
+                    successful_results.append(result)
+                except ValueError as e:
+                    url = item.get('metadata', {}).get('sourceURL', '')
+                    failed_urls.append((url, str(e)))
+            
+            return successful_results, failed_urls
+            
+        except WebsiteContentExtractionThrottleError:
+            raise
+        except Exception as e:
+            error_str = str(e)
+            if "Bad Request" in error_str and "no longer supported" in error_str:
+                failed_urls = self._extract_failing_indices(error_str, urls)
+                return [], failed_urls or [(url, error_str) for url in urls]
+            elif "429" in error_str:
+                raise WebsiteContentExtractionThrottleError(error_str)
+
+            logger.error(f"Batch scraping failed: {error_str}")
+            return [], [(url, f"Batch scraping failed: {error_str}") for url in urls]
+
 class Crawl4AIScraper(WebScraper):
     """Crawl4AI implementation of WebScraper using AsyncWebCrawler"""
     def __init__(self):
