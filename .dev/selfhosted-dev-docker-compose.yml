@@ -45,7 +45,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./.devdata/selfhosted/backend_media:/django_media_files
     ports:
-      - "8029:8029"
+      - "8019:8019"
     restart: always
 
 networks:
