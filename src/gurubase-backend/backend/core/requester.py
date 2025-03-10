@@ -191,7 +191,7 @@ class FirecrawlScraper(WebScraper):
         try:
             batch_scrape_result = self.app.batch_scrape_urls(
                 urls,
-                params={'formats': ['markdown'], 'onlyMainContent': True}
+                params={'formats': ['markdown'], 'onlyMainContent': True, 'timeout': settings.FIRECRAWL_TIMEOUT_MS}
             )
 
             # batch_scrape_result = {'metadata': {'statusCode': 429, 'description': 'Rate limit exceeded'}}
