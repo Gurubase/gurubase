@@ -3068,24 +3068,23 @@ def api_ask(question: str,
 
     question_source = APIType.get_question_source(api_type)
 
-    # Get question summary and check with slug
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
+    # Search the question with only the question text (this will return the last question with the same text)
     if fetch_existing:
-        # Only check for existing questions if not in a binge
         existing_question = search_question(
             user, 
             guru_type, 
             binge, 
-            summary_data['question_slug'], 
+            None, 
             question,
             will_check_binge_auth=False,
             include_api=include_api,
             only_widget=only_widget
         )
-        # if existing_question and not is_question_dirty(existing_question):
         if existing_question:
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
+
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
