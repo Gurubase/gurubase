@@ -10,8 +10,8 @@ import redis
 import requests
 from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 from core import milvus_utils
-from core.data_sources import fetch_data_source_content, get_internal_links
-from core.requester import GuruRequester, OpenAIRequester
+from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
+from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
 from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, generate_similar_questions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache
@@ -24,6 +24,7 @@ from statistics import median, mean, stdev
 from django.utils import timezone
 from django.utils.timezone import now
 from datetime import timedelta
+from django.db import transaction
 
 
 logger = logging.getLogger(__name__)
@@ -317,11 +318,106 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 guru_type=guru_type_object
             )[:settings.DATA_SOURCE_FETCH_BATCH_SIZE]
 
-        for data_source in data_sources.iterator(chunk_size=100):
+        # Get the web scraper type
+        scraper, scrape_tool = get_web_scraper()
+        is_firecrawl = isinstance(scraper, FirecrawlScraper)
+
+        # Group data sources by type
+        website_sources = []
+        other_sources = []
+        for data_source in data_sources:
+            if data_source.type == DataSource.Type.WEBSITE:
+                website_sources.append(data_source)
+            else:
+                other_sources.append(data_source)
+
+        # Process website sources in batches if using Firecrawl
+        if website_sources and is_firecrawl:
+            batch_size = settings.FIRECRAWL_BATCH_SIZE
+            
+            for i in range(0, len(website_sources), batch_size):
+                batch = website_sources[i:i + batch_size]
+                try:
+                    processed_sources = process_website_data_sources_batch(batch)
+                    
+                    # Group sources by status for bulk updates
+                    success_sources = []
+                    failed_sources = []
+                    not_processed_sources = []
+                    
+                    with transaction.atomic():
+                        for data_source in processed_sources:
+                            if data_source.status == DataSource.Status.NOT_PROCESSED:
+                                raise WebsiteContentExtractionThrottleError(f'Throttle in batch. Stopping all subsequent extraction for guru type {guru_type_slug}')
+                            elif not data_source.error:
+                                data_source.status = DataSource.Status.SUCCESS
+                                success_sources.append(data_source)
+                            else:
+                                data_source.status = DataSource.Status.FAIL
+                                failed_sources.append(data_source)
+                        
+                        # Bulk update sources
+                        if success_sources:
+                            DataSource.objects.bulk_update(
+                                success_sources,
+                                ['status', 'error', 'user_error', 'title', 'content', 'scrape_tool']
+                            )
+                        if failed_sources:
+                            DataSource.objects.bulk_update(
+                                failed_sources,
+                                ['status', 'error', 'user_error']
+                            )
+                        if not_processed_sources:
+                            DataSource.objects.bulk_update(
+                                not_processed_sources,
+                                ['status', 'error', 'user_error']
+                            )
+                        
+                        # Write successful sources to Milvus
+                        for data_source in success_sources:
+                            try:
+                                data_source.write_to_milvus()
+                            except Exception as e:
+                                logger.error(f"Error writing to Milvus for data source {data_source.id}: {e}", exc_info=True)
+                                data_source.status = DataSource.Status.FAIL
+                                data_source.error = str(e)
+                                data_source.save()
+                                
+                except WebsiteContentExtractionThrottleError as e:
+                    logger.warning(f"Throttled for batch Website URLs. Error: {e}")
+                    # Mark all sources in batch as NOT_PROCESSED and stop processing
+                    with transaction.atomic():
+                        for data_source in batch:
+                            data_source.status = DataSource.Status.NOT_PROCESSED
+                            data_source.error = str(e)
+                            data_source.user_error = str(e)
+                        DataSource.objects.bulk_update(
+                            batch,
+                            ['status', 'error', 'user_error']
+                        )
+                    # Stop processing remaining batches if we hit rate limit
+                    break
+                        
+                except Exception as e:
+                    logger.error(f"Error while processing batch website sources: {e}", exc_info=True)
+                    with transaction.atomic():
+                        for data_source in batch:
+                            data_source.status = DataSource.Status.FAIL
+                            data_source.error = str(e)
+                            data_source.user_error = str(e)
+                        DataSource.objects.bulk_update(
+                            batch,
+                            ['status', 'error', 'user_error']
+                        )
+
+        # Process other sources (and website sources if not using Firecrawl) individually
+        sources_to_process = other_sources + (website_sources if not is_firecrawl else [])
+        for data_source in sources_to_process:
             try:
                 data_source = fetch_data_source_content(data_source)
+                data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
-                logger.warning(f"Throttled for Website URL {data_source.url}. Error: {e}")
+                logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
                 data_source.status = DataSource.Status.NOT_PROCESSED
                 data_source.error = str(e)
                 data_source.user_error = str(e)
@@ -340,6 +436,9 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 data_source.write_to_milvus()
             except Exception as e:
                 logger.error(f"Error while writing to milvus: {e}", exc_info=True)
+                data_source.status = DataSource.Status.FAIL
+                data_source.error = str(e)
+                data_source.save()
 
     # Main func
     if guru_type_slug:
