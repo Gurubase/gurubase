@@ -3184,16 +3184,20 @@ def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str
         context_relevance_cot_expected_output, 
         context_relevance_cot_output_format, 
         context_relevance_without_cot_expected_output, 
-        context_relevance_without_cot_output_format)
+        context_relevance_without_cot_output_format,
+        context_relevance_code_cot_expected_output,
+        context_relevance_code_without_cot_expected_output)
 
     if cot:
         expected_output = context_relevance_cot_expected_output
         output_format = context_relevance_cot_output_format
+        code_expected_output = context_relevance_code_cot_expected_output
     else:
         expected_output = context_relevance_without_cot_expected_output
         output_format = context_relevance_without_cot_output_format
+        code_expected_output = context_relevance_code_without_cot_expected_output
 
-    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format)
+    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format, code_expected_output=code_expected_output)
     return prompt
 
 def string_to_boolean(value: str) -> bool:
