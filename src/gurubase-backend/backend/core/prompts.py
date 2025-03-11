@@ -19,13 +19,6 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 For any questions related to date, remember today's date is {date}.
 """
 
-validity_check_template = """You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
-Determine if question is related to {guru_type} or not. Set "valid_question": true if the question is related to {guru_type}, false otherwise.
-<question> should be an SEO-friendly question as it will be used as the title. Avoid using command tones or phrases like 'how can you.'. Instead, aim for a direct and to-the-point style and clearly state the subject without using phrases like 'explained,' 'key differences,' or similar. Try to keep it under 60 characters when possible, but don't sacrifice clarity or meaning for brevity.
-If the question is not related with {guru_type}, set "valid_question": false.
-<question_slug> should be a unique slug for the question and should be SEO-friendly, up to 50 characters, lowercase and separated by hyphens without any special characters.
-    """
-
 binge_mini_prompt = """
 The user has started a conversation with you. The previously asked questions are:
 
@@ -88,29 +81,6 @@ Use the markdown guide provided earlier for proper formatting.
 Remember, today's date is {date}. Use this information if any date-related questions arise.
 
 I will give you the user question and question.
-"""
-
-
-# similar_questions_template = """
-# Generate {question_count} similar niche questions like the following ones. Return a json list and each object should be a generated question in the format {{'questions': [question1, question2, ...]\}}. Here are some question examples. After that, I will give you the questions I already have. DO NOT GENERATE THESE QUESTIONS.
-# QUESTION EXAMPLES:
-# 
-# {questions}
-# 
-# ALREADY EXISTING QUESTIONS:
-# 
-# {existing_questions}"""
-
-
-create_question_categories = """
-Generate 10 categories based on given question examples about {guru_type}. I will follow up with these questions to ask you generate similar question later on. Return a json list and each object should be a generated category in the format {{'categories': [category1, category2, ...]\}}. JUST OUTPUT THE LIST, do not write anything else.
-QUESTION EXAMPLES:
-
-{questions}
-"""
-
-similar_questions_template = """
-Generate {question_count} question about: {category}. Questions should be niche questions about {guru_type}. Return a json list, and each object should be a generated question in the format {{'questions': ["question1", "question2", ...]\}}. JUST OUTPUT THE LIST where each element is a question string, do not write anything else.
 """
 
 
