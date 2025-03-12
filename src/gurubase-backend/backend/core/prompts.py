@@ -93,7 +93,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or Github code files etc. The QUESTION is the prettified version of the USER QUESTION. Github code files are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or source code files. The QUESTION is the prettified version of the USER QUESTION. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.
