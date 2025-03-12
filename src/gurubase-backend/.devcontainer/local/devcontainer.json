@@ -19,7 +19,7 @@
 		"--env-file",
 		"envs/dev.env",
 		"-p",
-		"8038:8018"
+		"8008:8018"
 	],
 	"customizations": {
 		"vscode": {
