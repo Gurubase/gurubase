@@ -718,18 +718,26 @@ class DataSource(models.Model):
         super().save(*args, **kwargs)
 
 
-    def write_to_milvus(self):
-        from core.utils import embed_texts, split_text, map_extension_to_language, split_code
+    def write_to_milvus(self, overridden_model=None):
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
         if self.in_milvus:
             return
 
+        if overridden_model:
+            model = overridden_model
+        else:
+            model = self.guru_type.code_embedding_model
+
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
             logger.info(f"Writing {len(github_files)} GitHub files to Milvus. Repository: {self.url}")
             doc_ids = self.doc_ids
+            
+            # Get embedding model configuration
+            collection_name, dimension = get_embedding_model_config(model)
             
             # Process files in batches
             batch_size = settings.GITHUB_FILE_BATCH_SIZE
@@ -787,9 +795,9 @@ class DataSource(models.Model):
                     all_metadata.extend([metadata] * len(splitted))
                     file_text_counts.append(len(splitted))  # Store count of chunks for this file
 
-                # Batch embed all texts
+                # Batch embed all texts using the configured model
                 try:
-                    embeddings = embed_texts(all_texts)
+                    embeddings = embed_texts_with_model(all_texts, model)
                 except Exception as e:
                     logger.error(f"Error embedding texts in batch: {traceback.format_exc()}")
                     continue
@@ -812,10 +820,9 @@ class DataSource(models.Model):
                         "guru_slug": guru_slug,
                     })
 
-                # Write batch to Milvus
-                collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
+                # Write batch to Milvus with the correct collection name and dimension
                 try:
-                    batch_ids = list(insert_vectors(collection_name, docs, code=True))
+                    batch_ids = list(insert_vectors(collection_name, docs, code=True, dimension=dimension))
                     if len(batch_ids) != len(docs):
                         logger.error(f"Error writing batch to Milvus: {len(batch_ids)} != {len(docs)}")
                         continue
@@ -853,9 +860,12 @@ class DataSource(models.Model):
             link = self.url
             title = self.title
 
-            # 1- Embed the texts
+            # Get embedding model configuration
+            collection_name, dimension = get_embedding_model_config(self.guru_type.text_embedding_model)
+
+            # Embed the texts using the configured model
             try:
-                embeddings = embed_texts(splitted)
+                embeddings = embed_texts_with_model(splitted, self.guru_type.text_embedding_model)
             except Exception as e:
                 logger.error(f"Error embedding texts: {traceback.format_exc()}")
                 self.status = DataSource.Status.FAIL
@@ -866,7 +876,7 @@ class DataSource(models.Model):
                 logger.error(f"Embeddings is None. {traceback.format_exc()}")
                 raise Exception("Embeddings is None")
 
-            # 2- Prepare the metadata
+            # Prepare the metadata
             docs = []
             split_num = 0
             for i, split in enumerate(splitted):
@@ -884,10 +894,9 @@ class DataSource(models.Model):
                     }
                 )
 
-            # 3- Write to milvus
-            collection_name = self.guru_type.milvus_collection_name
-            ids = insert_vectors(collection_name, docs)
-            # 4- Update the model
+            # Write to milvus with the correct collection name and dimension
+            ids = insert_vectors(collection_name, docs, dimension=dimension)
+            # Update the model
             if self.doc_ids is None:
                 self.doc_ids = []
             self.doc_ids += ids
@@ -899,20 +908,24 @@ class DataSource(models.Model):
 
     def delete_from_milvus(self):
         from core.milvus_utils import delete_vectors
+        from core.utils import get_embedding_model_config
 
         if not self.in_milvus:
             return
 
         ids = self.doc_ids
 
-        collection_name = self.guru_type.milvus_collection_name
+        if self.type == DataSource.Type.GITHUB_REPO:
+            collection_name, dimension = get_embedding_model_config(self.guru_type.code_embedding_model)
+        else:
+            collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
 
         self.doc_ids = []
         self.in_milvus = False
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            GithubFile.objects.filter(data_source=self).delete()
+            GithubFile.objects.filter(data_source=self).update(in_milvus=False, doc_ids=[])
 
         self.save()
 
@@ -1525,7 +1538,7 @@ class GithubFile(models.Model):
         return f"{self.path}"
 
     def write_to_milvus(self):
-        from core.utils import embed_texts, split_text, split_code, map_extension_to_language
+        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config
         from core.milvus_utils import insert_vectors
 
         if self.in_milvus:
@@ -1552,7 +1565,6 @@ class GithubFile(models.Model):
             )
 
         # Prepare metadata
-
         if not self.link:
             self.link = f'{self.repository_link}/tree/{self.data_source.default_branch}/{self.path}'
 
@@ -1565,9 +1577,12 @@ class GithubFile(models.Model):
             "file_path": self.path
         }
 
-        # Embed the texts
+        # Get embedding model configuration
+        collection_name, dimension = get_embedding_model_config(self.data_source.guru_type.code_embedding_model)
+
+        # Embed the texts using the configured model
         try:
-            embeddings = embed_texts(splitted)
+            embeddings = embed_texts_with_model(splitted, self.data_source.guru_type.code_embedding_model)
         except Exception as e:
             logger.error(f"Error embedding texts: {traceback.format_exc()}")
             raise e
@@ -1588,9 +1603,8 @@ class GithubFile(models.Model):
                 "guru_slug": guru_slug,
             })
 
-        # Write to Milvus
-        collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
-        ids = list(insert_vectors(collection_name, docs, code=True))
+        # Write to Milvus with the correct collection name and dimension
+        ids = list(insert_vectors(collection_name, docs, code=True, dimension=dimension))
         
         # Update the model
         self.doc_ids = ids
@@ -1602,8 +1616,9 @@ class GithubFile(models.Model):
 
     def delete_from_milvus(self):
         from core.milvus_utils import delete_vectors
-        collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
-        delete_vectors(collection_name, self.doc_ids)
+        from core.utils import get_embedding_model_config
+        code_collection_name, code_dimension = get_embedding_model_config(self.data_source.guru_type.code_embedding_model)
+        delete_vectors(code_collection_name, self.doc_ids)
 
         data_source = self.data_source
 
@@ -1622,6 +1637,7 @@ class GithubFile(models.Model):
         self.in_milvus = False
         self.doc_ids = []
         self.save()
+
 
 
 class APIKey(models.Model):

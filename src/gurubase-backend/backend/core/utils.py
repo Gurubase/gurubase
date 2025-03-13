@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
+from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -379,6 +379,9 @@ def get_milvus_client():
 
 
 def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, llm_eval=False):
+    from core.models import GuruType
+    guru_type = GuruType.objects.get(slug=guru_type_slug)
+
     times = {
         'total': 0,
         'embedding': 0,
@@ -408,22 +411,28 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     start_total = time.perf_counter()
     
     start_embedding = time.perf_counter()
-    embedding = embed_text(question)
-    embedding_user_question = embed_text(user_question)
+    # Get text and code embeddings using appropriate models
+    text_embedding = embed_texts_with_model([question], guru_type.text_embedding_model)[0]
+    code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
+    text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
+    code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
     times['embedding'] = time.perf_counter() - start_embedding
+
+    # Get collection name and dimension for text embedding model
+    text_collection_name, text_dimension = get_embedding_model_config(guru_type.text_embedding_model)
+    code_collection_name, code_dimension = get_embedding_model_config(guru_type.code_embedding_model)
     
-    # logger.info(f'Embedding dimensions: {len(embedding)}')
     all_docs = {}
     search_params = None
 
-    def merge_splits(fetched_doc, collection_name, link_key, link, merge_limit=None):
+    def merge_splits(fetched_doc, collection_name, link_key, link, code=False, merge_limit=None):
         # Merge fetched doc with its other splits
         merged_text = {}
         # Fetching all splits once as they are already limited by stackoverflow itself and pymilvus does not support ordering
         if merge_limit:
             results = milvus_client.search(
                 collection_name=collection_name, 
-                data=[embedding], 
+                data=[text_embedding if not code else code_embedding], 
                 limit=merge_limit, 
                 output_fields=['text', 'metadata'], 
                 filter=f'metadata["{link_key}"] == "{link}"'
@@ -431,7 +440,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         else:
             results = milvus_client.search(
                 collection_name=collection_name, 
-                data=[embedding], 
+                data=[text_embedding if not code else code_embedding], 
                 limit=16384,
                 output_fields=['text', 'metadata'], 
                 filter=f'metadata["{link_key}"] == "{link}"'
@@ -448,8 +457,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     def fetch_and_merge_answers(question_id):
         # First, fetch only the first split of each answer
         answer_first_splits = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=16384,
             output_fields=['text', 'metadata'],
             filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["split_num"] == 1'
@@ -458,7 +467,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         merged_answers = []
         for answer_first_split in answer_first_splits:
             link = answer_first_split['entity']['metadata']['link']
-            merged_answer = merge_splits(answer_first_split, collection_name, 'link', link)
+            merged_answer = merge_splits(answer_first_split, text_collection_name, 'link', link, code=False)
             merged_answers.append(merged_answer)
         
         return merged_answers
@@ -495,9 +504,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             
         start_so = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=20,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] in ["question", "answer"]',
@@ -511,8 +521,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding_user_question],
+            collection_name=text_collection_name,
+            data=[text_embedding_user],
             limit=10,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] in ["question", "answer"]',
@@ -542,8 +552,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                 if question_title not in stackoverflow_sources:
                     # Try to fetch the question
                     milvus_question = milvus_client.search(
-                        collection_name=collection_name,
-                        data=[embedding],
+                        collection_name=text_collection_name,
+                        data=[text_embedding],
                         limit=1,
                         output_fields=['text', 'metadata'],
                         filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "question"'
@@ -551,8 +561,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     
                     # Try to fetch the accepted answer
                     accepted_answer = milvus_client.search(
-                        collection_name=collection_name,
-                        data=[embedding],
+                        collection_name=text_collection_name,
+                        data=[text_embedding],
                         limit=1,
                         output_fields=['text', 'metadata'],
                         filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["is_accepted"] == True'
@@ -561,8 +571,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     if not accepted_answer:
                         # If accepted answer is not found with is_accepted key, try with accepted key for old collections. is_accepted is the new key.
                         accepted_answer = milvus_client.search(
-                            collection_name=collection_name,
-                            data=[embedding],
+                            collection_name=text_collection_name,
+                            data=[text_embedding],
                             limit=1,
                             output_fields=['text', 'metadata'],
                             filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["accepted"] == True'
@@ -573,8 +583,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                         question_link = milvus_question[0]['entity']['metadata']['link']
                         accepted_answer_link = accepted_answer[0]['entity']['metadata']['link']
                         stackoverflow_sources[question_title] = {
-                            "question": merge_splits(milvus_question[0], collection_name, 'link', question_link),
-                            "accepted_answer": merge_splits(accepted_answer[0], collection_name, 'link', accepted_answer_link),
+                            "question": merge_splits(milvus_question[0], text_collection_name, 'link', question_link, code=False),
+                            "accepted_answer": merge_splits(accepted_answer[0], text_collection_name, 'link', accepted_answer_link, code=False),
                             "other_answers": []
                         }
                         
@@ -605,9 +615,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             
         start_non_so = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] not in ["question", "answer", "comment"]',
@@ -621,8 +632,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding_user_question],
+            collection_name=text_collection_name,
+            data=[text_embedding_user],
             limit=user_question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] not in ["question", "answer", "comment"]',
@@ -649,7 +660,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in non_stackoverflow_sources]:
-                    merged_doc = merge_splits(batch[index], collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], text_collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, code=False, merge_limit=5)
                     non_stackoverflow_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
@@ -669,9 +680,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             
         start_github = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
-            data=[embedding],
+            collection_name=code_collection_name,
+            data=[code_embedding],
             limit=question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter=f'guru_slug == "{guru_type_slug}"',
@@ -685,8 +697,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
-            data=[embedding_user_question],
+            collection_name=code_collection_name,
+            data=[code_embedding_user],
             limit=user_question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter=f'guru_slug == "{guru_type_slug}"',
@@ -707,13 +719,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
-            if len(github_repo_sources) >= 2:
+            if len(github_repo_sources) >= 20:
                 break
             
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in github_repo_sources]:
-                    merged_doc = merge_splits(batch[index], settings.GITHUB_REPO_CODE_COLLECTION_NAME, 'link', link, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], code_collection_name, 'link', link, code=True, merge_limit=5)
                     github_repo_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
@@ -752,22 +764,22 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
     try:
         reranked_scores = []
-        try:
-            stackoverflow_sources, stackoverflow_reranked_scores = fetch_stackoverflow_sources()
-            for source in stackoverflow_sources:
-                source['prefix'] = 'Text'
-        except Exception as e:
-            logger.error(f'Error while fetching stackoverflow sources: {e}', exc_info=True)
-            stackoverflow_sources = []
-            stackoverflow_reranked_scores = []
-        try:
-            non_stackoverflow_sources, non_stackoverflow_reranked_scores = fetch_non_stackoverflow_sources()
-            for source in non_stackoverflow_sources:
-                source['prefix'] = 'Text'
-        except Exception as e:
-            logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
-            non_stackoverflow_sources = []
-            non_stackoverflow_reranked_scores = []
+        # try:
+        #     stackoverflow_sources, stackoverflow_reranked_scores = fetch_stackoverflow_sources()
+        #     for source in stackoverflow_sources:
+        #         source['prefix'] = 'Text'
+        # except Exception as e:
+        #     logger.error(f'Error while fetching stackoverflow sources: {e}', exc_info=True)
+        #     stackoverflow_sources = []
+        #     stackoverflow_reranked_scores = []
+        # try:
+        #     non_stackoverflow_sources, non_stackoverflow_reranked_scores = fetch_non_stackoverflow_sources()
+        #     for source in non_stackoverflow_sources:
+        #         source['prefix'] = 'Text'
+        # except Exception as e:
+        #     logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
+        #     non_stackoverflow_sources = []
+            # non_stackoverflow_reranked_scores = []
         try:
             github_repo_sources, github_repo_reranked_scores = fetch_github_repo_sources()
             for source in github_repo_sources:
@@ -776,6 +788,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             logger.error(f'Error while fetching github repo sources: {e}', exc_info=True)
             github_repo_sources = []
             github_repo_reranked_scores = []
+        stackoverflow_sources = []
+        stackoverflow_reranked_scores = []
+        non_stackoverflow_sources = []
+        non_stackoverflow_reranked_scores = []
         reranked_scores = stackoverflow_reranked_scores + non_stackoverflow_reranked_scores + github_repo_reranked_scores
         contexts = stackoverflow_sources + non_stackoverflow_sources + github_repo_sources
     except Exception as e:
@@ -1282,70 +1298,15 @@ def get_more_seo_friendly_title(title):
     return seoFriendlyTitleAnswer.seo_frienly_title
 
 
-def embed_text(text, use_openai=settings.USE_OPENAI_TEXT_EMBEDDING):
-    if text is None or text == '':
-        logger.error(f'Empty or None text passed to embed_text')
-        return None
-    
-    # Generate cache key using hash of text and use_openai flag
-    cache_key = f"embedding:{hashlib.sha256(f'{text}:{use_openai}'.encode()).hexdigest()}"
-    
-    # Try to get from cache
-    try:
-        cache = caches['alternate']
-        cached_embedding = cache.get(cache_key)
-        if cached_embedding:
-            return pickle.loads(cached_embedding)
-    except Exception as e:
-        logger.error(f'Error while getting the embedding from the cache: {e}. Cache key: {cache_key}. Text: {text}')
-    
-    # Generate embedding if not in cache
-    if use_openai:
-        requester = OpenAIRequester()
-        embedding = requester.embed_text(text)
-    else:
-        url = settings.EMBED_API_URL
-        headers = {"Content-Type": "application/json"}
-        if settings.EMBED_API_KEY:
-            headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
-        response = requests.post(url, headers=headers, data=json.dumps({"inputs": text}), timeout=30)
-        if response.status_code == 200:
-            embedding = response.json()[0]
-        else:
-            logger.error(f'Error while embedding the text: {text}. Response: {response.text}. Url: {url}, Auth key: {settings.EMBED_API_KEY}')
-            return None
+def embed_text(text):
+    # Get default embedding model from Settings
+    model_choice = Settings.get_default_embedding_model()
+    return embed_text_with_model(text, model_choice)
 
-    if embedding:
-        try:
-            # Cache the embedding (8 weeks expiration)
-            cache.set(cache_key, pickle.dumps(embedding), timeout=60*60*24*7*8)
-        except Exception as e:
-            logger.error(f'Error while caching the embedding: {e}. Cache key: {cache_key}. Text: {text}')
-        
-    return embedding
-
-
-def embed_texts(texts, use_openai=settings.USE_OPENAI_TEXT_EMBEDDING):
-    batch_size = 32
-    embeddings = []
-    for i in range(0, len(texts), batch_size):
-        if use_openai:
-            requester = OpenAIRequester()
-            openai_embeddings = requester.embed_texts(texts[i:i+batch_size])
-            embeddings.extend(openai_embeddings)
-        else:
-            url = settings.EMBED_API_URL
-            headers = {"Content-Type": "application/json"}
-            if settings.EMBED_API_KEY:
-                headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
-            response = requests.post(url, headers=headers, data=json.dumps({"inputs": texts[i:i+batch_size]}), timeout=30)
-        
-            if response.status_code == 200:
-                embeddings.extend(response.json())
-            else:
-                logger.error(f'Error while embedding the batch: {texts[i:i+batch_size]}. Response: {response.text}. Url: {url}')
-                raise Exception(f'Error while embedding the batch. Response: {response.text}. Url: {url}')
-    return embeddings
+def embed_texts(texts):
+    # Get default embedding model from Settings
+    model_choice = Settings.get_default_embedding_model()
+    return embed_texts_with_model(texts, model_choice)
 
 
 def rerank_texts(query, texts):

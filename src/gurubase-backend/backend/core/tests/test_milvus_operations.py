@@ -1,6 +1,7 @@
 from django.test import TestCase
 from unittest.mock import patch, MagicMock, call
 from django.contrib.auth import get_user_model
+from core.utils import get_default_embedding_dimensions
 from core.models import GuruType, DataSource, GithubFile
 from django.conf import settings
 import os
@@ -52,7 +53,7 @@ class MilvusOperationsTests(TestCase):
     def test_datasource_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that DataSource.write_to_milvus correctly updates doc_ids and in_milvus flag"""
         # Mock the embedding and vector insertion
-        mock_embed_texts.return_value = [[0.1] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION]
+        mock_embed_texts.return_value = [[0.1] * get_default_embedding_dimensions()]
         mock_insert_vectors.return_value = ['doc_id_1', 'doc_id_2']
         
         # Call the method
@@ -100,7 +101,7 @@ class MilvusOperationsTests(TestCase):
     def test_github_file_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that GithubFile.write_to_milvus correctly updates doc_ids and in_milvus flag"""
         # Mock the embedding and vector insertion
-        mock_embed_texts.return_value = [[0.1] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION]
+        mock_embed_texts.return_value = [[0.1] * get_default_embedding_dimensions()]
         mock_insert_vectors.return_value = ['doc_id_1', 'doc_id_2']
         
         # Call the method
@@ -152,7 +153,7 @@ class MilvusOperationsTests(TestCase):
     def test_github_datasource_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that GitHub DataSource.write_to_milvus correctly updates doc_ids and in_milvus flag for all files"""
         # Mock the embedding and vector insertion
-        mock_embed_texts.return_value = [[0.1] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION] * 2
+        mock_embed_texts.return_value = [[0.1] * get_default_embedding_dimensions()] * 2
         mock_insert_vectors.return_value = ['doc_id_1', 'doc_id_2']
         
         # Create a second GitHub file

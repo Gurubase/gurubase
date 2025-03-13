@@ -5,7 +5,7 @@ from django.db.models.signals import pre_delete, post_delete, post_save, pre_sav
 from django.conf import settings
 from django.dispatch import receiver
 from accounts.models import User
-from core.utils import embed_text, generate_og_image, draw_text
+from core.utils import embed_text, generate_og_image, draw_text, get_default_embedding_dimensions, get_embedding_model_config
 from core import milvus_utils
 from core.models import GithubFile, GuruType, Question, RawQuestion, DataSource
 
@@ -492,13 +492,15 @@ def save_question_to_milvus(sender, instance: Question, **kwargs):
         return
 
     # doc['description_vector'] = description_embedding
-    doc['description_vector'] = [0] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION
+    dimension = get_default_embedding_dimensions()
+    doc['description_vector'] = [0] * dimension
     doc['title_vector'] = title_embedding
     doc['content_vector'] = content_embedding
     
     milvus_utils.insert_vectors(
         collection_name=questions_collection_name,
-        docs=[doc]
+        docs=[doc],
+        dimension=dimension
     )
     logger.info(f'Inserted question {instance.id} back into Milvus')
 
@@ -652,6 +654,7 @@ def notify_new_user(sender, instance: User, created, **kwargs):
 
 @receiver(pre_save, sender=DataSource)
 def update_data_source_in_milvus(sender, instance: DataSource, **kwargs):
+    # TODO: Test this
     # If 
     # - The data source is being updated
     # - The title of the data source is changed
@@ -704,7 +707,8 @@ def update_data_source_in_milvus(sender, instance: DataSource, **kwargs):
                 del doc['id']
 
             # Insert the new vectors
-            ids = milvus_utils.insert_vectors(collection_name, docs)
+            dimension = get_embedding_model_config(instance.guru_type.code_embedding_model)[1]
+            ids = milvus_utils.insert_vectors(collection_name, docs, dimension=dimension)
             instance.doc_ids = list(ids)
 
 @receiver(pre_delete, sender=GuruType)
