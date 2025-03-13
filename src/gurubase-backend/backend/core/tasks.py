@@ -14,7 +14,7 @@ from core.data_sources import fetch_data_source_content, get_internal_links
 from core.requester import GuruRequester, OpenAIRequester
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
 from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
-from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache
+from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
 import re
@@ -1592,3 +1592,79 @@ def stop_inactive_ui_crawls():
         crawl.save()
         
     # return f"Stopped {inactive_crawls.count()} inactive UI crawls"
+
+@shared_task
+def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: str):
+    """
+    Task to reindex non-Github data sources when text_embedding_model changes.
+    
+    Args:
+        guru_type_id: ID of the GuruType being updated
+        old_model: Previous text embedding model name
+        new_model: New text embedding model name
+    """
+    logger.info(f"Starting text embedding model reindexing for guru type {guru_type_id}")
+    try:
+        guru_type = GuruType.objects.get(id=guru_type_id)
+        
+        # Get all non-Github data sources for this guru type
+        non_github_data_sources = DataSource.objects.filter(
+            guru_type=guru_type
+        ).exclude(type=DataSource.Type.GITHUB_REPO)
+        
+        _, old_dimension = get_embedding_model_config(old_model)
+        _, new_dimension = get_embedding_model_config(new_model)
+
+        if old_dimension != new_dimension:
+            milvus_utils.drop_collection(guru_type.milvus_collection_name)
+        
+        # First delete from old collection
+        for ds in non_github_data_sources:
+            # Trigger delete from milvus anyways even if we drop the collection, to set their in_milvus = False and doc_ids = []
+            ds.delete_from_milvus()
+
+        milvus_utils.create_context_collection(guru_type.milvus_collection_name, new_dimension)
+        
+        # Then write to new collection
+        guru_type.text_embedding_model = new_model
+        for ds in non_github_data_sources:
+            ds.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+            
+        logger.info(f"Completed text embedding model reindexing for guru type {guru_type_id}")
+    except Exception as e:
+        logger.error(f"Error during text embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        raise
+
+@shared_task
+def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: str):
+    """
+    Task to reindex GitHub repos when code_embedding_model changes.
+    
+    Args:
+        guru_type_id: ID of the GuruType being updated
+        old_model: Previous code embedding model name
+        new_model: New code embedding model name
+    """
+    logger.info(f"Starting code embedding model reindexing for guru type {guru_type_id}")
+    try:
+        guru_type = GuruType.objects.get(id=guru_type_id)
+        
+        # Get all GitHub repos for this guru type
+        github_repos = DataSource.objects.filter(
+            guru_type=guru_type,
+            type=DataSource.Type.GITHUB_REPO
+        )
+        
+        # First delete from old collection
+        for repo in github_repos:
+            repo.delete_from_milvus()  # This will use the old model's collection
+        
+        # Then write to new collection
+        guru_type.code_embedding_model = new_model
+        for repo in github_repos:
+            repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+            
+        logger.info(f"Completed code embedding model reindexing for guru type {guru_type_id}")
+    except Exception as e:
+        logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        raise
