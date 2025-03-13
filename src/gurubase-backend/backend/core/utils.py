@@ -3256,3 +3256,160 @@ def custom_exception_handler_throttled(exc, context):
         response.data = custom_response_data
         
     return response
+
+def get_embedder_and_model(model_choice):
+    """
+    Returns a tuple of (embedder_instance, model_name) based on the model choice.
+    
+    Args:
+        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        
+    Returns:
+        tuple: (embedder_instance, model_name)
+    """
+    model_map = {
+        GuruType.EmbeddingModel.IN_HOUSE: (None, "in-house"),  # No embedder instance needed for in-house
+        GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: (GeminiEmbedder(), "embedding-001"),
+        GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004: (GeminiEmbedder(), "text-embedding-004"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_SMALL: (OpenAIRequester(), "text-embedding-3-small"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_LARGE: (OpenAIRequester(), "text-embedding-3-large"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002: (OpenAIRequester(), "text-embedding-ada-002"),
+    }
+    # Default to in-house if model_choice is not found
+    return model_map.get(model_choice, (None, "in-house"))
+
+def get_embedding_model_config(model_choice):
+    """
+    Returns a tuple of (collection_name, dimension) based on the GuruType.EmbeddingModel choice.
+    
+    Args:
+        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        
+    Returns:
+        tuple: (collection_name, dimension)
+        
+    Example:
+        >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
+        ('github_repo_code_openai_ada_002', 1536)
+    """
+    model_configs = {
+        GuruType.EmbeddingModel.IN_HOUSE: {
+            'collection_name': 'github_repo_code', # Default in cloud
+            'dimension': 1024
+        },
+        GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: {
+            'collection_name': 'github_repo_code_gemini_embedding_001',
+            'dimension': 768
+        },
+        GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004: {
+            'collection_name': 'github_repo_code_gemini_text_embedding_004',
+            'dimension': 768
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_SMALL: {
+            'collection_name': 'github_repo_code' if settings.ENV == 'selfhosted' else 'github_repo_code_openai_text_embedding_3_small',  # Default in selfhosted
+            'dimension': 1536
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_LARGE: {
+            'collection_name': 'github_repo_code_openai_text_embedding_3_large',
+            'dimension': 3072
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002: {
+            'collection_name': 'github_repo_code_openai_ada_002',
+            'dimension': 1536
+        }
+    }
+    
+    # Default to in-house if model_choice is not found
+    default_config = {
+        'collection_name': 'github_repo_code',
+        'dimension': 1024
+    }
+    
+    config = model_configs.get(model_choice, default_config)
+    return config['collection_name'], config['dimension']
+
+def embed_texts_with_model(texts, model_choice, batch_size=32):
+    """
+    Embeds texts using the specified model choice
+    """
+    embedder, model_name = get_embedder_and_model(model_choice)
+    embeddings = []
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        if model_name == "in-house":
+            url = settings.EMBED_API_URL
+            headers = {"Content-Type": "application/json"}
+            if settings.EMBED_API_KEY:
+                headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
+            response = requests.post(url, headers=headers, data=json.dumps({"inputs": texts[i:i+batch_size]}), timeout=30)
+            
+            if response.status_code == 200:
+                embeddings.extend(response.json())
+            else:
+                logger.error(f'Error while embedding the batch: {texts[i:i+batch_size]}. Response: {response.text}. Url: {url}')
+                raise Exception(f'Error while embedding the batch. Response: {response.text}. Url: {url}')
+        else:
+            if isinstance(embedder, OpenAIRequester):
+                embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
+            else:  # GeminiEmbedder
+                embeddings.extend(embedder.embed_texts(batch))
+    
+    return embeddings
+
+def embed_text_with_model(text, model_choice):
+    """
+    Embeds a single text using the specified model choice with caching
+    """
+    if text is None or text == '':
+        logger.error(f'Empty or None text passed to embed_text_with_model')
+        return None
+    
+    # Generate cache key using hash of text and model choice
+    cache_key = f"embedding:{hashlib.sha256(f'{text}:{model_choice}'.encode()).hexdigest()}"
+    
+    # Try to get from cache
+    try:
+        cache = caches['alternate']
+        cached_embedding = cache.get(cache_key)
+        if cached_embedding:
+            return pickle.loads(cached_embedding)
+    except Exception as e:
+        logger.error(f'Error while getting the embedding from the cache: {e}. Cache key: {cache_key}. Text: {text}')
+    
+    # Generate embedding if not in cache
+    embedder, model_name = get_embedder_and_model(model_choice)
+    
+    if model_name == "in-house":
+        url = settings.EMBED_API_URL
+        headers = {"Content-Type": "application/json"}
+        if settings.EMBED_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
+        response = requests.post(url, headers=headers, data=json.dumps({"inputs": [text]}), timeout=30)
+        
+        if response.status_code == 200:
+            embedding = response.json()[0]
+        else:
+            logger.error(f'Error while embedding the text: {text}. Response: {response.text}. Url: {url}')
+            raise Exception(f'Error while embedding the text. Response: {response.text}. Url: {url}')
+    else:
+        if isinstance(embedder, OpenAIRequester):
+            embedding = embedder.embed_text(text, model_name=model_name)
+        else:  # GeminiEmbedder
+            embedding = embedder.embed_texts(text)[0]
+
+    if embedding:
+        try:
+            # Cache the embedding (8 weeks expiration)
+            cache.set(cache_key, pickle.dumps(embedding), timeout=60*60*24*7*8)
+        except Exception as e:
+            logger.error(f'Error while caching the embedding: {e}. Cache key: {cache_key}. Text: {text}')
+        
+    return embedding
+
+def get_default_embedding_dimensions():
+    """
+    Returns the default embedding dimensions for the default embedding model
+    """
+    model_choice = Settings.get_default_embedding_model()
+    return get_embedding_model_config(model_choice)[1]

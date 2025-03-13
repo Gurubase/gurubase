@@ -288,6 +288,14 @@ class QuestionValidityCheckPricing(models.Model):
 
 
 class GuruType(models.Model):
+    class EmbeddingModel(models.TextChoices):
+        IN_HOUSE = "IN_HOUSE", "In-house embedding model"
+        GEMINI_EMBEDDING_001 = "GEMINI_EMBEDDING_001", "Gemini - embedding-001"
+        GEMINI_TEXT_EMBEDDING_004 = "GEMINI_TEXT_EMBEDDING_004", "Gemini - text-embedding-004"
+        OPENAI_TEXT_EMBEDDING_3_SMALL = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+        OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
+        OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
+
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
@@ -318,11 +326,61 @@ class GuruType(models.Model):
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
 
+    text_embedding_model = models.CharField(
+        max_length=100,
+        choices=EmbeddingModel.choices,
+        default=None,  # Will be set in save()
+    )
+    code_embedding_model = models.CharField(
+        max_length=100,
+        choices=EmbeddingModel.choices,
+        default=None,  # Will be set in save()
+    )
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.slug
+
+    def save(self, *args, **kwargs):
+        from core.utils import validate_slug
+        from core.guru_types import generate_milvus_collection_name, generate_typesense_collection_name
+
+        # Set default embedding models if not set
+        if not self.text_embedding_model:
+            self.text_embedding_model = Settings.get_default_embedding_model()
+        if not self.code_embedding_model:
+            self.code_embedding_model = Settings.get_default_embedding_model()
+
+        if 'domain_knowledge' not in self.prompt_map:
+            raise ValidationError({'msg': 'Domain knowledge field is required'})
+
+        domain_knowledge = self.prompt_map['domain_knowledge']
+        if len(domain_knowledge) > 200:
+            raise ValidationError({'msg': f'Domain knowledge must be 200 characters or less. Got: {domain_knowledge}'})
+
+        if not self.id:  # If it is a new object
+            if not self.slug:
+                self.slug = validate_slug(self.name)
+
+            self.milvus_collection_name = generate_milvus_collection_name(self.slug)
+            self.typesense_collection_name = generate_typesense_collection_name(self.slug)
+
+        if ' ' in self.slug:
+            raise ValidationError({'msg': 'Guru type name must not contain spaces'})
+
+        if self.slug == '':
+            raise ValidationError({'msg': 'Guru type name cannot be empty'})
+
+        unique_github_repos = set(self.github_repos)
+
+        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
+            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
+
+        self.github_repos = list(unique_github_repos)
+
+        super().save(*args, **kwargs)
 
     def generate_widget_id(self, domain_url):
         """
@@ -402,38 +460,6 @@ class GuruType(models.Model):
             guru_type=self, status=DataSource.Status.SUCCESS, in_milvus=False).count()
 
         return non_processed_count == 0 and non_written_count == 0
-
-    def save(self, *args, **kwargs):
-        from core.utils import validate_slug
-        from core.guru_types import generate_milvus_collection_name, generate_typesense_collection_name
-        if 'domain_knowledge' not in self.prompt_map:
-            raise ValidationError({'msg': 'Domain knowledge field is required'})
-
-        domain_knowledge = self.prompt_map['domain_knowledge']
-        if len(domain_knowledge) > 200:
-            raise ValidationError({'msg': f'Domain knowledge must be 200 characters or less. Got: {domain_knowledge}'})
-
-        if not self.id:  # If it is a new object
-            if not self.slug:
-                self.slug = validate_slug(self.name)
-
-            self.milvus_collection_name = generate_milvus_collection_name(self.slug)
-            self.typesense_collection_name = generate_typesense_collection_name(self.slug)
-
-        if ' ' in self.slug:
-            raise ValidationError({'msg': 'Guru type name must not contain spaces'})
-
-        if self.slug == '':
-            raise ValidationError({'msg': 'Guru type name cannot be empty'})
-
-        unique_github_repos = set(self.github_repos)
-
-        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
-            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
-
-        self.github_repos = list(unique_github_repos)
-
-        super().save(*args, **kwargs)
 
     def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
         """
@@ -1070,6 +1096,10 @@ class Settings(models.Model):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"
         FIRECRAWL = "FIRECRAWL", "Firecrawl"
 
+    class DefaultEmbeddingModel(models.TextChoices):
+        CLOUD = "IN_HOUSE", "In-house embedding model"
+        SELFHOSTED = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
     trust_score_threshold = models.FloatField(default=0.0)
@@ -1084,6 +1114,29 @@ class Settings(models.Model):
         choices=ScrapeType.choices,
         default=ScrapeType.CRAWL4AI,
     )
+    embedding_model_configs = models.JSONField(default=dict, blank=True, null=True)
+    default_embedding_model = models.CharField(
+        max_length=100,
+        choices=DefaultEmbeddingModel.choices,
+        default=DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else DefaultEmbeddingModel.SELFHOSTED,
+    )
+
+    @classmethod
+    def get_default_embedding_model(cls):
+        """
+        Returns the default embedding model based on the environment.
+        For cloud environments, returns IN_HOUSE.
+        For selfhosted environments, returns OPENAI_TEXT_EMBEDDING_3_SMALL.
+        """
+        try:
+            settings_obj = cls.objects.first()
+            if settings_obj:
+                return settings_obj.default_embedding_model
+        except Exception:
+            pass
+        
+        # Fallback to environment-based default if no settings object exists
+        return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
     def save(self, *args, **kwargs):
         # Check OpenAI API key validity before saving
