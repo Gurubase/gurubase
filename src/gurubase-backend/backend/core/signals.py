@@ -567,7 +567,8 @@ def clear_data_source(sender, instance: DataSource, **kwargs):
 def create_milvus_collection(sender, instance: GuruType, created, **kwargs):
     collection_name = instance.milvus_collection_name
     if created and not milvus_utils.collection_exists(collection_name=collection_name):
-        milvus_utils.create_context_collection(collection_name)
+        _, dimension = get_embedding_model_config(instance.text_embedding_model)
+        milvus_utils.create_context_collection(collection_name, dimension=dimension)
 
 
 @receiver(pre_save, sender=GuruType)
