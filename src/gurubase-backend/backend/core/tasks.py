@@ -1626,12 +1626,11 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         # First delete from old collection
         for ds in non_github_data_sources:
             # Trigger delete from milvus anyways even if we drop the collection, to set their in_milvus = False and doc_ids = []
-            ds.delete_from_milvus()
+            ds.delete_from_milvus(overridden_model=old_model)
 
         milvus_utils.create_context_collection(guru_type.milvus_collection_name, new_dimension)
         
         # Then write to new collection
-        guru_type.text_embedding_model = new_model
         for ds in non_github_data_sources:
             ds.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
             
@@ -1662,10 +1661,9 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         
         # First delete from old collection
         for repo in github_repos:
-            repo.delete_from_milvus()  # This will use the old model's collection
+            repo.delete_from_milvus(overridden_model=old_model)  # This will use the old model's collection
         
         # Then write to new collection
-        guru_type.code_embedding_model = new_model
         for repo in github_repos:
             repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
             

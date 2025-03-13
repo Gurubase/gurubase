@@ -908,17 +908,24 @@ class DataSource(models.Model):
         self.in_milvus = True
         self.save()
 
-    def delete_from_milvus(self):
+    def delete_from_milvus(self, overridden_model=None):
         from core.milvus_utils import delete_vectors
         from core.utils import get_embedding_model_config
 
         if not self.in_milvus:
             return
 
-        ids = self.doc_ids
+        if overridden_model:
+            model = overridden_model
+        else:
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
 
+        ids = self.doc_ids
         if self.type == DataSource.Type.GITHUB_REPO:
-            collection_name, dimension = get_embedding_model_config(self.guru_type.code_embedding_model)
+            collection_name, dimension = get_embedding_model_config(model)
         else:
             collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
