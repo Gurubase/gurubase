@@ -957,7 +957,7 @@ View this request in the admin panel.
     instance.save()
 
 @receiver(pre_save, sender=GuruType)
-def handle_text_embedding_model_change(sender, instance, **kwargs):
+def handle_embedding_model_change(sender, instance, **kwargs):
     """
     Signal handler that delegates text embedding model reindexing to a celery task when text_embedding_model changes.
     """
@@ -979,23 +979,8 @@ def handle_text_embedding_model_change(sender, instance, **kwargs):
                 # Schedule the reindexing task
                 from core.tasks import reindex_text_embedding_model
                 reindex_text_embedding_model.delay(instance.id, old_model, new_model)
-                    
-        except GuruType.DoesNotExist:
-            pass  # This is a new guru type
 
-@receiver(pre_save, sender=GuruType)
-def handle_code_embedding_model_change(sender, instance, **kwargs):
-    """
-    Signal handler that delegates code embedding model reindexing to a celery task when code_embedding_model changes.
-    """
-    if settings.ENV == 'selfhosted' and instance.code_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
-        raise ValidationError({'msg': 'Cannot change code_embedding_model to Gemini models in selfhosted environment'})
-
-    if instance.id:  # Only for existing guru types
-        try:
-            old_instance = GuruType.objects.get(id=instance.id)
             if old_instance.code_embedding_model != instance.code_embedding_model:
-                # Check if the guru has not processed data sources, reject if so
                 if DataSource.objects.filter(guru_type=instance, status=DataSource.Status.NOT_PROCESSED).exists():
                     raise ValidationError({'msg': 'Cannot change code_embedding_model until data sources have been completely processed (either success or fail)'})
 
