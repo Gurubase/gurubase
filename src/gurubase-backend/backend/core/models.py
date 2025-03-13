@@ -330,11 +330,15 @@ class GuruType(models.Model):
         max_length=100,
         choices=EmbeddingModel.choices,
         default=None,  # Will be set in save()
+        null=True,
+        blank=True
     )
     code_embedding_model = models.CharField(
         max_length=100,
         choices=EmbeddingModel.choices,
         default=None,  # Will be set in save()
+        null=True,
+        blank=True
     )
 
     date_created = models.DateTimeField(auto_now_add=True)
