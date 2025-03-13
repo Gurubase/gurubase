@@ -419,8 +419,9 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     times['embedding'] = time.perf_counter() - start_embedding
 
     # Get collection name and dimension for text embedding model
-    text_collection_name, text_dimension = get_embedding_model_config(guru_type.text_embedding_model)
+    _, text_dimension = get_embedding_model_config(guru_type.text_embedding_model)
     code_collection_name, code_dimension = get_embedding_model_config(guru_type.code_embedding_model)
+    text_collection_name = guru_type.milvus_collection_name
     
     all_docs = {}
     search_params = None
@@ -719,7 +720,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
-            if len(github_repo_sources) >= 20:
+            if len(github_repo_sources) >= 2:
                 break
             
             try:

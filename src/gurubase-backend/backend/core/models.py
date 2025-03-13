@@ -730,15 +730,21 @@ class DataSource(models.Model):
         if overridden_model:
             model = overridden_model
         else:
-            model = self.guru_type.code_embedding_model
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
+
+        if self.type == DataSource.Type.GITHUB_REPO:
+            collection_name, dimension = get_embedding_model_config(model)
+        else:
+            _, dimension = get_embedding_model_config(model)
+            collection_name = self.guru_type.milvus_collection_name
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
             logger.info(f"Writing {len(github_files)} GitHub files to Milvus. Repository: {self.url}")
             doc_ids = self.doc_ids
-            
-            # Get embedding model configuration
-            collection_name, dimension = get_embedding_model_config(model)
             
             # Process files in batches
             batch_size = settings.GITHUB_FILE_BATCH_SIZE
@@ -861,12 +867,9 @@ class DataSource(models.Model):
             link = self.url
             title = self.title
 
-            # Get embedding model configuration
-            collection_name, dimension = get_embedding_model_config(self.guru_type.text_embedding_model)
-
             # Embed the texts using the configured model
             try:
-                embeddings = embed_texts_with_model(splitted, self.guru_type.text_embedding_model)
+                embeddings = embed_texts_with_model(splitted, model)
             except Exception as e:
                 logger.error(f"Error embedding texts: {traceback.format_exc()}")
                 self.status = DataSource.Status.FAIL
