@@ -26,12 +26,47 @@ def update_guru_types(apps, schema_editor):
 
 def update_settings(apps, schema_editor):
     Settings = apps.get_model('core', 'Settings')
+    GuruType = apps.get_model('core', 'GuruType')
     from django.conf import settings as django_settings
     
+    # Define the model configurations
+    model_configs = {
+        'IN_HOUSE': {
+            'collection_name': 'github_repo_code',  # Default in cloud
+            'dimension': 1024
+        },
+        'GEMINI_EMBEDDING_001': {
+            'collection_name': 'github_repo_code_gemini_embedding_001',
+            'dimension': 768
+        },
+        'GEMINI_TEXT_EMBEDDING_004': {
+            'collection_name': 'github_repo_code_gemini_text_embedding_004',
+            'dimension': 768
+        },
+        'OPENAI_TEXT_EMBEDDING_3_SMALL': {
+            'collection_name': 'github_repo_code' if getattr(django_settings, 'ENV', '') == 'selfhosted' else 'github_repo_code_openai_text_embedding_3_small',  # Default in selfhosted
+            'dimension': 1536
+        },
+        'OPENAI_TEXT_EMBEDDING_3_LARGE': {
+            'collection_name': 'github_repo_code_openai_text_embedding_3_large',
+            'dimension': 3072
+        },
+        'OPENAI_TEXT_EMBEDDING_ADA_002': {
+            'collection_name': 'github_repo_code_openai_ada_002',
+            'dimension': 1536
+        }
+    }
+    
     for settings_obj in Settings.objects.all():
+        # Set default embedding model if not set
         if not settings_obj.default_embedding_model:
             settings_obj.default_embedding_model = 'IN_HOUSE' if getattr(django_settings, 'ENV', '') != 'selfhosted' else 'OPENAI_TEXT_EMBEDDING_3_SMALL'
-            settings_obj.save()
+        
+        # Set embedding model configurations if not set
+        if not settings_obj.embedding_model_configs:
+            settings_obj.embedding_model_configs = model_configs
+            
+        settings_obj.save()
 
 
 class Migration(migrations.Migration):
@@ -44,12 +79,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='gurutype',
             name='code_embedding_model',
-            field=models.CharField(choices=[('IN_HOUSE', 'In-house embedding model'), ('GEMINI_EMBEDDING_001', 'Gemini - embedding-001'), ('GEMINI_TEXT_EMBEDDING_004', 'Gemini - text-embedding-004'), ('OPENAI_TEXT_EMBEDDING_3_SMALL', 'OpenAI - text-embedding-3-small'), ('OPENAI_TEXT_EMBEDDING_3_LARGE', 'OpenAI - text-embedding-3-large'), ('OPENAI_TEXT_EMBEDDING_ADA_002', 'OpenAI - text-embedding-ada-002')], default=None, max_length=100),
+            field=models.CharField(choices=[('IN_HOUSE', 'In-house embedding model'), ('GEMINI_EMBEDDING_001', 'Gemini - embedding-001'), ('GEMINI_TEXT_EMBEDDING_004', 'Gemini - text-embedding-004'), ('OPENAI_TEXT_EMBEDDING_3_SMALL', 'OpenAI - text-embedding-3-small'), ('OPENAI_TEXT_EMBEDDING_3_LARGE', 'OpenAI - text-embedding-3-large'), ('OPENAI_TEXT_EMBEDDING_ADA_002', 'OpenAI - text-embedding-ada-002')], default=None, max_length=100, null=True, blank=True),
         ),
         migrations.AddField(
             model_name='gurutype',
             name='text_embedding_model',
-            field=models.CharField(choices=[('IN_HOUSE', 'In-house embedding model'), ('GEMINI_EMBEDDING_001', 'Gemini - embedding-001'), ('GEMINI_TEXT_EMBEDDING_004', 'Gemini - text-embedding-004'), ('OPENAI_TEXT_EMBEDDING_3_SMALL', 'OpenAI - text-embedding-3-small'), ('OPENAI_TEXT_EMBEDDING_3_LARGE', 'OpenAI - text-embedding-3-large'), ('OPENAI_TEXT_EMBEDDING_ADA_002', 'OpenAI - text-embedding-ada-002')], default=None, max_length=100),
+            field=models.CharField(choices=[('IN_HOUSE', 'In-house embedding model'), ('GEMINI_EMBEDDING_001', 'Gemini - embedding-001'), ('GEMINI_TEXT_EMBEDDING_004', 'Gemini - text-embedding-004'), ('OPENAI_TEXT_EMBEDDING_3_SMALL', 'OpenAI - text-embedding-3-small'), ('OPENAI_TEXT_EMBEDDING_3_LARGE', 'OpenAI - text-embedding-3-large'), ('OPENAI_TEXT_EMBEDDING_ADA_002', 'OpenAI - text-embedding-ada-002')], default=None, max_length=100, null=True, blank=True),
         ),
         migrations.AddField(
             model_name='settings',

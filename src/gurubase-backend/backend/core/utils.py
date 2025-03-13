@@ -3250,6 +3250,16 @@ def get_embedding_model_config(model_choice):
         >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
         ('github_repo_code_openai_ada_002', 1536)
     """
+    # Get default settings
+    try:
+        settings_obj = get_default_settings()
+        if settings_obj.embedding_model_configs and model_choice in settings_obj.embedding_model_configs:
+            config = settings_obj.embedding_model_configs[model_choice]
+            return config['collection_name'], config['dimension']
+    except Exception as e:
+        logger.warning(f"Failed to get embedding model config from settings: {e}")
+    
+    # Fallback to default configurations if not found in settings
     model_configs = {
         GuruType.EmbeddingModel.IN_HOUSE: {
             'collection_name': 'github_repo_code', # Default in cloud
@@ -3276,6 +3286,15 @@ def get_embedding_model_config(model_choice):
             'dimension': 1536
         }
     }
+    
+    # Store configurations in settings if not already stored
+    try:
+        settings_obj = get_default_settings()
+        if not settings_obj.embedding_model_configs:
+            settings_obj.embedding_model_configs = model_configs
+            settings_obj.save()
+    except Exception as e:
+        logger.warning(f"Failed to store embedding model configs in settings: {e}")
     
     # Default to in-house if model_choice is not found
     default_config = {
