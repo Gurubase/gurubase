@@ -335,6 +335,10 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 data_source.save()
                 continue
             
+            data_source.status = DataSource.Status.SUCCESS
+            data_source.error = ''
+            data_source.user_error = ''
+            data_source.last_successful_index_date = datetime.now()
             data_source.save()
             try:
                 data_source.write_to_milvus()
@@ -1466,6 +1470,7 @@ def update_github_repositories(successful_repos=True):
                     data_source.error = ""
                     data_source.user_error = ""
                     data_source.status = DataSource.Status.SUCCESS
+                    data_source.last_successful_index_date = datetime.now()
                     data_source.save()
                     data_source.write_to_milvus()
 

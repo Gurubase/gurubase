@@ -906,8 +906,6 @@ class DataSource(models.Model):
             self.doc_ids += ids
 
         self.in_milvus = True
-        self.status = DataSource.Status.SUCCESS
-        self.last_successful_index_date = datetime.now()
         self.save()
 
     def delete_from_milvus(self):
