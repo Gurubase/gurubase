@@ -1,0 +1,43 @@
+name: local-dev-gurubase
+
+services:
+  milvus:
+    image: milvusdb/milvus:v2.4.17
+    container_name: local-dev-gurubase-milvus-standalone
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      COMMON_STORAGETYPE: local
+    volumes:
+      - ./.devdata/local/milvus:/var/lib/milvus
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3.13.7-alpine
+    container_name: local-dev-gurubase-rabbitmq
+    restart: always
+
+  postgres:
+    image: postgres:16.3-alpine
+    container_name: local-dev-gurubase-postgres
+    environment:
+      POSTGRES_DB: gurubase
+      POSTGRES_PASSWORD: ChangeMe
+      POSTGRES_USER: postgres
+    volumes:
+      - ./.devdata/local/postgres:/var/lib/postgresql/data
+    restart: always
+
+  redis:
+    image: redis:7.2.6-alpine
+    container_name: local-dev-gurubase-redis
+    volumes:
+      - ./.devdata/local/redis:/data
+    restart: always
+
+networks:
+  default:
+    name: local-dev-gurubase

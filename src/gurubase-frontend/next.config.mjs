@@ -7,15 +7,15 @@ const nextConfig = {
   env: {
     ...(process.env.NEXT_PUBLIC_NODE_ENV !== "selfhosted"
       ? {
-          AUTH0_SECRET: process.env.AUTH0_SECRET,
-          AUTH0_BASE_URL: process.env.AUTH0_BASE_URL,
-          AUTH0_ISSUER_BASE_URL: process.env.AUTH0_ISSUER_BASE_URL,
-          AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
-          AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
-          AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
-          AUTH0_ALGORITHMS: process.env.AUTH0_ALGORITHMS,
-          AUTH0_SCOPE: "openid profile email offline_access"
-        }
+        AUTH0_SECRET: process.env.AUTH0_SECRET,
+        AUTH0_BASE_URL: process.env.AUTH0_BASE_URL,
+        AUTH0_ISSUER_BASE_URL: process.env.AUTH0_ISSUER_BASE_URL,
+        AUTH0_CLIENT_ID: process.env.AUTH0_CLIENT_ID,
+        AUTH0_CLIENT_SECRET: process.env.AUTH0_CLIENT_SECRET,
+        AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
+        AUTH0_ALGORITHMS: process.env.AUTH0_ALGORITHMS,
+        AUTH0_SCOPE: "openid profile email offline_access"
+      }
       : {})
   },
   eslint: {
@@ -79,7 +79,7 @@ const nextConfig = {
               "frame-src 'self' *.auth0.com *.hotjar.com",
               process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted"
                 ? "connect-src 'self' *"
-                : "connect-src 'self' localhost:* 127.0.0.1:* gurubase-backend:* *.getanteon.com *.amazonaws.com *.jsdelivr.net *.auth0.com *.iconify.design *.unisvg.com *.simplesvg.com *.hotjar.com *.hotjar.io wss://*.hotjar.com *.mixpanel.com *.google-analytics.com *.analytics.google.com *.sentry.io *.ingest.sentry.io *.gurubase.io",
+                : "connect-src 'self' localhost:* 127.0.0.1:* gurubase-backend:* *.getanteon.com *.gurubase.ai *.amazonaws.com *.jsdelivr.net *.auth0.com *.iconify.design *.unisvg.com *.simplesvg.com *.hotjar.com *.hotjar.io wss://*.hotjar.com *.mixpanel.com *.google-analytics.com *.analytics.google.com *.sentry.io *.ingest.sentry.io *.gurubase.io",
               "form-action 'self' *.auth0.com",
               "object-src 'none'",
               "base-uri 'self'",
