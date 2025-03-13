@@ -972,8 +972,7 @@ def handle_code_embedding_model_change(sender, instance, **kwargs):
                 # Get all GitHub repos for this guru type
                 github_repos = DataSource.objects.filter(
                     guru_type=instance,
-                    type=DataSource.Type.GITHUB_REPO,
-                    status=DataSource.Status.SUCCESS
+                    type=DataSource.Type.GITHUB_REPO
                 )
                 
                 # Store the new model choice
@@ -988,6 +987,49 @@ def handle_code_embedding_model_change(sender, instance, **kwargs):
                 instance.code_embedding_model = new_model
                 for repo in github_repos:
                     repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+                    
+        except GuruType.DoesNotExist:
+            pass  # This is a new guru type
+
+@receiver(pre_save, sender=GuruType)
+def handle_text_embedding_model_change(sender, instance, **kwargs):
+    """
+    Signal handler that re-indexes non-Github data sources to a new milvus collection when text_embedding_model changes.
+    """
+    if instance.id:  # Only for existing guru types
+        try:
+            old_instance = GuruType.objects.get(id=instance.id)
+            if old_instance.text_embedding_model != instance.text_embedding_model:
+                # Check if the guru has not processed data sources, reject if so
+                if DataSource.objects.filter(guru_type=instance, status=DataSource.Status.NOT_PROCESSED).exists():
+                    raise ValidationError({'msg': 'Cannot change text_embedding_model until data sources have been completely processed (either success or fail)'})
+
+                # Get all non-Github data sources for this guru type
+                non_github_data_sources = DataSource.objects.filter(
+                    guru_type=instance
+                ).exclude(type=DataSource.Type.GITHUB_REPO)
+                
+                # Store the new model choice
+                new_model = instance.text_embedding_model
+
+                _, old_dimension = get_embedding_model_config(old_instance.text_embedding_model)
+                _, new_dimension = get_embedding_model_config(instance.text_embedding_model)
+
+                if old_dimension != new_dimension:
+                    milvus_utils.drop_collection(instance.milvus_collection_name)
+                
+                # First delete from old collection
+                instance.text_embedding_model = old_instance.text_embedding_model
+                for ds in non_github_data_sources:
+                    # Trigger delete from milvus anyways even if we drop the collection, to set their in_milvus = False and doc_ids = []
+                    ds.delete_from_milvus()
+
+                milvus_utils.create_context_collection(instance.milvus_collection_name, new_dimension)
+                
+                # Then write to new collection
+                instance.text_embedding_model = new_model
+                for ds in non_github_data_sources:
+                    ds.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
                     
         except GuruType.DoesNotExist:
             pass  # This is a new guru type
