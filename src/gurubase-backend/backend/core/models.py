@@ -719,6 +719,7 @@ class DataSource(models.Model):
 
 
     def write_to_milvus(self, overridden_model=None):
+        # Model override is added to reinsert code context after changing the embedding model
         from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
         from core.milvus_utils import insert_vectors
         from django.conf import settings
