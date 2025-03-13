@@ -9,9 +9,8 @@ def update_guru_types(apps, schema_editor):
     if not settings_obj:
         return
 
-    # Update all GuruTypes by saving them
-    for guru_type in GuruType.objects.all():
-        guru_type.save()  # This will trigger the save method which updates the embedding model
+    GuruType.objects.update(text_embedding_model=settings_obj.default_embedding_model)
+    GuruType.objects.update(code_embedding_model=settings_obj.default_embedding_model)
 
 def reverse_func(apps, schema_editor):
     # No need for reverse migration as this is just updating existing records

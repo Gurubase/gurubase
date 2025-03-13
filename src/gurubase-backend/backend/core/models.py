@@ -1135,7 +1135,9 @@ class Settings(models.Model):
     default_embedding_model = models.CharField(
         max_length=100,
         choices=DefaultEmbeddingModel.choices,
-        default=DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else DefaultEmbeddingModel.SELFHOSTED,
+        default=None,
+        null=True,
+        blank=True
     )
 
     @classmethod
@@ -1156,6 +1158,10 @@ class Settings(models.Model):
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
     def save(self, *args, **kwargs):
+        # Set default embedding model based on environment if not set
+        if not self.default_embedding_model:
+            self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
+
         # Check OpenAI API key validity before saving
         if self.openai_api_key:
             try:
