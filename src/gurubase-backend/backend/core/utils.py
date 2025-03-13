@@ -764,22 +764,22 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
     try:
         reranked_scores = []
-        # try:
-        #     stackoverflow_sources, stackoverflow_reranked_scores = fetch_stackoverflow_sources()
-        #     for source in stackoverflow_sources:
-        #         source['prefix'] = 'Text'
-        # except Exception as e:
-        #     logger.error(f'Error while fetching stackoverflow sources: {e}', exc_info=True)
-        #     stackoverflow_sources = []
-        #     stackoverflow_reranked_scores = []
-        # try:
-        #     non_stackoverflow_sources, non_stackoverflow_reranked_scores = fetch_non_stackoverflow_sources()
-        #     for source in non_stackoverflow_sources:
-        #         source['prefix'] = 'Text'
-        # except Exception as e:
-        #     logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
-        #     non_stackoverflow_sources = []
-            # non_stackoverflow_reranked_scores = []
+        try:
+            stackoverflow_sources, stackoverflow_reranked_scores = fetch_stackoverflow_sources()
+            for source in stackoverflow_sources:
+                source['prefix'] = 'Text'
+        except Exception as e:
+            logger.error(f'Error while fetching stackoverflow sources: {e}', exc_info=True)
+            stackoverflow_sources = []
+            stackoverflow_reranked_scores = []
+        try:
+            non_stackoverflow_sources, non_stackoverflow_reranked_scores = fetch_non_stackoverflow_sources()
+            for source in non_stackoverflow_sources:
+                source['prefix'] = 'Text'
+        except Exception as e:
+            logger.error(f'Error while fetching non stackoverflow sources: {e}', exc_info=True)
+            non_stackoverflow_sources = []
+            non_stackoverflow_reranked_scores = []
         try:
             github_repo_sources, github_repo_reranked_scores = fetch_github_repo_sources()
             for source in github_repo_sources:
@@ -788,10 +788,6 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             logger.error(f'Error while fetching github repo sources: {e}', exc_info=True)
             github_repo_sources = []
             github_repo_reranked_scores = []
-        stackoverflow_sources = []
-        stackoverflow_reranked_scores = []
-        non_stackoverflow_sources = []
-        non_stackoverflow_reranked_scores = []
         reranked_scores = stackoverflow_reranked_scores + non_stackoverflow_reranked_scores + github_repo_reranked_scores
         contexts = stackoverflow_sources + non_stackoverflow_sources + github_repo_sources
     except Exception as e:
