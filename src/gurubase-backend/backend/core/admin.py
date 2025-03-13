@@ -293,6 +293,7 @@ class OutOfContextQuestionAdmin(admin.ModelAdmin):
 @admin.register(Settings)
 class SettingsAdmin(admin.ModelAdmin):
     list_display = ['id', 'rerank_threshold', 'rerank_threshold_llm_eval', 'trust_score_threshold', 'widget_answer_max_length']
+    readonly_fields = ('default_embedding_model', )
     ordering = ('-id',)
 
 @admin.register(LLMEvalResult)
