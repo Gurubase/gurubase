@@ -782,7 +782,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
-            if len(github_repo_sources) >= 2:
+            if len(github_repo_sources) >= 5:
                 break
             
             try:
