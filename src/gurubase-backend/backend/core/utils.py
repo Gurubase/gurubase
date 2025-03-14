@@ -76,6 +76,7 @@ def stream_and_save(
         trust_score, 
         processed_ctx_relevances, 
         ctx_rel_usage,
+        parent_topics,
         user=None,
         parent=None, 
         binge=None, 
@@ -172,6 +173,7 @@ def stream_and_save(
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.user = user
             question_obj.times = times
+            question_obj.parent_topics = parent_topics
             question_obj.save()
             get_cloudflare_requester().purge_cache(guru_type, question_slug)
             
@@ -199,7 +201,8 @@ def stream_and_save(
                 user=user,
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
-                times=times
+                times=times,
+                parent_topics=parent_topics
             )
             question_obj.save()
     except Exception as e:
@@ -378,7 +381,7 @@ def get_milvus_client():
     return milvus_client
 
 
-def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, llm_eval=False):
+def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics, llm_eval=False):
     from core.models import GuruType
     guru_type = GuruType.objects.get(slug=guru_type_slug)
 
@@ -416,6 +419,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
     text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
     code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
+    code_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.code_embedding_model)[0]
+    text_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.text_embedding_model)[0]
     times['embedding'] = time.perf_counter() - start_embedding
 
     # Get collection name and dimension for text embedding model
@@ -530,12 +535,31 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=text_collection_name,
+            data=[text_embedding_parent_topics],
+            limit=10,
+            output_fields=['id', 'text', 'metadata'],
+            filter='metadata["type"] in ["question", "answer"]',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -641,12 +665,31 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=text_collection_name,
+            data=[text_embedding_parent_topics],
+            limit=10,
+            output_fields=['id', 'text', 'metadata'],
+            filter='metadata["type"] not in ["question", "answer", "comment"]',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -706,12 +749,31 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=code_collection_name,
+            data=[code_embedding_parent_topics],
+            limit=10,
+            output_fields=['id', 'text', 'metadata'],
+            filter=f'guru_slug == "{guru_type_slug}"',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -804,7 +866,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 
-def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question):
+def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics):
     times = {
         'vector_db_fetch': {},
         'prepare_contexts': 0,
@@ -812,7 +874,7 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
     }
     
     try:
-        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question)
+        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics)
         times['vector_db_fetch'] = vector_db_times
     except Exception as e:
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
@@ -850,7 +912,7 @@ def parse_summary_response(question, response):
     try:
         prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(response)
         if response.choices[0].message.refusal:
-            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False)
+            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, parent_topics="")
             logger.error(f'Gpt refused to answer for summary. Refusal: {response.choices[0].message.refusal}')
             return {
                 'question': question,
@@ -861,6 +923,7 @@ def parse_summary_response(question, response):
                 'completion_tokens': completion_tokens,
                 'prompt_tokens': prompt_tokens,
                 'cached_prompt_tokens': cached_prompt_tokens,
+                'parent_topics': '',
             }
         else:
             gptSummary =  response.choices[0].message.parsed
@@ -875,6 +938,7 @@ def parse_summary_response(question, response):
             'completion_tokens': completion_tokens,
             'prompt_tokens': prompt_tokens,
             'cached_prompt_tokens': cached_prompt_tokens,
+            'parent_topics': '',
         }
         return answer
 
@@ -891,6 +955,7 @@ def parse_summary_response(question, response):
         'cached_prompt_tokens': cached_prompt_tokens,
         'user_intent': gptSummary.user_intent,
         'answer_length': gptSummary.answer_length,
+        'parent_topics': gptSummary.parent_topics,
         "jwt" : generate_jwt(), # for answer step after summary
     }
 
@@ -949,6 +1014,7 @@ class GptSummary(BaseModel):
     valid_question: bool
     user_intent: str
     answer_length: int
+    parent_topics: str  # List of parent/related topics for better search
 
 
 def slack_send_outofcontext_question_notification(guru_type, user_question, question, user=None):
@@ -1051,6 +1117,7 @@ def ask_question_with_stream(
     user_question, 
     parent_question, 
     source,
+    parent_topics,
     user=None):
     start_total = time.perf_counter()
     times = {
@@ -1063,7 +1130,7 @@ def ask_question_with_stream(
 
     default_settings = get_default_settings()
     start_get_contexts = time.perf_counter()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question)
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, parent_topics)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
@@ -1073,8 +1140,11 @@ def ask_question_with_stream(
             guru_type=get_guru_type_object(guru_type), 
             user_question=user_question, 
             rerank_threshold=default_settings.rerank_threshold, 
-            trust_score_threshold=default_settings.trust_score_threshold, processed_ctx_relevances=processed_ctx_relevances, 
-            source=source)
+            trust_score_threshold=default_settings.trust_score_threshold, 
+            processed_ctx_relevances=processed_ctx_relevances, 
+            source=source,
+            parent_topics=parent_topics
+        )
 
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
         times['total'] = time.perf_counter() - start_total
@@ -1233,6 +1303,7 @@ def stream_question_answer(
         answer_length, 
         user_question, 
         source,
+        parent_topics,
         parent_question=None,
         user=None,
     ):
@@ -1250,6 +1321,7 @@ def stream_question_answer(
         user_question, 
         parent_question,
         source,
+        parent_topics,
         user
     )
     if not response:
@@ -2141,6 +2213,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     user_question = summary_data['user_question']
     question_slug = summary_data['question_slug']
     description = summary_data['description']
+    parent_topics = summary_data.get('parent_topics', '')
 
     response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
@@ -2148,7 +2221,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
         user_intent, 
         answer_length, 
         user_question,
-        source
+        source,
+        parent_topics
     )
 
     total_response = []
@@ -2239,6 +2313,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             question_obj.trust_score = trust_score
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.times = times
+            question_obj.parent_topics = parent_topics
             question_obj.save()
         else:
             question_obj = Question(
@@ -2261,7 +2336,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
                 trust_score=trust_score,
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
-                times=times
+                times=times,
+                parent_topics=parent_topics
             )
             question_obj.save()
 
@@ -2954,6 +3030,7 @@ def api_ask(question: str,
     summary_cached_prompt_tokens = summary_data.get('cached_prompt_tokens', 0)
     user_intent = summary_data.get('user_intent', '')
     answer_length = summary_data.get('answer_length', '')
+    parent_topics = summary_data.get('parent_topics', '')
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
@@ -2976,6 +3053,7 @@ def api_ask(question: str,
             answer_length, 
             user_question,
             question_source,
+            parent_topics,
             parent,
             user
         )
@@ -3006,6 +3084,7 @@ def api_ask(question: str,
             trust_score=trust_score,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
+            parent_topics=parent_topics,
             times=times,
             source=question_source,
             parent=parent,
