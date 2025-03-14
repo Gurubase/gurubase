@@ -382,6 +382,12 @@ class GuruType(models.Model):
         if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
             raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
 
+        if settings.ENV == 'selfhosted':
+            if self.text_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
+                raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
+            if self.code_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
+                raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
+
         self.github_repos = list(unique_github_repos)
 
         super().save(*args, **kwargs)
