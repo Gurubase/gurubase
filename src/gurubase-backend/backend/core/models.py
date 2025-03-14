@@ -330,11 +330,15 @@ class GuruType(models.Model):
         max_length=100,
         choices=EmbeddingModel.choices,
         default=None,  # Will be set in save()
+        null=True,
+        blank=True
     )
     code_embedding_model = models.CharField(
         max_length=100,
         choices=EmbeddingModel.choices,
         default=None,  # Will be set in save()
+        null=True,
+        blank=True
     )
 
     date_created = models.DateTimeField(auto_now_add=True)
@@ -730,15 +734,21 @@ class DataSource(models.Model):
         if overridden_model:
             model = overridden_model
         else:
-            model = self.guru_type.code_embedding_model
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
+
+        if self.type == DataSource.Type.GITHUB_REPO:
+            collection_name, dimension = get_embedding_model_config(model)
+        else:
+            _, dimension = get_embedding_model_config(model)
+            collection_name = self.guru_type.milvus_collection_name
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
             logger.info(f"Writing {len(github_files)} GitHub files to Milvus. Repository: {self.url}")
             doc_ids = self.doc_ids
-            
-            # Get embedding model configuration
-            collection_name, dimension = get_embedding_model_config(model)
             
             # Process files in batches
             batch_size = settings.GITHUB_FILE_BATCH_SIZE
@@ -861,12 +871,9 @@ class DataSource(models.Model):
             link = self.url
             title = self.title
 
-            # Get embedding model configuration
-            collection_name, dimension = get_embedding_model_config(self.guru_type.text_embedding_model)
-
             # Embed the texts using the configured model
             try:
-                embeddings = embed_texts_with_model(splitted, self.guru_type.text_embedding_model)
+                embeddings = embed_texts_with_model(splitted, model)
             except Exception as e:
                 logger.error(f"Error embedding texts: {traceback.format_exc()}")
                 self.status = DataSource.Status.FAIL
@@ -903,21 +910,26 @@ class DataSource(models.Model):
             self.doc_ids += ids
 
         self.in_milvus = True
-        self.status = DataSource.Status.SUCCESS
-        self.last_successful_index_date = datetime.now()
         self.save()
 
-    def delete_from_milvus(self):
+    def delete_from_milvus(self, overridden_model=None):
         from core.milvus_utils import delete_vectors
         from core.utils import get_embedding_model_config
 
         if not self.in_milvus:
             return
 
-        ids = self.doc_ids
+        if overridden_model:
+            model = overridden_model
+        else:
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
 
+        ids = self.doc_ids
         if self.type == DataSource.Type.GITHUB_REPO:
-            collection_name, dimension = get_embedding_model_config(self.guru_type.code_embedding_model)
+            collection_name, dimension = get_embedding_model_config(model)
         else:
             collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
@@ -1132,7 +1144,9 @@ class Settings(models.Model):
     default_embedding_model = models.CharField(
         max_length=100,
         choices=DefaultEmbeddingModel.choices,
-        default=DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else DefaultEmbeddingModel.SELFHOSTED,
+        default=None,
+        null=True,
+        blank=True
     )
 
     @classmethod
@@ -1153,6 +1167,10 @@ class Settings(models.Model):
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
     def save(self, *args, **kwargs):
+        # Set default embedding model based on environment if not set
+        if not self.default_embedding_model:
+            self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
+
         # Check OpenAI API key validity before saving
         if self.openai_api_key:
             try:

@@ -567,7 +567,8 @@ def clear_data_source(sender, instance: DataSource, **kwargs):
 def create_milvus_collection(sender, instance: GuruType, created, **kwargs):
     collection_name = instance.milvus_collection_name
     if created and not milvus_utils.collection_exists(collection_name=collection_name):
-        milvus_utils.create_context_collection(collection_name)
+        _, dimension = get_embedding_model_config(instance.text_embedding_model)
+        milvus_utils.create_context_collection(collection_name, dimension=dimension)
 
 
 @receiver(pre_save, sender=GuruType)
@@ -956,37 +957,40 @@ View this request in the admin panel.
     instance.save()
 
 @receiver(pre_save, sender=GuruType)
-def handle_code_embedding_model_change(sender, instance, **kwargs):
+def handle_embedding_model_change(sender, instance, **kwargs):
     """
-    Signal handler that re-indexes GitHub repos when code_embedding_model changes.
+    Signal handler that delegates text embedding model reindexing to a celery task when text_embedding_model changes.
     """
+    if settings.ENV == 'selfhosted' and instance.text_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
+        raise ValidationError({'msg': 'Cannot change text_embedding_model to Gemini models in selfhosted environment'})
+
     if instance.id:  # Only for existing guru types
         try:
             old_instance = GuruType.objects.get(id=instance.id)
-            if old_instance.code_embedding_model != instance.code_embedding_model:
+            if old_instance.text_embedding_model != instance.text_embedding_model:
                 # Check if the guru has not processed data sources, reject if so
+                if DataSource.objects.filter(guru_type=instance, status=DataSource.Status.NOT_PROCESSED).exists():
+                    raise ValidationError({'msg': 'Cannot change text_embedding_model until data sources have been completely processed (either success or fail)'})
+
+                # Store the model choices for the task
+                old_model = old_instance.text_embedding_model
+                new_model = instance.text_embedding_model
+
+                # Schedule the reindexing task
+                from core.tasks import reindex_text_embedding_model
+                reindex_text_embedding_model.delay(instance.id, old_model, new_model)
+
+            if old_instance.code_embedding_model != instance.code_embedding_model:
                 if DataSource.objects.filter(guru_type=instance, status=DataSource.Status.NOT_PROCESSED).exists():
                     raise ValidationError({'msg': 'Cannot change code_embedding_model until data sources have been completely processed (either success or fail)'})
 
-                # Get all GitHub repos for this guru type
-                github_repos = DataSource.objects.filter(
-                    guru_type=instance,
-                    type=DataSource.Type.GITHUB_REPO,
-                    status=DataSource.Status.SUCCESS
-                )
-                
-                # Store the new model choice
+                # Store the model choices for the task
+                old_model = old_instance.code_embedding_model
                 new_model = instance.code_embedding_model
-                
-                # First delete from old collection
-                instance.code_embedding_model = old_instance.code_embedding_model
-                for repo in github_repos:
-                    repo.delete_from_milvus()  # This will use the old model's collection
-                
-                # Then write to new collection
-                instance.code_embedding_model = new_model
-                for repo in github_repos:
-                    repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+
+                # Schedule the reindexing task
+                from core.tasks import reindex_code_embedding_model
+                reindex_code_embedding_model.delay(instance.id, old_model, new_model)
                     
         except GuruType.DoesNotExist:
             pass  # This is a new guru type
