@@ -634,9 +634,11 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         question_milvus_limit = 20
         user_question_milvus_limit = 10
+        parent_topics_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
+            parent_topics_milvus_limit = 3
             
         start_non_so = time.perf_counter()
         start_milvus = time.perf_counter()
@@ -668,7 +670,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         parent_topics_batch = milvus_client.search(
             collection_name=text_collection_name,
             data=[text_embedding_parent_topics],
-            limit=10,
+            limit=parent_topics_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] not in ["question", "answer", "comment"]',
             search_params=search_params
