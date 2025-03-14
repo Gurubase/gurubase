@@ -961,8 +961,12 @@ def handle_embedding_model_change(sender, instance, **kwargs):
     """
     Signal handler that delegates text embedding model reindexing to a celery task when text_embedding_model changes.
     """
-    if settings.ENV == 'selfhosted' and instance.text_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
-        raise ValidationError({'msg': 'Cannot change text_embedding_model to Gemini models in selfhosted environment'})
+    if settings.ENV == 'selfhosted':
+        if instance.text_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
+            raise ValidationError({'msg': 'Cannot change text_embedding_model to Gemini models in selfhosted environment'})
+
+        if instance.code_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
+            raise ValidationError({'msg': 'Cannot change code_embedding_model to Gemini models in selfhosted environment'})
 
     if instance.id:  # Only for existing guru types
         try:
