@@ -26,8 +26,8 @@
 	"customizations": {
 		"vscode": {
 			"settings": {
-				"python.pythonPath": "/usr/local/bin/python",
-				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"python.pythonPath": "/workspace/.venv/bin/python",
+				"python.defaultInterpreterPath": "/workspace/.venv/bin/python",
 				"python.formatting.provider": "autopep8",
 				"pylint.args": [
 					"--load-plugins=pylint_django",
