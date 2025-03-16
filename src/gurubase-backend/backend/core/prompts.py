@@ -15,16 +15,10 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <description> should be 100 to 150 characters long meta description.
 <user_intent> should be a short summary of the user's intent. It will be used to determine the question answer length. It can be short answer, explanation, how to, why, etc. {summary_prompt_non_widget_addition}
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_prompt_widget_addition}
+<parent_topics_instruction> should be a list of parent topics and related concepts that this question falls under.
 
 For any questions related to date, remember today's date is {date}.
 """
-
-validity_check_template = """You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
-Determine if question is related to {guru_type} or not. Set "valid_question": true if the question is related to {guru_type}, false otherwise.
-<question> should be an SEO-friendly question as it will be used as the title. Avoid using command tones or phrases like 'how can you.'. Instead, aim for a direct and to-the-point style and clearly state the subject without using phrases like 'explained,' 'key differences,' or similar. Try to keep it under 60 characters when possible, but don't sacrifice clarity or meaning for brevity.
-If the question is not related with {guru_type}, set "valid_question": false.
-<question_slug> should be a unique slug for the question and should be SEO-friendly, up to 50 characters, lowercase and separated by hyphens without any special characters.
-    """
 
 binge_mini_prompt = """
 The user has started a conversation with you. The previously asked questions are:
@@ -91,29 +85,6 @@ I will give you the user question and question.
 """
 
 
-# similar_questions_template = """
-# Generate {question_count} similar niche questions like the following ones. Return a json list and each object should be a generated question in the format {{'questions': [question1, question2, ...]\}}. Here are some question examples. After that, I will give you the questions I already have. DO NOT GENERATE THESE QUESTIONS.
-# QUESTION EXAMPLES:
-# 
-# {questions}
-# 
-# ALREADY EXISTING QUESTIONS:
-# 
-# {existing_questions}"""
-
-
-create_question_categories = """
-Generate 10 categories based on given question examples about {guru_type}. I will follow up with these questions to ask you generate similar question later on. Return a json list and each object should be a generated category in the format {{'categories': [category1, category2, ...]\}}. JUST OUTPUT THE LIST, do not write anything else.
-QUESTION EXAMPLES:
-
-{questions}
-"""
-
-similar_questions_template = """
-Generate {question_count} question about: {category}. Questions should be niche questions about {guru_type}. Return a json list, and each object should be a generated question in the format {{'questions': ["question1", "question2", ...]\}}. JUST OUTPUT THE LIST where each element is a question string, do not write anything else.
-"""
-
-
 seo_friendly_title_template = """
 <question> is a title. Avoid using command tones or phrases like 'how can you.'. Instead, aim for a direct and to-the-point style and clearly state the subject without using phrases like 'explained,' 'key differences,' or similar. Try to keep it under 60 characters when possible, but don't sacrifice clarity or meaning for brevity.
 """
@@ -123,14 +94,15 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, etc. The QUESTION is the prettified version of the USER QUESTION.
+You will be given a QUESTION, a USER QUESTION, and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or source code files. The QUESTION is the prettified version of the USER QUESTION. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.
-(2) CONTEXTS could be providing the exact answer, relevant information, or be completely unrelated to the QUESTION.
+(2) CONTEXTS could be providing the exact answer, relevant information, implementation details, or be completely unrelated to the QUESTION.
 (3) CONTEXTS containing the exact answer to the question should be given a score of 1.
 (4) CONTEXTS containing relevant information to the question should be given a score between 0 and 1. The more relevant the information, the higher the score.
 (5) CONTEXTS containing no relevant information to the question should be given a score of 0.
+(6) Code CONTEXTS containing implementation details should be given a score between 0 and 1. The more relevant the implementation details, the higher the score. 
 
 Here is an example:
 
@@ -138,53 +110,321 @@ QUESTION: What is the difference between a static method and an instance method 
 USER QUESTION: static method vs instance method
 
 CONTEXTS
-<context id="1">
+<Text context id="1">
 Context 1 Metadata:
 {{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
 
 Context 1 Text: 
 Static methods are methods that are bound to a class rather than its instances.
-</context>
+</Text context>
 
 --------
 
-<context id="2">
+<Text context id="2">
 Context 2 Metadata:
 {{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
 
 Context 2 Text: 
 Instance methods are methods that are bound to an instance of a class.
-</context>
+</Text context>
 
 --------
 
-<context id="3">
+<Text context id="3">
 Context 3 Metadata:
 {{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
 
 Context 3 Text: 
 Instance methods can execute like normal functions.
-</context>
+</Text context>
 
 --------
 
-<context id="4">
+<Text context id="4">
 Context 4 Metadata:
 {{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
 
 Context 4 Text: 
 This is a comment unrelated to the question.
-</context>
+</Text context>
 
 EXPECTED OUTPUT:
 
 {expected_output}
+
+Here is another example with code contexts:
+
+QUESTION: Reversing a string in Python?
+USER QUESTION: reverse a string in python
+
+CONTEXTS
+<Code context id="1">
+Context 1 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 1 Text:
+```sql
+SELECT * FROM users WHERE name = 'John';
+```
+</Code context>
+
+--------
+
+<Code context id="2">
+Context 2 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Sum Example"}}
+
+Context 2 Text:
+```python
+print(5 + 10)
+```
+</Code context>
+
+--------
+
+<Code context id="3">
+Context 3 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Multiplication"}}
+
+Context 3 Text:
+```python
+def multiply(a, b): return a * b
+```
+</Code context>
+
+--------
+
+<Code context id="4">
+Context 4 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "String Utils"}}
+
+Context 4 Text:
+```python
+s = "hello" \n print(len(s))
+```
+</Code context>
+
+--------
+
+<Code context id="5">
+Context 5 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Uppercase String Example"}}
+
+Context 5 Text:
+```python
+s = "hello" \n print(s.upper())
+```
+</Code context>
+
+--------
+
+<Code context id="6">
+Context 6 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 6 Text:
+```python
+s = "hello" \n reversed_list = list(reversed(s)) \n print(reversed_list)
+```
+</Code context>
+
+--------
+
+<Code context id="7">
+Context 7 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 7 Text:
+```python
+s = "hello" \n print(''.join(reversed(s)))
+```
+</Code context>
+
+--------
+
+<Code context id="8">
+Context 8 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 8 Text:
+```python
+def reverse_string(s): return s[::-1]
+```
+</Code context>
+
+--------
+
+<Code context id="9">
+Context 9 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 9 Text:
+```python
+s = "hello" \n print(s[::-1])
+```
+</Code context>
+
+--------
+
+<Code context id="10">
+Context 10 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 10 Text:
+```python
+# Reverse a string in Python \n s = "hello" \n print(s[::-1])
+```
+</Code context>
+
+--------
+
+<Code context id="11">
+Context 11 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 11 Text:
+```python
+# Best way to reverse a string in Python \n def reverse_string(s): return s[::-1] \n print(reverse_string("hello"))
+```
+</Code context>
+
+EXPECTED OUTPUT:
+
+{code_expected_output}
+
+Here is the score criteria:
+
+0.0	Completely irrelevant - The retrieved context has no meaningful connection to the query. The response is random or misleading.
+0.1	Barely related - Some words or concepts may match, but the context does not contribute to answering the query.
+0.2	Loosely connected - There is a distant relationship, but the context does not contain useful information for a meaningful answer.
+0.3	Some relevance - The context has minor connections to the query, but it is not useful for generating a strong response.
+0.4	Partially relevant - Some useful information is present, but it is not enough to form a complete or confident answer.
+0.5	Moderately relevant - The context provides some useful information, but it may lack clarity or completeness.
+0.6	Mostly relevant - The context is useful and related, though it may require interpretation or restructuring to be fully effective.
+0.7	Relevant - The context provides solid support for answering the query, even if not perfectly aligned.
+0.8	Highly relevant - The context directly addresses the query and provides clear, useful information.
+0.9	Strongly relevant - The context is precise and well-aligned, ensuring a high-quality response.
+1.0	Perfect match - The context is ideal, offering exactly what is needed for a clear, complete, and confident answer.
 
 Explain your reasoning for each context in a step-by-step manner to ensure your reasoning and conclusion are correct.
 
 Your output should be a json in the following format. Contexts list size should be the same as the number of contexts provided. Each score in a context should ALWAYS be between 0 and 1. The number of contexts given should be the same as the number of contexts of your output.
 
 {output_format}
+"""
+
+context_relevance_code_cot_expected_output = """
+{
+    "overall_explanation": "",
+    "contexts": [
+        {
+            "context_num": 1,
+            "score": 0.0,
+            "explanation": "Completely irrelevant; this is an SQL query with no connection to Python."
+        },
+        {
+            "context_num": 2,
+            "score": 0.1,
+            "explanation": "Barely related; it's a Python statement, but unrelated to string reversal."
+        },
+        {
+            "context_num": 3,
+            "score": 0.2,
+            "explanation": "Loosely connected; it's Python syntax but has nothing to do with strings."
+        },
+        {
+            "context_num": 4,
+            "score": 0.3,
+            "explanation": "Some relevance; it deals with strings but not reversing them."
+        },
+        {
+            "context_num": 5,
+            "score": 0.4,
+            "explanation": "Partially relevant; it modifies a string but does not reverse it."
+        },
+        {
+            "context_num": 6,
+            "score": 0.5,
+            "explanation": "Moderately relevant; it uses reversed(), but the output is a list, not a string."
+        },
+        {
+            "context_num": 7,
+            "score": 0.6,
+            "explanation": "Mostly relevant; correct approach, but it requires an extra join()."
+        },
+        {
+            "context_num": 8,
+            "score": 0.7,
+            "explanation": "Relevant; a correct and concise solution for string reversal."
+        },
+        {
+            "context_num": 9,
+            "score": 0.8,
+            "explanation": "Highly relevant; direct answer using Python slicing."
+        },
+        {
+            "context_num": 10,
+            "score": 0.9,
+            "explanation": "Strongly relevant; perfect answer with a comment for clarity."
+        },
+        {
+            "context_num": 11,
+            "score": 1.0,
+            "explanation": "Perfect match; complete answer with function, usage, and best practice."
+        }
+    ]
+}
+"""
+
+context_relevance_code_without_cot_expected_output = """
+{
+    "contexts": [
+        {
+            "context_num": 1,
+            "score": 0.0,
+        },
+        {
+            "context_num": 2,
+            "score": 0.1,
+        },
+        {
+            "context_num": 3,
+            "score": 0.2,
+        },
+        {
+            "context_num": 4,
+            "score": 0.3,
+        },
+        {
+            "context_num": 5,
+            "score": 0.4,
+        },
+        {
+            "context_num": 6,
+            "score": 0.5,
+        },
+        {
+            "context_num": 7,
+            "score": 0.6,
+        },
+        {
+            "context_num": 8,
+            "score": 0.7,
+        },
+        {
+            "context_num": 9,
+            "score": 0.8,
+        },
+        {
+            "context_num": 10,
+            "score": 0.9,
+        },
+        {
+            "context_num": 11,
+            "score": 1.0,
+        }
+    ]
+}
 """
 
 context_relevance_cot_expected_output = """
@@ -263,8 +503,7 @@ context_relevance_without_cot_output_format = """
 """
 
 
-
-
+# TODO: Add codebase support
 groundedness_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the generated answer is grounded to the provided contexts.
@@ -325,6 +564,7 @@ Your output should be a json in the following format:
 """
 
 
+# TODO: Add codebase support
 answer_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the generated answer is relevant to the question.

@@ -89,6 +89,7 @@ class Question(models.Model):
     llm_usages = models.JSONField(default=dict, blank=True, null=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     times = models.JSONField(default=dict, blank=True, null=False)
+    parent_topics = models.TextField(default='', blank=True, null=True)
 
     @property
     def frontend_url(self):
@@ -288,6 +289,14 @@ class QuestionValidityCheckPricing(models.Model):
 
 
 class GuruType(models.Model):
+    class EmbeddingModel(models.TextChoices):
+        IN_HOUSE = "IN_HOUSE", "In-house embedding model"
+        GEMINI_EMBEDDING_001 = "GEMINI_EMBEDDING_001", "Gemini - embedding-001"
+        GEMINI_TEXT_EMBEDDING_004 = "GEMINI_TEXT_EMBEDDING_004", "Gemini - text-embedding-004"
+        OPENAI_TEXT_EMBEDDING_3_SMALL = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+        OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
+        OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
+
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
@@ -318,11 +327,71 @@ class GuruType(models.Model):
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
 
+    text_embedding_model = models.CharField(
+        max_length=100,
+        choices=EmbeddingModel.choices,
+        default=None,  # Will be set in save()
+        null=True,
+        blank=True
+    )
+    code_embedding_model = models.CharField(
+        max_length=100,
+        choices=EmbeddingModel.choices,
+        default=None,  # Will be set in save()
+        null=True,
+        blank=True
+    )
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.slug
+
+    def save(self, *args, **kwargs):
+        from core.utils import validate_slug
+        from core.guru_types import generate_milvus_collection_name, generate_typesense_collection_name
+
+        # Set default embedding models if not set
+        if not self.text_embedding_model:
+            self.text_embedding_model = Settings.get_default_embedding_model()
+        if not self.code_embedding_model:
+            self.code_embedding_model = Settings.get_default_embedding_model()
+
+        if 'domain_knowledge' not in self.prompt_map:
+            raise ValidationError({'msg': 'Domain knowledge field is required'})
+
+        domain_knowledge = self.prompt_map['domain_knowledge']
+        if len(domain_knowledge) > 200:
+            raise ValidationError({'msg': f'Domain knowledge must be 200 characters or less. Got: {domain_knowledge}'})
+
+        if not self.id:  # If it is a new object
+            if not self.slug:
+                self.slug = validate_slug(self.name)
+
+            self.milvus_collection_name = generate_milvus_collection_name(self.slug)
+            self.typesense_collection_name = generate_typesense_collection_name(self.slug)
+
+        if ' ' in self.slug:
+            raise ValidationError({'msg': 'Guru type name must not contain spaces'})
+
+        if self.slug == '':
+            raise ValidationError({'msg': 'Guru type name cannot be empty'})
+
+        unique_github_repos = set(self.github_repos)
+
+        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
+            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
+
+        if settings.ENV == 'selfhosted':
+            if self.text_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
+                raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
+            if self.code_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
+                raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
+
+        self.github_repos = list(unique_github_repos)
+
+        super().save(*args, **kwargs)
 
     def generate_widget_id(self, domain_url):
         """
@@ -402,38 +471,6 @@ class GuruType(models.Model):
             guru_type=self, status=DataSource.Status.SUCCESS, in_milvus=False).count()
 
         return non_processed_count == 0 and non_written_count == 0
-
-    def save(self, *args, **kwargs):
-        from core.utils import validate_slug
-        from core.guru_types import generate_milvus_collection_name, generate_typesense_collection_name
-        if 'domain_knowledge' not in self.prompt_map:
-            raise ValidationError({'msg': 'Domain knowledge field is required'})
-
-        domain_knowledge = self.prompt_map['domain_knowledge']
-        if len(domain_knowledge) > 200:
-            raise ValidationError({'msg': f'Domain knowledge must be 200 characters or less. Got: {domain_knowledge}'})
-
-        if not self.id:  # If it is a new object
-            if not self.slug:
-                self.slug = validate_slug(self.name)
-
-            self.milvus_collection_name = generate_milvus_collection_name(self.slug)
-            self.typesense_collection_name = generate_typesense_collection_name(self.slug)
-
-        if ' ' in self.slug:
-            raise ValidationError({'msg': 'Guru type name must not contain spaces'})
-
-        if self.slug == '':
-            raise ValidationError({'msg': 'Guru type name cannot be empty'})
-
-        unique_github_repos = set(self.github_repos)
-
-        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
-            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
-
-        self.github_repos = list(unique_github_repos)
-
-        super().save(*args, **kwargs)
 
     def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
         """
@@ -692,13 +729,28 @@ class DataSource(models.Model):
         super().save(*args, **kwargs)
 
 
-    def write_to_milvus(self):
-        from core.utils import embed_texts, split_text, map_extension_to_language, split_code
+    def write_to_milvus(self, overridden_model=None):
+        # Model override is added to reinsert code context after changing the embedding model
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
         if self.in_milvus:
             return
+
+        if overridden_model:
+            model = overridden_model
+        else:
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
+
+        if self.type == DataSource.Type.GITHUB_REPO:
+            collection_name, dimension = get_embedding_model_config(model)
+        else:
+            _, dimension = get_embedding_model_config(model)
+            collection_name = self.guru_type.milvus_collection_name
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
@@ -761,9 +813,9 @@ class DataSource(models.Model):
                     all_metadata.extend([metadata] * len(splitted))
                     file_text_counts.append(len(splitted))  # Store count of chunks for this file
 
-                # Batch embed all texts
+                # Batch embed all texts using the configured model
                 try:
-                    embeddings = embed_texts(all_texts)
+                    embeddings = embed_texts_with_model(all_texts, model)
                 except Exception as e:
                     logger.error(f"Error embedding texts in batch: {traceback.format_exc()}")
                     continue
@@ -786,10 +838,9 @@ class DataSource(models.Model):
                         "guru_slug": guru_slug,
                     })
 
-                # Write batch to Milvus
-                collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
+                # Write batch to Milvus with the correct collection name and dimension
                 try:
-                    batch_ids = list(insert_vectors(collection_name, docs, code=True))
+                    batch_ids = list(insert_vectors(collection_name, docs, code=True, dimension=dimension))
                     if len(batch_ids) != len(docs):
                         logger.error(f"Error writing batch to Milvus: {len(batch_ids)} != {len(docs)}")
                         continue
@@ -827,9 +878,9 @@ class DataSource(models.Model):
             link = self.url
             title = self.title
 
-            # 1- Embed the texts
+            # Embed the texts using the configured model
             try:
-                embeddings = embed_texts(splitted)
+                embeddings = embed_texts_with_model(splitted, model)
             except Exception as e:
                 logger.error(f"Error embedding texts: {traceback.format_exc()}")
                 self.status = DataSource.Status.FAIL
@@ -840,7 +891,7 @@ class DataSource(models.Model):
                 logger.error(f"Embeddings is None. {traceback.format_exc()}")
                 raise Exception("Embeddings is None")
 
-            # 2- Prepare the metadata
+            # Prepare the metadata
             docs = []
             split_num = 0
             for i, split in enumerate(splitted):
@@ -858,35 +909,43 @@ class DataSource(models.Model):
                     }
                 )
 
-            # 3- Write to milvus
-            collection_name = self.guru_type.milvus_collection_name
-            ids = insert_vectors(collection_name, docs)
-            # 4- Update the model
+            # Write to milvus with the correct collection name and dimension
+            ids = insert_vectors(collection_name, docs, dimension=dimension)
+            # Update the model
             if self.doc_ids is None:
                 self.doc_ids = []
             self.doc_ids += ids
 
         self.in_milvus = True
-        self.status = DataSource.Status.SUCCESS
-        self.last_successful_index_date = datetime.now()
         self.save()
 
-    def delete_from_milvus(self):
+    def delete_from_milvus(self, overridden_model=None):
         from core.milvus_utils import delete_vectors
+        from core.utils import get_embedding_model_config
 
         if not self.in_milvus:
             return
 
-        ids = self.doc_ids
+        if overridden_model:
+            model = overridden_model
+        else:
+            if self.type == DataSource.Type.GITHUB_REPO:
+                model = self.guru_type.code_embedding_model
+            else:
+                model = self.guru_type.text_embedding_model
 
-        collection_name = self.guru_type.milvus_collection_name
+        ids = self.doc_ids
+        if self.type == DataSource.Type.GITHUB_REPO:
+            collection_name, dimension = get_embedding_model_config(model)
+        else:
+            collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
 
         self.doc_ids = []
         self.in_milvus = False
 
         if self.type == DataSource.Type.GITHUB_REPO:
-            GithubFile.objects.filter(data_source=self).delete()
+            GithubFile.objects.filter(data_source=self).update(in_milvus=False, doc_ids=[])
 
         self.save()
 
@@ -1054,6 +1113,7 @@ class OutOfContextQuestion(models.Model):
         default=Question.Source.USER.value,
     )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
+    parent_topics = models.TextField(default='', blank=True, null=True)
 
     def __str__(self):
         return self.question
@@ -1070,6 +1130,10 @@ class Settings(models.Model):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"
         FIRECRAWL = "FIRECRAWL", "Firecrawl"
 
+    class DefaultEmbeddingModel(models.TextChoices):
+        CLOUD = "IN_HOUSE", "In-house embedding model"
+        SELFHOSTED = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
     trust_score_threshold = models.FloatField(default=0.0)
@@ -1084,8 +1148,37 @@ class Settings(models.Model):
         choices=ScrapeType.choices,
         default=ScrapeType.CRAWL4AI,
     )
+    embedding_model_configs = models.JSONField(default=dict, blank=True, null=True)
+    default_embedding_model = models.CharField(
+        max_length=100,
+        choices=DefaultEmbeddingModel.choices,
+        default=None,
+        null=True,
+        blank=True
+    )
+
+    @classmethod
+    def get_default_embedding_model(cls):
+        """
+        Returns the default embedding model based on the environment.
+        For cloud environments, returns IN_HOUSE.
+        For selfhosted environments, returns OPENAI_TEXT_EMBEDDING_3_SMALL.
+        """
+        try:
+            settings_obj = cls.objects.first()
+            if settings_obj:
+                return settings_obj.default_embedding_model
+        except Exception:
+            pass
+        
+        # Fallback to environment-based default if no settings object exists
+        return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
     def save(self, *args, **kwargs):
+        # Set default embedding model based on environment if not set
+        if not self.default_embedding_model:
+            self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
+
         # Check OpenAI API key validity before saving
         if self.openai_api_key:
             try:
@@ -1472,7 +1565,7 @@ class GithubFile(models.Model):
         return f"{self.path}"
 
     def write_to_milvus(self):
-        from core.utils import embed_texts, split_text, split_code, map_extension_to_language
+        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config
         from core.milvus_utils import insert_vectors
 
         if self.in_milvus:
@@ -1499,7 +1592,6 @@ class GithubFile(models.Model):
             )
 
         # Prepare metadata
-
         if not self.link:
             self.link = f'{self.repository_link}/tree/{self.data_source.default_branch}/{self.path}'
 
@@ -1512,9 +1604,12 @@ class GithubFile(models.Model):
             "file_path": self.path
         }
 
-        # Embed the texts
+        # Get embedding model configuration
+        collection_name, dimension = get_embedding_model_config(self.data_source.guru_type.code_embedding_model)
+
+        # Embed the texts using the configured model
         try:
-            embeddings = embed_texts(splitted)
+            embeddings = embed_texts_with_model(splitted, self.data_source.guru_type.code_embedding_model)
         except Exception as e:
             logger.error(f"Error embedding texts: {traceback.format_exc()}")
             raise e
@@ -1535,9 +1630,8 @@ class GithubFile(models.Model):
                 "guru_slug": guru_slug,
             })
 
-        # Write to Milvus
-        collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
-        ids = list(insert_vectors(collection_name, docs, code=True))
+        # Write to Milvus with the correct collection name and dimension
+        ids = list(insert_vectors(collection_name, docs, code=True, dimension=dimension))
         
         # Update the model
         self.doc_ids = ids
@@ -1549,8 +1643,9 @@ class GithubFile(models.Model):
 
     def delete_from_milvus(self):
         from core.milvus_utils import delete_vectors
-        collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
-        delete_vectors(collection_name, self.doc_ids)
+        from core.utils import get_embedding_model_config
+        code_collection_name, code_dimension = get_embedding_model_config(self.data_source.guru_type.code_embedding_model)
+        delete_vectors(code_collection_name, self.doc_ids)
 
         data_source = self.data_source
 
@@ -1569,6 +1664,7 @@ class GithubFile(models.Model):
         self.in_milvus = False
         self.doc_ids = []
         self.save()
+
 
 
 class APIKey(models.Model):

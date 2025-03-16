@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
+from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -76,6 +76,7 @@ def stream_and_save(
         trust_score, 
         processed_ctx_relevances, 
         ctx_rel_usage,
+        parent_topics,
         user=None,
         parent=None, 
         binge=None, 
@@ -172,6 +173,7 @@ def stream_and_save(
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.user = user
             question_obj.times = times
+            question_obj.parent_topics = parent_topics
             question_obj.save()
             get_cloudflare_requester().purge_cache(guru_type, question_slug)
             
@@ -199,7 +201,8 @@ def stream_and_save(
                 user=user,
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
-                times=times
+                times=times,
+                parent_topics=parent_topics
             )
             question_obj.save()
     except Exception as e:
@@ -378,7 +381,10 @@ def get_milvus_client():
     return milvus_client
 
 
-def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, llm_eval=False):
+def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics, llm_eval=False):
+    from core.models import GuruType
+    guru_type = GuruType.objects.get(slug=guru_type_slug)
+
     times = {
         'total': 0,
         'embedding': 0,
@@ -408,22 +414,31 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     start_total = time.perf_counter()
     
     start_embedding = time.perf_counter()
-    embedding = embed_text(question)
-    embedding_user_question = embed_text(user_question)
+    # Get text and code embeddings using appropriate models
+    text_embedding = embed_texts_with_model([question], guru_type.text_embedding_model)[0]
+    code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
+    text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
+    code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
+    code_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.code_embedding_model)[0]
+    text_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.text_embedding_model)[0]
     times['embedding'] = time.perf_counter() - start_embedding
+
+    # Get collection name and dimension for text embedding model
+    _, text_dimension = get_embedding_model_config(guru_type.text_embedding_model)
+    code_collection_name, code_dimension = get_embedding_model_config(guru_type.code_embedding_model)
+    text_collection_name = guru_type.milvus_collection_name
     
-    # logger.info(f'Embedding dimensions: {len(embedding)}')
     all_docs = {}
     search_params = None
 
-    def merge_splits(fetched_doc, collection_name, link_key, link, merge_limit=None):
+    def merge_splits(fetched_doc, collection_name, link_key, link, code=False, merge_limit=None):
         # Merge fetched doc with its other splits
         merged_text = {}
         # Fetching all splits once as they are already limited by stackoverflow itself and pymilvus does not support ordering
         if merge_limit:
             results = milvus_client.search(
                 collection_name=collection_name, 
-                data=[embedding], 
+                data=[text_embedding if not code else code_embedding], 
                 limit=merge_limit, 
                 output_fields=['text', 'metadata'], 
                 filter=f'metadata["{link_key}"] == "{link}"'
@@ -431,7 +446,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         else:
             results = milvus_client.search(
                 collection_name=collection_name, 
-                data=[embedding], 
+                data=[text_embedding if not code else code_embedding], 
                 limit=16384,
                 output_fields=['text', 'metadata'], 
                 filter=f'metadata["{link_key}"] == "{link}"'
@@ -448,8 +463,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     def fetch_and_merge_answers(question_id):
         # First, fetch only the first split of each answer
         answer_first_splits = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=16384,
             output_fields=['text', 'metadata'],
             filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["split_num"] == 1'
@@ -458,7 +473,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         merged_answers = []
         for answer_first_split in answer_first_splits:
             link = answer_first_split['entity']['metadata']['link']
-            merged_answer = merge_splits(answer_first_split, collection_name, 'link', link)
+            merged_answer = merge_splits(answer_first_split, text_collection_name, 'link', link, code=False)
             merged_answers.append(merged_answer)
         
         return merged_answers
@@ -495,9 +510,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             
         start_so = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=20,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] in ["question", "answer"]',
@@ -511,20 +527,39 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding_user_question],
+            collection_name=text_collection_name,
+            data=[text_embedding_user],
             limit=10,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] in ["question", "answer"]',
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=text_collection_name,
+            data=[text_embedding_parent_topics],
+            limit=10,
+            output_fields=['id', 'text', 'metadata'],
+            filter='metadata["type"] in ["question", "answer"]',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -542,8 +577,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                 if question_title not in stackoverflow_sources:
                     # Try to fetch the question
                     milvus_question = milvus_client.search(
-                        collection_name=collection_name,
-                        data=[embedding],
+                        collection_name=text_collection_name,
+                        data=[text_embedding],
                         limit=1,
                         output_fields=['text', 'metadata'],
                         filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "question"'
@@ -551,8 +586,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     
                     # Try to fetch the accepted answer
                     accepted_answer = milvus_client.search(
-                        collection_name=collection_name,
-                        data=[embedding],
+                        collection_name=text_collection_name,
+                        data=[text_embedding],
                         limit=1,
                         output_fields=['text', 'metadata'],
                         filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["is_accepted"] == True'
@@ -561,8 +596,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                     if not accepted_answer:
                         # If accepted answer is not found with is_accepted key, try with accepted key for old collections. is_accepted is the new key.
                         accepted_answer = milvus_client.search(
-                            collection_name=collection_name,
-                            data=[embedding],
+                            collection_name=text_collection_name,
+                            data=[text_embedding],
                             limit=1,
                             output_fields=['text', 'metadata'],
                             filter=f'metadata["question_id"] == {question_id} and metadata["type"] == "answer" and metadata["accepted"] == True'
@@ -573,8 +608,8 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
                         question_link = milvus_question[0]['entity']['metadata']['link']
                         accepted_answer_link = accepted_answer[0]['entity']['metadata']['link']
                         stackoverflow_sources[question_title] = {
-                            "question": merge_splits(milvus_question[0], collection_name, 'link', question_link),
-                            "accepted_answer": merge_splits(accepted_answer[0], collection_name, 'link', accepted_answer_link),
+                            "question": merge_splits(milvus_question[0], text_collection_name, 'link', question_link, code=False),
+                            "accepted_answer": merge_splits(accepted_answer[0], text_collection_name, 'link', accepted_answer_link, code=False),
                             "other_answers": []
                         }
                         
@@ -599,15 +634,18 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         question_milvus_limit = 20
         user_question_milvus_limit = 10
+        parent_topics_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
+            parent_topics_milvus_limit = 3
             
         start_non_so = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding],
+            collection_name=text_collection_name,
+            data=[text_embedding],
             limit=question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] not in ["question", "answer", "comment"]',
@@ -621,20 +659,39 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=collection_name,
-            data=[embedding_user_question],
+            collection_name=text_collection_name,
+            data=[text_embedding_user],
             limit=user_question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter='metadata["type"] not in ["question", "answer", "comment"]',
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=text_collection_name,
+            data=[text_embedding_parent_topics],
+            limit=parent_topics_milvus_limit,
+            output_fields=['id', 'text', 'metadata'],
+            filter='metadata["type"] not in ["question", "answer", "comment"]',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -649,7 +706,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in non_stackoverflow_sources]:
-                    merged_doc = merge_splits(batch[index], collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], text_collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, code=False, merge_limit=5)
                     non_stackoverflow_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
@@ -669,9 +726,10 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             
         start_github = time.perf_counter()
         start_milvus = time.perf_counter()
+        
         batch = milvus_client.search(
-            collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
-            data=[embedding],
+            collection_name=code_collection_name,
+            data=[code_embedding],
             limit=question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter=f'guru_slug == "{guru_type_slug}"',
@@ -685,20 +743,39 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_pre_rerank = time.perf_counter()
         user_question_batch = milvus_client.search(
-            collection_name=settings.GITHUB_REPO_CODE_COLLECTION_NAME,
-            data=[embedding_user_question],
+            collection_name=code_collection_name,
+            data=[code_embedding_user],
             limit=user_question_milvus_limit,
             output_fields=['id', 'text', 'metadata'],
             filter=f'guru_slug == "{guru_type_slug}"',
             search_params=search_params
         )[0]
 
+        parent_topics_batch = milvus_client.search(
+            collection_name=code_collection_name,
+            data=[code_embedding_parent_topics],
+            limit=10,
+            output_fields=['id', 'text', 'metadata'],
+            filter=f'guru_slug == "{guru_type_slug}"',
+            search_params=search_params
+        )[0]
+
+        # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
         for doc in user_question_batch:
             if doc["id"] not in [doc["id"] for doc in batch]:
                 final_user_question_docs_without_duplicates.append(doc)
 
         batch = batch + final_user_question_docs_without_duplicates
+
+        # Add unique parent topics retrievals
+        final_parent_topics_docs_without_duplicates = []
+        for doc in parent_topics_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                final_parent_topics_docs_without_duplicates.append(doc)
+
+        batch = batch + final_parent_topics_docs_without_duplicates
+
         times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
@@ -707,13 +784,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         start_post_rerank = time.perf_counter()
         for index, score in zip(reranked_batch_indices, reranked_batch_scores):
-            if len(github_repo_sources) >= 2:
+            if len(github_repo_sources) >= 5:
                 break
             
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in github_repo_sources]:
-                    merged_doc = merge_splits(batch[index], settings.GITHUB_REPO_CODE_COLLECTION_NAME, 'link', link, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], code_collection_name, 'link', link, code=True, merge_limit=5)
                     github_repo_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
@@ -791,7 +868,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 
-def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question):
+def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics):
     times = {
         'vector_db_fetch': {},
         'prepare_contexts': 0,
@@ -799,7 +876,7 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
     }
     
     try:
-        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question)
+        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics)
         times['vector_db_fetch'] = vector_db_times
     except Exception as e:
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
@@ -837,7 +914,7 @@ def parse_summary_response(question, response):
     try:
         prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(response)
         if response.choices[0].message.refusal:
-            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False)
+            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, parent_topics="")
             logger.error(f'Gpt refused to answer for summary. Refusal: {response.choices[0].message.refusal}')
             return {
                 'question': question,
@@ -848,6 +925,7 @@ def parse_summary_response(question, response):
                 'completion_tokens': completion_tokens,
                 'prompt_tokens': prompt_tokens,
                 'cached_prompt_tokens': cached_prompt_tokens,
+                'parent_topics': '',
             }
         else:
             gptSummary =  response.choices[0].message.parsed
@@ -862,6 +940,7 @@ def parse_summary_response(question, response):
             'completion_tokens': completion_tokens,
             'prompt_tokens': prompt_tokens,
             'cached_prompt_tokens': cached_prompt_tokens,
+            'parent_topics': '',
         }
         return answer
 
@@ -878,6 +957,7 @@ def parse_summary_response(question, response):
         'cached_prompt_tokens': cached_prompt_tokens,
         'user_intent': gptSummary.user_intent,
         'answer_length': gptSummary.answer_length,
+        'parent_topics': gptSummary.parent_topics,
         "jwt" : generate_jwt(), # for answer step after summary
     }
 
@@ -936,6 +1016,7 @@ class GptSummary(BaseModel):
     valid_question: bool
     user_intent: str
     answer_length: int
+    parent_topics: str  # List of parent/related topics for better search
 
 
 def slack_send_outofcontext_question_notification(guru_type, user_question, question, user=None):
@@ -1038,6 +1119,7 @@ def ask_question_with_stream(
     user_question, 
     parent_question, 
     source,
+    parent_topics,
     user=None):
     start_total = time.perf_counter()
     times = {
@@ -1050,7 +1132,7 @@ def ask_question_with_stream(
 
     default_settings = get_default_settings()
     start_get_contexts = time.perf_counter()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question)
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, parent_topics)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
@@ -1060,8 +1142,11 @@ def ask_question_with_stream(
             guru_type=get_guru_type_object(guru_type), 
             user_question=user_question, 
             rerank_threshold=default_settings.rerank_threshold, 
-            trust_score_threshold=default_settings.trust_score_threshold, processed_ctx_relevances=processed_ctx_relevances, 
-            source=source)
+            trust_score_threshold=default_settings.trust_score_threshold, 
+            processed_ctx_relevances=processed_ctx_relevances, 
+            source=source,
+            parent_topics=parent_topics
+        )
 
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
         times['total'] = time.perf_counter() - start_total
@@ -1220,6 +1305,7 @@ def stream_question_answer(
         answer_length, 
         user_question, 
         source,
+        parent_topics,
         parent_question=None,
         user=None,
     ):
@@ -1237,6 +1323,7 @@ def stream_question_answer(
         user_question, 
         parent_question,
         source,
+        parent_topics,
         user
     )
     if not response:
@@ -1282,170 +1369,15 @@ def get_more_seo_friendly_title(title):
     return seoFriendlyTitleAnswer.seo_frienly_title
 
 
-def generate_similar_questions(model, guru_type, questions, generate_count_per_category):
-    # Obsolete
-    from core.prompts import similar_questions_template,create_question_categories
-    context_variables = get_guru_type_prompt_map(guru_type)
+def embed_text(text):
+    # Get default embedding model from Settings
+    model_choice = Settings.get_default_embedding_model()
+    return embed_text_with_model(text, model_choice)
 
-    questions = list(map(lambda x: '- ' + x, questions))
-    formatted_questions = '"""' + "\r\n".join(questions) + '"""'
-
-    total_completion_tokens = 0
-    total_prompt_tokens = 0
-    total_cached_prompt_tokens = 0
-    
-    prompt = create_question_categories.format(questions=formatted_questions, **context_variables)
-    response = get_openai_client().chat.completions.create(
-            model=settings.GPT_MODEL,
-            temperature=1,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': prompt
-                }
-            ],
-            response_format={'type': 'json_object'},
-            timeout=60
-        )
-    try:
-        generated_categories = json.loads(response.choices[0].message.content)['categories']
-        prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(response)
-        total_completion_tokens += completion_tokens
-        total_prompt_tokens += prompt_tokens
-        total_cached_prompt_tokens += cached_prompt_tokens
-    except Exception as e:
-        logger.error(f'Error while parsing generated categories: {e}. Response: {response.choices[0].message.content}', exc_info=True)
-        generated_categories = []
-
-    # generated_categories = ['Kubernetes Cluster Configuration', 'Kubernetes Installation Issues', 'Kubernetes Controller and Cache Management', 'Kubernetes Init Containers', 'Kubernetes Resource Management', 'Kubernetes Networking and Protocols', 'Kubernetes Deployment Strategies', 'Kubernetes Helm Chart Management', 'Kubernetes Ingress and Load Balancing', 'Kubernetes API and Permissions']
-    logger.info(f'Generated categories: {generated_categories}')
-
-    # keys are categories, values are questions
-    generated_questions = {}
-
-    # go to gpt per category, when asked for all at once, it fails to generate wanted amount of questions
-    prompts = []
-    for category in generated_categories:
-        prompt = similar_questions_template.format(questions=formatted_questions, question_count=generate_count_per_category, category=category, **context_variables)
-        prompts.append(prompt)
-        if model == 'claude':
-            import anthropic
-            claude_client = anthropic.Anthropic(
-                api_key=settings.CLAUDE_API_KEY,
-            )
-            response = claude_client.messages.create(
-                model="claude-3-5-sonnet-20240620",
-                messages=[
-                    {
-                        "role": "user", 
-                        "content": prompt
-                    }
-                ],
-                max_tokens=8192
-            )
-            try:
-                generated_questions[category] = json.loads(response.content[0].text)['questions']
-            except Exception as e:
-                logger.error(f'Error while parsing generated raw questions with claude: {e}. Response: {response.content[0].text}', exc_info=True)
-        elif model == 'chatgpt':
-            response = get_openai_client().chat.completions.create(
-                model=settings.GPT_MODEL,
-                temperature=1,
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': prompt
-                    }
-                ],
-                response_format={'type': 'json_object'},
-                timeout=120
-            )
-            try:
-                generated_questions[category] = json.loads(response.choices[0].message.content)['questions']
-                total_completion_tokens += completion_tokens
-                total_prompt_tokens += prompt_tokens
-                total_cached_prompt_tokens += cached_prompt_tokens
-            except Exception as e:
-                logger.error(f'Error while parsing generated raw questions with chatgpt: {e}. Response: {response.choices[0].message.content}', exc_info=True)
-        elif model == 'gemini':
-            import google.generativeai as genai
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            gemini_client = genai.GenerativeModel('gemini-1.5-pro', generation_config={"response_mime_type": "application/json"})
-
-            chat = gemini_client.start_chat()
-            response = chat.send_message(prompt)
-            try:
-                generated_questions[category] = json.loads(response.text)['questions']
-            except Exception as e:
-                logger.error(f'Error while parsing generated raw questions with gemini: {e}. Response: {response.text}', exc_info=True)
-
-    return generated_questions, total_completion_tokens, total_prompt_tokens, total_cached_prompt_tokens, prompts
-
-
-def embed_text(text, use_openai=settings.USE_OPENAI_TEXT_EMBEDDING):
-    if text is None or text == '':
-        logger.error(f'Empty or None text passed to embed_text')
-        return None
-    
-    # Generate cache key using hash of text and use_openai flag
-    cache_key = f"embedding:{hashlib.sha256(f'{text}:{use_openai}'.encode()).hexdigest()}"
-    
-    # Try to get from cache
-    try:
-        cache = caches['alternate']
-        cached_embedding = cache.get(cache_key)
-        if cached_embedding:
-            return pickle.loads(cached_embedding)
-    except Exception as e:
-        logger.error(f'Error while getting the embedding from the cache: {e}. Cache key: {cache_key}. Text: {text}')
-    
-    # Generate embedding if not in cache
-    if use_openai:
-        requester = OpenAIRequester()
-        embedding = requester.embed_text(text)
-    else:
-        url = settings.EMBED_API_URL
-        headers = {"Content-Type": "application/json"}
-        if settings.EMBED_API_KEY:
-            headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
-        response = requests.post(url, headers=headers, data=json.dumps({"inputs": text}), timeout=30)
-        if response.status_code == 200:
-            embedding = response.json()[0]
-        else:
-            logger.error(f'Error while embedding the text: {text}. Response: {response.text}. Url: {url}, Auth key: {settings.EMBED_API_KEY}')
-            return None
-
-    if embedding:
-        try:
-            # Cache the embedding (8 weeks expiration)
-            cache.set(cache_key, pickle.dumps(embedding), timeout=60*60*24*7*8)
-        except Exception as e:
-            logger.error(f'Error while caching the embedding: {e}. Cache key: {cache_key}. Text: {text}')
-        
-    return embedding
-
-
-def embed_texts(texts, use_openai=settings.USE_OPENAI_TEXT_EMBEDDING):
-    batch_size = 32
-    embeddings = []
-    for i in range(0, len(texts), batch_size):
-        if use_openai:
-            requester = OpenAIRequester()
-            openai_embeddings = requester.embed_texts(texts[i:i+batch_size])
-            embeddings.extend(openai_embeddings)
-        else:
-            url = settings.EMBED_API_URL
-            headers = {"Content-Type": "application/json"}
-            if settings.EMBED_API_KEY:
-                headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
-            response = requests.post(url, headers=headers, data=json.dumps({"inputs": texts[i:i+batch_size]}), timeout=30)
-        
-            if response.status_code == 200:
-                embeddings.extend(response.json())
-            else:
-                logger.error(f'Error while embedding the batch: {texts[i:i+batch_size]}. Response: {response.text}. Url: {url}')
-                raise Exception(f'Error while embedding the batch. Response: {response.text}. Url: {url}')
-    return embeddings
+def embed_texts(texts):
+    # Get default embedding model from Settings
+    model_choice = Settings.get_default_embedding_model()
+    return embed_texts_with_model(texts, model_choice)
 
 
 def rerank_texts(query, texts):
@@ -2283,6 +2215,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     user_question = summary_data['user_question']
     question_slug = summary_data['question_slug']
     description = summary_data['description']
+    parent_topics = summary_data.get('parent_topics', '')
 
     response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
@@ -2290,7 +2223,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
         user_intent, 
         answer_length, 
         user_question,
-        source
+        source,
+        parent_topics
     )
 
     total_response = []
@@ -2381,6 +2315,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             question_obj.trust_score = trust_score
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.times = times
+            question_obj.parent_topics = parent_topics
             question_obj.save()
         else:
             question_obj = Question(
@@ -2403,7 +2338,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
                 trust_score=trust_score,
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
-                times=times
+                times=times,
+                parent_topics=parent_topics
             )
             question_obj.save()
 
@@ -3095,6 +3031,7 @@ def api_ask(question: str,
     summary_cached_prompt_tokens = summary_data.get('cached_prompt_tokens', 0)
     user_intent = summary_data.get('user_intent', '')
     answer_length = summary_data.get('answer_length', '')
+    parent_topics = summary_data.get('parent_topics', '')
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
@@ -3117,6 +3054,7 @@ def api_ask(question: str,
             answer_length, 
             user_question,
             question_source,
+            parent_topics,
             parent,
             user
         )
@@ -3147,6 +3085,7 @@ def api_ask(question: str,
             trust_score=trust_score,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
+            parent_topics=parent_topics,
             times=times,
             source=question_source,
             parent=parent,
@@ -3283,16 +3222,20 @@ def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str
         context_relevance_cot_expected_output, 
         context_relevance_cot_output_format, 
         context_relevance_without_cot_expected_output, 
-        context_relevance_without_cot_output_format)
+        context_relevance_without_cot_output_format,
+        context_relevance_code_cot_expected_output,
+        context_relevance_code_without_cot_expected_output)
 
     if cot:
         expected_output = context_relevance_cot_expected_output
         output_format = context_relevance_cot_output_format
+        code_expected_output = context_relevance_code_cot_expected_output
     else:
         expected_output = context_relevance_without_cot_expected_output
         output_format = context_relevance_without_cot_output_format
+        code_expected_output = context_relevance_code_without_cot_expected_output
 
-    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format)
+    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format, code_expected_output=code_expected_output)
     return prompt
 
 def string_to_boolean(value: str) -> bool:
@@ -3351,3 +3294,179 @@ def custom_exception_handler_throttled(exc, context):
         response.data = custom_response_data
         
     return response
+
+def get_embedder_and_model(model_choice):
+    """
+    Returns a tuple of (embedder_instance, model_name) based on the model choice.
+    
+    Args:
+        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        
+    Returns:
+        tuple: (embedder_instance, model_name)
+    """
+    model_map = {
+        GuruType.EmbeddingModel.IN_HOUSE: (None, "in-house"),  # No embedder instance needed for in-house
+        GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: (GeminiEmbedder(), "embedding-001"),
+        GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004: (GeminiEmbedder(), "text-embedding-004"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_SMALL: (OpenAIRequester(), "text-embedding-3-small"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_LARGE: (OpenAIRequester(), "text-embedding-3-large"),
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002: (OpenAIRequester(), "text-embedding-ada-002"),
+    }
+    # Default to in-house if model_choice is not found
+    return model_map.get(model_choice, (None, "in-house"))
+
+def get_embedding_model_config(model_choice):
+    """
+    Returns a tuple of (collection_name, dimension) based on the GuruType.EmbeddingModel choice.
+    
+    Args:
+        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        
+    Returns:
+        tuple: (collection_name, dimension)
+        
+    Example:
+        >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
+        ('github_repo_code_openai_ada_002', 1536)
+    """
+    # Get default settings
+    try:
+        settings_obj = get_default_settings()
+        if settings_obj.embedding_model_configs and model_choice in settings_obj.embedding_model_configs:
+            config = settings_obj.embedding_model_configs[model_choice]
+            return config['collection_name'], config['dimension']
+    except Exception as e:
+        logger.warning(f"Failed to get embedding model config from settings: {e}")
+    
+    # Fallback to default configurations if not found in settings
+    model_configs = {
+        GuruType.EmbeddingModel.IN_HOUSE: {
+            'collection_name': 'github_repo_code', # Default in cloud
+            'dimension': 1024
+        },
+        GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: {
+            'collection_name': 'github_repo_code_gemini_embedding_001',
+            'dimension': 768
+        },
+        GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004: {
+            'collection_name': 'github_repo_code_gemini_text_embedding_004',
+            'dimension': 768
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_SMALL: {
+            'collection_name': 'github_repo_code' if settings.ENV == 'selfhosted' else 'github_repo_code_openai_text_embedding_3_small',  # Default in selfhosted
+            'dimension': 1536
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_LARGE: {
+            'collection_name': 'github_repo_code_openai_text_embedding_3_large',
+            'dimension': 3072
+        },
+        GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002: {
+            'collection_name': 'github_repo_code_openai_ada_002',
+            'dimension': 1536
+        }
+    }
+    
+    # Store configurations in settings if not already stored
+    try:
+        settings_obj = get_default_settings()
+        if not settings_obj.embedding_model_configs:
+            settings_obj.embedding_model_configs = model_configs
+            settings_obj.save()
+    except Exception as e:
+        logger.warning(f"Failed to store embedding model configs in settings: {e}")
+    
+    # Default to in-house if model_choice is not found
+    default_config = {
+        'collection_name': 'github_repo_code',
+        'dimension': 1024
+    }
+    
+    config = model_configs.get(model_choice, default_config)
+    return config['collection_name'], config['dimension']
+
+def embed_texts_with_model(texts, model_choice, batch_size=32):
+    """
+    Embeds texts using the specified model choice
+    """
+    embedder, model_name = get_embedder_and_model(model_choice)
+    embeddings = []
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        if model_name == "in-house":
+            url = settings.EMBED_API_URL
+            headers = {"Content-Type": "application/json"}
+            if settings.EMBED_API_KEY:
+                headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
+            response = requests.post(url, headers=headers, data=json.dumps({"inputs": texts[i:i+batch_size]}), timeout=30)
+            
+            if response.status_code == 200:
+                embeddings.extend(response.json())
+            else:
+                logger.error(f'Error while embedding the batch: {texts[i:i+batch_size]}. Response: {response.text}. Url: {url}')
+                raise Exception(f'Error while embedding the batch. Response: {response.text}. Url: {url}')
+        else:
+            if isinstance(embedder, OpenAIRequester):
+                embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
+            else:  # GeminiEmbedder
+                embeddings.extend(embedder.embed_texts(batch))
+    
+    return embeddings
+
+def embed_text_with_model(text, model_choice):
+    """
+    Embeds a single text using the specified model choice with caching
+    """
+    if text is None or text == '':
+        logger.error(f'Empty or None text passed to embed_text_with_model')
+        return None
+    
+    # Generate cache key using hash of text and model choice
+    cache_key = f"embedding:{hashlib.sha256(f'{text}:{model_choice}'.encode()).hexdigest()}"
+    
+    # Try to get from cache
+    try:
+        cache = caches['alternate']
+        cached_embedding = cache.get(cache_key)
+        if cached_embedding:
+            return pickle.loads(cached_embedding)
+    except Exception as e:
+        logger.error(f'Error while getting the embedding from the cache: {e}. Cache key: {cache_key}. Text: {text}')
+    
+    # Generate embedding if not in cache
+    embedder, model_name = get_embedder_and_model(model_choice)
+    
+    if model_name == "in-house":
+        url = settings.EMBED_API_URL
+        headers = {"Content-Type": "application/json"}
+        if settings.EMBED_API_KEY:
+            headers["Authorization"] = f"Bearer {settings.EMBED_API_KEY}"
+        response = requests.post(url, headers=headers, data=json.dumps({"inputs": [text]}), timeout=30)
+        
+        if response.status_code == 200:
+            embedding = response.json()[0]
+        else:
+            logger.error(f'Error while embedding the text: {text}. Response: {response.text}. Url: {url}')
+            raise Exception(f'Error while embedding the text. Response: {response.text}. Url: {url}')
+    else:
+        if isinstance(embedder, OpenAIRequester):
+            embedding = embedder.embed_text(text, model_name=model_name)
+        else:  # GeminiEmbedder
+            embedding = embedder.embed_texts(text)[0]
+
+    if embedding:
+        try:
+            # Cache the embedding (8 weeks expiration)
+            cache.set(cache_key, pickle.dumps(embedding), timeout=60*60*24*7*8)
+        except Exception as e:
+            logger.error(f'Error while caching the embedding: {e}. Cache key: {cache_key}. Text: {text}')
+        
+    return embedding
+
+def get_default_embedding_dimensions():
+    """
+    Returns the default embedding dimensions for the default embedding model
+    """
+    model_choice = Settings.get_default_embedding_model()
+    return get_embedding_model_config(model_choice)[1]

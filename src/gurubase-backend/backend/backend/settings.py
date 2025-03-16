@@ -255,11 +255,6 @@ BASE_URL = config('BASE_URL', default='http://localhost:8029')
 BACKEND_URL = config('BACKEND_URL', default='http://localhost:8028')
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_TEXT_EMBEDDING_MODEL = config('OPENAI_TEXT_EMBEDDING_MODEL', default='text-embedding-3-small')
-USE_OPENAI_TEXT_EMBEDDING = config('USE_OPENAI_TEXT_EMBEDDING', default=True, cast=bool)
-MILVUS_CONTEXT_COLLECTION_DIMENSION = config('MILVUS_CONTEXT_COLLECTION_DIMENSION', default=1024, cast=int)
-
-if USE_OPENAI_TEXT_EMBEDDING and OPENAI_TEXT_EMBEDDING_MODEL == 'text-embedding-3-small':
-    MILVUS_CONTEXT_COLLECTION_DIMENSION = 1536
 
 MILVUS_HOST = config('MILVUS_HOST', default='gurubase-milvus-standalone')
 MILVUS_PORT = config('MILVUS_PORT', default='19530', cast=int)

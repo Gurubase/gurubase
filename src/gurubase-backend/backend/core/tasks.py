@@ -14,7 +14,7 @@ from core.data_sources import fetch_data_source_content, get_internal_links, pro
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
 from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
-from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, generate_similar_questions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache
+from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, parse_context_from_prompt, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
 import re
@@ -425,6 +425,10 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 data_source.save()
                 continue
             
+            data_source.status = DataSource.Status.SUCCESS
+            data_source.error = ''
+            data_source.user_error = ''
+            data_source.last_successful_index_date = datetime.now()
             data_source.save()
             try:
                 data_source.write_to_milvus()
@@ -506,7 +510,7 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
                 previous_version = LLMEval.objects.filter(question=q, model=model_name).order_by('-version').first()
 
                 if contexts is None and (check_context_relevance or check_groundedness):
-                    contexts, reranked_scores, trust_score, processed_ctx_relevances, fetch_ctx_rel_usage = vector_db_fetch(milvus_client, collection_name, q.question, q.guru_type.slug, q.user_question, llm_eval=True)
+                    contexts, reranked_scores, trust_score, processed_ctx_relevances, fetch_ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, q.question, q.guru_type.slug, q.user_question, q.parent_topics, llm_eval=True)
 
                 total_prompt_tokens = fetch_ctx_rel_usage['prompt_tokens']
                 total_completion_tokens = fetch_ctx_rel_usage['completion_tokens']
@@ -1104,14 +1108,16 @@ def move_questions_to_milvus():
             # description_embeddings = embed_texts(list(map(lambda x: x['description'], embed_batch)))
             content_embeddings = embed_texts(list(map(lambda x: x['content'], embed_batch)))
 
+            dimension = get_default_embedding_dimensions()
             for i, doc in enumerate(batch):
                 # doc['description_vector'] = description_embeddings[i]
-                doc['description_vector'] = [0] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION
+                doc['description_vector'] = [0] * dimension
                 doc['title_vector'] = title_embeddings[i]
                 doc['content_vector'] = content_embeddings[i]
             milvus_utils.insert_vectors(
                 collection_name=questions_collection_name,
-                docs=batch
+                docs=batch,
+                dimension=dimension
             )
             batch = []
             embed_batch = []
@@ -1124,14 +1130,16 @@ def move_questions_to_milvus():
         # description_embeddings = embed_texts(list(map(lambda x: x['description'], embed_batch)))
         content_embeddings = embed_texts(list(map(lambda x: x['content'], embed_batch)))
 
+        dimension = get_default_embedding_dimensions()
         for i, doc in enumerate(batch):
             # doc['description_vector'] = description_embeddings[i]
-            doc['description_vector'] = [0] * settings.MILVUS_CONTEXT_COLLECTION_DIMENSION
+            doc['description_vector'] = [0] * dimension
             doc['title_vector'] = title_embeddings[i]
             doc['content_vector'] = content_embeddings[i]
         milvus_utils.insert_vectors(
             collection_name=questions_collection_name,
-            docs=batch
+            docs=batch,
+            dimension=dimension
         )
         Question.objects.bulk_update(questions_batch, ['similarity_written_to_milvus'])
 
@@ -1555,6 +1563,7 @@ def update_github_repositories(successful_repos=True):
                     data_source.error = ""
                     data_source.user_error = ""
                     data_source.status = DataSource.Status.SUCCESS
+                    data_source.last_successful_index_date = datetime.now()
                     data_source.save()
                     data_source.write_to_milvus()
 
@@ -1681,3 +1690,77 @@ def stop_inactive_ui_crawls():
         crawl.save()
         
     # return f"Stopped {inactive_crawls.count()} inactive UI crawls"
+
+@shared_task
+def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: str):
+    """
+    Task to reindex non-Github data sources when text_embedding_model changes.
+    
+    Args:
+        guru_type_id: ID of the GuruType being updated
+        old_model: Previous text embedding model name
+        new_model: New text embedding model name
+    """
+    logger.info(f"Starting text embedding model reindexing for guru type {guru_type_id}")
+    try:
+        guru_type = GuruType.objects.get(id=guru_type_id)
+        
+        # Get all non-Github data sources for this guru type
+        non_github_data_sources = DataSource.objects.filter(
+            guru_type=guru_type
+        ).exclude(type=DataSource.Type.GITHUB_REPO)
+        
+        _, old_dimension = get_embedding_model_config(old_model)
+        _, new_dimension = get_embedding_model_config(new_model)
+
+        if old_dimension != new_dimension:
+            milvus_utils.drop_collection(guru_type.milvus_collection_name)
+        
+        # First delete from old collection
+        for ds in non_github_data_sources:
+            # Trigger delete from milvus anyways even if we drop the collection, to set their in_milvus = False and doc_ids = []
+            ds.delete_from_milvus(overridden_model=old_model)
+
+        milvus_utils.create_context_collection(guru_type.milvus_collection_name, new_dimension)
+        
+        # Then write to new collection
+        for ds in non_github_data_sources:
+            ds.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+            
+        logger.info(f"Completed text embedding model reindexing for guru type {guru_type_id}")
+    except Exception as e:
+        logger.error(f"Error during text embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        raise
+
+@shared_task
+def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: str):
+    """
+    Task to reindex GitHub repos when code_embedding_model changes.
+    
+    Args:
+        guru_type_id: ID of the GuruType being updated
+        old_model: Previous code embedding model name
+        new_model: New code embedding model name
+    """
+    logger.info(f"Starting code embedding model reindexing for guru type {guru_type_id}")
+    try:
+        guru_type = GuruType.objects.get(id=guru_type_id)
+        
+        # Get all GitHub repos for this guru type
+        github_repos = DataSource.objects.filter(
+            guru_type=guru_type,
+            type=DataSource.Type.GITHUB_REPO
+        )
+        
+        # First delete from old collection
+        for repo in github_repos:
+            repo.delete_from_milvus(overridden_model=old_model)  # This will use the old model's collection
+        
+        # Then write to new collection
+        for repo in github_repos:
+            repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+            
+        logger.info(f"Completed code embedding model reindexing for guru type {guru_type_id}")
+    except Exception as e:
+        logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        raise

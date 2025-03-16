@@ -568,6 +568,20 @@ class OpenAIRequester():
             logger.error(f"Error generating follow-up questions: {str(e)}")
             return []
 
+class GeminiEmbedder():
+    def __init__(self):
+        from google import genai
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+    def embed_texts(self, texts):
+        time.sleep(0.5)
+        response = self.client.models.embed_content(model="embedding-001", contents=texts)
+        embeddings = response.embeddings
+        if type(texts) == str:
+            return embeddings[0].values
+        else:
+            return [embedding.values for embedding in embeddings]
+
             
 class GeminiRequester():
     def __init__(self, model_name):

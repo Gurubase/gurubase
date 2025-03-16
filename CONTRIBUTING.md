@@ -111,6 +111,17 @@ After you have opened the backend (src/gurubase-backend) in a separate VSCode wi
     bash start_scripts/start_discord_listener.sh
     ```
 
+> Note, to be able to use the debuggers,
+>    1. Press `F1` or `Ctrl+Shift+P`
+>
+>    2. Select "Python: Select Interpreter"
+>
+>    3. Select "Enter interpreter path..."
+>
+>    4. Type `/workspace/.venv/bin/python` and enter
+>
+>    5. From Visual Studio Code or Cursor, you can visit the "Run and Debug" section and use it.
+
 ### Result
 
 - You should be able to access Gurubase UI at `http://localhost:8019`. 

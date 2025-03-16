@@ -161,9 +161,9 @@ class ContentPageStatisticsAdmin(admin.ModelAdmin):
   
 @admin.register(GuruType)
 class GuruTypeAdmin(admin.ModelAdmin):
-    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'github_repos', 'date_created', 'date_updated', 'github_details_updated_date']
+    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'github_repos', 'text_embedding_model', 'code_embedding_model', 'date_created', 'date_updated', 'github_details_updated_date']
     search_fields = ['id', 'slug', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'date_created', 'date_updated', 'maintainers__email']
-    list_filter = ('active', 'custom', 'has_sitemap_added_questions')
+    list_filter = ('active', 'custom', 'has_sitemap_added_questions', 'text_embedding_model', 'code_embedding_model')
     ordering = ('-id',)
     readonly_fields = ('id', 'slug', 'milvus_collection_name', 'typesense_collection_name')
     filter_horizontal = ('maintainers',)
@@ -293,11 +293,12 @@ class OutOfContextQuestionAdmin(admin.ModelAdmin):
 @admin.register(Settings)
 class SettingsAdmin(admin.ModelAdmin):
     list_display = ['id', 'rerank_threshold', 'rerank_threshold_llm_eval', 'trust_score_threshold', 'widget_answer_max_length']
+    readonly_fields = ('default_embedding_model', )
     ordering = ('-id',)
 
 @admin.register(LLMEvalResult)
 class LLMEvalResultAdmin(admin.ModelAdmin):
-    list_display = ['id', 'plot_link', 'guru_type', 'version', 'context_relevance_avg', 'context_relevance_non_zero_avg', 'context_relevance_non_zero_count', 'groundedness_avg', 'groundedness_non_zero_avg', 'groundedness_non_zero_count', 'answer_relevance_avg', 'answer_relevance_non_zero_avg', 'answer_relevance_non_zero_count', 'total_questions', 'total_cost', 'notes', 'date_created']
+    list_display = ['id', 'plot_link', 'guru_type', 'version', 'notes', 'context_relevance_avg', 'context_relevance_non_zero_avg', 'context_relevance_non_zero_count', 'groundedness_avg', 'groundedness_non_zero_avg', 'groundedness_non_zero_count', 'answer_relevance_avg', 'answer_relevance_non_zero_avg', 'answer_relevance_non_zero_count', 'total_questions', 'total_cost', 'date_created']
     list_filter = ('guru_type__slug', 'version', 'model')
     search_fields = ['id', 'guru_type__slug', 'version', 'model', 'notes']
     ordering = ('-id',)
