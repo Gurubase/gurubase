@@ -343,7 +343,6 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                     # Group sources by status for bulk updates
                     success_sources = []
                     failed_sources = []
-                    not_processed_sources = []
                     
                     with transaction.atomic():
                         for data_source in processed_sources:
@@ -365,11 +364,6 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                         if failed_sources:
                             DataSource.objects.bulk_update(
                                 failed_sources,
-                                ['status', 'error', 'user_error']
-                            )
-                        if not_processed_sources:
-                            DataSource.objects.bulk_update(
-                                not_processed_sources,
                                 ['status', 'error', 'user_error']
                             )
                         
