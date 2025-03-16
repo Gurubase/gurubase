@@ -14,12 +14,12 @@ from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
-from core.requester import get_web_scraper
+from core.requester import FirecrawlScraper, get_web_scraper
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
 from urllib.parse import urljoin
-from typing import List, Set
+from typing import List, Set, Tuple
 from django.utils import timezone
 
 
@@ -111,6 +111,110 @@ def website_content_extraction(url):
         else:
             logger.error(f"Error extracting content from Website URL {url}. status: {status_code}, reason: {reason}, response: {response}")
             raise WebsiteContentExtractionError(f"Status code: {status_code}\nReason: {reason}")
+
+def _update_data_source_success(data_source, title, content, scrape_tool):
+    """Update data source with successful scrape results"""
+    data_source.title = title
+    data_source.content = content
+    data_source.scrape_tool = scrape_tool
+    data_source.error = ""
+    data_source.user_error = ""
+    data_source.status = DataSource.Status.SUCCESS
+
+def _update_data_source_failure(data_source, error, scrape_tool, is_unsupported=False):
+    """Update data source with failure information"""
+    data_source.scrape_tool = scrape_tool
+    if is_unsupported:
+        data_source.error = error
+        data_source.user_error = "Firecrawl API error"
+    else:
+        data_source.error = "URL was not processed in batch request"
+        data_source.user_error = "Failed to process URL"
+
+    data_source.status = DataSource.Status.FAIL
+
+def _update_data_source_throttled(data_source, error):
+    """Update data source when throttling occurs"""
+    data_source.status = DataSource.Status.NOT_PROCESSED
+    data_source.error = str(error)
+    data_source.user_error = str(error)
+
+def process_website_data_sources_batch(data_sources):
+    """
+    Process multiple website data sources in batch.
+    Returns: List of processed data sources
+    """
+    urls = [ds.url for ds in data_sources]
+    scraper, scrape_tool = get_web_scraper()
+    url_to_data_source = {ds.url: ds for ds in data_sources}
+    
+    def process_urls(urls_to_process):
+        """Process a batch of URLs and return remaining URLs to retry"""
+        try:
+            successful_results, failed_urls = scraper.scrape_urls_batch(urls_to_process)
+        except WebsiteContentExtractionThrottleError as e:
+            # Mark all data sources as NOT_PROCESSED when throttled
+            for url in urls_to_process:
+                _update_data_source_throttled(url_to_data_source[url], e)
+            raise  # Re-raise to stop processing
+        
+        # Handle successful results
+        for url, title, content in successful_results:
+            if url in url_to_data_source:
+                _update_data_source_success(
+                    url_to_data_source[url], 
+                    title, 
+                    content, 
+                    scrape_tool
+                )
+        
+        # Handle failed URLs and collect URLs to retry
+        failed_url_set = {url for url, _ in failed_urls}
+        successful_url_set = {result[0] for result in successful_results}
+        remaining_urls = []
+        
+        for url in urls_to_process:
+            if url in failed_url_set:
+                error = next((error for failed_url, error in failed_urls if failed_url == url), "")
+                _update_data_source_failure(
+                    url_to_data_source[url],
+                    error,
+                    scrape_tool,
+                    is_unsupported="no longer supported" in error
+                )
+                if "no longer supported" not in error:
+                    remaining_urls.append(url)
+            elif url not in successful_url_set:
+                _update_data_source_failure(
+                    url_to_data_source[url],
+                    "URL was not processed",
+                    scrape_tool
+                )
+                remaining_urls.append(url)
+                
+        return remaining_urls
+    
+    try:
+        # First attempt
+        remaining_urls = process_urls(urls)
+        
+        # Retry if needed
+        if remaining_urls:
+            logger.info(f"Retrying batch with {len(remaining_urls)} remaining URLs")
+            remaining_urls = process_urls(remaining_urls)
+            
+            # Mark any remaining URLs as failed
+            for url in remaining_urls:
+                _update_data_source_failure(
+                    url_to_data_source[url],
+                    "Failed after retry",
+                    scrape_tool
+                )
+    except WebsiteContentExtractionThrottleError:
+        # Return data sources without further processing when throttled
+        return list(url_to_data_source.values())
+            
+    return list(url_to_data_source.values())
 
 
 def clean_title(title):
