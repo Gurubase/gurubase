@@ -112,55 +112,6 @@ def website_content_extraction(url):
             logger.error(f"Error extracting content from Website URL {url}. status: {status_code}, reason: {reason}, response: {response}")
             raise WebsiteContentExtractionError(f"Status code: {status_code}\nReason: {reason}")
 
-
-def _validate_scraper_for_batch(scraper) -> None:
-    """Validate that the scraper supports batch processing"""
-    if not isinstance(scraper, FirecrawlScraper):
-        raise ValueError("Batch processing is only supported with FirecrawlScraper")
-
-def _handle_extraction_error(e: Exception) -> None:
-    """Handle content extraction errors and raise appropriate exceptions"""
-    try:
-        status_code = e.response.status_code
-        reason = e.response.reason
-        response = e.response.content
-    except Exception:
-        status_code = 'Unknown'
-        reason = str(e)
-        response = 'Unknown'
-
-    if status_code == 429:
-        logger.warning(f"Throttled for batch Website URLs. status: {status_code}, reason: {reason}, response: {response}")
-        raise WebsiteContentExtractionThrottleError(f"Status code: {status_code}\nReason: {reason}")
-    
-    logger.error(f"Error extracting content from batch Website URLs. status: {status_code}, reason: {reason}, response: {response}")
-    raise WebsiteContentExtractionError(f"Status code: {status_code}\nReason: {reason}")
-
-def website_content_extraction_batch(urls: List[str]) -> List[Tuple[str, str, str, str]]:
-    """
-    Extract content from multiple website URLs in batch using Firecrawl.
-    Returns: List[Tuple[url: str, title: str, content: str, scrape_tool: str]]
-    """
-    try:
-        scraper, scrape_tool = get_web_scraper()
-        _validate_scraper_for_batch(scraper)
-            
-        successful_results, failed_urls = scraper.scrape_urls_batch(urls)
-        
-        # Process and clean successful results
-        processed_results = [
-            (url, clean_title(title), clean_content(content), scrape_tool)
-            for url, title, content in successful_results
-        ]
-            
-        return processed_results
-        
-    except (WebsiteContentExtractionThrottleError, WebsiteContentExtractionError):
-        raise
-    except Exception as e:
-        _handle_extraction_error(e)
-
-
 def _update_data_source_success(data_source, title, content, scrape_tool):
     """Update data source with successful scrape results"""
     data_source.title = title
