@@ -1,18 +1,18 @@
 {
-  "name": "Gurubase Cloud Dev Container",
+  "name": "Gurubase Local Dev Container",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   },
   "runArgs": [
     "--name",
-    "selfhosted-dev-gurubase-frontend",
+    "local-dev-gurubase-frontend",
     "-v",
     "${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
     "--ipc",
     "host",
     "--network",
-    "selfhosted-dev-gurubase",
+    "local-dev-gurubase",
     "--hostname",
     "gurubase-frontend-dev",
     "-p",
@@ -38,6 +38,6 @@
     }
   },
   "forwardPorts": [3000],
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "yarn",
   "remoteUser": "node"
 }

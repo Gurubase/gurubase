@@ -1,4 +1,3 @@
-
 import os
 import sys
 
@@ -11,7 +10,14 @@ django.setup()
 
 from django.conf import settings
 from core.milvus_utils import create_code_context_collection
+from core.models import Settings
+from core.utils import get_embedding_model_config
 
-collection_name = settings.GITHUB_REPO_CODE_COLLECTION_NAME
+# Get the default embedding model
+default_model = Settings.get_default_embedding_model()
 
-create_code_context_collection(collection_name)
+# Get the collection name and dimension for the default model
+collection_name, dimension = get_embedding_model_config(default_model)
+
+# Create the collection with the appropriate configuration
+create_code_context_collection(collection_name, dimension=dimension)

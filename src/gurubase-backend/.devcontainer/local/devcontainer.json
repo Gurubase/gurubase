@@ -1,5 +1,5 @@
 {
-	"name": "Gurubase Selfhosted Dev Container",
+	"name": "Gurubase Local Dev Container",
 	"build": {
 		"context": "../../",
 		"dockerfile": "../../Dockerfile",
@@ -7,21 +7,19 @@
 	},
 	"runArgs": [
 		"--name",
-		"selfhosted-dev-gurubase-backend",
+		"local-dev-gurubase-backend",
 		"-v",
 		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
-		"-v",
-		"${localWorkspaceFolder}/../../.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
 		"--ipc",
 		"host",
 		"--network",
-		"selfhosted-dev-gurubase",
+		"local-dev-gurubase",
 		"--hostname",
 		"gurubase-backend-dev",
 		"--env-file",
-		"envs/selfhosted-dev.env",
+		"envs/dev.env",
 		"-p",
-		"8018:8018"
+		"8008:8018"
 	],
 	"customizations": {
 		"vscode": {
@@ -63,5 +61,5 @@
 			]
 		}
 	},
-	"postCreateCommand": "mkdir -p ~/.ssh && cp -r ~/.ssh-localhost/* ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/* && echo 'alias g=\"git\"' >> ~/.bashrc && echo 'alias gps=\"git push\"' >> ~/.bashrc && echo 'alias gp=\"git pull\"' >> ~/.bashrc && echo 'alias gf=\"git fetch\"' >> ~/.bashrc && echo 'alias gm=\"git merge\"' >> ~/.bashrc"
+	"postCreateCommand": "mkdir -p ~/.ssh && cp -r ~/.ssh-localhost/* ~/.ssh && chmod 700 ~/.ssh && chmod 600 ~/.ssh/* && echo 'alias g=\"git\"' >> ~/.bashrc && echo 'alias gps=\"git push\"' >> ~/.bashrc && echo 'alias gp=\"git pull\"' >> ~/.bashrc && echo 'alias gf=\"git fetch\"' >> ~/.bashrc && echo 'alias gm=\"git merge\"' >> ~/.bashrc" 
 }

@@ -1,5 +1,5 @@
 {
-	"name": "Gurubase Cloud Dev Container",
+	"name": "Gurubase Staging Dev Container",
 	"build": {
 		"context": "../../",
 		"dockerfile": "../../Dockerfile",
@@ -7,21 +7,19 @@
 	},
 	"runArgs": [
 		"--name",
-		"selfhosted-dev-gurubase-backend",
+		"staging-dev-gurubase-backend",
 		"-v",
 		"${env:HOME}${env:USERPROFILE}/.ssh:/root/.ssh-localhost:ro",
-		"-v",
-		"${localWorkspaceFolder}/../../.dev/.devdata/selfhosted/backend_media:/workspaces/gurubase/src/gurubase-backend/backend/media",
 		"--ipc",
 		"host",
 		"--network",
-		"selfhosted-dev-gurubase",
+		"local-dev-gurubase",
 		"--hostname",
 		"gurubase-backend-dev",
 		"--env-file",
-		"envs/selfhosted-dev.env",
+		"envs/staging.env",
 		"-p",
-		"8018:8018"
+		"8008:8018"
 	],
 	"customizations": {
 		"vscode": {

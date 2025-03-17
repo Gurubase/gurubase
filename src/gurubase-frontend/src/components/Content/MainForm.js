@@ -85,7 +85,8 @@ export const handleSubmitQuestion = async ({
       status,
       valid_question: answerValid,
       jwt,
-      times
+      times,
+      parent_topics: parentTopics
     } = await getAnswerFromMyBackend(inputValue, guruType, null);
 
     if (signal?.aborted) {
@@ -111,14 +112,13 @@ export const handleSubmitQuestion = async ({
       setError(
         <span>
           Invalid OpenAI API Key.{" "}
-          <a 
-            href="/settings" 
+          <a
+            href="/settings"
             className="text-blue-500 hover:text-blue-700 underline"
             onClick={(e) => {
               e.preventDefault();
-              router.push('/settings');
-            }}
-          >
+              router.push("/settings");
+            }}>
             Configure a valid API key
           </a>{" "}
           to use the Guru.
@@ -174,7 +174,8 @@ export const handleSubmitQuestion = async ({
         prompt_tokens,
         jwt,
         user_question: inputValue,
-        times
+        times,
+        parent_topics: parentTopics
       })
     );
 
@@ -190,7 +191,8 @@ export const handleSubmitQuestion = async ({
       jwt,
       user_question: inputValue,
       answerValid,
-      times
+      times,
+      parent_topics: parentTopics
     });
 
     dispatch(setSlugPageRendered(false));

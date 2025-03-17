@@ -79,7 +79,7 @@ def create_similarity_collection(collection_name):
     logger.info(f'Created collection {collection_name}')
 
 
-def create_context_collection(collection_name):
+def create_context_collection(collection_name, dimension):
     # 1. Create schema
     schema = MilvusClient.create_schema(
         auto_id=True,
@@ -88,7 +88,7 @@ def create_context_collection(collection_name):
 
     # 2. Add fields to schema
     schema.add_field(field_name="id", datatype=DataType.INT64, is_primary=True)
-    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=settings.MILVUS_CONTEXT_COLLECTION_DIMENSION)
+    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=dimension)
     schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=65535)
     schema.add_field(field_name='metadata', datatype=DataType.JSON)
 
@@ -120,8 +120,7 @@ def create_context_collection(collection_name):
 
     print(f'Created collection {collection_name}')
 
-def create_code_context_collection(collection_name):
-
+def create_code_context_collection(collection_name, dimension):
     if client.has_collection(collection_name):
         return
     # 1. Create schema
@@ -132,7 +131,7 @@ def create_code_context_collection(collection_name):
 
     # 2. Add fields to schema
     schema.add_field(field_name="id", datatype=DataType.INT64, is_primary=True)
-    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=settings.MILVUS_CONTEXT_COLLECTION_DIMENSION)
+    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=dimension)
     schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=65535)
     schema.add_field(field_name='metadata', datatype=DataType.JSON)
     schema.add_field(field_name='guru_slug', datatype=DataType.VARCHAR, max_length=65535)
@@ -176,12 +175,14 @@ def collection_exists(collection_name):
     return client.has_collection(collection_name=collection_name)
 
     
-def insert_vectors(collection_name, docs, code=False):
+def insert_vectors(collection_name, docs, code=False, dimension=None):
+    assert dimension is not None, "Milvus insert_vectors: Dimension must be provided"
+
     if not client.has_collection(collection_name):
         if code:
-            create_code_context_collection(collection_name)
+            create_code_context_collection(collection_name, dimension)
         else:
-            create_context_collection(collection_name)
+            create_context_collection(collection_name, dimension)
 
     try:
         result = client.insert(
@@ -200,6 +201,9 @@ def insert_vectors(collection_name, docs, code=False):
 
 
 def delete_vectors(collection_name, ids):
+    if not client.has_collection(collection_name):
+        return
+
     try:
         client.delete(
             collection_name=collection_name,
