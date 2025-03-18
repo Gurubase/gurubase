@@ -421,21 +421,39 @@ def vector_db_fetch(
     start_total = time.perf_counter()
     
     start_embedding = time.perf_counter()
-    # Get text and code embeddings using appropriate models
-    text_embedding = embed_texts_with_model([question], guru_type.text_embedding_model)[0]
-    code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
-
+    
+    # Prepare texts to embed
+    texts_to_embed = [question]
     if len(user_question) < 300:
-        text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
-        code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
+        texts_to_embed.append(user_question)
+    if enhanced_question:
+        texts_to_embed.append(enhanced_question)
+    
+    # Get all text and code embeddings in two batched calls
+    embedding_start = time.perf_counter()
+    text_embeddings = embed_texts_with_model(texts_to_embed, guru_type.text_embedding_model)
+
+    embedding_start = time.perf_counter()
+    code_embeddings = embed_texts_with_model(texts_to_embed, guru_type.code_embedding_model)
+
+    times['embedding'] = time.perf_counter() - embedding_start
+    
+    # Unpack the embeddings
+    text_embedding = text_embeddings[0]
+    code_embedding = code_embeddings[0]
+    
+    # Get user question embeddings if available
+    if len(user_question) < 300:
+        text_embedding_user = text_embeddings[1]
+        code_embedding_user = code_embeddings[1]
     else:
         text_embedding_user = None
         code_embedding_user = None
-
-    # enhanced_question = ''
+    
+    # Get enhanced question embeddings if available
     if enhanced_question:
-        text_embedding_enhanced_question = embed_texts_with_model([enhanced_question], guru_type.text_embedding_model)[0]
-        code_embedding_enhanced_question = embed_texts_with_model([enhanced_question], guru_type.code_embedding_model)[0]
+        text_embedding_enhanced_question = text_embeddings[-1]
+        code_embedding_enhanced_question = code_embeddings[-1]
     else:
         text_embedding_enhanced_question = None
         code_embedding_enhanced_question = None
@@ -3496,11 +3514,15 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
     """
     Embeds texts using the specified model choice
     """
+    embedder_model_start = time.perf_counter()
     embedder, model_name = get_embedder_and_model(model_choice)
+    embedder_model_time = time.perf_counter() - embedder_model_start
+    logger.info(f'Embedder and model time: {embedder_model_time}')
     embeddings = []
     
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i+batch_size]
+        batch_embed_start = time.perf_counter()
         if model_name == "in-house":
             url = settings.EMBED_API_URL
             headers = {"Content-Type": "application/json"}
@@ -3518,6 +3540,8 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
                 embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
             else:  # GeminiEmbedder
                 embeddings.extend(embedder.embed_texts(batch))
+        batch_embed_time = time.perf_counter() - batch_embed_start
+        logger.info(f'Batch embedding time: {batch_embed_time}')
     
     return embeddings
 
