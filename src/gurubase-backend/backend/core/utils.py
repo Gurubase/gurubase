@@ -1484,7 +1484,7 @@ def embed_texts(texts):
 
 def rerank_texts(query, texts):
     # Using BAAI/bge-reranker-large model for reranking
-    # This model's input size is limited to 512 tokens. If the input size is too big, we will truncate the texts
+    # This model's input size is limited to 512 tokens and batch size limited to 32
     # We will try to rerank the results in batches
     max_limits = [1300, 1200, 1000, 800, 500, 100]
     url = settings.RERANK_API_URL
@@ -1492,49 +1492,71 @@ def rerank_texts(query, texts):
     if settings.RERANK_API_KEY:
         headers["Authorization"] = f"Bearer {settings.RERANK_API_KEY}"
 
-    # Try with original query first
-    for limit in max_limits:
-        truncated_texts = [text[:limit] for text in texts]
-        data = json.dumps({"query": query, "texts": truncated_texts})
-        
-        try:
-            response = requests.post(url, headers=headers, data=data, timeout=30)
-        except Exception as e:
-            logger.error(f'Reranking: Error while reranking the batch: {[text[:100] for text in texts]}. Response: {e}. Url: {url}')
-            continue  # Try with a smaller limit instead of returning None immediately
-        
-        if response.status_code == 200:
-            return response.json()
-        
-        if response.reason == "Payload Too Large" and response.status_code == 413:
-            # '{"error":"Input validation error: `inputs` must have less than 512 tokens. Given: 565","error_type":"Validation"}'
-            logger.warning(f'Reranking: Text is too long for limit {limit}. Trying again with new limit. Question: {query}')
-            continue
+    BATCH_SIZE = 32
+    all_results = []
     
-    # If all limits failed, try with a shorter query
-    if len(query) > 200:
-        short_query = query[:200]
-        logger.warning(f'Reranking: Trying with shortened query. Original length: {len(query)}, new length: 200')
+    # Process texts in batches of 32
+    for batch_start in range(0, len(texts), BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, len(texts))
+        batch_texts = texts[batch_start:batch_end]
+        batch_results = None
         
+        # Try with original query first
         for limit in max_limits:
-            truncated_texts = [text[:limit] for text in texts]
-            data = json.dumps({"query": short_query, "texts": truncated_texts})
+            truncated_texts = [text[:limit] for text in batch_texts]
+            data = json.dumps({"query": query, "texts": truncated_texts})
             
             try:
                 response = requests.post(url, headers=headers, data=data, timeout=30)
             except Exception as e:
-                logger.error(f'Reranking: Error while reranking with shortened query: {e}. Url: {url}')
-                continue
+                logger.error(f'Reranking: Error while reranking the batch {batch_start}-{batch_end}: {[text[:100] for text in batch_texts]}. Response: {e}. Url: {url}')
+                continue  # Try with a smaller limit instead of returning None immediately
             
             if response.status_code == 200:
-                return response.json()
+                batch_results = response.json()
+                break
             
             if response.reason == "Payload Too Large" and response.status_code == 413:
-                logger.warning(f'Reranking: Text is too long for limit {limit} with shortened query. Trying again with new limit.')
+                # '{"error":"Input validation error: `inputs` must have less than 512 tokens. Given: 565","error_type":"Validation"}'
+                logger.warning(f'Reranking: Text is too long for limit {limit}. Trying again with new limit. Question: {query}')
                 continue
+        
+        # If all limits failed with original query, try with shorter query
+        if batch_results is None and len(query) > 200:
+            short_query = query[:200]
+            logger.warning(f'Reranking: Trying with shortened query for batch {batch_start}-{batch_end}. Original length: {len(query)}, new length: 200')
+            
+            for limit in max_limits:
+                truncated_texts = [text[:limit] for text in batch_texts]
+                data = json.dumps({"query": short_query, "texts": truncated_texts})
+                
+                try:
+                    response = requests.post(url, headers=headers, data=data, timeout=30)
+                except Exception as e:
+                    logger.error(f'Reranking: Error while reranking with shortened query: {e}. Url: {url}')
+                    continue
+                
+                if response.status_code == 200:
+                    batch_results = response.json()
+                    break
+                
+                if response.reason == "Payload Too Large" and response.status_code == 413:
+                    logger.warning(f'Reranking: Text is too long for limit {limit} with shortened query. Trying again with new limit.')
+                    continue
+        
+        if batch_results is None:
+            logger.error(f'Reranking: Tried all the limits for batch {batch_start}-{batch_end}. Error while reranking the batch: {[text[:100] for text in batch_texts]}. Response: {response.text if "response" in locals() else "No response"}. Url: {url}')
+            return None
+        
+        # Adjust indices to be relative to the full list
+        for result in batch_results:
+            result['index'] += batch_start
+        
+        all_results.extend(batch_results)
     
-    logger.error(f'Reranking: Tried all the limits. Error while reranking the batch: {[text[:100] for text in texts]}. Response: {response.text if "response" in locals() else "No response"}. Url: {url}')
-    return None
+    # Sort results by score to maintain the same behavior as before
+    all_results.sort(key=lambda x: x['score'], reverse=True)
+    return all_results
 
 
 def get_most_similar_questions(slug, text, guru_type, column, top_k=10, sitemap_constraint=False):
