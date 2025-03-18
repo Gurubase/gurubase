@@ -104,7 +104,6 @@ export const useHandleSubmit = (
         valid_question: answerValid,
         jwt,
         times,
-        parent_topics: parentTopics,
         enhanced_question: enhancedQuestion
       } = await getAnswerFromMyBackend(inputValue, guruType, bingeId);
 
@@ -245,7 +244,6 @@ export const useHandleSubmit = (
         jwt,
         user_question: inputValue,
         times,
-        parent_topics: parentTopics,
         enhanced_question: enhancedQuestion
       };
 

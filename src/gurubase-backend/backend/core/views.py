@@ -282,7 +282,6 @@ def answer(request, guru_type):
         binge_id = data.get('binge_id')
         source = data.get('source', Question.Source.USER.value)   # RAW_QUESTION, USER, REDDIT, SUMMARY_QUESTION
         summary_times = data.get('times')
-        parent_topics = data.get('parent_topics')
         enhanced_question = data.get('enhanced_question')
     except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
@@ -345,7 +344,6 @@ def answer(request, guru_type):
             answer_length, 
             user_question, 
             source,
-            parent_topics,
             enhanced_question,
             parent_question, 
             user,
@@ -382,7 +380,6 @@ def answer(request, guru_type):
         trust_score, 
         processed_ctx_relevances,
         ctx_rel_usage,
-        parent_topics,
         enhanced_question,
         user,
         parent_question, 

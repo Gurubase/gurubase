@@ -15,7 +15,6 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <description> should be 100 to 150 characters long meta description.
 <user_intent> should be a short summary of the user's intent. It will be used to determine the question answer length. It can be short answer, explanation, how to, why, etc. {summary_prompt_non_widget_addition}
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_prompt_widget_addition}
-<parent_topics_instruction> should be a list of parent topics and related concepts that this question falls under.
 <enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters.
 
 For any questions related to date, remember today's date is {date}.

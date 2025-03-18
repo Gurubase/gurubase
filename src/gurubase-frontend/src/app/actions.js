@@ -247,7 +247,7 @@ export async function getDataForSlugDetails(
     if (session?.user) {
       // Authenticated request
       const response = await makeAuthenticatedRequest(url, {
-        next: { revalidate: 10 }
+        // next: { revalidate: 10 }
       });
 
       if (!response.ok) {
@@ -262,7 +262,7 @@ export async function getDataForSlugDetails(
     } else {
       // Public request
       const response = await makePublicRequest(url, {
-        next: { revalidate: 10 }
+        // next: { revalidate: 10 }
       });
 
       if (!response.ok) {
