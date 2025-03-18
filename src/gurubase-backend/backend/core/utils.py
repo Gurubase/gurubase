@@ -3514,15 +3514,11 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
     """
     Embeds texts using the specified model choice
     """
-    embedder_model_start = time.perf_counter()
     embedder, model_name = get_embedder_and_model(model_choice)
-    embedder_model_time = time.perf_counter() - embedder_model_start
-    logger.info(f'Embedder and model time: {embedder_model_time}')
     embeddings = []
     
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i+batch_size]
-        batch_embed_start = time.perf_counter()
         if model_name == "in-house":
             url = settings.EMBED_API_URL
             headers = {"Content-Type": "application/json"}
@@ -3540,8 +3536,6 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
                 embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
             else:  # GeminiEmbedder
                 embeddings.extend(embedder.embed_texts(batch))
-        batch_embed_time = time.perf_counter() - batch_embed_start
-        logger.info(f'Batch embedding time: {batch_embed_time}')
     
     return embeddings
 
