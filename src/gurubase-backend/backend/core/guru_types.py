@@ -74,6 +74,9 @@ def get_guru_type_object_by_maintainer(guru_type, request):
         guru_type_object = GuruType.objects.filter(slug=guru_type).first()
     else:
         guru_type_object = GuruType.objects.filter(slug=guru_type).first()
+        if not guru_type_object:
+            logger.warning(f'Guru type {guru_type} not found')
+            raise NotFoundError(f'Guru type {guru_type} not found')
         if not guru_type_object.maintainers.filter(id=user.id).exists():
             logger.warning(f'User {request.auth0_id} is not a maintainer of guru type {guru_type}')
             raise PermissionError(f'User {request.auth0_id} is not a maintainer of guru type {guru_type}')
