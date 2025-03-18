@@ -3364,25 +3364,50 @@ def create_fresh_binge(guru_type: GuruType, user: User | None):
     )
     return binge
 
-def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str:
+def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict, contexts: list) -> str:
     from core.prompts import (context_relevance_prompt, 
         context_relevance_cot_expected_output, 
         context_relevance_cot_output_format, 
         context_relevance_without_cot_expected_output, 
         context_relevance_without_cot_output_format,
         context_relevance_code_cot_expected_output,
-        context_relevance_code_without_cot_expected_output)
+        context_relevance_code_without_cot_expected_output,
+        text_example_template,
+        code_example_template)
+
+    # Check if we have code or text contexts
+    has_code = False
+    has_text = False
+    for context in contexts:
+        if context['prefix'] == 'Code':
+            has_code = True
+        elif context['prefix'] == 'Text':
+            has_text = True
 
     if cot:
-        expected_output = context_relevance_cot_expected_output
         output_format = context_relevance_cot_output_format
-        code_expected_output = context_relevance_code_cot_expected_output
+        if has_code and not has_text:
+            # Only code contexts
+            example_template = f"Here is an example:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_code_cot_expected_output}"
+        elif has_text and not has_code:
+            # Only text contexts
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_cot_expected_output}"
+        else:
+            # Both code and text contexts or neither
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_cot_expected_output}\n\nHere is another example with code contexts:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n\n{context_relevance_code_cot_expected_output}"
     else:
-        expected_output = context_relevance_without_cot_expected_output
         output_format = context_relevance_without_cot_output_format
-        code_expected_output = context_relevance_code_without_cot_expected_output
+        if has_code and not has_text:
+            # Only code contexts
+            example_template = f"Here is an example:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_code_without_cot_expected_output}"
+        elif has_text and not has_code:
+            # Only text contexts
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_without_cot_expected_output}"
+        else:
+            # Both code and text contexts or neither
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_without_cot_expected_output}\n\nHere is another example with code contexts:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n\n{context_relevance_code_without_cot_expected_output}"
 
-    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format, code_expected_output=code_expected_output)
+    prompt = context_relevance_prompt.format(**guru_variables, example_with_output=example_template, output_format=output_format)
     return prompt
 
 def string_to_boolean(value: str) -> bool:
