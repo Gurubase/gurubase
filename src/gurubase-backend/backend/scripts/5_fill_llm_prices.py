@@ -4,9 +4,9 @@ import django
 
 
 
-sys.path.append('/workspaces/gurubase/src/gurubase-backend/backend')
 sys.path.append('/workspaces/gurubase-backend/backend')
 sys.path.append('/workspace/backend')
+sys.path.append('/workspaces/gurubase/src/gurubase-backend/backend')
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 
 django.setup()
