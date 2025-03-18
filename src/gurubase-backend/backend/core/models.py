@@ -90,6 +90,7 @@ class Question(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     times = models.JSONField(default=dict, blank=True, null=False)
     parent_topics = models.TextField(default='', blank=True, null=True)
+    enhanced_question = models.TextField(default='', blank=True, null=True)
 
     @property
     def frontend_url(self):
@@ -1114,6 +1115,7 @@ class OutOfContextQuestion(models.Model):
     )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
     parent_topics = models.TextField(default='', blank=True, null=True)
+    enhanced_question = models.TextField(default='', blank=True, null=True)
 
     def __str__(self):
         return self.question

@@ -77,6 +77,7 @@ def stream_and_save(
         processed_ctx_relevances, 
         ctx_rel_usage,
         parent_topics,
+        enhanced_question,
         user=None,
         parent=None, 
         binge=None, 
@@ -174,6 +175,7 @@ def stream_and_save(
             question_obj.user = user
             question_obj.times = times
             question_obj.parent_topics = parent_topics
+            question_obj.enhanced_question = enhanced_question
             question_obj.save()
             get_cloudflare_requester().purge_cache(guru_type, question_slug)
             
@@ -202,7 +204,8 @@ def stream_and_save(
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
                 times=times,
-                parent_topics=parent_topics
+                parent_topics=parent_topics,
+                enhanced_question=enhanced_question
             )
             question_obj.save()
     except Exception as e:
@@ -381,7 +384,15 @@ def get_milvus_client():
     return milvus_client
 
 
-def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics, llm_eval=False):
+def vector_db_fetch(
+    milvus_client, 
+    collection_name, 
+    question, 
+    guru_type_slug, 
+    user_question, 
+    parent_topics, 
+    enhanced_question, 
+    llm_eval=False):
     from core.models import GuruType
     guru_type = GuruType.objects.get(slug=guru_type_slug)
 
@@ -417,10 +428,29 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     # Get text and code embeddings using appropriate models
     text_embedding = embed_texts_with_model([question], guru_type.text_embedding_model)[0]
     code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
-    text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
-    code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
-    code_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.code_embedding_model)[0]
-    text_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.text_embedding_model)[0]
+
+    if len(user_question) < 300:
+        text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
+        code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
+    else:
+        text_embedding_user = None
+        code_embedding_user = None
+
+    if parent_topics:
+        code_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.code_embedding_model)[0]
+        text_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.text_embedding_model)[0]
+    else:
+        code_embedding_parent_topics = None
+        text_embedding_parent_topics = None
+
+    # enhanced_question = ''
+    if enhanced_question:
+        text_embedding_enhanced_question = embed_texts_with_model([enhanced_question], guru_type.text_embedding_model)[0]
+        code_embedding_enhanced_question = embed_texts_with_model([enhanced_question], guru_type.code_embedding_model)[0]
+    else:
+        text_embedding_enhanced_question = None
+        code_embedding_enhanced_question = None
+
     times['embedding'] = time.perf_counter() - start_embedding
 
     # Get collection name and dimension for text embedding model
@@ -478,21 +508,67 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         
         return merged_answers
 
-    def rerank_batch(batch, question, llm_eval):
+    def rerank_batch(batch, question, user_question, enhanced_question, llm_eval):
         if settings.ENV == 'selfhosted':
             # Do not rerank in selfhosted
             return [i for i in range(len(batch))], [1 for _ in range(len(batch))]
         batch_texts = [result['entity']['text'] for result in batch]
-        reranked_batch = rerank_texts(question, batch_texts)
-        # reranked_batch: [{"index": 3, "score": 0.91432924}, {"index": 0, "score": 0.51251252}, {"index": 9, "score": 0.3}]
-
-        if reranked_batch is None:
-            logger.warning(f'Reranking failed for the batch: {[text[:100] for text in batch_texts]}. Using original order.')
+        
+        # Rerank with question
+        # TODO: If we get > 32 results, we need to batch them
+        reranked_batch_question = rerank_texts(question, batch_texts)
+        
+        # Rerank with user_question if it's not too long
+        reranked_batch_user_question = None
+        if len(user_question) < 300:
+            # TODO: If we get > 32 results, we need to batch them
+            reranked_batch_user_question = rerank_texts(user_question, batch_texts)
+        
+        # Rerank with enhanced_question
+        # TODO: If we get > 32 results, we need to batch them
+        reranked_batch_enhanced_question = rerank_texts(enhanced_question, batch_texts)
+        
+        # If all reranking fails, use original order
+        if reranked_batch_question is None and reranked_batch_user_question is None and reranked_batch_enhanced_question is None:
+            logger.warning(f'All reranking methods failed for the batch. Using original order.')
             reranked_batch_indices = [i for i in range(len(batch_texts))]
             reranked_batch_scores = [0 for _ in range(len(batch_texts))]
         else:
-            reranked_batch_indices = [result['index'] for result in reranked_batch]
-            reranked_batch_scores = [result['score'] for result in reranked_batch]
+            # Use all available reranking results separately, ordered by their own scores
+            reranked_batch_indices = []
+            reranked_batch_scores = []
+            
+            # Track indices we've already added to avoid duplicates
+            added_indices = set()
+            
+            # Add results in order of priority
+            
+            # 1. First add user_question results if available (highest priority)
+            if reranked_batch_user_question:
+                for result in reranked_batch_user_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
+            
+            # 2. Then add enhanced_question results that weren't already added
+            if reranked_batch_enhanced_question:
+                for result in reranked_batch_enhanced_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
+            
+            # 3. Finally add question results that weren't already added
+            if reranked_batch_question:
+                for result in reranked_batch_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
 
         # Apply Rerank Threshold
         default_settings = get_default_settings()
@@ -526,23 +602,29 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_user],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] in ["question", "answer"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_user],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] in ["question", "answer"]',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
-        parent_topics_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_parent_topics],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] in ["question", "answer"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_parent_topics:
+            parent_topics_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_parent_topics],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] in ["question", "answer"]',
+                search_params=search_params
+            )[0]
+        else:
+            parent_topics_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -560,10 +642,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_parent_topics_docs_without_duplicates
 
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_enhanced_question],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] in ["question", "answer"]',
+                search_params=search_params
+            )[0]
+        else:
+            enhanced_question_batch = []
+
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
+
         times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -635,6 +733,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         question_milvus_limit = 20
         user_question_milvus_limit = 10
         parent_topics_milvus_limit = 10
+        enhanced_question_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
@@ -658,23 +757,29 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_user],
-            limit=user_question_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] not in ["question", "answer", "comment"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_user],
+                limit=user_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] not in ["question", "answer", "comment"]',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
-        parent_topics_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_parent_topics],
-            limit=parent_topics_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] not in ["question", "answer", "comment"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_parent_topics:
+            parent_topics_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_parent_topics],
+                limit=parent_topics_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] not in ["question", "answer", "comment"]',
+                search_params=search_params
+            )[0]
+        else:
+            parent_topics_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -692,10 +797,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_parent_topics_docs_without_duplicates
 
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_enhanced_question],
+                limit=enhanced_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] not in ["question", "answer", "comment"]',
+                search_params=search_params
+            )[0]
+        else:
+            enhanced_question_batch = []
+
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
+
         times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['non_stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -720,6 +841,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         question_milvus_limit = 20
         user_question_milvus_limit = 10
+        enhanced_question_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
@@ -742,23 +864,29 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=code_collection_name,
-            data=[code_embedding_user],
-            limit=user_question_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter=f'guru_slug == "{guru_type_slug}"',
-            search_params=search_params
-        )[0]
+        if code_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=code_collection_name,
+                data=[code_embedding_user],
+                limit=user_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter=f'guru_slug == "{guru_type_slug}"',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
-        parent_topics_batch = milvus_client.search(
-            collection_name=code_collection_name,
-            data=[code_embedding_parent_topics],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter=f'guru_slug == "{guru_type_slug}"',
-            search_params=search_params
-        )[0]
+        if code_embedding_parent_topics:
+            parent_topics_batch = milvus_client.search(
+                collection_name=code_collection_name,
+                data=[code_embedding_parent_topics],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter=f'guru_slug == "{guru_type_slug}"',
+                search_params=search_params
+            )[0]
+        else:
+            parent_topics_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -776,10 +904,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_parent_topics_docs_without_duplicates
 
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=code_collection_name,
+                data=[code_embedding_enhanced_question],
+                limit=enhanced_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter=f'guru_slug == "{guru_type_slug}"',
+                search_params=search_params                
+            )[0]
+        else:
+            enhanced_question_batch = []
+
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
+
         times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['github_repo']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -868,7 +1012,14 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 
-def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics):
+def get_contexts(
+    milvus_client, 
+    collection_name, 
+    question, 
+    guru_type_slug, 
+    user_question, 
+    parent_topics, 
+    enhanced_question):
     times = {
         'vector_db_fetch': {},
         'prepare_contexts': 0,
@@ -876,7 +1027,14 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
     }
     
     try:
-        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics)
+        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(
+            milvus_client, 
+            collection_name, 
+            question, 
+            guru_type_slug, 
+            user_question, 
+            parent_topics, 
+            enhanced_question)
         times['vector_db_fetch'] = vector_db_times
     except Exception as e:
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
@@ -914,7 +1072,7 @@ def parse_summary_response(question, response):
     try:
         prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(response)
         if response.choices[0].message.refusal:
-            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, parent_topics="")
+            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, parent_topics="", enhanced_question=[])
             logger.error(f'Gpt refused to answer for summary. Refusal: {response.choices[0].message.refusal}')
             return {
                 'question': question,
@@ -926,6 +1084,7 @@ def parse_summary_response(question, response):
                 'prompt_tokens': prompt_tokens,
                 'cached_prompt_tokens': cached_prompt_tokens,
                 'parent_topics': '',
+                'enhanced_question': [],
             }
         else:
             gptSummary =  response.choices[0].message.parsed
@@ -941,6 +1100,7 @@ def parse_summary_response(question, response):
             'prompt_tokens': prompt_tokens,
             'cached_prompt_tokens': cached_prompt_tokens,
             'parent_topics': '',
+            'enhanced_question': [],
         }
         return answer
 
@@ -958,6 +1118,7 @@ def parse_summary_response(question, response):
         'user_intent': gptSummary.user_intent,
         'answer_length': gptSummary.answer_length,
         'parent_topics': gptSummary.parent_topics,
+        'enhanced_question': gptSummary.enhanced_question,
         "jwt" : generate_jwt(), # for answer step after summary
     }
 
@@ -1017,6 +1178,7 @@ class GptSummary(BaseModel):
     user_intent: str
     answer_length: int
     parent_topics: str  # List of parent/related topics for better search
+    enhanced_question: str
 
 
 def slack_send_outofcontext_question_notification(guru_type, user_question, question, user=None):
@@ -1120,6 +1282,7 @@ def ask_question_with_stream(
     parent_question, 
     source,
     parent_topics,
+    enhanced_question,
     user=None):
     start_total = time.perf_counter()
     times = {
@@ -1132,7 +1295,7 @@ def ask_question_with_stream(
 
     default_settings = get_default_settings()
     start_get_contexts = time.perf_counter()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, parent_topics)
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, parent_topics, enhanced_question)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
@@ -1145,7 +1308,8 @@ def ask_question_with_stream(
             trust_score_threshold=default_settings.trust_score_threshold, 
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
-            parent_topics=parent_topics
+            parent_topics=parent_topics,
+            enhanced_question=enhanced_question
         )
 
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
@@ -1306,6 +1470,7 @@ def stream_question_answer(
         user_question, 
         source,
         parent_topics,
+        enhanced_question,
         parent_question=None,
         user=None,
     ):
@@ -1324,6 +1489,7 @@ def stream_question_answer(
         parent_question,
         source,
         parent_topics,
+        enhanced_question,
         user
     )
     if not response:
@@ -1390,6 +1556,7 @@ def rerank_texts(query, texts):
     if settings.RERANK_API_KEY:
         headers["Authorization"] = f"Bearer {settings.RERANK_API_KEY}"
 
+    # Try with original query first
     for limit in max_limits:
         truncated_texts = [text[:limit] for text in texts]
         data = json.dumps({"query": query, "texts": truncated_texts})
@@ -1398,7 +1565,7 @@ def rerank_texts(query, texts):
             response = requests.post(url, headers=headers, data=data, timeout=30)
         except Exception as e:
             logger.error(f'Reranking: Error while reranking the batch: {[text[:100] for text in texts]}. Response: {e}. Url: {url}')
-            return None
+            continue  # Try with a smaller limit instead of returning None immediately
         
         if response.status_code == 200:
             return response.json()
@@ -1408,7 +1575,29 @@ def rerank_texts(query, texts):
             logger.warning(f'Reranking: Text is too long for limit {limit}. Trying again with new limit. Question: {query}')
             continue
     
-    logger.error(f'Reranking: Tried all the limits. Error while reranking the batch: {[text[:100] for text in texts]}. Response: {response.text}. Url: {url}')
+    # If all limits failed, try with a shorter query
+    if len(query) > 200:
+        short_query = query[:200]
+        logger.warning(f'Reranking: Trying with shortened query. Original length: {len(query)}, new length: 200')
+        
+        for limit in max_limits:
+            truncated_texts = [text[:limit] for text in texts]
+            data = json.dumps({"query": short_query, "texts": truncated_texts})
+            
+            try:
+                response = requests.post(url, headers=headers, data=data, timeout=30)
+            except Exception as e:
+                logger.error(f'Reranking: Error while reranking with shortened query: {e}. Url: {url}')
+                continue
+            
+            if response.status_code == 200:
+                return response.json()
+            
+            if response.reason == "Payload Too Large" and response.status_code == 413:
+                logger.warning(f'Reranking: Text is too long for limit {limit} with shortened query. Trying again with new limit.')
+                continue
+    
+    logger.error(f'Reranking: Tried all the limits. Error while reranking the batch: {[text[:100] for text in texts]}. Response: {response.text if "response" in locals() else "No response"}. Url: {url}')
     return None
 
 
@@ -2216,6 +2405,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     question_slug = summary_data['question_slug']
     description = summary_data['description']
     parent_topics = summary_data.get('parent_topics', '')
+    enhanced_question = summary_data.get('enhanced_question', [])
 
     response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
@@ -2224,7 +2414,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
         answer_length, 
         user_question,
         source,
-        parent_topics
+        parent_topics,
+        enhanced_question
     )
 
     total_response = []
@@ -2316,6 +2507,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.times = times
             question_obj.parent_topics = parent_topics
+            question_obj.enhanced_question = enhanced_question
             question_obj.save()
         else:
             question_obj = Question(
@@ -2339,7 +2531,8 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
                 times=times,
-                parent_topics=parent_topics
+                parent_topics=parent_topics,
+                enhanced_question=enhanced_question
             )
             question_obj.save()
 
@@ -3032,6 +3225,7 @@ def api_ask(question: str,
     user_intent = summary_data.get('user_intent', '')
     answer_length = summary_data.get('answer_length', '')
     parent_topics = summary_data.get('parent_topics', '')
+    enhanced_question = summary_data.get('enhanced_question', [])
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
@@ -3055,6 +3249,7 @@ def api_ask(question: str,
             user_question,
             question_source,
             parent_topics,
+            enhanced_question,
             parent,
             user
         )
@@ -3086,6 +3281,7 @@ def api_ask(question: str,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
             parent_topics=parent_topics,
+            enhanced_question=enhanced_question,
             times=times,
             source=question_source,
             parent=parent,

@@ -98,7 +98,8 @@ export const ResultClient = ({
     jwt,
     user_question,
     times,
-    parent_topics: parentTopics
+    parent_topics: parentTopics,
+    enhanced_question: enhancedQuestion
   } = questionSummary || {};
 
   // Add this effect to handle initial dirty state
@@ -231,7 +232,8 @@ export const ResultClient = ({
           parent_question_slug: parentQuestionSlug || null,
           binge_id: passedBingeId || bingeId || null,
           times: times,
-          parent_topics: parentTopics
+          parent_topics: parentTopics,
+          enhanced_question: enhancedQuestion
         };
 
         const response = await getStream(payload, guruType, jwt);
