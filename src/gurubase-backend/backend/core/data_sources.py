@@ -14,7 +14,7 @@ from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
-from core.requester import get_web_scraper, YoutubeRequester
+from core.requester import get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
@@ -773,8 +773,8 @@ class YouTubeService:
         playlist_id = playlist_match.group(1)
         
         try:
-            # Fetch videos using YoutubeRequester
-            youtube = YoutubeRequester()
+            # Fetch videos using YouTubeRequester
+            youtube = YouTubeRequester()
             videos = youtube.fetch_all_playlist_videos(playlist_id)
             
             # Format response
@@ -832,8 +832,8 @@ class YouTubeService:
             }, 400
         
         try:
-            # Fetch videos using YoutubeRequester
-            youtube = YoutubeRequester()
+            # Fetch videos using YouTubeRequester
+            youtube = YouTubeRequester()
             videos = youtube.fetch_all_channel_videos(username=username, channel_id=channel_id)
             
             # Format response

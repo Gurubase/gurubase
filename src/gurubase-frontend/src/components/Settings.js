@@ -321,7 +321,7 @@ const Settings = () => {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <label className="text-[14px] font-medium text-[#191919] font-inter">
-                              YouTube API Key
+                              YouTube API Key (Optional)
                             </label>
                           </div>
                           <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">

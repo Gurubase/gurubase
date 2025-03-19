@@ -500,18 +500,23 @@ const MonacoUrlEditor = ({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
-                          onClick={() => {
-                            setYoutubeType("playlist");
-                            setShowYoutubeInput(true);
-                          }}
-                          disabled={!isYoutubeKeyValid}>
-                          <Icon icon="mdi:playlist-play" className="h-4 w-4" />
-                          <span className="text-sm">Import Playlist</span>
-                        </Button>
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                            onClick={() => {
+                              setYoutubeType("playlist");
+                              setShowYoutubeInput(true);
+                            }}
+                            disabled={!isYoutubeKeyValid}>
+                            <Icon
+                              icon="mdi:playlist-play"
+                              className="h-4 w-4"
+                            />
+                            <span className="text-sm">Import Playlist</span>
+                          </Button>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>
@@ -525,18 +530,20 @@ const MonacoUrlEditor = ({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
-                          onClick={() => {
-                            setYoutubeType("channel");
-                            setShowYoutubeInput(true);
-                          }}
-                          disabled={!isYoutubeKeyValid}>
-                          <Icon icon="mdi:youtube" className="h-4 w-4" />
-                          <span className="text-sm">Import Channel</span>
-                        </Button>
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                            onClick={() => {
+                              setYoutubeType("channel");
+                              setShowYoutubeInput(true);
+                            }}
+                            disabled={!isYoutubeKeyValid}>
+                            <Icon icon="mdi:youtube" className="h-4 w-4" />
+                            <span className="text-sm">Import Channel</span>
+                          </Button>
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent side="right">
                         <p>

@@ -23,7 +23,6 @@ from core.exceptions import ThrottlingException
 
 logger = logging.getLogger(__name__)
 
-from core.models import GuruType, Settings
 from core.guru_types import get_guru_type_prompt_map
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -359,6 +358,7 @@ class OpenAIRequester():
         else:
             self.client = OpenAI(api_key=openai_api_key)
 
+
     def get_context_relevance(self, question_text, user_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance
 
@@ -536,11 +536,11 @@ class OpenAIRequester():
 
     def generate_follow_up_questions(
             self, 
-            questions: list, 
-            last_content: str, 
-            guru_type: GuruType, 
-            contexts: list, 
-            model_name: str = settings.GPT_MODEL):
+            questions,
+            last_content, 
+            guru_type, 
+            contexts, 
+            model_name=settings.GPT_MODEL):
         """
         Generate follow-up questions based on question history and available contexts.
         
@@ -722,11 +722,11 @@ class GeminiRequester():
 
     def generate_follow_up_questions(
             self, 
-            questions: list, 
-            last_content: str, 
-            guru_type: GuruType, 
-            contexts: list, 
-            model_name: str = None):
+            questions, 
+            last_content, 
+            guru_type, 
+            contexts, 
+            model_name=None):
         """
         Generate follow-up questions based on question history and available contexts using Gemini.
         
@@ -963,10 +963,35 @@ class MailgunRequester():
             exception_code = "E-100"
             logger.fatal(f"Can not send email. Email: {to}. Subject: {subject} Code: {exception_code}")
 
-class YoutubeRequester():
-    def __init__(self):
+class YouTubeRequester():
+    def __init__(self, api_key=None):
         self.base_url = "https://content-youtube.googleapis.com/youtube/v3"
-        self.api_key = get_youtube_api_key()
+        if not api_key:
+            api_key = get_youtube_api_key()
+        self.api_key = api_key
+
+    def get_most_popular_video(self):
+        """
+        Get the most popular video from YouTube
+        Returns:
+            dict: Response from YouTube API containing video details
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            url = f"{self.base_url}/videos"
+            params = {
+                "part": "id,snippet,statistics",
+                "chart": "mostPopular",
+                "maxResults": 1,
+                "key": self.api_key
+            }
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("items", [])[0]
+        except Exception as e:
+            raise ValueError(f"Failed to get most popular video: {str(e)}")
    
     def fetch_channel(self, username=None, channel_id=None):
         """

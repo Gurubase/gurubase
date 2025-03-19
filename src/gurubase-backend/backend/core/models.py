@@ -1210,11 +1210,12 @@ class Settings(models.Model):
             try:
                 from core.requester import YouTubeRequester
                 requester = YouTubeRequester(self.youtube_api_key)
-                requester.fetch_all_playlist_videos('PL7B7FA4E1EAB37E3A')
+                requester.get_most_popular_video()
                 self.is_youtube_key_valid = True
-            except Exception:
+            except Exception as e:
+                logger.error(f'Error validating YouTube API key: {e}')
                 self.is_youtube_key_valid = False
-            
+
         super().save(*args, **kwargs)
 
     def __str__(self):
