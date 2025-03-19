@@ -211,7 +211,7 @@ const MonacoUrlEditor = ({
     }
   };
 
-  const handleYoutubeExtract = async () => {
+  const handleYoutubeImport = async () => {
     if (!youtubeUrl) {
       CustomToast({
         message: "Please enter a YouTube URL",
@@ -234,7 +234,7 @@ const MonacoUrlEditor = ({
 
       if (response.error || response.msg) {
         CustomToast({
-          message: response.message || "Failed to extract YouTube URLs",
+          message: response.message || "Failed to import YouTube URLs",
           variant: response.urls ? "warning" : "error"
         });
         return;
@@ -273,7 +273,7 @@ const MonacoUrlEditor = ({
       CustomToast({
         message:
           error.message ||
-          "An unexpected error occurred while extracting YouTube URLs",
+          "An unexpected error occurred while importing YouTube URLs",
         variant: "error"
       });
     } finally {
@@ -361,9 +361,9 @@ const MonacoUrlEditor = ({
         <Button
           className="h-8 guru-sm:flex-1"
           disabled={!youtubeUrl}
-          onClick={handleYoutubeExtract}
+          onClick={handleYoutubeImport}
           variant="outline">
-          Extract {youtubeType === "playlist" ? "Playlist" : "Channel"}
+          Import {youtubeType === "playlist" ? "Playlist" : "Channel"}
         </Button>
       );
     } else {
@@ -508,9 +508,7 @@ const MonacoUrlEditor = ({
                             setShowYoutubeInput(true);
                           }}>
                           <Icon icon="mdi:playlist-play" className="h-4 w-4" />
-                          <span className="text-sm">
-                            Extract YouTube Playlist
-                          </span>
+                          <span className="text-sm">Import Playlist</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -530,9 +528,7 @@ const MonacoUrlEditor = ({
                             setShowYoutubeInput(true);
                           }}>
                           <Icon icon="mdi:youtube" className="h-4 w-4" />
-                          <span className="text-sm">
-                            Extract YouTube Channel
-                          </span>
+                          <span className="text-sm">Import Channel</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right">
@@ -603,7 +599,7 @@ const MonacoUrlEditor = ({
                   {isLoadingSitemapRef.current &&
                     (sourceType === "website"
                       ? "Parsing sitemap..."
-                      : `Extracting YouTube ${youtubeType}...`)}
+                      : `Importing ${youtubeType}...`)}
                 </span>
               </div>
             </div>
