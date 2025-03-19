@@ -76,7 +76,7 @@ def stream_and_save(
         trust_score, 
         processed_ctx_relevances, 
         ctx_rel_usage,
-        parent_topics,
+        enhanced_question,
         user=None,
         parent=None, 
         binge=None, 
@@ -173,7 +173,7 @@ def stream_and_save(
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.user = user
             question_obj.times = times
-            question_obj.parent_topics = parent_topics
+            question_obj.enhanced_question = enhanced_question
             question_obj.save()
             get_cloudflare_requester().purge_cache(guru_type, question_slug)
             
@@ -202,7 +202,7 @@ def stream_and_save(
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
                 times=times,
-                parent_topics=parent_topics
+                enhanced_question=enhanced_question
             )
             question_obj.save()
     except Exception as e:
@@ -221,6 +221,7 @@ class LLM_MODEL:
 def prepare_contexts(contexts, reranked_scores):
     references = {}
     formatted_contexts = []
+    # The contexts are already sorted by their trust score
     
     # Find the PDF files that need to be masked
     pdf_links = []
@@ -364,7 +365,6 @@ def prepare_contexts(contexts, reranked_scores):
     # Sort by reranked_scores using the link
     # Example reranked_scores: [{"link": "https://stackoverflow.com/q/78838212", "score": 0.061199225}, {"link": "https://stackoverflow.com/q/79005130", "score": 0.05014425}, ...
     # Example references: [{"link": "https://stackoverflow.com/q/78838212", "question": "Upgrade mysql version 5.7 to 8.0 in Docker. Error mysql auto restarting after upgrade"}, ...
-    references = sorted(references, key=lambda x: next((item['score'] for item in reranked_scores if item['link'] == x['link']), 0), reverse=True)
     
     return {'contexts': formatted_contexts}, references
 
@@ -381,7 +381,14 @@ def get_milvus_client():
     return milvus_client
 
 
-def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics, llm_eval=False):
+def vector_db_fetch(
+    milvus_client, 
+    collection_name, 
+    question, 
+    guru_type_slug, 
+    user_question, 
+    enhanced_question, 
+    llm_eval=False):
     from core.models import GuruType
     guru_type = GuruType.objects.get(slug=guru_type_slug)
 
@@ -414,13 +421,43 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     start_total = time.perf_counter()
     
     start_embedding = time.perf_counter()
-    # Get text and code embeddings using appropriate models
-    text_embedding = embed_texts_with_model([question], guru_type.text_embedding_model)[0]
-    code_embedding = embed_texts_with_model([question], guru_type.code_embedding_model)[0]
-    text_embedding_user = embed_texts_with_model([user_question], guru_type.text_embedding_model)[0]
-    code_embedding_user = embed_texts_with_model([user_question], guru_type.code_embedding_model)[0]
-    code_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.code_embedding_model)[0]
-    text_embedding_parent_topics = embed_texts_with_model([parent_topics], guru_type.text_embedding_model)[0]
+    
+    # Prepare texts to embed
+    texts_to_embed = [question]
+    if len(user_question) < 300:
+        texts_to_embed.append(user_question)
+    if enhanced_question:
+        texts_to_embed.append(enhanced_question)
+    
+    # Get all text and code embeddings in two batched calls
+    embedding_start = time.perf_counter()
+    text_embeddings = embed_texts_with_model(texts_to_embed, guru_type.text_embedding_model)
+
+    embedding_start = time.perf_counter()
+    code_embeddings = embed_texts_with_model(texts_to_embed, guru_type.code_embedding_model)
+
+    times['embedding'] = time.perf_counter() - embedding_start
+    
+    # Unpack the embeddings
+    text_embedding = text_embeddings[0]
+    code_embedding = code_embeddings[0]
+    
+    # Get user question embeddings if available
+    if len(user_question) < 300:
+        text_embedding_user = text_embeddings[1]
+        code_embedding_user = code_embeddings[1]
+    else:
+        text_embedding_user = None
+        code_embedding_user = None
+    
+    # Get enhanced question embeddings if available
+    if enhanced_question:
+        text_embedding_enhanced_question = text_embeddings[-1]
+        code_embedding_enhanced_question = code_embeddings[-1]
+    else:
+        text_embedding_enhanced_question = None
+        code_embedding_enhanced_question = None
+
     times['embedding'] = time.perf_counter() - start_embedding
 
     # Get collection name and dimension for text embedding model
@@ -478,21 +515,67 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         
         return merged_answers
 
-    def rerank_batch(batch, question, llm_eval):
+    def rerank_batch(batch, question, user_question, enhanced_question, llm_eval):
         if settings.ENV == 'selfhosted':
             # Do not rerank in selfhosted
             return [i for i in range(len(batch))], [1 for _ in range(len(batch))]
         batch_texts = [result['entity']['text'] for result in batch]
-        reranked_batch = rerank_texts(question, batch_texts)
-        # reranked_batch: [{"index": 3, "score": 0.91432924}, {"index": 0, "score": 0.51251252}, {"index": 9, "score": 0.3}]
-
-        if reranked_batch is None:
-            logger.warning(f'Reranking failed for the batch: {[text[:100] for text in batch_texts]}. Using original order.')
+        
+        # Rerank with question
+        # TODO: If we get > 32 results, we need to batch them
+        reranked_batch_question = rerank_texts(question, batch_texts)
+        
+        # Rerank with user_question if it's not too long
+        reranked_batch_user_question = None
+        if len(user_question) < 300:
+            # TODO: If we get > 32 results, we need to batch them
+            reranked_batch_user_question = rerank_texts(user_question, batch_texts)
+        
+        # Rerank with enhanced_question
+        # TODO: If we get > 32 results, we need to batch them
+        reranked_batch_enhanced_question = rerank_texts(enhanced_question, batch_texts)
+        
+        # If all reranking fails, use original order
+        if reranked_batch_question is None and reranked_batch_user_question is None and reranked_batch_enhanced_question is None:
+            logger.warning(f'All reranking methods failed for the batch. Using original order.')
             reranked_batch_indices = [i for i in range(len(batch_texts))]
             reranked_batch_scores = [0 for _ in range(len(batch_texts))]
         else:
-            reranked_batch_indices = [result['index'] for result in reranked_batch]
-            reranked_batch_scores = [result['score'] for result in reranked_batch]
+            # Use all available reranking results separately, ordered by their own scores
+            reranked_batch_indices = []
+            reranked_batch_scores = []
+            
+            # Track indices we've already added to avoid duplicates
+            added_indices = set()
+            
+            # Add results in order of priority
+            
+            # 1. First add user_question results if available (highest priority)
+            if reranked_batch_user_question:
+                for result in reranked_batch_user_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
+            
+            # 2. Then add enhanced_question results that weren't already added
+            if reranked_batch_enhanced_question:
+                for result in reranked_batch_enhanced_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
+            
+            # 3. Finally add question results that weren't already added
+            if reranked_batch_question:
+                for result in reranked_batch_question:
+                    idx = result['index']
+                    if idx not in added_indices:
+                        reranked_batch_indices.append(idx)
+                        reranked_batch_scores.append(result['score'])
+                        added_indices.add(idx)
 
         # Apply Rerank Threshold
         default_settings = get_default_settings()
@@ -526,23 +609,17 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_user],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] in ["question", "answer"]',
-            search_params=search_params
-        )[0]
-
-        parent_topics_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_parent_topics],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] in ["question", "answer"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_user],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] in ["question", "answer"]',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -552,18 +629,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_user_question_docs_without_duplicates
 
-        # Add unique parent topics retrievals
-        final_parent_topics_docs_without_duplicates = []
-        for doc in parent_topics_batch:
-            if doc["id"] not in [doc["id"] for doc in batch]:
-                final_parent_topics_docs_without_duplicates.append(doc)
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_enhanced_question],
+                limit=10,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] in ["question", "answer"]',
+                search_params=search_params
+            )[0]
+        else:
+            enhanced_question_batch = []
 
-        batch = batch + final_parent_topics_docs_without_duplicates
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
 
         times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -634,11 +719,11 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         question_milvus_limit = 20
         user_question_milvus_limit = 10
-        parent_topics_milvus_limit = 10
+        enhanced_question_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
-            parent_topics_milvus_limit = 3
+            enhanced_question_milvus_limit = 3
             
         start_non_so = time.perf_counter()
         start_milvus = time.perf_counter()
@@ -658,23 +743,17 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_user],
-            limit=user_question_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] not in ["question", "answer", "comment"]',
-            search_params=search_params
-        )[0]
-
-        parent_topics_batch = milvus_client.search(
-            collection_name=text_collection_name,
-            data=[text_embedding_parent_topics],
-            limit=parent_topics_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter='metadata["type"] not in ["question", "answer", "comment"]',
-            search_params=search_params
-        )[0]
+        if text_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_user],
+                limit=user_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] not in ["question", "answer", "comment"]',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -684,18 +763,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_user_question_docs_without_duplicates
 
-        # Add unique parent topics retrievals
-        final_parent_topics_docs_without_duplicates = []
-        for doc in parent_topics_batch:
-            if doc["id"] not in [doc["id"] for doc in batch]:
-                final_parent_topics_docs_without_duplicates.append(doc)
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=text_collection_name,
+                data=[text_embedding_enhanced_question],
+                limit=enhanced_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter='metadata["type"] not in ["question", "answer", "comment"]',
+                search_params=search_params
+            )[0]
+        else:
+            enhanced_question_batch = []
 
-        batch = batch + final_parent_topics_docs_without_duplicates
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
 
         times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['non_stackoverflow']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -720,6 +807,7 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         reranked_scores = []
         question_milvus_limit = 20
         user_question_milvus_limit = 10
+        enhanced_question_milvus_limit = 10
         if settings.ENV == 'selfhosted':
             question_milvus_limit = 3
             user_question_milvus_limit = 3
@@ -742,23 +830,17 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
             return [], []
 
         start_pre_rerank = time.perf_counter()
-        user_question_batch = milvus_client.search(
-            collection_name=code_collection_name,
-            data=[code_embedding_user],
-            limit=user_question_milvus_limit,
-            output_fields=['id', 'text', 'metadata'],
-            filter=f'guru_slug == "{guru_type_slug}"',
-            search_params=search_params
-        )[0]
-
-        parent_topics_batch = milvus_client.search(
-            collection_name=code_collection_name,
-            data=[code_embedding_parent_topics],
-            limit=10,
-            output_fields=['id', 'text', 'metadata'],
-            filter=f'guru_slug == "{guru_type_slug}"',
-            search_params=search_params
-        )[0]
+        if code_embedding_user:
+            user_question_batch = milvus_client.search(
+                collection_name=code_collection_name,
+                data=[code_embedding_user],
+                limit=user_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter=f'guru_slug == "{guru_type_slug}"',
+                search_params=search_params
+            )[0]
+        else:
+            user_question_batch = []
 
         # Add unique user question retrievals
         final_user_question_docs_without_duplicates = []
@@ -768,18 +850,26 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
 
         batch = batch + final_user_question_docs_without_duplicates
 
-        # Add unique parent topics retrievals
-        final_parent_topics_docs_without_duplicates = []
-        for doc in parent_topics_batch:
-            if doc["id"] not in [doc["id"] for doc in batch]:
-                final_parent_topics_docs_without_duplicates.append(doc)
+        if text_embedding_enhanced_question:
+            enhanced_question_batch = milvus_client.search(
+                collection_name=code_collection_name,
+                data=[code_embedding_enhanced_question],
+                limit=enhanced_question_milvus_limit,
+                output_fields=['id', 'text', 'metadata'],
+                filter=f'guru_slug == "{guru_type_slug}"',
+                search_params=search_params                
+            )[0]
+        else:
+            enhanced_question_batch = []
 
-        batch = batch + final_parent_topics_docs_without_duplicates
+        for doc in enhanced_question_batch:
+            if doc["id"] not in [doc["id"] for doc in batch]:
+                batch.append(doc)
 
         times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
 
         start_rerank = time.perf_counter()
-        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, llm_eval)
+        reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
         times['github_repo']['rerank'] = time.perf_counter() - start_rerank
 
         start_post_rerank = time.perf_counter()
@@ -814,18 +904,29 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
         }
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
-
+        
+        # Create a list of tuples containing (context, reranked_score, trust_score) for sorting
+        context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
             if ctx['score'] >= default_settings.trust_score_threshold:
-                filtered_contexts.append(contexts[i])
-                filtered_reranked_scores.append(reranked_scores[i])
-                trust_score += ctx['score']
+                context_data.append((contexts[i], reranked_scores[i], ctx['score']))
                 processed_ctx_relevances['kept'].append(ctx)
             else:
                 processed_ctx_relevances['removed'].append(ctx)
 
-        return filtered_contexts, filtered_reranked_scores, (trust_score / len(filtered_contexts)) if filtered_contexts else 0, processed_ctx_relevances, ctx_rel_usage
+        # Sort context_data by trust score in descending order
+        context_data.sort(key=lambda x: x[2], reverse=True)
+
+        # Unpack the sorted data
+        for context, reranked_score, score in context_data:
+            filtered_contexts.append(context)
+            filtered_reranked_scores.append(reranked_score)
+            trust_score += score
+
+        trust_score = trust_score / len(filtered_contexts) if filtered_contexts else 0
+
+        return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
 
     try:
         reranked_scores = []
@@ -868,7 +969,13 @@ def vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, us
     return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
 
-def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics):
+def get_contexts(
+    milvus_client, 
+    collection_name, 
+    question, 
+    guru_type_slug, 
+    user_question, 
+    enhanced_question):
     times = {
         'vector_db_fetch': {},
         'prepare_contexts': 0,
@@ -876,7 +983,13 @@ def get_contexts(milvus_client, collection_name, question, guru_type_slug, user_
     }
     
     try:
-        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, question, guru_type_slug, user_question, parent_topics)
+        contexts, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, vector_db_times = vector_db_fetch(
+            milvus_client, 
+            collection_name, 
+            question, 
+            guru_type_slug, 
+            user_question, 
+            enhanced_question)
         times['vector_db_fetch'] = vector_db_times
     except Exception as e:
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
@@ -914,7 +1027,7 @@ def parse_summary_response(question, response):
     try:
         prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(response)
         if response.choices[0].message.refusal:
-            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, parent_topics="")
+            answer = GptSummary(question=question, user_question=question, question_slug='', answer="An error occurred while processing the question. Please try again.", description="", valid_question=False, enhanced_question=[])
             logger.error(f'Gpt refused to answer for summary. Refusal: {response.choices[0].message.refusal}')
             return {
                 'question': question,
@@ -925,7 +1038,7 @@ def parse_summary_response(question, response):
                 'completion_tokens': completion_tokens,
                 'prompt_tokens': prompt_tokens,
                 'cached_prompt_tokens': cached_prompt_tokens,
-                'parent_topics': '',
+                'enhanced_question': '',
             }
         else:
             gptSummary =  response.choices[0].message.parsed
@@ -940,7 +1053,7 @@ def parse_summary_response(question, response):
             'completion_tokens': completion_tokens,
             'prompt_tokens': prompt_tokens,
             'cached_prompt_tokens': cached_prompt_tokens,
-            'parent_topics': '',
+            'enhanced_question': '',
         }
         return answer
 
@@ -957,7 +1070,7 @@ def parse_summary_response(question, response):
         'cached_prompt_tokens': cached_prompt_tokens,
         'user_intent': gptSummary.user_intent,
         'answer_length': gptSummary.answer_length,
-        'parent_topics': gptSummary.parent_topics,
+        'enhanced_question': gptSummary.enhanced_question,
         "jwt" : generate_jwt(), # for answer step after summary
     }
 
@@ -1016,7 +1129,7 @@ class GptSummary(BaseModel):
     valid_question: bool
     user_intent: str
     answer_length: int
-    parent_topics: str  # List of parent/related topics for better search
+    enhanced_question: str
 
 
 def slack_send_outofcontext_question_notification(guru_type, user_question, question, user=None):
@@ -1119,7 +1232,7 @@ def ask_question_with_stream(
     user_question, 
     parent_question, 
     source,
-    parent_topics,
+    enhanced_question,
     user=None):
     start_total = time.perf_counter()
     times = {
@@ -1132,7 +1245,7 @@ def ask_question_with_stream(
 
     default_settings = get_default_settings()
     start_get_contexts = time.perf_counter()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, parent_topics)
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, enhanced_question)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
@@ -1145,7 +1258,7 @@ def ask_question_with_stream(
             trust_score_threshold=default_settings.trust_score_threshold, 
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
-            parent_topics=parent_topics
+            enhanced_question=enhanced_question
         )
 
         slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
@@ -1305,7 +1418,7 @@ def stream_question_answer(
         answer_length, 
         user_question, 
         source,
-        parent_topics,
+        enhanced_question,
         parent_question=None,
         user=None,
     ):
@@ -1323,7 +1436,7 @@ def stream_question_answer(
         user_question, 
         parent_question,
         source,
-        parent_topics,
+        enhanced_question,
         user
     )
     if not response:
@@ -1382,7 +1495,7 @@ def embed_texts(texts):
 
 def rerank_texts(query, texts):
     # Using BAAI/bge-reranker-large model for reranking
-    # This model's input size is limited to 512 tokens. If the input size is too big, we will truncate the texts
+    # This model's input size is limited to 512 tokens and batch size limited to 32
     # We will try to rerank the results in batches
     max_limits = [1300, 1200, 1000, 800, 500, 100]
     url = settings.RERANK_API_URL
@@ -1390,26 +1503,71 @@ def rerank_texts(query, texts):
     if settings.RERANK_API_KEY:
         headers["Authorization"] = f"Bearer {settings.RERANK_API_KEY}"
 
-    for limit in max_limits:
-        truncated_texts = [text[:limit] for text in texts]
-        data = json.dumps({"query": query, "texts": truncated_texts})
+    BATCH_SIZE = 32
+    all_results = []
+    
+    # Process texts in batches of 32
+    for batch_start in range(0, len(texts), BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, len(texts))
+        batch_texts = texts[batch_start:batch_end]
+        batch_results = None
         
-        try:
-            response = requests.post(url, headers=headers, data=data, timeout=30)
-        except Exception as e:
-            logger.error(f'Reranking: Error while reranking the batch: {[text[:100] for text in texts]}. Response: {e}. Url: {url}')
+        # Try with original query first
+        for limit in max_limits:
+            truncated_texts = [text[:limit] for text in batch_texts]
+            data = json.dumps({"query": query, "texts": truncated_texts})
+            
+            try:
+                response = requests.post(url, headers=headers, data=data, timeout=30)
+            except Exception as e:
+                logger.error(f'Reranking: Error while reranking the batch {batch_start}-{batch_end}: {[text[:100] for text in batch_texts]}. Response: {e}. Url: {url}')
+                continue  # Try with a smaller limit instead of returning None immediately
+            
+            if response.status_code == 200:
+                batch_results = response.json()
+                break
+            
+            if response.reason == "Payload Too Large" and response.status_code == 413:
+                # '{"error":"Input validation error: `inputs` must have less than 512 tokens. Given: 565","error_type":"Validation"}'
+                logger.warning(f'Reranking: Text is too long for limit {limit}. Trying again with new limit. Question: {query}')
+                continue
+        
+        # If all limits failed with original query, try with shorter query
+        if batch_results is None and len(query) > 200:
+            short_query = query[:200]
+            logger.warning(f'Reranking: Trying with shortened query for batch {batch_start}-{batch_end}. Original length: {len(query)}, new length: 200')
+            
+            for limit in max_limits:
+                truncated_texts = [text[:limit] for text in batch_texts]
+                data = json.dumps({"query": short_query, "texts": truncated_texts})
+                
+                try:
+                    response = requests.post(url, headers=headers, data=data, timeout=30)
+                except Exception as e:
+                    logger.error(f'Reranking: Error while reranking with shortened query: {e}. Url: {url}')
+                    continue
+                
+                if response.status_code == 200:
+                    batch_results = response.json()
+                    break
+                
+                if response.reason == "Payload Too Large" and response.status_code == 413:
+                    logger.warning(f'Reranking: Text is too long for limit {limit} with shortened query. Trying again with new limit.')
+                    continue
+        
+        if batch_results is None:
+            logger.error(f'Reranking: Tried all the limits for batch {batch_start}-{batch_end}. Error while reranking the batch: {[text[:100] for text in batch_texts]}. Response: {response.text if "response" in locals() else "No response"}. Url: {url}')
             return None
         
-        if response.status_code == 200:
-            return response.json()
+        # Adjust indices to be relative to the full list
+        for result in batch_results:
+            result['index'] += batch_start
         
-        if response.reason == "Payload Too Large" and response.status_code == 413:
-            # '{"error":"Input validation error: `inputs` must have less than 512 tokens. Given: 565","error_type":"Validation"}'
-            logger.warning(f'Reranking: Text is too long for limit {limit}. Trying again with new limit. Question: {query}')
-            continue
+        all_results.extend(batch_results)
     
-    logger.error(f'Reranking: Tried all the limits. Error while reranking the batch: {[text[:100] for text in texts]}. Response: {response.text}. Url: {url}')
-    return None
+    # Sort results by score to maintain the same behavior as before
+    all_results.sort(key=lambda x: x['score'], reverse=True)
+    return all_results
 
 
 def get_most_similar_questions(slug, text, guru_type, column, top_k=10, sitemap_constraint=False):
@@ -2215,7 +2373,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     user_question = summary_data['user_question']
     question_slug = summary_data['question_slug']
     description = summary_data['description']
-    parent_topics = summary_data.get('parent_topics', '')
+    enhanced_question = summary_data.get('enhanced_question', [])
 
     response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
@@ -2224,7 +2382,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
         answer_length, 
         user_question,
         source,
-        parent_topics
+        enhanced_question
     )
 
     total_response = []
@@ -2315,7 +2473,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             question_obj.trust_score = trust_score
             question_obj.processed_ctx_relevances = processed_ctx_relevances
             question_obj.times = times
-            question_obj.parent_topics = parent_topics
+            question_obj.enhanced_question = enhanced_question
             question_obj.save()
         else:
             question_obj = Question(
@@ -2339,7 +2497,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
                 processed_ctx_relevances=processed_ctx_relevances,
                 llm_usages=llm_usages,
                 times=times,
-                parent_topics=parent_topics
+                enhanced_question=enhanced_question
             )
             question_obj.save()
 
@@ -3031,7 +3189,7 @@ def api_ask(question: str,
     summary_cached_prompt_tokens = summary_data.get('cached_prompt_tokens', 0)
     user_intent = summary_data.get('user_intent', '')
     answer_length = summary_data.get('answer_length', '')
-    parent_topics = summary_data.get('parent_topics', '')
+    enhanced_question = summary_data.get('enhanced_question', [])
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
@@ -3054,7 +3212,7 @@ def api_ask(question: str,
             answer_length, 
             user_question,
             question_source,
-            parent_topics,
+            enhanced_question,
             parent,
             user
         )
@@ -3085,7 +3243,7 @@ def api_ask(question: str,
             trust_score=trust_score,
             processed_ctx_relevances=processed_ctx_relevances,
             ctx_rel_usage=ctx_rel_usage,
-            parent_topics=parent_topics,
+            enhanced_question=enhanced_question,
             times=times,
             source=question_source,
             parent=parent,
@@ -3217,25 +3375,50 @@ def create_fresh_binge(guru_type: GuruType, user: User | None):
     )
     return binge
 
-def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict) -> str:
+def prepare_prompt_for_context_relevance(cot: bool, guru_variables: dict, contexts: list) -> str:
     from core.prompts import (context_relevance_prompt, 
         context_relevance_cot_expected_output, 
         context_relevance_cot_output_format, 
         context_relevance_without_cot_expected_output, 
         context_relevance_without_cot_output_format,
         context_relevance_code_cot_expected_output,
-        context_relevance_code_without_cot_expected_output)
+        context_relevance_code_without_cot_expected_output,
+        text_example_template,
+        code_example_template)
+
+    # Check if we have code or text contexts
+    has_code = False
+    has_text = False
+    for context in contexts:
+        if context['prefix'] == 'Code':
+            has_code = True
+        elif context['prefix'] == 'Text':
+            has_text = True
 
     if cot:
-        expected_output = context_relevance_cot_expected_output
         output_format = context_relevance_cot_output_format
-        code_expected_output = context_relevance_code_cot_expected_output
+        if has_code and not has_text:
+            # Only code contexts
+            example_template = f"Here is an example:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_code_cot_expected_output}"
+        elif has_text and not has_code:
+            # Only text contexts
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_cot_expected_output}"
+        else:
+            # Both code and text contexts or neither
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_cot_expected_output}\n\nHere is another example with code contexts:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n\n{context_relevance_code_cot_expected_output}"
     else:
-        expected_output = context_relevance_without_cot_expected_output
         output_format = context_relevance_without_cot_output_format
-        code_expected_output = context_relevance_code_without_cot_expected_output
+        if has_code and not has_text:
+            # Only code contexts
+            example_template = f"Here is an example:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_code_without_cot_expected_output}"
+        elif has_text and not has_code:
+            # Only text contexts
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_without_cot_expected_output}"
+        else:
+            # Both code and text contexts or neither
+            example_template = f"Here is an example:\n\n{text_example_template}\n\nEXPECTED OUTPUT:\n{context_relevance_without_cot_expected_output}\n\nHere is another example with code contexts:\n\n{code_example_template}\n\nEXPECTED OUTPUT:\n\n{context_relevance_code_without_cot_expected_output}"
 
-    prompt = context_relevance_prompt.format(**guru_variables, expected_output=expected_output, output_format=output_format, code_expected_output=code_expected_output)
+    prompt = context_relevance_prompt.format(**guru_variables, example_with_output=example_template, output_format=output_format)
     return prompt
 
 def string_to_boolean(value: str) -> bool:
