@@ -61,7 +61,8 @@ const SourceDialog = React.memo(
     showCrawlInput,
     setShowCrawlInput,
     crawlUrl,
-    setCrawlUrl
+    setCrawlUrl,
+    isYoutubeKeyValid
   }) => {
     const [showStopConfirmation, setShowStopConfirmation] =
       React.useState(false);
@@ -243,6 +244,7 @@ const SourceDialog = React.memo(
                     setCrawlUrl={setCrawlUrl}
                     isLoadingSitemapRef={isLoadingSitemapRef}
                     onSitemapLoadingChange={updateSitemapLoadingState}
+                    isYoutubeKeyValid={isYoutubeKeyValid}
                     onStopSitemapLoading={() =>
                       handleProcessStop(
                         "stop",

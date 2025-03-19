@@ -83,7 +83,8 @@ const MonacoUrlEditor = ({
   isLoadingSitemapRef,
   onSitemapLoadingChange,
   onStopSitemapLoading,
-  sourceType
+  sourceType,
+  isYoutubeKeyValid
 }) => {
   const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
@@ -506,13 +507,18 @@ const MonacoUrlEditor = ({
                           onClick={() => {
                             setYoutubeType("playlist");
                             setShowYoutubeInput(true);
-                          }}>
+                          }}
+                          disabled={!isYoutubeKeyValid}>
                           <Icon icon="mdi:playlist-play" className="h-4 w-4" />
                           <span className="text-sm">Import Playlist</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Import videos from a YouTube playlist</p>
+                        <p>
+                          {isYoutubeKeyValid
+                            ? "Import videos from a YouTube playlist"
+                            : "YouTube API key is required for this functionality. You can add the API key on the Settings page."}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -526,13 +532,18 @@ const MonacoUrlEditor = ({
                           onClick={() => {
                             setYoutubeType("channel");
                             setShowYoutubeInput(true);
-                          }}>
+                          }}
+                          disabled={!isYoutubeKeyValid}>
                           <Icon icon="mdi:youtube" className="h-4 w-4" />
                           <span className="text-sm">Import Channel</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right">
-                        <p>Import videos from a YouTube channel</p>
+                        <p>
+                          {isYoutubeKeyValid
+                            ? "Import videos from a YouTube channel"
+                            : "YouTube API key is required for this functionality. You can add the API key on the Settings page."}
+                        </p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

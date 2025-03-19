@@ -21,6 +21,7 @@ from multiprocessing import Process
 from urllib.parse import urljoin
 from typing import List, Set, Tuple
 from django.utils import timezone
+from core.utils import get_default_settings
 
 
 logger = logging.getLogger(__name__)
@@ -735,11 +736,29 @@ class CrawlService:
 
 class YouTubeService:
     @staticmethod
+    def verify_api_key():
+        if settings.ENV == 'selfhosted':
+            default_settings = get_default_settings()
+            if not default_settings.youtube_api_key:
+                return {'msg': 'A YouTube API key is required for this functionality. You can add the API key on the Settings page.'}, 400
+            else:
+                if not default_settings.is_youtube_key_valid:
+                    return {'msg': 'YouTube API key is invalid. Please check the API key on the Settings page.'}, 400
+                else:
+                    return {'msg': 'YouTube API key is valid'}, 200
+        else:
+            return {'msg': 'Youtube API key is not checked on cloud.'}, 200
+
+    @staticmethod
     def fetch_playlist(url):
         """
         Fetch videos from a YouTube playlist URL
         Expected url: https://www.youtube.com/watch?v=...&list=...
         """
+        verify_api_key_response = YouTubeService.verify_api_key()
+        if verify_api_key_response[1] != 200:
+            return verify_api_key_response
+
         if not url:
             return {'msg': 'URL is required'}, 400
 
@@ -789,6 +808,10 @@ class YouTubeService:
         Fetch videos from a YouTube channel URL
         Expected url: https://www.youtube.com/@username or https://www.youtube.com/channel/CHANNEL_ID
         """
+        verify_api_key_response = YouTubeService.verify_api_key()
+        if verify_api_key_response[1] != 200:
+            return verify_api_key_response
+
         if not url:
             return {'msg': 'URL is required'}, 400
 

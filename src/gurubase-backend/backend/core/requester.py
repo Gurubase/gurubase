@@ -52,6 +52,19 @@ def get_firecrawl_api_key():
     else:
         return settings.FIRECRAWL_API_KEY
 
+def get_youtube_api_key():
+    from core.utils import get_default_settings
+    if settings.ENV == 'selfhosted':
+        try:
+            default_settings = get_default_settings()
+            return default_settings.youtube_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.YOUTUBE_API_KEY
+    else:
+        return settings.YOUTUBE_API_KEY
+
+
 GURU_ENDPOINTS = {
     'processed_raw_questions': 'processed_raw_questions'
 }
@@ -953,7 +966,7 @@ class MailgunRequester():
 class YoutubeRequester():
     def __init__(self):
         self.base_url = "https://content-youtube.googleapis.com/youtube/v3"
-        self.api_key = settings.YOUTUBE_API_KEY
+        self.api_key = get_youtube_api_key()
    
     def fetch_channel(self, username=None, channel_id=None):
         """

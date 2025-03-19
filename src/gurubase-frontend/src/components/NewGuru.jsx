@@ -200,6 +200,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  const [isYoutubeKeyValid, setIsYoutubeKeyValid] = useState(true);
 
   // Add function to fetch guru data
   const fetchGuruData = useCallback(async (guruSlug) => {
@@ -249,6 +250,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       try {
         const settings = await getSettings();
         setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
+        setIsYoutubeKeyValid(settings?.is_youtube_key_valid ?? false);
       } catch (error) {
         setIsApiKeyValid(false);
       } finally {
@@ -2686,6 +2688,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         setShowCrawlInput={setShowCrawlInput}
         crawlUrl={crawlUrl}
         setCrawlUrl={setCrawlUrl}
+        isYoutubeKeyValid={isYoutubeKeyValid}
       />
       <SourceDialog
         clickedSource={clickedSource}
@@ -2705,6 +2708,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         onAddUrls={(links) => handleAddUrls(links, "youtube")}
         onEditorChange={handleYoutubeEditorChange}
         onOpenChange={setIsYoutubeSidebarOpen}
+        isYoutubeKeyValid={isYoutubeKeyValid}
       />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
