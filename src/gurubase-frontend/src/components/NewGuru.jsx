@@ -2539,9 +2539,8 @@ export default function NewGuru({ guruData, isProcessing }) {
                                         Edit
                                       </DropdownMenuItem>
                                     )}
-                                    {(source.type.toLowerCase() === "website" ||
-                                      source.type.toLowerCase() ===
-                                        "youtube") && (
+                                    {source.type.toLowerCase() ===
+                                      "website" && (
                                       <DropdownMenuItem
                                         disabled={isSourcesProcessing}
                                         onClick={() =>
