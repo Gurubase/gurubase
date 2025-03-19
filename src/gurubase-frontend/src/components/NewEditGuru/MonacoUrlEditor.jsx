@@ -13,7 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { LoaderCircle, Spider } from "lucide-react";
 import { CustomToast } from "@/components/CustomToast";
-import { parseSitemapUrls } from "@/app/actions";
+import {
+  parseSitemapUrls,
+  fetchYoutubePlaylist,
+  fetchYoutubeChannel
+} from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -78,11 +82,15 @@ const MonacoUrlEditor = ({
   setCrawlUrl,
   isLoadingSitemapRef,
   onSitemapLoadingChange,
-  onStopSitemapLoading
+  onStopSitemapLoading,
+  sourceType
 }) => {
   const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
   const [showSitemapInput, setShowSitemapInput] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [showYoutubeInput, setShowYoutubeInput] = useState(false);
+  const [youtubeType, setYoutubeType] = useState("");
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
@@ -203,6 +211,76 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const handleYoutubeExtract = async () => {
+    if (!youtubeUrl) {
+      CustomToast({
+        message: "Please enter a YouTube URL",
+        variant: "error"
+      });
+      return;
+    }
+
+    try {
+      onSitemapLoadingChange(true);
+      const response =
+        youtubeType === "playlist"
+          ? await fetchYoutubePlaylist(youtubeUrl)
+          : await fetchYoutubeChannel(youtubeUrl);
+
+      // If the loading state was reset (due to stop action), don't process the response
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.msg) {
+        CustomToast({
+          message: response.message || "Failed to extract YouTube URLs",
+          variant: response.urls ? "warning" : "error"
+        });
+        return;
+      }
+
+      const { videos, video_count } = response;
+      if (videos && videos.length > 0) {
+        // Get current editor content
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        // Combine existing URLs with new ones and remove duplicates
+        const allUrls = [...new Set([...existingUrls, ...videos])];
+
+        // Update the editor content
+        const newContent = allUrls.join("\n");
+        onChange(newContent);
+
+        // Clear the input field
+        setYoutubeUrl("");
+
+        CustomToast({
+          message: `Successfully added ${video_count} URLs from YouTube ${youtubeType}`,
+          variant: "success"
+        });
+      } else {
+        CustomToast({
+          message: response.msg || "No URLs found in the YouTube source",
+          variant: "warning"
+        });
+      }
+      setShowYoutubeInput(false);
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while extracting YouTube URLs",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+    }
+  };
+
   const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
@@ -276,11 +354,37 @@ const MonacoUrlEditor = ({
       );
     }
   };
+
+  const youtubeButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={!youtubeUrl}
+          onClick={handleYoutubeExtract}
+          variant="outline">
+          Extract {youtubeType === "playlist" ? "Playlist" : "Channel"}
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+          onClick={() => onStopSitemapLoading()}
+          disabled={!isLoadingSitemapRef.current}
+          variant="outline">
+          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          Stop
+        </Button>
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -296,7 +400,7 @@ const MonacoUrlEditor = ({
               </Tooltip>
             </TooltipProvider>
           </div>
-          {title === "Website Links" && (
+          {sourceType === "website" && (
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
               {!showSitemapInput && !showCrawlInput ? (
                 <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
@@ -388,6 +492,86 @@ const MonacoUrlEditor = ({
               )}
             </div>
           )}
+          {sourceType === "youtube" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {!showYoutubeInput ? (
+                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                          onClick={() => {
+                            setYoutubeType("playlist");
+                            setShowYoutubeInput(true);
+                          }}>
+                          <Icon icon="mdi:playlist-play" className="h-4 w-4" />
+                          <span className="text-sm">
+                            Extract YouTube Playlist
+                          </span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Import videos from a YouTube playlist</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                          onClick={() => {
+                            setYoutubeType("channel");
+                            setShowYoutubeInput(true);
+                          }}>
+                          <Icon icon="mdi:youtube" className="h-4 w-4" />
+                          <span className="text-sm">
+                            Extract YouTube Channel
+                          </span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>Import videos from a YouTube channel</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <Input
+                    className="w-[300px] h-8 guru-sm:w-full"
+                    placeholder={
+                      youtubeType === "playlist"
+                        ? "https://www.youtube.com/playlist?list=..."
+                        : "https://www.youtube.com/c/..."
+                    }
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    disabled={isLoadingSitemapRef.current}
+                  />
+                  <div className="flex items-center gap-2 guru-sm:w-full">
+                    {youtubeButtonContent()}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 hover:bg-gray-100"
+                      onClick={() => {
+                        setShowYoutubeInput(false);
+                        setYoutubeUrl("");
+                      }}
+                      disabled={isLoadingSitemapRef.current}>
+                      ✕
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0">
@@ -410,11 +594,17 @@ const MonacoUrlEditor = ({
               </div>
             </div>
           )}
-          {isCrawling && (
+          {(isCrawling || isLoadingSitemapRef.current) && (
             <div className="absolute top-0 left-0 right-0 bottom-0 bg-gray-50/50 flex items-center justify-center pointer-events-none">
               <div className="flex items-center gap-2 text-gray-500 bg-white px-4 py-2 rounded-lg shadow-sm">
                 <LoaderCircle className="h-4 w-4 animate-spin" />
-                <span>Crawling website...</span>
+                <span>
+                  {isCrawling && "Crawling website..."}
+                  {isLoadingSitemapRef.current &&
+                    (sourceType === "website"
+                      ? "Parsing sitemap..."
+                      : `Extracting YouTube ${youtubeType}...`)}
+                </span>
               </div>
             </div>
           )}
