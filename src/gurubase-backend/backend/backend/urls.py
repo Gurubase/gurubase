@@ -77,6 +77,9 @@ urlpatterns += [
     path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
     path('crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
     path('crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
+
+    path('youtube/playlist/', core_views.fetch_youtube_playlist, name='fetch_youtube_playlist'),
+    path('youtube/channel/', core_views.fetch_youtube_channel, name='fetch_youtube_channel'),
 ]
 
 if settings.STREAM_ENABLED:

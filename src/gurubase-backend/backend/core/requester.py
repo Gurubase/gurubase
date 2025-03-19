@@ -949,3 +949,124 @@ class MailgunRequester():
         except Exception as e:
             exception_code = "E-100"
             logger.fatal(f"Can not send email. Email: {to}. Subject: {subject} Code: {exception_code}")
+
+class YoutubeRequester():
+    def __init__(self):
+        self.base_url = "https://content-youtube.googleapis.com/youtube/v3"
+        self.api_key = settings.YOUTUBE_API_KEY
+   
+    def fetch_channel(self, username=None, channel_id=None):
+        """
+        Fetch channel details from YouTube API
+        Args:
+            username (str, optional): YouTube channel username
+            channel_id (str, optional): YouTube channel ID
+        Returns:
+            dict: Response from YouTube API containing channel details
+        Raises:
+            ValueError: If neither username nor channel_id is provided or API request fails
+        """
+        if not username and not channel_id:
+            raise ValueError("Either username or channel_id must be provided")
+            
+        try:
+            url = f"{self.base_url}/channels"
+            params = {
+                "part": "contentDetails,id",
+                "key": self.api_key
+            }
+            
+            if username:
+                params["forHandle"] = username
+            else:
+                params["id"] = channel_id
+                
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if not data.get("items"):
+                raise ValueError(f"Channel not found: {username or channel_id}")
+                
+            return data
+            
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 403:
+                if '"YouTube Data API v3 has not been used in project' in response.text:
+                    raise ValueError("YouTube API is not enabled for this project. Please enable it in the project settings.")
+                else:
+                   raise ValueError("YouTube API quota exceeded or invalid API key")
+            else:
+                raise ValueError(f"Failed to fetch channel: {str(e)}")
+                
+    def fetch_all_playlist_videos(self, playlist_id):
+        """
+        Fetch all videos from a playlist, handling pagination
+        Args:
+            playlist_id (str): ID of the playlist
+        Returns:
+            list: List of all video items in the playlist
+        """
+        videos = []
+        next_page_token = None
+        
+        try:
+            while True:
+                url = f"{self.base_url}/playlistItems"
+                params = {
+                    "part": "id,contentDetails,snippet,status",
+                    "maxResults": 50,
+                    "playlistId": playlist_id,
+                    "key": self.api_key
+                }
+                
+                if next_page_token:
+                    params["pageToken"] = next_page_token
+                    
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                
+                videos.extend(data.get("items", []))
+                next_page_token = data.get("nextPageToken")
+                
+                if not next_page_token:
+                    break
+                    
+            return videos
+            
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 404:
+                raise ValueError(f"Playlist not found: {playlist_id}")
+            elif response.status_code == 403:
+                if '"YouTube Data API v3 has not been used in project' in response.text:
+                    raise ValueError("YouTube API is not enabled for this project. Please enable it in the project settings.")
+                else:
+                   raise ValueError("YouTube API quota exceeded or invalid API key")
+            else:
+                raise ValueError(f"Failed to fetch playlist videos: {str(e)}")
+                
+    def fetch_all_channel_videos(self, username=None, channel_id=None):
+        """
+        Fetch all videos from a channel by first getting the uploads playlist ID
+        Args:
+            username (str, optional): YouTube channel username
+            channel_id (str, optional): YouTube channel ID
+        Returns:
+            list: List of all video items from the channel
+        """
+        try:
+            # First get the channel details to get the uploads playlist ID
+            channel_data = self.fetch_channel(username=username, channel_id=channel_id)
+            if not channel_data.get("items"):
+                raise ValueError(f"Channel not found: {username or channel_id}")
+                
+            # Get the uploads playlist ID
+            uploads_playlist_id = channel_data["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+            
+            # Now fetch all videos from the uploads playlist
+            return self.fetch_all_playlist_videos(uploads_playlist_id)
+            
+        except ValueError as e:
+            raise ValueError(f"Failed to fetch channel videos: {str(e)}")
+        
