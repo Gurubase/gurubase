@@ -221,6 +221,7 @@ class LLM_MODEL:
 def prepare_contexts(contexts, reranked_scores):
     references = {}
     formatted_contexts = []
+    # The contexts are already sorted by their trust score
     
     # Find the PDF files that need to be masked
     pdf_links = []
@@ -364,7 +365,6 @@ def prepare_contexts(contexts, reranked_scores):
     # Sort by reranked_scores using the link
     # Example reranked_scores: [{"link": "https://stackoverflow.com/q/78838212", "score": 0.061199225}, {"link": "https://stackoverflow.com/q/79005130", "score": 0.05014425}, ...
     # Example references: [{"link": "https://stackoverflow.com/q/78838212", "question": "Upgrade mysql version 5.7 to 8.0 in Docker. Error mysql auto restarting after upgrade"}, ...
-    references = sorted(references, key=lambda x: next((item['score'] for item in reranked_scores if item['link'] == x['link']), 0), reverse=True)
     
     return {'contexts': formatted_contexts}, references
 
@@ -904,18 +904,29 @@ def vector_db_fetch(
         }
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
-
+        
+        # Create a list of tuples containing (context, reranked_score, trust_score) for sorting
+        context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
             if ctx['score'] >= default_settings.trust_score_threshold:
-                filtered_contexts.append(contexts[i])
-                filtered_reranked_scores.append(reranked_scores[i])
-                trust_score += ctx['score']
+                context_data.append((contexts[i], reranked_scores[i], ctx['score']))
                 processed_ctx_relevances['kept'].append(ctx)
             else:
                 processed_ctx_relevances['removed'].append(ctx)
 
-        return filtered_contexts, filtered_reranked_scores, (trust_score / len(filtered_contexts)) if filtered_contexts else 0, processed_ctx_relevances, ctx_rel_usage
+        # Sort context_data by trust score in descending order
+        context_data.sort(key=lambda x: x[2], reverse=True)
+
+        # Unpack the sorted data
+        for context, reranked_score, score in context_data:
+            filtered_contexts.append(context)
+            filtered_reranked_scores.append(reranked_score)
+            trust_score += score
+
+        trust_score = trust_score / len(filtered_contexts) if filtered_contexts else 0
+
+        return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage
 
     try:
         reranked_scores = []
