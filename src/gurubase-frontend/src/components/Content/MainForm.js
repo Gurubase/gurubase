@@ -86,7 +86,7 @@ export const handleSubmitQuestion = async ({
       valid_question: answerValid,
       jwt,
       times,
-      parent_topics: parentTopics
+      enhanced_question: enhancedQuestion
     } = await getAnswerFromMyBackend(inputValue, guruType, null);
 
     if (signal?.aborted) {
@@ -175,7 +175,7 @@ export const handleSubmitQuestion = async ({
         jwt,
         user_question: inputValue,
         times,
-        parent_topics: parentTopics
+        enhanced_question: enhancedQuestion
       })
     );
 
@@ -192,7 +192,7 @@ export const handleSubmitQuestion = async ({
       user_question: inputValue,
       answerValid,
       times,
-      parent_topics: parentTopics
+      enhanced_question: enhancedQuestion
     });
 
     dispatch(setSlugPageRendered(false));

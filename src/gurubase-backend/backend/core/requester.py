@@ -350,7 +350,7 @@ class OpenAIRequester():
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance
 
         guru_variables = get_guru_type_prompt_map(guru_type_slug)
-        prompt = prepare_prompt_for_context_relevance(cot, guru_variables)
+        prompt = prepare_prompt_for_context_relevance(cot, guru_variables, contexts)
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
         single_text_contexts = ''.join(formatted_contexts)
