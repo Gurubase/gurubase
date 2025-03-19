@@ -541,41 +541,42 @@ def vector_db_fetch(
             reranked_batch_indices = [i for i in range(len(batch_texts))]
             reranked_batch_scores = [0 for _ in range(len(batch_texts))]
         else:
-            # Use all available reranking results separately, ordered by their own scores
-            reranked_batch_indices = []
-            reranked_batch_scores = []
+            # Track indices and their highest scores
+            index_to_score = {}
             
-            # Track indices we've already added to avoid duplicates
-            added_indices = set()
+            # Process results in order of priority (user_question > enhanced_question > question)
+            # For each reranking result, update the score if it's higher than what we've seen
             
-            # Add results in order of priority
-            
-            # 1. First add user_question results if available (highest priority)
+            # 1. Process user_question results if available (highest priority)
             if reranked_batch_user_question:
                 for result in reranked_batch_user_question:
                     idx = result['index']
-                    if idx not in added_indices:
-                        reranked_batch_indices.append(idx)
-                        reranked_batch_scores.append(result['score'])
-                        added_indices.add(idx)
+                    score = result['score']
+                    index_to_score[idx] = score  # Always take user_question score as it has highest priority
             
-            # 2. Then add enhanced_question results that weren't already added
+            # 2. Process enhanced_question results
             if reranked_batch_enhanced_question:
                 for result in reranked_batch_enhanced_question:
                     idx = result['index']
-                    if idx not in added_indices:
-                        reranked_batch_indices.append(idx)
-                        reranked_batch_scores.append(result['score'])
-                        added_indices.add(idx)
+                    score = result['score']
+                    # Update score if it's higher than what we've seen
+                    if idx not in index_to_score or score > index_to_score[idx]:
+                        index_to_score[idx] = score
             
-            # 3. Finally add question results that weren't already added
+            # 3. Process question results
             if reranked_batch_question:
                 for result in reranked_batch_question:
                     idx = result['index']
-                    if idx not in added_indices:
-                        reranked_batch_indices.append(idx)
-                        reranked_batch_scores.append(result['score'])
-                        added_indices.add(idx)
+                    score = result['score']
+                    # Update score if it's higher than what we've seen
+                    if idx not in index_to_score or score > index_to_score[idx]:
+                        index_to_score[idx] = score
+            
+            # Convert the map back to ordered lists
+            # Sort by score in descending order to maintain priority
+            sorted_items = sorted(index_to_score.items(), key=lambda x: x[1], reverse=True)
+            reranked_batch_indices = [idx for idx, _ in sorted_items]
+            reranked_batch_scores = [score for _, score in sorted_items]
 
         # Apply Rerank Threshold
         default_settings = get_default_settings()
