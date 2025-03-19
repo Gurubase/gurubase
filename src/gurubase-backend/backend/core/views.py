@@ -20,7 +20,7 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import CrawlService
+from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
@@ -2889,126 +2889,56 @@ def submit_guru_creation_form(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@combined_auth
-def fetch_youtube_playlist(request):
-    """
-    Fetch videos from a YouTube playlist URL
-    
-    Expected request body:
-    {
-        "url": "https://www.youtube.com/watch?v=...&list=..."
-    }
-    """
-    try:
-        url = request.data.get('url')
-        if not url:
-            return Response({
-                'error': 'URL is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+@jwt_auth
+def fetch_youtube_playlist_admin(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract playlist ID using regex
-        import re
-        playlist_match = re.search(r'[?&]list=([^&]+)', url)
-        if not playlist_match:
-            return Response({
-                'error': 'Invalid YouTube playlist URL. URL must contain a playlist ID.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
-        playlist_id = playlist_match.group(1)
-        
-        # Fetch videos using YoutubeRequester
-        youtube = YoutubeRequester()
-        videos = youtube.fetch_all_playlist_videos(playlist_id)
-        
-        # Format response
-        response_data = {
-            'playlist_id': playlist_id,
-            'video_count': len(videos),
-            'videos': [{
-                'title': video['snippet']['title'],
-                'description': video['snippet']['description'],
-                'video_id': video['contentDetails']['videoId'],
-                'published_at': video['snippet']['publishedAt'],
-                'thumbnail_url': video.get('snippet', {}).get('thumbnails', {}).get('high', {}).get('url'),
-                'link': f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}"
-            } for video in videos]
-        }
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-        
-    except ValueError as e:
-        return Response({
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        data, return_status = YouTubeService.fetch_playlist(url)
     except Exception as e:
-        logger.error(f'Error fetching YouTube playlist: {e}', exc_info=True)
-        return Response({
-            'error': 'An error occurred while fetching the playlist'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
 
 @api_view(['POST'])
-@combined_auth
-def fetch_youtube_channel(request):
-    """
-    Fetch videos from a YouTube channel URL
-    
-    Expected request body:
-    {
-        "url": "https://www.youtube.com/@username"
-        or
-        "url": "https://www.youtube.com/channel/CHANNEL_ID"
-    }
-    """
-    try:
-        url = request.data.get('url')
-        if not url:
-            return Response({
-                'error': 'URL is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def fetch_youtube_playlist_api(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract username or channel ID using regex
-        import re
-        username_match = re.search(r'youtube\.com/@([^/]+)', url)
-        channel_id_match = re.search(r'youtube\.com/channel/([^/?]+)', url)
-        
-        if username_match:
-            username = username_match.group(1)
-            channel_id = None
-        elif channel_id_match:
-            channel_id = channel_id_match.group(1)
-            username = None
-        else:
-            return Response({
-                'error': 'Invalid YouTube channel URL. URL must be in the format youtube.com/@username or youtube.com/channel/CHANNEL_ID'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Fetch videos using YoutubeRequester
-        youtube = YoutubeRequester()
-        videos = youtube.fetch_all_channel_videos(username=username, channel_id=channel_id)
-        
-        # Format response
-        response_data = {
-            'channel_identifier': username or channel_id,
-            'identifier_type': 'username' if username else 'channel_id',
-            'video_count': len(videos),
-            'videos': [{
-                'title': video['snippet']['title'],
-                'description': video['snippet']['description'],
-                'video_id': video['contentDetails']['videoId'],
-                'published_at': video['snippet']['publishedAt'],
-                'thumbnail_url': video.get('snippet', {}).get('thumbnails', {}).get('high', {}).get('url'),
-                'link': f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}"
-            } for video in videos]
-        }
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-        
-    except ValueError as e:
-        return Response({
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        data, return_status = YouTubeService.fetch_playlist(url)
     except Exception as e:
-        logger.error(f'Error fetching YouTube channel: {e}', exc_info=True)
-        return Response({
-            'error': 'An error occurred while fetching the channel'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@jwt_auth
+def fetch_youtube_channel_admin(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_channel(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def fetch_youtube_channel_api(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_channel(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)

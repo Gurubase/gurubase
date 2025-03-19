@@ -65,6 +65,8 @@ urlpatterns += [
     path('api/v1/<str:guru_slug>/crawl/start/', core_views.start_crawl_api, name='start_crawl_api'),
     path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_api, name='stop_crawl_api'),
     path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_api, name='get_crawl_status_api'),
+    path('api/v1/youtube/playlist/', core_views.fetch_youtube_playlist_api, name='fetch_youtube_playlist_api'),
+    path('api/v1/youtube/channel/', core_views.fetch_youtube_channel_api, name='fetch_youtube_channel_api'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
     path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
@@ -78,8 +80,8 @@ urlpatterns += [
     path('crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
     path('crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
 
-    path('youtube/playlist/', core_views.fetch_youtube_playlist, name='fetch_youtube_playlist'),
-    path('youtube/channel/', core_views.fetch_youtube_channel, name='fetch_youtube_channel'),
+    path('youtube/playlist/', core_views.fetch_youtube_playlist_admin, name='fetch_youtube_playlist_admin'),
+    path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
 ]
 
 if settings.STREAM_ENABLED:
