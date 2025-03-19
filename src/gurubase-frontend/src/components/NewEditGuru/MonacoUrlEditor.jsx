@@ -98,7 +98,7 @@ const MonacoUrlEditor = ({
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
     ...editorOptions,
-    readOnly: isCrawling
+    readOnly: isCrawling || isLoadingSitemapRef.current
   };
 
   // Effect to handle auto-scrolling when new URLs are added
