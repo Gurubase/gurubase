@@ -14,13 +14,14 @@ from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github_handler import process_github_repository, extract_repo_name
-from core.requester import FirecrawlScraper, get_web_scraper
+from core.requester import get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
 from urllib.parse import urljoin
 from typing import List, Set, Tuple
 from django.utils import timezone
+from core.utils import get_default_settings
 
 
 logger = logging.getLogger(__name__)
@@ -731,4 +732,134 @@ class CrawlService:
             return response_data, 200
         except CrawlState.DoesNotExist:
             return {'msg': 'Crawl not found'}, 404
+
+
+class YouTubeService:
+    @staticmethod
+    def verify_api_key():
+        if settings.ENV == 'selfhosted':
+            default_settings = get_default_settings()
+            if not default_settings.youtube_api_key:
+                return {'msg': 'A YouTube API key is required for this functionality. You can add the API key on the Settings page.'}, 400
+            else:
+                if not default_settings.is_youtube_key_valid:
+                    return {'msg': 'YouTube API key is invalid. Please check the API key on the Settings page.'}, 400
+                else:
+                    return {'msg': 'YouTube API key is valid'}, 200
+        else:
+            return {'msg': 'Youtube API key is not checked on cloud.'}, 200
+
+    @staticmethod
+    def fetch_playlist(url):
+        """
+        Fetch videos from a YouTube playlist URL
+        Expected url: https://www.youtube.com/watch?v=...&list=...
+        """
+        verify_api_key_response = YouTubeService.verify_api_key()
+        if verify_api_key_response[1] != 200:
+            return verify_api_key_response
+
+        if not url:
+            return {'msg': 'URL is required'}, 400
+
+        # Extract playlist ID using regex
+        import re
+        playlist_match = re.search(r'[?&]list=([^&]+)', url)
+        if not playlist_match:
+            return {
+                'msg': 'Invalid YouTube playlist URL. Valid format: https://www.youtube.com/watch?v={video_id}&list={playlist_id}'
+            }, 400
+            
+        playlist_id = playlist_match.group(1)
+        
+        try:
+            # Fetch videos using YouTubeRequester
+            youtube = YouTubeRequester()
+            videos = youtube.fetch_all_playlist_videos(playlist_id)
+            
+            # Format response
+            response_data = {
+                'playlist_id': playlist_id,
+                'video_count': len(videos),
+                'videos': [f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}" for video in videos]
+                # 'videos': [{
+                    # 'title': video['snippet']['title'],
+                    # 'description': video['snippet']['description'],
+                    # 'video_id': video['contentDetails']['videoId'],
+                    # 'published_at': video['snippet']['publishedAt'],
+                    # 'thumbnail_url': video.get('snippet', {}).get('thumbnails', {}).get('high', {}).get('url'),
+                    # 'link': f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}"
+                # } for video in videos]
+            }
+            
+            return response_data, 200
+            
+        except ValueError as e:
+            return {'msg': str(e)}, 400
+        except Exception as e:
+            logger.error(f'Error fetching YouTube playlist: {e}', exc_info=True)
+            return {
+                'msg': 'An error occurred while fetching the playlist'
+            }, 500
+
+    @staticmethod
+    def fetch_channel(url):
+        """
+        Fetch videos from a YouTube channel URL
+        Expected url: https://www.youtube.com/@username or https://www.youtube.com/channel/CHANNEL_ID
+        """
+        verify_api_key_response = YouTubeService.verify_api_key()
+        if verify_api_key_response[1] != 200:
+            return verify_api_key_response
+
+        if not url:
+            return {'msg': 'URL is required'}, 400
+
+        # Extract username or channel ID using regex
+        import re
+        username_match = re.search(r'youtube\.com/@([^/]+)', url)
+        channel_id_match = re.search(r'youtube\.com/channel/([^/?]+)', url)
+        
+        if username_match:
+            username = username_match.group(1)
+            channel_id = None
+        elif channel_id_match:
+            channel_id = channel_id_match.group(1)
+            username = None
+        else:
+            return {
+                'msg': 'Invalid YouTube channel URL. Valid formats: https://www.youtube.com/@{user_handler} or https://www.youtube.com/channel/{channel_id}'
+            }, 400
+        
+        try:
+            # Fetch videos using YouTubeRequester
+            youtube = YouTubeRequester()
+            videos = youtube.fetch_all_channel_videos(username=username, channel_id=channel_id)
+            
+            # Format response
+            response_data = {
+                'channel_identifier': username or channel_id,
+                'identifier_type': 'username' if username else 'channel_id',
+                'video_count': len(videos),
+                'videos': [f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}" for video in videos]
+                # 'videos': [{
+                    # 'title': video['snippet']['title'],
+                    # 'description': video['snippet']['description'],
+                    # 'video_id': video['contentDetails']['videoId'],
+                    # 'published_at': video['snippet']['publishedAt'],
+                    # 'thumbnail_url': video.get('snippet', {}).get('thumbnails', {}).get('high', {}).get('url'),
+                    # 'link': f"https://www.youtube.com/watch?v={video['contentDetails']['videoId']}"
+                # } for video in videos]
+
+            }
+            
+            return response_data, 200
+            
+        except ValueError as e:
+            return {'msg': str(e)}, 400
+        except Exception as e:
+            logger.error(f'Error fetching YouTube channel: {e}', exc_info=True)
+            return {
+                'msg': 'An error occurred while fetching the channel'
+            }, 500
 

@@ -61,7 +61,8 @@ const SourceDialog = React.memo(
     showCrawlInput,
     setShowCrawlInput,
     crawlUrl,
-    setCrawlUrl
+    setCrawlUrl,
+    isYoutubeKeyValid
   }) => {
     const [showStopConfirmation, setShowStopConfirmation] =
       React.useState(false);
@@ -90,7 +91,10 @@ const SourceDialog = React.memo(
       }
 
       if (isLoadingSitemap) {
-        handleProcessStop("close", "sitemap");
+        handleProcessStop(
+          "close",
+          sourceType === "website" ? "sitemap" : "youtube"
+        );
         return;
       }
 
@@ -153,8 +157,8 @@ const SourceDialog = React.memo(
       try {
         if (processType === "crawling") {
           await onStopCrawl();
-        } else if (processType === "sitemap") {
-          // Reset sitemap loading state using the wrapper function
+        } else {
+          // Reset loading state for both sitemap and youtube
           updateSitemapLoadingState(false);
         }
 
@@ -180,7 +184,6 @@ const SourceDialog = React.memo(
       stopAction,
       processType,
       setShowCrawlInput,
-      setCrawlUrl,
       updateSitemapLoadingState
     ]);
 
@@ -231,6 +234,7 @@ const SourceDialog = React.memo(
                     tooltipText={`Add multiple ${title} with a new line`}
                     value={editorContent}
                     onChange={onEditorChange}
+                    sourceType={sourceType}
                     onStartCrawl={onStartCrawl}
                     isCrawling={isCrawling}
                     onStopCrawl={() => handleProcessStop("stop", "crawling")}
@@ -240,8 +244,12 @@ const SourceDialog = React.memo(
                     setCrawlUrl={setCrawlUrl}
                     isLoadingSitemapRef={isLoadingSitemapRef}
                     onSitemapLoadingChange={updateSitemapLoadingState}
+                    isYoutubeKeyValid={isYoutubeKeyValid}
                     onStopSitemapLoading={() =>
-                      handleProcessStop("stop", "sitemap")
+                      handleProcessStop(
+                        "stop",
+                        sourceType === "website" ? "sitemap" : "youtube"
+                      )
                     }
                   />
                 ) : (
