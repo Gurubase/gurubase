@@ -890,8 +890,8 @@ def vector_db_fetch(
         times['github_repo']['total'] = time.perf_counter() - start_github
         return github_repo_sources, reranked_scores        
 
-    def filter_by_trust_score(contexts, reranked_scores, question, user_question, guru_type_slug):
-        context_relevance, ctx_rel_usage, prompt, user_prompt = get_openai_requester().get_context_relevance(question, user_question, guru_type_slug, contexts, cot=False)
+    def filter_by_trust_score(contexts, reranked_scores, question, user_question, enhanced_question, guru_type_slug):
+        context_relevance, ctx_rel_usage, prompt, user_prompt = get_openai_requester().get_context_relevance(question, user_question, enhanced_question, guru_type_slug, contexts, cot=False)
         ctx_rel_usage['cost_dollars'] = get_llm_usage(settings.GPT_MODEL, ctx_rel_usage['prompt_tokens'], ctx_rel_usage['completion_tokens'], ctx_rel_usage['cached_prompt_tokens'])
         filtered_contexts = []
         filtered_reranked_scores = []
@@ -964,7 +964,7 @@ def vector_db_fetch(
 
     # Contexts and rerankes_scores are in the same order (Same index corresponds to the same context)
     start_trust_score = time.perf_counter()
-    filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = filter_by_trust_score(contexts, reranked_scores, question, user_question, guru_type_slug)
+    filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage = filter_by_trust_score(contexts, reranked_scores, question, user_question, enhanced_question, guru_type_slug)
     times['trust_score'] = time.perf_counter() - start_trust_score
     
     return filtered_contexts, filtered_reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
