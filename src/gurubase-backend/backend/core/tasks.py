@@ -517,7 +517,7 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
                 total_cached_prompt_tokens = fetch_ctx_rel_usage['cached_prompt_tokens']
                 
                 if check_context_relevance:
-                    ctx_relevance, ctx_rel_usage, ctx_rel_prompt, context_relevance_user_prompt = requester.get_context_relevance(q.question, q.user_question, guru_type, contexts, model_name)
+                    ctx_relevance, ctx_rel_usage, ctx_rel_prompt, context_relevance_user_prompt = requester.get_context_relevance(q.question, q.user_question, q.enhanced_question, guru_type, contexts, model_name)
                     ctx_rel_total_score = 0
                     
                     total_prompt_tokens += ctx_rel_usage['prompt_tokens']
