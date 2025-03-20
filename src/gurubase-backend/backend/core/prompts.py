@@ -15,7 +15,7 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <description> should be 100 to 150 characters long meta description.
 <user_intent> should be a short summary of the user's intent. It will be used to determine the question answer length. It can be short answer, explanation, how to, why, etc. {summary_prompt_non_widget_addition}
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_prompt_widget_addition}
-<parent_topics_instruction> should be a list of parent topics and related concepts that this question falls under.
+<enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters.
 
 For any questions related to date, remember today's date is {date}.
 """
@@ -94,7 +94,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or source code files. The QUESTION is the prettified version of the USER QUESTION. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.
@@ -104,193 +104,7 @@ Here is the grade criteria to follow:
 (5) CONTEXTS containing no relevant information to the question should be given a score of 0.
 (6) Code CONTEXTS containing implementation details should be given a score between 0 and 1. The more relevant the implementation details, the higher the score. 
 
-Here is an example:
-
-QUESTION: What is the difference between a static method and an instance method in Python?
-USER QUESTION: static method vs instance method
-
-CONTEXTS
-<Text context id="1">
-Context 1 Metadata:
-{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
-
-Context 1 Text: 
-Static methods are methods that are bound to a class rather than its instances.
-</Text context>
-
---------
-
-<Text context id="2">
-Context 2 Metadata:
-{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
-
-Context 2 Text: 
-Instance methods are methods that are bound to an instance of a class.
-</Text context>
-
---------
-
-<Text context id="3">
-Context 3 Metadata:
-{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
-
-Context 3 Text: 
-Instance methods can execute like normal functions.
-</Text context>
-
---------
-
-<Text context id="4">
-Context 4 Metadata:
-{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
-
-Context 4 Text: 
-This is a comment unrelated to the question.
-</Text context>
-
-EXPECTED OUTPUT:
-
-{expected_output}
-
-Here is another example with code contexts:
-
-QUESTION: Reversing a string in Python?
-USER QUESTION: reverse a string in python
-
-CONTEXTS
-<Code context id="1">
-Context 1 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 1 Text:
-```sql
-SELECT * FROM users WHERE name = 'John';
-```
-</Code context>
-
---------
-
-<Code context id="2">
-Context 2 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Sum Example"}}
-
-Context 2 Text:
-```python
-print(5 + 10)
-```
-</Code context>
-
---------
-
-<Code context id="3">
-Context 3 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Multiplication"}}
-
-Context 3 Text:
-```python
-def multiply(a, b): return a * b
-```
-</Code context>
-
---------
-
-<Code context id="4">
-Context 4 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "String Utils"}}
-
-Context 4 Text:
-```python
-s = "hello" \n print(len(s))
-```
-</Code context>
-
---------
-
-<Code context id="5">
-Context 5 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Uppercase String Example"}}
-
-Context 5 Text:
-```python
-s = "hello" \n print(s.upper())
-```
-</Code context>
-
---------
-
-<Code context id="6">
-Context 6 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 6 Text:
-```python
-s = "hello" \n reversed_list = list(reversed(s)) \n print(reversed_list)
-```
-</Code context>
-
---------
-
-<Code context id="7">
-Context 7 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 7 Text:
-```python
-s = "hello" \n print(''.join(reversed(s)))
-```
-</Code context>
-
---------
-
-<Code context id="8">
-Context 8 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 8 Text:
-```python
-def reverse_string(s): return s[::-1]
-```
-</Code context>
-
---------
-
-<Code context id="9">
-Context 9 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 9 Text:
-```python
-s = "hello" \n print(s[::-1])
-```
-</Code context>
-
---------
-
-<Code context id="10">
-Context 10 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 10 Text:
-```python
-# Reverse a string in Python \n s = "hello" \n print(s[::-1])
-```
-</Code context>
-
---------
-
-<Code context id="11">
-Context 11 Metadata:
-{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
-
-Context 11 Text:
-```python
-# Best way to reverse a string in Python \n def reverse_string(s): return s[::-1] \n print(reverse_string("hello"))
-```
-</Code context>
-
-EXPECTED OUTPUT:
-
-{code_expected_output}
+{example_with_output}
 
 Here is the score criteria:
 
@@ -825,3 +639,179 @@ Output your result as a JSON list containing exactly 5 items, using the followin
 
 Provide only the JSON list in your response, with no additional text or explanation.
 """
+
+text_example_template = '''QUESTION: What is the difference between a static method and an instance method in Python?
+USER QUESTION: static method vs instance method
+
+CONTEXTS
+<Text context id="1">
+Context 1 Metadata:
+{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
+
+Context 1 Text: 
+Static methods are methods that are bound to a class rather than its instances.
+</Text context>
+
+--------
+
+<Text context id="2">
+Context 2 Metadata:
+{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
+
+Context 2 Text: 
+Instance methods are methods that are bound to an instance of a class.
+</Text context>
+
+--------
+
+<Text context id="3">
+Context 3 Metadata:
+{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
+
+Context 3 Text: 
+Instance methods can execute like normal functions.
+</Text context>
+
+--------
+
+<Text context id="4">
+Context 4 Metadata:
+{{"type": "WEBSITE", "link": "https://link_to_context", "title": "Title of the context"}}
+
+Context 4 Text: 
+This is a comment unrelated to the question.
+</Text context>'''
+
+code_example_template = '''QUESTION: Reversing a string in Python?
+USER QUESTION: reverse a string in python
+
+CONTEXTS
+<Code context id="1">
+Context 1 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 1 Text:
+```sql
+SELECT * FROM users WHERE name = 'John';
+```
+</Code context>
+
+--------
+
+<Code context id="2">
+Context 2 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Sum Example"}}
+
+Context 2 Text:
+```python
+print(5 + 10)
+```
+</Code context>
+
+--------
+
+<Code context id="3">
+Context 3 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Multiplication"}}
+
+Context 3 Text:
+```python
+def multiply(a, b): return a * b
+```
+</Code context>
+
+--------
+
+<Code context id="4">
+Context 4 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "String Utils"}}
+
+Context 4 Text:
+```python
+s = "hello" \n print(len(s))
+```
+</Code context>
+
+--------
+
+<Code context id="5">
+Context 5 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Uppercase String Example"}}
+
+Context 5 Text:
+```python
+s = "hello" \n print(s.upper())
+```
+</Code context>
+
+--------
+
+<Code context id="6">
+Context 6 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 6 Text:
+```python
+s = "hello" \n reversed_list = list(reversed(s)) \n print(reversed_list)
+```
+</Code context>
+
+--------
+
+<Code context id="7">
+Context 7 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 7 Text:
+```python
+s = "hello" \n print(''.join(reversed(s)))
+```
+</Code context>
+
+--------
+
+<Code context id="8">
+Context 8 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 8 Text:
+```python
+def reverse_string(s): return s[::-1]
+```
+</Code context>
+
+--------
+
+<Code context id="9">
+Context 9 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 9 Text:
+```python
+s = "hello" \n print(s[::-1])
+```
+</Code context>
+
+--------
+
+<Code context id="10">
+Context 10 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 10 Text:
+```python
+# Reverse a string in Python \n s = "hello" \n print(s[::-1])
+```
+</Code context>
+
+--------
+
+<Code context id="11">
+Context 11 Metadata:
+{{"type": "CODE", "link": "https://link_to_context", "title": "Reverse String Example"}}
+
+Context 11 Text:
+```python
+# Best way to reverse a string in Python \n def reverse_string(s): return s[::-1] \n print(reverse_string("hello"))
+```
+</Code context>'''

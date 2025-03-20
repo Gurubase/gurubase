@@ -510,14 +510,14 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
                 previous_version = LLMEval.objects.filter(question=q, model=model_name).order_by('-version').first()
 
                 if contexts is None and (check_context_relevance or check_groundedness):
-                    contexts, reranked_scores, trust_score, processed_ctx_relevances, fetch_ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, q.question, q.guru_type.slug, q.user_question, q.parent_topics, llm_eval=True)
+                    contexts, reranked_scores, trust_score, processed_ctx_relevances, fetch_ctx_rel_usage, vector_db_times = vector_db_fetch(milvus_client, collection_name, q.question, q.guru_type.slug, q.user_question, q.enhanced_question, llm_eval=True)
 
                 total_prompt_tokens = fetch_ctx_rel_usage['prompt_tokens']
                 total_completion_tokens = fetch_ctx_rel_usage['completion_tokens']
                 total_cached_prompt_tokens = fetch_ctx_rel_usage['cached_prompt_tokens']
                 
                 if check_context_relevance:
-                    ctx_relevance, ctx_rel_usage, ctx_rel_prompt, context_relevance_user_prompt = requester.get_context_relevance(q.question, q.user_question, guru_type, contexts, model_name)
+                    ctx_relevance, ctx_rel_usage, ctx_rel_prompt, context_relevance_user_prompt = requester.get_context_relevance(q.question, q.user_question, q.enhanced_question, guru_type, contexts, model_name)
                     ctx_rel_total_score = 0
                     
                     total_prompt_tokens += ctx_rel_usage['prompt_tokens']

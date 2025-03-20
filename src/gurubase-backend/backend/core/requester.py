@@ -358,16 +358,15 @@ class OpenAIRequester():
         else:
             self.client = OpenAI(api_key=openai_api_key)
 
-
-    def get_context_relevance(self, question_text, user_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
+    def get_context_relevance(self, question_text, user_question, enhanced_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance
 
         guru_variables = get_guru_type_prompt_map(guru_type_slug)
-        prompt = prepare_prompt_for_context_relevance(cot, guru_variables)
+        prompt = prepare_prompt_for_context_relevance(cot, guru_variables, contexts)
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
         single_text_contexts = ''.join(formatted_contexts)
-        user_prompt = f"QUESTION: {question_text}\n\nUSER QUESTION: {user_question}\n\nCONTEXTS\n{single_text_contexts}"
+        user_prompt = f"QUESTION: {question_text}\n\nUSER QUESTION: {user_question}\n\nENHANCED QUESTION: {enhanced_question}\n\nCONTEXTS\n{single_text_contexts}"
 
         response = self.client.beta.chat.completions.parse(
             model=model_name,
