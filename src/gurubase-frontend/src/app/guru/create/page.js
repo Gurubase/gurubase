@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { submitGuruCreationForm, getCurrentUserEmail } from "@/app/actions";
+import { submitGuruCreationForm, getCurrentUserData } from "@/app/actions";
 import GuruForm from "@/components/GuruForm/GuruForm";
 import HeaderFooterWrap from "@/components/GuruForm/HeaderFooterWrap";
 import { redirect } from "next/navigation";
@@ -11,14 +11,16 @@ export default function UserInfoPage() {
   const searchParams = useSearchParams();
   const source = searchParams.get("source") || "unknown";
   const [userEmail, setUserEmail] = useState(null);
+  const [userName, setUserName] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
   useEffect(() => {
     const fetchUserEmail = async () => {
       try {
-        const email = await getCurrentUserEmail();
-        setUserEmail(email);
+        const userData = await getCurrentUserData();
+        setUserEmail(userData.email);
+        setUserName(userData.name);
       } finally {
         setIsLoading(false);
       }
@@ -31,6 +33,7 @@ export default function UserInfoPage() {
   const handleFormSubmit = async (data) => {
     try {
       const formData = new FormData();
+      formData.append("name", data.name);
       formData.append("email", data.email);
       formData.append("github_repo", data.githubLink);
       formData.append("docs_url", data.docsRootUrl);
@@ -60,6 +63,7 @@ export default function UserInfoPage() {
         source={source}
         onSubmit={handleFormSubmit}
         defaultEmail={userEmail}
+        defaultName={userName}
         isLoading={isLoading}
       />
     </HeaderFooterWrap>

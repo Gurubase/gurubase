@@ -21,6 +21,7 @@ import { Loader2 } from "lucide-react";
 
 // Form validation schema
 const formSchema = z.object({
+  name: z.string().min(1, { message: "Name is required" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   docsRootUrl: z.string().url({ message: "Please enter a valid URL" }),
   githubLink: z.string().optional(),
@@ -31,6 +32,7 @@ const GuruCreationForm = ({
   source = "unknown",
   onSubmit: externalOnSubmit,
   defaultEmail = "",
+  defaultName = "",
   isLoading
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +41,7 @@ const GuruCreationForm = ({
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       email: "",
       githubLink: "",
       docsRootUrl: "",
@@ -52,6 +55,13 @@ const GuruCreationForm = ({
       form.setValue("email", defaultEmail);
     }
   }, [defaultEmail]);
+
+  // Update name field when defaultName changes
+  useEffect(() => {
+    if (defaultName) {
+      form.setValue("name", defaultName);
+    }
+  }, [defaultName]);
 
   // Handle form submission
   const handleSubmit = async (data) => {
@@ -110,6 +120,29 @@ const GuruCreationForm = ({
             <form
               onSubmit={form.handleSubmit(handleSubmit)}
               className="space-y-5">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <div>
+                      <FormLabel>Name</FormLabel>
+                      <FormDescription className="mt-1">
+                        Your name.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Input
+                        className="guru-sm:text-[16px] text-sm"
+                        placeholder="John Doe"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"

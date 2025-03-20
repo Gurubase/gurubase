@@ -2859,19 +2859,21 @@ def submit_guru_creation_form(request):
     Handle submission of guru creation forms.
     """
     try:
+        name = request.data.get('name')
         email = request.data.get('email')
         github_repo = request.data.get('github_repo')
         docs_url = request.data.get('docs_url')
         use_case = request.data.get('use_case')
         source = request.data.get('source', 'unknown')
 
-        if not all([email, docs_url]):
+        if not all([name, email, docs_url]):
             return Response({
-                'error': 'Missing required fields. Please provide email, and documentation root url.'
+                'error': 'Missing required fields. Please provide name, email, and documentation root url.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create form submission
         GuruCreationForm.objects.create(
+            name=name,
             email=email,
             github_repo=github_repo,
             docs_url=docs_url,

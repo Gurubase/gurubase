@@ -943,6 +943,7 @@ def notify_admin_on_guru_creation_form_submission(sender, instance, **kwargs):
     message = f"""
 A new guru creation request has been submitted:
 
+Name: {instance.name}
 Email: {instance.email}
 Documentation URL: {instance.docs_url}
 GitHub Repository: {instance.github_repo}
