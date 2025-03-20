@@ -767,7 +767,7 @@ class YouTubeService:
         playlist_match = re.search(r'[?&]list=([^&]+)', url)
         if not playlist_match:
             return {
-                'msg': 'Invalid YouTube playlist URL. URL must contain a playlist ID.'
+                'msg': 'Invalid YouTube playlist URL. Valid format: https://www.youtube.com/watch?v={video_id}&list={playlist_id}'
             }, 400
             
         playlist_id = playlist_match.group(1)
@@ -828,7 +828,7 @@ class YouTubeService:
             username = None
         else:
             return {
-                'msg': 'Invalid YouTube channel URL. URL must be in the format youtube.com/@username or youtube.com/channel/CHANNEL_ID'
+                'msg': 'Invalid YouTube channel URL. Valid formats: https://www.youtube.com/@{user_handler} or https://www.youtube.com/channel/{channel_id}'
             }, 400
         
         try:
