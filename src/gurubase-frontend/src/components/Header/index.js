@@ -26,8 +26,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setResetMainForm } from "@/redux/slices/mainFormSlice";
 
 import MobileSidebar from "./MobileSidebar";
-import SocialMediaHeader from "./SocialMediaHeader";
 import { getNavigationItems } from "./navigationConfig";
+import SocialMediaHeader from "./SocialMediaHeader";
 
 // Create a memoized UserAvatar component with loading optimization
 const UserAvatar = memo(({ user }) => {
@@ -200,7 +200,8 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
       />
       <header
         className={clsx(
-          "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 z-50 bg-white",
+          "flex justify-center items-start px-6 guru-sm:px-0 w-full guru-sm:w-full border-x border-[#E2E2E2] guru-sm:border-none border-b border-solid border-neutral-200 fixed top-0 bg-white",
+          isMobile ? "z-51" : "z-50",
           isMobileSidebarOpen && "guru-sm:hidden",
           guruType || !guruType || postContentExist || isLoading
             ? "guru-sm:mt-0"

@@ -465,9 +465,11 @@ const Content = (props) => {
           "xs:grid-cols-[112px_minmax(0,_1fr)] guru-md:grid-cols-[253px_minmax(112px,_1fr)] guru-lg:grid-cols-[253px_minmax(112px,_1fr)_253px]"
         )}>
         {/* OtherGurus section */}
-        <div className={clsx("guru-sm:hidden")}>
-          <OtherGurus allGuruTypes={allGuruTypes} />
-        </div>
+        {windowWidth >= 768 && (
+          <div className={clsx("guru-sm:hidden")}>
+            <OtherGurus allGuruTypes={allGuruTypes} />
+          </div>
+        )}
 
         {/* Main content section */}
         <section
@@ -630,7 +632,13 @@ const Content = (props) => {
                           setContentWrapperWidth={setContentWrapperWidth}
                           setError={setError}
                           setTypesenseLoading={setTypesenseLoading}
-                          onSubmit={(e) => submitWithAbortController(e, true)}
+                          onSubmit={(e) => {
+                            // Unfocus input on submit
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                            submitWithAbortController(e, true);
+                          }}
                         />
                       </div>
                       <button
@@ -700,9 +708,15 @@ const Content = (props) => {
                               setContentWrapperWidth={setContentWrapperWidth}
                               setError={setError}
                               setTypesenseLoading={setTypesenseLoading}
-                              onSubmit={(e) =>
-                                submitWithAbortController(e, true)
-                              }
+                              onSubmit={(e) => {
+                                // Unfocus input on submit
+                                if (
+                                  document.activeElement instanceof HTMLElement
+                                ) {
+                                  document.activeElement.blur();
+                                }
+                                submitWithAbortController(e, true);
+                              }}
                             />
                           </div>
                           <button
