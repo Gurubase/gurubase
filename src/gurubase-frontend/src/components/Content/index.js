@@ -106,7 +106,6 @@ const Content = (props) => {
   const contextError = useAppSelector((state) => state.mainForm.contextError);
   const [error, setError] = useState(null);
   const validAnswer = useAppSelector((state) => state.mainForm.validAnswer);
-  const [mobileInputFocused, setMobileInputFocused] = useState(false);
 
   const checkErrorExist = (value) => {
     if (value.length < 10) {
@@ -477,8 +476,6 @@ const Content = (props) => {
           <section className="flex-1 flex flex-col h-full">
             <MainForm
               {...childProps}
-              mobileInputFocused={mobileInputFocused}
-              setMobileInputFocused={setMobileInputFocused}
               input={input}
               isScrolledToBottom={isScrolledToBottom}
               setContent={setContent}
@@ -632,8 +629,6 @@ const Content = (props) => {
                           setContentWrapperLeft={setContentWrapperLeft}
                           setContentWrapperWidth={setContentWrapperWidth}
                           setError={setError}
-                          mobileInputFocused={mobileInputFocused}
-                          setMobileInputFocused={setMobileInputFocused}
                           setTypesenseLoading={setTypesenseLoading}
                           onSubmit={(e) => {
                             // Unfocus input on submit
@@ -710,8 +705,6 @@ const Content = (props) => {
                               setContentWrapperLeft={setContentWrapperLeft}
                               setContentWrapperWidth={setContentWrapperWidth}
                               setError={setError}
-                              mobileInputFocused={mobileInputFocused}
-                              setMobileInputFocused={setMobileInputFocused}
                               setTypesenseLoading={setTypesenseLoading}
                               onSubmit={(e) => {
                                 // Unfocus input on submit

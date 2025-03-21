@@ -10,6 +10,7 @@ import FollowUpSearchComponent from "./FollowUpSearchComponent";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
   setInvalidAnswer,
+  setMobileInputFocused,
   setInputQuery,
   setInputValue
 } from "@/redux/slices/mainFormSlice";
@@ -27,9 +28,7 @@ const FollowUpQueryInput = ({
   error,
   setError,
   inputId,
-  sessionUserExists,
-  setMobileInputFocused,
-  mobileInputFocused
+  sessionUserExists
 }) => {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -43,6 +42,9 @@ const FollowUpQueryInput = ({
     (state) => state.mainForm.panelHintsListed
   );
 
+  const mobileInputFocused = useAppSelector(
+    (state) => state.mainForm.mobileInputFocused
+  );
   const isClearButtonTouched = useRef(false);
   const nextFunction = useRef(null);
 
@@ -132,21 +134,21 @@ const FollowUpQueryInput = ({
   }, []); // Empty dependency array as we want this to run once on mount
 
   const handleMobileInputBlur = (e) => {
-    setMobileInputFocused(false);
+    dispatch(setMobileInputFocused(false));
     document.body.style.overflow = "auto";
   };
 
   const handleMobileInputFocus = () => {
     if (window.innerWidth <= 915) {
       dispatch(setInvalidAnswer(null));
-      setMobileInputFocused(true);
+      dispatch(setMobileInputFocused(true));
       // prevent scroll when mobile input is focused
       if (typeof window !== "undefined" && typeof document !== "undefined") {
         document.body.style.overflow = "hidden";
       }
       return;
     }
-    setMobileInputFocused(false);
+    dispatch(setMobileInputFocused(false));
   };
 
   // if scroll y is greater than 100px then fixed the search bar to top of the page else not fixed to top of the page write a function to handle this and assign it to the scroll event listener and return the cleanup function to remove the event listener and return tailwind css classes to the form element to fixed to top of the page or not fixed to top of the page
@@ -258,7 +260,7 @@ const FollowUpQueryInput = ({
       .querySelector(".mobile-backdrop")
       ?.addEventListener("mousedown", (event) => {
         if (isClearButtonTouched.current) {
-          setMobileInputFocused(false);
+          dispatch(setMobileInputFocused(false));
           document.body.style.overflow = "auto";
         }
         isClearButtonTouched.current = false;
@@ -268,7 +270,7 @@ const FollowUpQueryInput = ({
       .querySelector(".mobile-backdrop")
       ?.addEventListener("touchstart", (event) => {
         if (isClearButtonTouched.current) {
-          setMobileInputFocused(false);
+          dispatch(setMobileInputFocused(false));
           document.body.style.overflow = "auto";
         }
         isClearButtonTouched.current = false;
@@ -324,7 +326,7 @@ const FollowUpQueryInput = ({
         .querySelector(".mobile-backdrop")
         ?.removeEventListener("mousedown", (event) => {
           if (isClearButtonTouched.current) {
-            setMobileInputFocused(false);
+            dispatch(setMobileInputFocused(false));
             document.body.style.overflow = "auto";
           }
           isClearButtonTouched.current = false;
@@ -334,7 +336,7 @@ const FollowUpQueryInput = ({
         .querySelector(".mobile-backdrop")
         ?.removeEventListener("touchstart", (event) => {
           if (isClearButtonTouched.current) {
-            setMobileInputFocused(false);
+            dispatch(setMobileInputFocused(false));
             document.body.style.overflow = "auto";
           }
           isClearButtonTouched.current = false;
@@ -358,7 +360,7 @@ const FollowUpQueryInput = ({
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
-      setMobileInputFocused(false);
+      dispatch(setMobileInputFocused(false));
       if (typeof window !== "undefined" && typeof document !== "undefined") {
         document.body.style.overflow = "auto";
       }
@@ -377,7 +379,7 @@ const FollowUpQueryInput = ({
         <div
           className="fixed inset-0 bg-black-base bg-opacity-50 backdrop-blur-md z-[49] guru-sm:px-4 mobile-backdrop"
           onClick={() => {
-            setMobileInputFocused(false);
+            dispatch(setMobileInputFocused(false));
             if (
               typeof window !== "undefined" &&
               typeof document !== "undefined"
