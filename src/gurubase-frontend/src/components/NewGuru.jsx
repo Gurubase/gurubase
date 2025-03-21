@@ -794,7 +794,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     const poll = async () => {
       attempts++;
       try {
-        console.log("Checking guru readiness");
         const isReady = await checkGuruReadiness(guruSlug);
 
         if (isReady) {
