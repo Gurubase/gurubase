@@ -22,7 +22,6 @@ import {
   setInvalidAnswer,
   setIsAnswerValid,
   setIsLoading,
-  setMobileInputFocused,
   setPostContentExist,
   setQuestionSummary,
   setResetMainForm,
@@ -46,7 +45,8 @@ export const handleSubmitQuestion = async ({
   router,
   setError,
   checkErrorExist,
-  redirect
+  redirect,
+  setMobileInputFocused
 }) => {
   if (e) {
     e?.preventDefault();
@@ -58,7 +58,7 @@ export const handleSubmitQuestion = async ({
   dispatch(setInputQuery(inputValue));
   dispatch(setInputValue(inputValue));
   dispatch(resetErrors());
-  dispatch(setMobileInputFocused(false));
+  setMobileInputFocused(false);
 
   const isErrorExist = checkErrorExist?.(inputValue);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -222,7 +222,9 @@ const MainForm = ({
   triggerStreamUpdate,
   setContent,
   setQuestion,
-  setDescription
+  setDescription,
+  setMobileInputFocused,
+  mobileInputFocused
 }) => {
   const router = useRouter();
   const [error, setError] = useState(null);
@@ -238,10 +240,6 @@ const MainForm = ({
 
   const panelHintsListed = useAppSelector(
     (state) => state.mainForm.panelHintsListed
-  );
-
-  const mobileInputFocused = useAppSelector(
-    (state) => state.mainForm.mobileInputFocused
   );
 
   // Use the hook to prevent scrolling when the mobileInputFocused is true
@@ -304,13 +302,14 @@ const MainForm = ({
       router,
       setError,
       checkErrorExist,
-      redirect: true
+      redirect: true,
+      setMobileInputFocused
     });
   };
 
   useEffect(() => {
     if (mobileInputFocused) {
-      dispatch(setMobileInputFocused(false));
+      setMobileInputFocused(false);
       if (typeof window !== "undefined" && typeof document !== "undefined") {
         document.body.style.overflow = "auto";
       }
@@ -480,6 +479,7 @@ const MainForm = ({
                     setContentWrapperLeft={setContentWrapperLeft}
                     setContentWrapperWidth={setContentWrapperWidth}
                     onSubmit={submitWithAbortController}
+                    setMobileInputFocused={setMobileInputFocused}
                   />
                 </div>
               </div>

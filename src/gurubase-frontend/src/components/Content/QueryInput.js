@@ -4,18 +4,15 @@ import { useEffect } from "react";
 
 import ZoomIn from "@/assets/images/zoom-in-scale-up.svg";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import {
-  setInputValue,
-  setInvalidAnswer,
-  setMobileInputFocused
-} from "@/redux/slices/mainFormSlice";
+import { setInputValue, setInvalidAnswer } from "@/redux/slices/mainFormSlice";
 
 const QueryInput = ({
   onSubmit,
   guruType,
   setContentWrapperWidth,
   setContentWrapperLeft,
-  guruTypePromptName
+  guruTypePromptName,
+  setMobileInputFocused
 }) => {
   const dispatch = useAppDispatch();
   const inputValue = useAppSelector((state) => state.mainForm.inputValue);
@@ -76,16 +73,16 @@ const QueryInput = ({
   const handleMobileInputFocus = () => {
     if (window.innerWidth <= 915) {
       dispatch(setInvalidAnswer(null));
-      dispatch(setMobileInputFocused(true));
+      setMobileInputFocused(true);
       document.body.style.overflow = "hidden";
 
       return;
     }
-    dispatch(setMobileInputFocused(false));
+    setMobileInputFocused(false);
   };
 
   const handleMobileInputBlur = () => {
-    dispatch(setMobileInputFocused(false));
+    setMobileInputFocused(false);
     document.body.style.overflow = "auto";
   };
 
