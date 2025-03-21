@@ -134,22 +134,8 @@ const FollowUpQueryInput = ({
   }, []); // Empty dependency array as we want this to run once on mount
 
   const handleMobileInputBlur = (e) => {
-    // if e.relatedTarget does not contains aa-ClearButton then set mobile input focused to false
-    e.preventDefault();
-    const isClearClicked =
-      e.relatedTarget && e.relatedTarget.classList.contains("aa-ClearButton");
-
-    if (isClearClicked || isClearButtonTouched.current) {
-      if (window.innerWidth <= 915) {
-        document.querySelector(".aa-Input")?.focus();
-        dispatch(setMobileInputFocused(true));
-      }
-      return;
-    }
     dispatch(setMobileInputFocused(false));
-    if (typeof window !== "undefined" && typeof document !== "undefined") {
-      document.body.style.overflow = "auto";
-    }
+    document.body.style.overflow = "auto";
   };
 
   const handleMobileInputFocus = () => {
@@ -429,6 +415,7 @@ const FollowUpQueryInput = ({
             className="text-base"
             sessionUserExists={sessionUserExists}
             onFocus={handleMobileInputFocus}
+            onBlur={handleMobileInputBlur}
           />
           {!enableTypeSense && (
             <button
