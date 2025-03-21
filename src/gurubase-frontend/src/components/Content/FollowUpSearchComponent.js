@@ -7,7 +7,8 @@ const FollowUpSearchComponent = ({
   inputId,
   onValueChange,
   sticky = false,
-  sessionUserExists
+  sessionUserExists,
+  onFocus
 }) => {
   const dispatch = useAppDispatch();
   const inputQuery = useAppSelector((state) => state.mainForm.inputQuery);
@@ -25,6 +26,9 @@ const FollowUpSearchComponent = ({
   };
 
   const handleFocus = async () => {
+    if (onFocus) {
+      onFocus();
+    }
     if (!(await sessionUserExists())) {
       resetFocus();
     }

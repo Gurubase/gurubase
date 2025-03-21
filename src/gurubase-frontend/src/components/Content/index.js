@@ -630,7 +630,13 @@ const Content = (props) => {
                           setContentWrapperWidth={setContentWrapperWidth}
                           setError={setError}
                           setTypesenseLoading={setTypesenseLoading}
-                          onSubmit={(e) => submitWithAbortController(e, true)}
+                          onSubmit={(e) => {
+                            // Unfocus input on submit
+                            if (document.activeElement instanceof HTMLElement) {
+                              document.activeElement.blur();
+                            }
+                            submitWithAbortController(e, true);
+                          }}
                         />
                       </div>
                       <button
@@ -700,9 +706,15 @@ const Content = (props) => {
                               setContentWrapperWidth={setContentWrapperWidth}
                               setError={setError}
                               setTypesenseLoading={setTypesenseLoading}
-                              onSubmit={(e) =>
-                                submitWithAbortController(e, true)
-                              }
+                              onSubmit={(e) => {
+                                // Unfocus input on submit
+                                if (
+                                  document.activeElement instanceof HTMLElement
+                                ) {
+                                  document.activeElement.blur();
+                                }
+                                submitWithAbortController(e, true);
+                              }}
                             />
                           </div>
                           <button

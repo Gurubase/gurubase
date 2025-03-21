@@ -133,6 +133,38 @@ const FollowUpQueryInput = ({
     }
   }, []); // Empty dependency array as we want this to run once on mount
 
+  const handleMobileInputBlur = (e) => {
+    // if e.relatedTarget does not contains aa-ClearButton then set mobile input focused to false
+    e.preventDefault();
+    const isClearClicked =
+      e.relatedTarget && e.relatedTarget.classList.contains("aa-ClearButton");
+
+    if (isClearClicked || isClearButtonTouched.current) {
+      if (window.innerWidth <= 915) {
+        document.querySelector(".aa-Input")?.focus();
+        dispatch(setMobileInputFocused(true));
+      }
+      return;
+    }
+    dispatch(setMobileInputFocused(false));
+    if (typeof window !== "undefined" && typeof document !== "undefined") {
+      document.body.style.overflow = "auto";
+    }
+  };
+
+  const handleMobileInputFocus = () => {
+    if (window.innerWidth <= 915) {
+      dispatch(setInvalidAnswer(null));
+      dispatch(setMobileInputFocused(true));
+      // prevent scroll when mobile input is focused
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        document.body.style.overflow = "hidden";
+      }
+      return;
+    }
+    dispatch(setMobileInputFocused(false));
+  };
+
   // if scroll y is greater than 100px then fixed the search bar to top of the page else not fixed to top of the page write a function to handle this and assign it to the scroll event listener and return the cleanup function to remove the event listener and return tailwind css classes to the form element to fixed to top of the page or not fixed to top of the page
   const handleScroll = () => {
     // Don't apply fixed positioning if content exists (search bar is already at bottom)
@@ -185,34 +217,6 @@ const FollowUpQueryInput = ({
           onSubmit(e, true);
         }
       }, 1000);
-    };
-
-    const handleMobileInputFocus = () => {
-      if (window.innerWidth <= 915) {
-        dispatch(setInvalidAnswer(null));
-        dispatch(setMobileInputFocused(true));
-        // prevent scroll when mobile input is focused
-        document.body.style.overflow = "hidden";
-        return;
-      }
-      dispatch(setMobileInputFocused(false));
-    };
-
-    const handleMobileInputBlur = (e) => {
-      // if e.relatedTarget does not contains aa-ClearButton then set mobile input focused to false
-      e.preventDefault();
-      const isClearClicked =
-        e.relatedTarget && e.relatedTarget.classList.contains("aa-ClearButton");
-
-      if (isClearClicked || isClearButtonTouched.current) {
-        if (window.innerWidth <= 915) {
-          document.querySelector(".aa-Input")?.focus();
-          dispatch(setMobileInputFocused(true));
-        }
-        return;
-      }
-      dispatch(setMobileInputFocused(false));
-      document.body.style.overflow = "auto";
     };
 
     document
@@ -365,8 +369,15 @@ const FollowUpQueryInput = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (await sessionUserExists()) {
-      // console.log("submitting question");
       e.preventDefault();
+      // Unfocus input and reset mobile state
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      dispatch(setMobileInputFocused(false));
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        document.body.style.overflow = "auto";
+      }
       const input = getInput(inputId);
       if (input && checkErrorExist(input.value)) {
         return;
@@ -377,62 +388,79 @@ const FollowUpQueryInput = ({
   };
 
   return (
-    <div className="relative w-full">
-      <form
-        className={clsx(
-          "bg-white border border-solid border-gray-100 flex w-full items-center h-12 px-4 pr-3 gap-3 rounded-full"
-        )}
-        onSubmit={(e) => handleSubmit(e)}>
-        <button
-          aria-label="icon with zoom in"
-          type="submit"
-          className="shrink-0 flex items-center justify-center w-6 h-6">
-          <Image
-            loading="lazy"
-            src={ZoomIn}
-            alt="Icon"
-            className="w-5 h-5"
-            width={20}
-            height={20}
-          />
-        </button>
-        <FollowUpSearchComponent
-          inputId={inputId}
-          onValueChange={handleSearchValueChange}
-          sticky={atBottom}
-          className="text-base"
-          sessionUserExists={sessionUserExists}
+    <>
+      {mobileInputFocused && (
+        <div
+          className="fixed inset-0 bg-black-base bg-opacity-50 backdrop-blur-md z-[49] guru-sm:px-4 mobile-backdrop"
+          onClick={() => {
+            dispatch(setMobileInputFocused(false));
+            if (
+              typeof window !== "undefined" &&
+              typeof document !== "undefined"
+            ) {
+              document.body.style.overflow = "auto";
+            }
+          }}
         />
-        {!enableTypeSense && (
-          <button
-            aria-label="icon with post question"
-            type="submit"
-            className="shrink-0 flex items-center justify-center w-8 h-8">
-            <div
-              className={clsx(
-                "w-8 h-8 p-1.5 flex items-center justify-center transition-colors duration-200 rounded-full",
-                inputValue?.length >= 10 ? "bg-[#1B242E]" : "bg-[#BABFC9]"
-              )}>
-              <Image
-                src={PostQuestion}
-                alt="Icon"
-                className={clsx(
-                  "w-3 h-3",
-                  inputValue?.length >= 10 ? "brightness-0 invert" : ""
-                )}
-                width={10}
-                height={10}
-              />
-            </div>
-          </button>
-        )}
-      </form>
-      {error && (
-        <div className="absolute bottom-[-24px] left-4 text-red-500 text-xs font-medium">
-          {error}
-        </div>
       )}
-    </div>
+      <div className="relative w-full z-[50]">
+        <form
+          className={clsx(
+            "bg-white border border-solid border-gray-100 flex w-full items-center h-12 px-4 pr-3 gap-3 rounded-full relative"
+          )}
+          onSubmit={(e) => handleSubmit(e)}>
+          <button
+            aria-label="icon with zoom in"
+            type="submit"
+            className="shrink-0 flex items-center justify-center w-6 h-6">
+            <Image
+              loading="lazy"
+              src={ZoomIn}
+              alt="Icon"
+              className="w-5 h-5"
+              width={20}
+              height={20}
+            />
+          </button>
+          <FollowUpSearchComponent
+            inputId={inputId}
+            onValueChange={handleSearchValueChange}
+            sticky={atBottom}
+            className="text-base"
+            sessionUserExists={sessionUserExists}
+            onFocus={handleMobileInputFocus}
+          />
+          {!enableTypeSense && (
+            <button
+              aria-label="icon with post question"
+              type="submit"
+              className="shrink-0 flex items-center justify-center w-8 h-8">
+              <div
+                className={clsx(
+                  "w-8 h-8 p-1.5 flex items-center justify-center transition-colors duration-200 rounded-full",
+                  inputValue?.length >= 10 ? "bg-[#1B242E]" : "bg-[#BABFC9]"
+                )}>
+                <Image
+                  src={PostQuestion}
+                  alt="Icon"
+                  className={clsx(
+                    "w-3 h-3",
+                    inputValue?.length >= 10 ? "brightness-0 invert" : ""
+                  )}
+                  width={10}
+                  height={10}
+                />
+              </div>
+            </button>
+          )}
+        </form>
+        {error && (
+          <div className="absolute bottom-[-24px] left-4 text-red-500 text-xs font-medium">
+            {error}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
