@@ -137,9 +137,9 @@ const QueryInput = ({
         placeholder={`Ask anything about ${guruTypePromptName}`}
         type="text"
         value={inputValue || ""}
-        onBlur={handleMobileInputBlur}
+        // onBlur={handleMobileInputBlur}
         onChange={handleInputChange}
-        onFocus={handleMobileInputFocus}
+        // onFocus={handleMobileInputFocus}
         onKeyPress={handleKeyPress}
       />
     </form>
