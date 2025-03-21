@@ -300,6 +300,7 @@ export default function NewGuru({ guruData, isProcessing }) {
     sources: [],
     guruUpdated: false
   });
+  const isPollingRef = useRef(false);
 
   const [selectedUrls, setSelectedUrls] = useState([]);
   const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
@@ -779,6 +780,13 @@ export default function NewGuru({ guruData, isProcessing }) {
   };
 
   const pollForGuruReadiness = async (guruSlug) => {
+    // If already polling, return early
+    if (isPollingRef.current) {
+      return;
+    }
+
+    // Set polling flag
+    isPollingRef.current = true;
     const pollInterval = 3000;
     const maxAttempts = 100;
     let attempts = 0;
@@ -882,12 +890,12 @@ export default function NewGuru({ guruData, isProcessing }) {
             setProcessingSources([]);
 
             setIsSourcesProcessing(false);
-
+            // Reset polling flag before returning
+            isPollingRef.current = false;
             return true; // Indicate successful completion
           }
         } else if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
           return await poll();
         } else {
           setIsSourcesProcessing(false);
@@ -896,14 +904,14 @@ export default function NewGuru({ guruData, isProcessing }) {
               "Sources are being processed in the background. You can continue using the guru.",
             variant: "info"
           });
-
+          // Reset polling flag before returning
+          isPollingRef.current = false;
           return false; // Indicate timeout
         }
       } catch (error) {
         // console.error("Error in polling:", error);
         if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
           return await poll();
         } else {
           setIsSourcesProcessing(false);
@@ -912,7 +920,8 @@ export default function NewGuru({ guruData, isProcessing }) {
               "An error occurred while processing sources. Please try again.",
             variant: "error"
           });
-
+          // Reset polling flag before returning
+          isPollingRef.current = false;
           return false; // Indicate error
         }
       }
