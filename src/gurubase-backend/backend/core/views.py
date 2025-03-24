@@ -2648,7 +2648,7 @@ def manage_settings(request):
                 serializer.validated_data['openai_api_key'] = settings_obj.openai_api_key
             if not serializer.validated_data.get('firecrawl_api_key'):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
-            if not request.data.get('youtube_api_key_edited'):
+            if not serializer.validated_data.get('youtube_api_key'):
                 serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
             serializer.save()
             return Response(serializer.data)

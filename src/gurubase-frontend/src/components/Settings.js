@@ -61,6 +61,7 @@ const Settings = () => {
       setIsYoutubeKeyValid(settings.is_youtube_key_valid);
       setHasExistingYoutubeKey(!!settings.youtube_api_key);
       setYoutubeApiKey("");
+      setIsYoutubeEditing(!settings.is_youtube_key_valid);
       setMaskedYoutubeKey(settings.youtube_api_key || "");
     }
     if (isInitial) {
@@ -106,7 +107,6 @@ const Settings = () => {
         formData.append("youtube_api_key", youtubeApiKey.trim());
       }
 
-      formData.append("youtube_api_key_edited", isYoutubeEditing);
       const result = await updateSettings(formData);
 
       if (result) {
@@ -143,8 +143,9 @@ const Settings = () => {
         if (isYoutubeEditing) {
           setIsYoutubeKeyValid(result.is_youtube_key_valid);
           setHasExistingYoutubeKey(true);
-          setIsYoutubeEditing(false);
-          if (!result.is_youtube_key_valid && result.youtube_api_key) {
+          if (result.is_youtube_key_valid) {
+            setIsYoutubeEditing(false);
+          } else {
             CustomToast({
               message: "Invalid YouTube API key",
               variant: "error"
@@ -188,7 +189,6 @@ const Settings = () => {
   };
 
   const handleYoutubeChange = (e) => {
-    setIsYoutubeEditing(true);
     setYoutubeApiKey(e.target.value);
   };
 
