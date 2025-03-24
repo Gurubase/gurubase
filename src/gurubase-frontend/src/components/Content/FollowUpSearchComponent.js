@@ -7,7 +7,9 @@ const FollowUpSearchComponent = ({
   inputId,
   onValueChange,
   sticky = false,
-  sessionUserExists
+  sessionUserExists,
+  onFocus,
+  onBlur
 }) => {
   const dispatch = useAppDispatch();
   const inputQuery = useAppSelector((state) => state.mainForm.inputQuery);
@@ -27,6 +29,10 @@ const FollowUpSearchComponent = ({
   const handleFocus = async () => {
     if (!(await sessionUserExists())) {
       resetFocus();
+    } else {
+      if (onFocus) {
+        onFocus();
+      }
     }
   };
 
@@ -58,6 +64,7 @@ const FollowUpSearchComponent = ({
         onChange={handleInputChange}
         value={inputValue || ""}
         onFocus={handleFocus}
+        onBlur={onBlur}
       />
     </div>
   );
