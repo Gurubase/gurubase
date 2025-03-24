@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0063_remove_outofcontextquestion_parent_topics_and_more'),
+        ('core', '0064_settings_is_youtube_key_valid_and_more'),
     ]
 
     operations = [
