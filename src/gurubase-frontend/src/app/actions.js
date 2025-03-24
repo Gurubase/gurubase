@@ -1086,6 +1086,7 @@ export async function updateSettings(formData) {
     const openai_api_key = formData.get("openai_api_key");
     const firecrawl_api_key = formData.get("firecrawl_api_key");
     const scrape_type = formData.get("scrape_type");
+    const youtube_api_key = formData.get("youtube_api_key");
     const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/settings/`,
       {
@@ -1094,7 +1095,8 @@ export async function updateSettings(formData) {
         body: JSON.stringify({
           openai_api_key,
           firecrawl_api_key,
-          scrape_type
+          scrape_type,
+          youtube_api_key
         })
       }
     );
@@ -1196,6 +1198,7 @@ export async function submitGuruCreationForm(formData) {
   try {
     const session = await getUserSession();
     const payload = {
+      name: formData.get("name"),
       email: formData.get("email"),
       github_repo: formData.get("github_repo"),
       docs_url: formData.get("docs_url"),
@@ -1237,12 +1240,54 @@ export async function submitGuruCreationForm(formData) {
   }
 }
 
-export async function getCurrentUserEmail() {
+export async function getCurrentUserData() {
   try {
     const session = await getUserSession();
-    return session?.user?.email || "";
+    return session?.user || "";
   } catch (error) {
-    console.error("Error fetching user email:", error);
+    console.error("Error fetching user data:", error);
     return "";
+  }
+}
+
+export async function fetchYoutubePlaylist(url) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/youtube/playlist/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "fetchYoutubePlaylist",
+      url
+    });
+  }
+}
+
+export async function fetchYoutubeChannel(url) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/youtube/channel/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "fetchYoutubeChannel",
+      url
+    });
   }
 }

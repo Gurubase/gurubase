@@ -1143,6 +1143,8 @@ class Settings(models.Model):
     is_openai_key_valid = models.BooleanField(default=False)
     firecrawl_api_key = models.CharField(max_length=500, null=True, blank=True)
     is_firecrawl_key_valid = models.BooleanField(default=False)
+    youtube_api_key = models.CharField(max_length=500, null=True, blank=True)
+    is_youtube_key_valid = models.BooleanField(default=False)
     scrape_type = models.CharField(
         max_length=50,
         choices=ScrapeType.choices,
@@ -1203,7 +1205,17 @@ class Settings(models.Model):
                 self.is_firecrawl_key_valid = False
         else:
             self.is_firecrawl_key_valid = False
-            
+
+        if self.youtube_api_key:
+            try:
+                from core.requester import YouTubeRequester
+                requester = YouTubeRequester(self.youtube_api_key)
+                requester.get_most_popular_video()
+                self.is_youtube_key_valid = True
+            except Exception as e:
+                logger.error(f'Error validating YouTube API key: {e}')
+                self.is_youtube_key_valid = False
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -1755,6 +1767,7 @@ class CrawlState(models.Model):
 
 class GuruCreationForm(models.Model):
 
+    name = models.CharField(max_length=100)
     email = models.EmailField()
     github_repo = models.URLField(max_length=2000)
     docs_url = models.URLField(max_length=2000)
@@ -1765,7 +1778,7 @@ class GuruCreationForm(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.email} - {self.github_repo}"
+        return f"{self.name} ({self.email})"
 
     class Meta:
         ordering = ['-date_created']

@@ -27,6 +27,11 @@ const Settings = () => {
   const [isFirecrawlEditing, setIsFirecrawlEditing] = useState(false);
   const [maskedOpenAIKey, setMaskedOpenAIKey] = useState("");
   const [maskedFirecrawlKey, setMaskedFirecrawlKey] = useState("");
+  const [youtubeApiKey, setYoutubeApiKey] = useState("");
+  const [isYoutubeKeyValid, setIsYoutubeKeyValid] = useState(false);
+  const [hasExistingYoutubeKey, setHasExistingYoutubeKey] = useState(false);
+  const [isYoutubeEditing, setIsYoutubeEditing] = useState(false);
+  const [maskedYoutubeKey, setMaskedYoutubeKey] = useState("");
 
   const fetchSettings = async (isInitial = false) => {
     if (isInitial) {
@@ -51,6 +56,13 @@ const Settings = () => {
       setFirecrawlKey("");
       setIsFirecrawlEditing(!settings.is_firecrawl_key_valid);
       setMaskedFirecrawlKey(settings.firecrawl_api_key || "");
+
+      // Set YouTube API key settings
+      setIsYoutubeKeyValid(settings.is_youtube_key_valid);
+      setHasExistingYoutubeKey(!!settings.youtube_api_key);
+      setYoutubeApiKey("");
+      setIsYoutubeEditing(!settings.is_youtube_key_valid);
+      setMaskedYoutubeKey(settings.youtube_api_key || "");
     }
     if (isInitial) {
       setIsInitialLoading(false);
@@ -91,6 +103,10 @@ const Settings = () => {
         formData.append("firecrawl_api_key", firecrawlKey.trim());
       }
 
+      if (youtubeApiKey.trim()) {
+        formData.append("youtube_api_key", youtubeApiKey.trim());
+      }
+
       const result = await updateSettings(formData);
 
       if (result) {
@@ -124,6 +140,21 @@ const Settings = () => {
           }
         }
 
+        if (isYoutubeEditing) {
+          setIsYoutubeKeyValid(result.is_youtube_key_valid);
+          setHasExistingYoutubeKey(true);
+          if (result.is_youtube_key_valid) {
+            setIsYoutubeEditing(false);
+          } else {
+            CustomToast({
+              message: "Invalid YouTube API key",
+              variant: "error"
+            });
+
+            return;
+          }
+        }
+
         CustomToast({
           message: "Settings saved successfully",
           variant: "success"
@@ -149,6 +180,16 @@ const Settings = () => {
 
   const handleFirecrawlChange = (e) => {
     setFirecrawlKey(e.target.value);
+  };
+
+  const startYoutubeEditing = () => {
+    setIsYoutubeEditing(true);
+    setHasExistingYoutubeKey(false);
+    setYoutubeApiKey("");
+  };
+
+  const handleYoutubeChange = (e) => {
+    setYoutubeApiKey(e.target.value);
   };
 
   return (
@@ -273,6 +314,37 @@ const Settings = () => {
                             )}
                           </div>
                         )}
+                      </div>
+
+                      {/* YouTube API Key Section */}
+                      <div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <label className="text-[14px] font-medium text-[#191919] font-inter">
+                              YouTube API Key (Optional)
+                            </label>
+                          </div>
+                          <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                            Gurubase will use this API key to extract videos
+                            from YouTube playlists and channels.
+                          </p>
+                          {isInitialLoading ? (
+                            <Skeleton className="h-12" />
+                          ) : (
+                            <SecretInput
+                              hasExisting={hasExistingYoutubeKey}
+                              invalidMessage="YouTube API key is invalid"
+                              isEditing={isYoutubeEditing}
+                              isValid={isYoutubeKeyValid}
+                              maskedValue={maskedYoutubeKey}
+                              placeholder="AIza..."
+                              validMessage="YouTube API key is valid"
+                              value={youtubeApiKey}
+                              onChange={handleYoutubeChange}
+                              onStartEditing={startYoutubeEditing}
+                            />
+                          )}
+                        </div>
                       </div>
 
                       {/* Submit Button Section */}

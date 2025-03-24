@@ -26,12 +26,14 @@ const ProcessStopConfirmationDialog = ({
 
   const dialogDescription =
     action === "close"
-      ? `This will stop the ${processType} process and close the dialog. ${
+      ? `This will stop the ${processType.charAt(0).toUpperCase() + processType.slice(1)} process and close the dialog. ${
           processType === "crawling"
             ? "The URLs discovered so far will still be available."
             : ""
         }`
-      : `This will stop the ${processType} process. ${
+      : `This will stop the ${
+          processType.charAt(0).toUpperCase() + processType.slice(1)
+        } process. ${
           processType === "crawling"
             ? "The URLs discovered so far will still be available."
             : ""

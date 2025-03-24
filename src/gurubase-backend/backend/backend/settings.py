@@ -442,4 +442,4 @@ ADMIN_EMAIL = config('ADMIN_EMAIL', default='')
 MAILGUN_API_KEY = config('MAILGUN_API_KEY', default='')
 FIRECRAWL_BATCH_SIZE = config('FIRECRAWL_BATCH_SIZE', default=5, cast=int)
 FIRECRAWL_TIMEOUT_MS = config('FIRECRAWL_TIMEOUT_MS', default=30000, cast=int)
-
+YOUTUBE_API_KEY = config('YOUTUBE_API_KEY', default='')

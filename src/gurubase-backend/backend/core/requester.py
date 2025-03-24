@@ -23,7 +23,6 @@ from core.exceptions import ThrottlingException
 
 logger = logging.getLogger(__name__)
 
-from core.models import GuruType, Settings
 from core.guru_types import get_guru_type_prompt_map
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -51,6 +50,19 @@ def get_firecrawl_api_key():
             return settings.FIRECRAWL_API_KEY
     else:
         return settings.FIRECRAWL_API_KEY
+
+def get_youtube_api_key():
+    from core.utils import get_default_settings
+    if settings.ENV == 'selfhosted':
+        try:
+            default_settings = get_default_settings()
+            return default_settings.youtube_api_key
+        except Exception:
+            # Handle cases where the table/column doesn't exist yet (during migrations)
+            return settings.YOUTUBE_API_KEY
+    else:
+        return settings.YOUTUBE_API_KEY
+
 
 GURU_ENDPOINTS = {
     'processed_raw_questions': 'processed_raw_questions'
@@ -523,11 +535,11 @@ class OpenAIRequester():
 
     def generate_follow_up_questions(
             self, 
-            questions: list, 
-            last_content: str, 
-            guru_type: GuruType, 
-            contexts: list, 
-            model_name: str = settings.GPT_MODEL):
+            questions,
+            last_content, 
+            guru_type, 
+            contexts, 
+            model_name=settings.GPT_MODEL):
         """
         Generate follow-up questions based on question history and available contexts.
         
@@ -709,11 +721,11 @@ class GeminiRequester():
 
     def generate_follow_up_questions(
             self, 
-            questions: list, 
-            last_content: str, 
-            guru_type: GuruType, 
-            contexts: list, 
-            model_name: str = None):
+            questions, 
+            last_content, 
+            guru_type, 
+            contexts, 
+            model_name=None):
         """
         Generate follow-up questions based on question history and available contexts using Gemini.
         
@@ -949,3 +961,149 @@ class MailgunRequester():
         except Exception as e:
             exception_code = "E-100"
             logger.fatal(f"Can not send email. Email: {to}. Subject: {subject} Code: {exception_code}")
+
+class YouTubeRequester():
+    def __init__(self, api_key=None):
+        self.base_url = "https://content-youtube.googleapis.com/youtube/v3"
+        if not api_key:
+            api_key = get_youtube_api_key()
+        self.api_key = api_key
+
+    def get_most_popular_video(self):
+        """
+        Get the most popular video from YouTube
+        Returns:
+            dict: Response from YouTube API containing video details
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            url = f"{self.base_url}/videos"
+            params = {
+                "part": "id,snippet,statistics",
+                "chart": "mostPopular",
+                "maxResults": 1,
+                "key": self.api_key
+            }
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("items", [])[0]
+        except Exception as e:
+            raise ValueError(f"Failed to get most popular video: {str(e)}")
+   
+    def fetch_channel(self, username=None, channel_id=None):
+        """
+        Fetch channel details from YouTube API
+        Args:
+            username (str, optional): YouTube channel username
+            channel_id (str, optional): YouTube channel ID
+        Returns:
+            dict: Response from YouTube API containing channel details
+        Raises:
+            ValueError: If neither username nor channel_id is provided or API request fails
+        """
+        if not username and not channel_id:
+            raise ValueError("Either username or channel_id must be provided")
+            
+        try:
+            url = f"{self.base_url}/channels"
+            params = {
+                "part": "contentDetails,id",
+                "key": self.api_key
+            }
+            
+            if username:
+                params["forHandle"] = username
+            else:
+                params["id"] = channel_id
+                
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if not data.get("items"):
+                raise ValueError(f"Channel not found: {username or channel_id}")
+                
+            return data
+            
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 403:
+                if '"YouTube Data API v3 has not been used in project' in response.text:
+                    raise ValueError("YouTube API is not enabled for this project. Please enable it in the project settings.")
+                else:
+                   raise ValueError("YouTube API quota exceeded or invalid API key")
+            else:
+                raise ValueError(f"Failed to fetch channel: {str(e)}")
+                
+    def fetch_all_playlist_videos(self, playlist_id):
+        """
+        Fetch all videos from a playlist, handling pagination
+        Args:
+            playlist_id (str): ID of the playlist
+        Returns:
+            list: List of all video items in the playlist
+        """
+        videos = []
+        next_page_token = None
+        
+        try:
+            while True:
+                url = f"{self.base_url}/playlistItems"
+                params = {
+                    "part": "id,contentDetails,snippet,status",
+                    "maxResults": 50,
+                    "playlistId": playlist_id,
+                    "key": self.api_key
+                }
+                
+                if next_page_token:
+                    params["pageToken"] = next_page_token
+                    
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                
+                videos.extend(data.get("items", []))
+                next_page_token = data.get("nextPageToken")
+                
+                if not next_page_token:
+                    break
+                    
+            return videos
+            
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 404:
+                raise ValueError(f"Playlist not found: {playlist_id}")
+            elif response.status_code == 403:
+                if '"YouTube Data API v3 has not been used in project' in response.text:
+                    raise ValueError("YouTube API is not enabled for this project. Please enable it in the project settings.")
+                else:
+                   raise ValueError("YouTube API quota exceeded or invalid API key")
+            else:
+                raise ValueError(f"Failed to fetch playlist videos: {str(e)}")
+                
+    def fetch_all_channel_videos(self, username=None, channel_id=None):
+        """
+        Fetch all videos from a channel by first getting the uploads playlist ID
+        Args:
+            username (str, optional): YouTube channel username
+            channel_id (str, optional): YouTube channel ID
+        Returns:
+            list: List of all video items from the channel
+        """
+        try:
+            # First get the channel details to get the uploads playlist ID
+            channel_data = self.fetch_channel(username=username, channel_id=channel_id)
+            if not channel_data.get("items"):
+                raise ValueError(f"Channel not found: {username or channel_id}")
+                
+            # Get the uploads playlist ID
+            uploads_playlist_id = channel_data["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+            
+            # Now fetch all videos from the uploads playlist
+            return self.fetch_all_playlist_videos(uploads_playlist_id)
+            
+        except ValueError as e:
+            raise ValueError(f"Failed to fetch channel videos: {str(e)}")
+        

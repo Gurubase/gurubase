@@ -35,10 +35,11 @@ export default function WidgetModal({
     data-widget-id="${widgetId}"
     data-text="Ask AI"
     data-margins='{"bottom": "1rem", "right": "1rem"}'
-    data-light-mode="true"${isSelfHosted
-      ? `
+    data-light-mode="light"${
+      isSelfHosted
+        ? `
     data-baseUrl="http://localhost:8029/api/"  <!-- If you haven't changed it, this is the default Gurubase instance URL. -->`
-      : ""
+        : ""
     }
     id="guru-widget-id">
 </script>`;
@@ -138,8 +139,9 @@ export default function WidgetModal({
           </Button>
         </div>
         <Button
-          className={`text-[#BABFC8] hover:text-[#DC2626] transition-colors hover:bg-transparent [display:revert] pl-2 ${isDeleting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+          className={`text-[#BABFC8] hover:text-[#DC2626] transition-colors hover:bg-transparent [display:revert] pl-2 ${
+            isDeleting ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           disabled={isDeleting}
           size="icon"
           type="button"
@@ -275,8 +277,9 @@ export default function WidgetModal({
             </DialogHeader>
             <div className="mt-6 flex flex-col gap-2">
               <Button
-                className={`h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white ${isDeleting ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                className={`h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white ${
+                  isDeleting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
                 disabled={isDeleting}
                 onClick={handleConfirmDelete}>
                 {isDeleting ? "Deleting..." : "Delete"}

@@ -20,7 +20,7 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.requester import GeminiRequester, OpenAIRequester
-from core.data_sources import CrawlService
+from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
@@ -866,7 +866,6 @@ def get_data_sources_detailed(request, guru_type):
     serializer = DataSourceSerializer(paginated_data_sources, many=True)
     
     return paginator.get_paginated_response(serializer.data)
-
 
 def delete_data_sources(request, guru_type):
     guru_type_object = get_guru_type_object(guru_type, only_active=False)
@@ -2649,6 +2648,8 @@ def manage_settings(request):
                 serializer.validated_data['openai_api_key'] = settings_obj.openai_api_key
             if not serializer.validated_data.get('firecrawl_api_key'):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
+            if not serializer.validated_data.get('youtube_api_key'):
+                serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -2859,19 +2860,21 @@ def submit_guru_creation_form(request):
     Handle submission of guru creation forms.
     """
     try:
+        name = request.data.get('name')
         email = request.data.get('email')
         github_repo = request.data.get('github_repo')
         docs_url = request.data.get('docs_url')
         use_case = request.data.get('use_case')
         source = request.data.get('source', 'unknown')
 
-        if not all([email, docs_url]):
+        if not all([name, email, docs_url]):
             return Response({
-                'error': 'Missing required fields. Please provide email, and documentation root url.'
+                'error': 'Missing required fields. Please provide name, email, and documentation root url.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create form submission
         GuruCreationForm.objects.create(
+            name=name,
             email=email,
             github_repo=github_repo,
             docs_url=docs_url,
@@ -2888,3 +2891,58 @@ def submit_guru_creation_form(request):
         return Response({
             'error': 'An error occurred while processing your request.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@jwt_auth
+def fetch_youtube_playlist_admin(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_playlist(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def fetch_youtube_playlist_api(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_playlist(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@jwt_auth
+def fetch_youtube_channel_admin(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_channel(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+def fetch_youtube_channel_api(request):
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        data, return_status = YouTubeService.fetch_channel(url)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(data, status=return_status)

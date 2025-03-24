@@ -226,7 +226,10 @@ const PostContent = ({
             question={question}
             slug={slug}
           />
-          <ShareOptions description={description} title={question} />
+
+          {!bingeId && (
+            <ShareOptions description={description} title={question} />
+          )}
         </div>
       )}
       {!streamingStatus && !bingeId && (

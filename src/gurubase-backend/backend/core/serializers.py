@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
+from django.conf import settings
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -139,12 +140,14 @@ class APIKeySerializer(serializers.ModelSerializer):
 class SettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Settings
-        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'scrape_type']
+        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'youtube_api_key', 'is_youtube_key_valid', 'scrape_type']
         extra_kwargs = {
             'openai_api_key': {'write_only': True},  # Ensure API key is write-only for security
             'is_openai_key_valid': {'read_only': True},  # This field is computed on save
             'firecrawl_api_key': {'write_only': True},
-            'is_firecrawl_key_valid': {'read_only': True}
+            'is_firecrawl_key_valid': {'read_only': True},
+            'youtube_api_key': {'write_only': True},
+            'is_youtube_key_valid': {'read_only': True}
         }
 
     def to_representation(self, instance):
@@ -158,6 +161,15 @@ class SettingsSerializer(serializers.ModelSerializer):
         if instance.firecrawl_api_key:
             key = instance.firecrawl_api_key
             repr['firecrawl_api_key'] = f"{key[:3]}{'.' * 10}{key[-4:]}"
+
+        if instance.youtube_api_key:
+            key = instance.youtube_api_key
+            repr['youtube_api_key'] = f"{key[:3]}{'.' * 10}{key[-4:]}"
+
+        if settings.ENV != 'selfhosted':
+            repr['is_youtube_key_valid'] = True
+            repr['is_firecrawl_key_valid'] = True
+            repr['is_openai_key_valid'] = True
             
         return repr
 

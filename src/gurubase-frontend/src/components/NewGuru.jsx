@@ -200,6 +200,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [isApiKeyValid, setIsApiKeyValid] = useState(true);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
+  const [isYoutubeKeyValid, setIsYoutubeKeyValid] = useState(true);
 
   // Add function to fetch guru data
   const fetchGuruData = useCallback(async (guruSlug) => {
@@ -249,6 +250,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       try {
         const settings = await getSettings();
         setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
+        setIsYoutubeKeyValid(settings?.is_youtube_key_valid ?? false);
       } catch (error) {
         setIsApiKeyValid(false);
       } finally {
@@ -300,6 +302,7 @@ export default function NewGuru({ guruData, isProcessing }) {
     sources: [],
     guruUpdated: false
   });
+  const isPollingRef = useRef(false);
 
   const [selectedUrls, setSelectedUrls] = useState([]);
   const [isUrlSidebarOpen, setIsUrlSidebarOpen] = useState(false);
@@ -779,6 +782,13 @@ export default function NewGuru({ guruData, isProcessing }) {
   };
 
   const pollForGuruReadiness = async (guruSlug) => {
+    // If already polling, return early
+    if (isPollingRef.current) {
+      return;
+    }
+
+    // Set polling flag
+    isPollingRef.current = true;
     const pollInterval = 3000;
     const maxAttempts = 100;
     let attempts = 0;
@@ -882,12 +892,12 @@ export default function NewGuru({ guruData, isProcessing }) {
             setProcessingSources([]);
 
             setIsSourcesProcessing(false);
-
+            // Reset polling flag before returning
+            isPollingRef.current = false;
             return true; // Indicate successful completion
           }
         } else if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
           return await poll();
         } else {
           setIsSourcesProcessing(false);
@@ -896,14 +906,14 @@ export default function NewGuru({ guruData, isProcessing }) {
               "Sources are being processed in the background. You can continue using the guru.",
             variant: "info"
           });
-
+          // Reset polling flag before returning
+          isPollingRef.current = false;
           return false; // Indicate timeout
         }
       } catch (error) {
         // console.error("Error in polling:", error);
         if (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
           return await poll();
         } else {
           setIsSourcesProcessing(false);
@@ -912,7 +922,8 @@ export default function NewGuru({ guruData, isProcessing }) {
               "An error occurred while processing sources. Please try again.",
             variant: "error"
           });
-
+          // Reset polling flag before returning
+          isPollingRef.current = false;
           return false; // Indicate error
         }
       }
@@ -2537,9 +2548,8 @@ export default function NewGuru({ guruData, isProcessing }) {
                                         Edit
                                       </DropdownMenuItem>
                                     )}
-                                    {(source.type.toLowerCase() === "website" ||
-                                      source.type.toLowerCase() ===
-                                        "youtube") && (
+                                    {source.type.toLowerCase() ===
+                                      "website" && (
                                       <DropdownMenuItem
                                         disabled={isSourcesProcessing}
                                         onClick={() =>
@@ -2686,6 +2696,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         setShowCrawlInput={setShowCrawlInput}
         crawlUrl={crawlUrl}
         setCrawlUrl={setCrawlUrl}
+        isYoutubeKeyValid={isYoutubeKeyValid}
       />
       <SourceDialog
         clickedSource={clickedSource}
@@ -2705,6 +2716,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         onAddUrls={(links) => handleAddUrls(links, "youtube")}
         onEditorChange={handleYoutubeEditorChange}
         onOpenChange={setIsYoutubeSidebarOpen}
+        isYoutubeKeyValid={isYoutubeKeyValid}
       />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
