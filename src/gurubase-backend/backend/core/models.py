@@ -1767,6 +1767,7 @@ class CrawlState(models.Model):
 
 class GuruCreationForm(models.Model):
 
+    name = models.CharField(max_length=100)
     email = models.EmailField()
     github_repo = models.URLField(max_length=2000)
     docs_url = models.URLField(max_length=2000)
@@ -1777,7 +1778,7 @@ class GuruCreationForm(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.email} - {self.github_repo}"
+        return f"{self.name} ({self.email})"
 
     class Meta:
         ordering = ['-date_created']

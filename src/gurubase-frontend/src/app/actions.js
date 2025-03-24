@@ -1198,6 +1198,7 @@ export async function submitGuruCreationForm(formData) {
   try {
     const session = await getUserSession();
     const payload = {
+      name: formData.get("name"),
       email: formData.get("email"),
       github_repo: formData.get("github_repo"),
       docs_url: formData.get("docs_url"),
@@ -1239,12 +1240,12 @@ export async function submitGuruCreationForm(formData) {
   }
 }
 
-export async function getCurrentUserEmail() {
+export async function getCurrentUserData() {
   try {
     const session = await getUserSession();
-    return session?.user?.email || "";
+    return session?.user || "";
   } catch (error) {
-    console.error("Error fetching user email:", error);
+    console.error("Error fetching user data:", error);
     return "";
   }
 }
