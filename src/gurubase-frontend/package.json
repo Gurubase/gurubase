@@ -19,7 +19,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "^3.5.0",
+    "@auth0/nextjs-auth0": "^3.7.0",
     "@hookform/resolvers": "^3.9.0",
     "@iconify/react": "^5.0.2",
     "@iconify/utils": "^2.1.32",
@@ -61,7 +61,7 @@
     "mixpanel-browser": "^2.58.0",
     "monaco-editor": "^0.52.0",
     "monaco-editor-webpack-plugin": "^7.1.0",
-    "next": "14.2.23",
+    "next": "14.2.25",
     "next-runtime-env": "^3.2.2",
     "node-cron": "^3.0.3",
     "posthog-js": "^1.203.1",
