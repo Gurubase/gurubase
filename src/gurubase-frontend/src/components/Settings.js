@@ -121,7 +121,6 @@ const Settings = () => {
         formData.append("youtube_api_key_written", false);
       }
 
-      console.log("formData", formData);
       const result = await updateSettings(formData);
 
       if (isEditing) setIsEditing(false);

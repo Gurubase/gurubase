@@ -22,20 +22,6 @@ const SecretInput = ({
 }) => {
   const [showSecret, setShowSecret] = useState(false);
 
-  console.table({
-    hasExisting,
-    isEditing,
-    isValid,
-    value,
-    maskedValue,
-    placeholder,
-    onChange,
-    onStartEditing,
-    validMessage,
-    invalidMessage,
-    className
-  });
-
   // Initial readonly state
   if (!isEditing) {
     return (
