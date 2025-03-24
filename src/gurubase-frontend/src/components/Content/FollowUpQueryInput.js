@@ -141,7 +141,7 @@ const FollowUpQueryInput = ({
   const handleMobileInputFocus = () => {
     if (window.innerWidth <= 915) {
       dispatch(setInvalidAnswer(null));
-      dispatch(setMobileInputFocused(true));
+      // dispatch(setMobileInputFocused(true));
       // prevent scroll when mobile input is focused
       if (typeof window !== "undefined" && typeof document !== "undefined") {
         document.body.style.overflow = "hidden";
