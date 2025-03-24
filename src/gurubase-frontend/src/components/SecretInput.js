@@ -22,14 +22,35 @@ const SecretInput = ({
 }) => {
   const [showSecret, setShowSecret] = useState(false);
 
-  if (hasExisting && isValid && !isEditing) {
+  console.table({
+    hasExisting,
+    isEditing,
+    isValid,
+    value,
+    maskedValue,
+    placeholder,
+    onChange,
+    onStartEditing,
+    validMessage,
+    invalidMessage,
+    className
+  });
+
+  // Initial readonly state
+  if (!isEditing) {
     return (
       <div>
         <div
-          className={`flex-1 h-12 px-3 py-2 border rounded-lg bg-white flex items-center justify-between ${isValid ? "border-[#16A34A]" : ""}`}>
+          className={`flex-1 h-12 px-3 py-2 border rounded-lg bg-white flex items-center justify-between ${
+            hasExisting && isValid && !isEditing
+              ? "border-[#16A34A]"
+              : hasExisting && !isValid && !isEditing
+                ? "border-[#DC2626]"
+                : "border-[#E2E2E2]"
+          }`}>
           <div className="flex flex-col justify-center">
             <span className="text-sm font-mono text-[#6D6D6D]">
-              {maskedValue}
+              {maskedValue || "No value"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -50,7 +71,7 @@ const SecretInput = ({
             </Button>
           </div>
         </div>
-        {isValid && (
+        {hasExisting && isValid && !isEditing && (
           <div className="flex items-center gap-1 mt-2">
             <CheckCircleIcon />
             <span className="text-[12px] font-normal text-[#16A34A] font-inter">
@@ -58,19 +79,28 @@ const SecretInput = ({
             </span>
           </div>
         )}
+        {hasExisting && !isValid && !isEditing && (
+          <div className="flex items-center gap-1 mt-2">
+            <CloseCircleIcon className="text-[#DC2626]" />
+            <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+              {invalidMessage}
+            </span>
+          </div>
+        )}
       </div>
     );
   }
 
+  // Edit state
   return (
     <div>
       <div className="relative">
         <Input
           autoComplete="new-password"
           className={`h-12 pr-10 font-mono text-sm text-[#6D6D6D] border ${
-            hasExisting && isValid
+            hasExisting && isValid && !isEditing
               ? "border-[#16A34A] ring-0 focus:ring-0 focus-visible:ring-0"
-              : hasExisting && !isValid
+              : hasExisting && !isValid && !isEditing
                 ? "border-[#DC2626] ring-0 focus:ring-0 focus-visible:ring-0"
                 : "border-[#E2E2E2]"
           } ${className}`}
@@ -93,22 +123,6 @@ const SecretInput = ({
           </button>
         )}
       </div>
-      {hasExisting && !isValid && (
-        <div className="flex items-center gap-1 mt-2">
-          <CloseCircleIcon className="text-[#DC2626]" />
-          <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-            {invalidMessage}
-          </span>
-        </div>
-      )}
-      {hasExisting && isValid && (
-        <div className="flex items-center gap-1 mt-2">
-          <CheckCircleIcon />
-          <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-            {validMessage}
-          </span>
-        </div>
-      )}
     </div>
   );
 };
