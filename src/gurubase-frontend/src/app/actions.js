@@ -1087,6 +1087,8 @@ export async function updateSettings(formData) {
     const firecrawl_api_key = formData.get("firecrawl_api_key");
     const scrape_type = formData.get("scrape_type");
     const youtube_api_key = formData.get("youtube_api_key");
+    const youtube_api_key_edited =
+      formData.get("youtube_api_key_edited") === "true";
     const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/settings/`,
       {
@@ -1096,7 +1098,8 @@ export async function updateSettings(formData) {
           openai_api_key,
           firecrawl_api_key,
           scrape_type,
-          youtube_api_key
+          youtube_api_key,
+          youtube_api_key_edited
         })
       }
     );
