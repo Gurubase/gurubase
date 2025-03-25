@@ -945,7 +945,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           (s) => s.type.toLowerCase() === "website" && !s.deleted
         ).length;
 
-        console.table(sources);
         // Calculate PDF size
         let currentPdfSize = sources
           .filter(
