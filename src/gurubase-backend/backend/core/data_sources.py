@@ -22,7 +22,7 @@ from urllib.parse import urljoin
 from typing import List, Set, Tuple
 from django.utils import timezone
 from core.utils import get_default_settings
-
+from youtube_transcript_api import NoTranscriptFound
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +40,17 @@ def youtube_content_extraction(youtube_url):
         logger.error(f"Error extracting content from YouTube URL {youtube_url}: {traceback.format_exc()}")
         raise YouTubeContentExtractionError(f"Error extracting content from the YouTube URL")
         
-    loading = loader.load()
-    if len(loading) == 0:
-        logger.error(f"No content found for YouTube URL {youtube_url}")
-        raise YouTubeContentExtractionError(f"No content found for the YouTube URL")
+    try:
+        loading = loader.load()
+        if len(loading) == 0:
+            logger.error(f"No transcript found for YouTube URL {youtube_url}")
+            raise YouTubeContentExtractionError(f"No transcript found for the YouTube URL")
+    except NoTranscriptFound as e:
+        logger.error(f"No transcript found for YouTube URL {youtube_url}")
+        raise YouTubeContentExtractionError(f"No transcript found for the YouTube URL")
+    except Exception as e:
+        logger.error(f"Error extracting content from YouTube URL {youtube_url}: {traceback.format_exc()}")
+        raise YouTubeContentExtractionError(f"Error extracting content from the YouTube URL")
 
     document = loading[0]
     document_dict = {
