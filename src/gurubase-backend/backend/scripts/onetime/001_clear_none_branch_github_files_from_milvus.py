@@ -54,11 +54,7 @@ def insert_test_vector():
     test_data = {
         "vector": test_vector,
         "text": "Test content with None branch",
-        "metadata": {
-            "link": "https://github.com/test/repo/None",
-            "branch": "None",
-            "file_path": "test/file.py"
-        },
+        "metadata": {"type":"GITHUB_REPO","repo_link":"https://github.com/Gurubase/gurubase-widget","link":"https://github.com/Gurubase/gurubase-widget/tree/None/build.js","repo_title":"Gurubase/gurubase-widget","title":"build.js","file_path":"build.js","split_num":1},
         "guru_slug": "test"
     }
     
