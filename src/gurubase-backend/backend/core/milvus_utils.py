@@ -216,6 +216,9 @@ def delete_vectors(collection_name, ids):
 
 
 def delete_vectors_by_filter(collection_name, filter):
+    if not client.has_collection(collection_name):
+        return
+
     try:
         response = client.delete(
             collection_name=collection_name,
@@ -297,6 +300,9 @@ def upsert_vectors(collection_name, docs):
 
     
 def fetch_vectors(collection_name, filter, output_fields=None):
+    if not client.has_collection(collection_name):
+        return []
+
     try:
         results = client.query(
             collection_name=collection_name,
