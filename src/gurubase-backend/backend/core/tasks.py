@@ -1526,7 +1526,8 @@ def update_github_repositories(successful_repos=True):
                                         data_source=data_source,
                                         path=path,
                                         content=content,
-                                        size=size
+                                        size=size,
+                                        link=f'{data_source.url}/tree/{data_source.default_branch}/{path}'
                                     )
                                 )
                         else:
@@ -1536,7 +1537,8 @@ def update_github_repositories(successful_repos=True):
                                     data_source=data_source,
                                     path=path,
                                     content=content,
-                                    size=size
+                                    size=size,
+                                    link=f'{data_source.url}/tree/{data_source.default_branch}/{path}'
                                 )
                             )
                     
