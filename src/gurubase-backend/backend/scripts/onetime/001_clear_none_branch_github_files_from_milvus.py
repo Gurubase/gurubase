@@ -74,7 +74,7 @@ def check_and_delete_none_branch():
             continue
         
         # Query for elements with None branch
-        filter = 'metadata["link"] like "%None%"'
+        filter = 'metadata["link"] like "%/tree/None/%"'
         results = fetch_vectors(collection_name, filter)
         
         count = len(results)
@@ -94,7 +94,7 @@ def check_and_delete_none_branch():
             for model_name, config in COLLECTIONS.items():
                 collection_name = config["collection_name"]
                 print(f"\nDeleting from collection: {collection_name}")
-                filter = 'metadata["link"] like "%None%"'
+                filter = 'metadata["link"] like "%/tree/None/%"'
                 delete_vectors_by_filter(collection_name, filter)
             print("\nDeletion completed!")
         else:
