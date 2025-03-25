@@ -80,6 +80,7 @@ class DataSourceSerializer(serializers.ModelSerializer):
         repr = super().to_representation(instance)
         if instance.type == DataSource.Type.PDF:
             del repr['url']
+            repr['size'] = instance.file.size
 
         if instance.user_error:
             repr['error'] = instance.user_error
