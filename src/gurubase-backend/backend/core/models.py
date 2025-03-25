@@ -763,16 +763,6 @@ class DataSource(models.Model):
                 batch = github_files[i:i + batch_size]
                 logger.info(f"Processing batch {i//batch_size + 1} of {(len(github_files) + batch_size - 1)//batch_size}. Repository: {self.url}")
                 
-                # First update all links in the batch
-                files_to_update = []
-                for file in batch:
-                    if not file.link:
-                        file.link = f'{file.repository_link}/tree/{file.data_source.default_branch}/{file.path}'
-                        files_to_update.append(file)
-                
-                if files_to_update:
-                    GithubFile.objects.bulk_update(files_to_update, ['link'])
-                
                 # Prepare all texts and metadata for the batch
                 all_texts = []
                 all_metadata = []

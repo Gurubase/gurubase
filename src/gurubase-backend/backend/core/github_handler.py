@@ -120,18 +120,100 @@ def extract_repo_name(repo_url):
     except Exception as e:
         raise GitHubRepoContentExtractionError(f"Invalid GitHub repository URL: {repo_url}")
 
-def clone_repository(repo_url):
-    """Clone a GitHub repository to a temporary directory."""
+def clone_repository(repo_url, depth=50, timeout=1800):
+    """Clone a GitHub repository to a temporary directory with timeout and progress monitoring.
+    
+    Args:
+        repo_url: URL of the GitHub repository
+        depth: Number of latest commits to include
+        timeout: Maximum time allowed for cloning in seconds (default: 30 minutes)
+    """
     try:
-        logger.info(f"Cloning repository {repo_url}")
-        # Create a temporary directory
+        logger.info(f"Cloning repository {repo_url} with depth {depth}")
         temp_dir = tempfile.mkdtemp()
         
-        # Clone the repository
-        repo = Repo.clone_from(repo_url, temp_dir)
+        # Import required modules
+        import time
+        import threading
+        from git import RemoteProgress
         
-        logger.info(f"Cloned repository {repo_url}")
+        # Create progress class for monitoring
+        class CloneProgress(RemoteProgress):
+            def __init__(self):
+                super().__init__()
+                self.last_log_time = time.time()
+                self.started = time.time()
+            
+            def update(self, op_code, cur_count, max_count=None, message=''):
+                # Log progress every 10 seconds to avoid excessive logging
+                now = time.time()
+                if now - self.last_log_time > 10:
+                    progress_msg = f"Clone progress after {int(now - self.started)}s: "
+                    if max_count:
+                        progress_msg += f"{cur_count}/{max_count} objects ({(cur_count/max_count)*100:.1f}%)"
+                    else:
+                        progress_msg += f"{cur_count} objects"
+                    if message:
+                        progress_msg += f" - {message}"
+                    logger.info(progress_msg)
+                    self.last_log_time = now
+        
+        # Variables for thread communication
+        clone_result = {"repo": None, "error": None, "completed": False}
+        
+        # Define clone function to run in thread
+        def do_clone():
+            try:
+                progress = CloneProgress()
+                repo = Repo.clone_from(
+                    repo_url, 
+                    temp_dir,
+                    depth=depth,
+                    progress=progress
+                )
+                clone_result["repo"] = repo
+                clone_result["completed"] = True
+            except Exception as e:
+                clone_result["error"] = e
+                clone_result["completed"] = True
+        
+        # Start clone in separate thread
+        clone_thread = threading.Thread(target=do_clone)
+        clone_thread.daemon = True  # Allow thread to be terminated when main thread exits
+        start_time = time.time()
+        clone_thread.start()
+        
+        # Monitor the clone thread
+        while clone_thread.is_alive():
+            # Check if timeout has been exceeded
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                logger.error(f"Clone operation timed out after {elapsed:.2f} seconds")
+                # Cleanup the temporary directory (best effort)
+                import os
+                import shutil
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except:
+                    os.system(f"rm -rf {temp_dir}")
+                raise GitHubRepoContentExtractionError(f"Repository clone timed out after {timeout} seconds. The repository may be too large to process efficiently.")
+            
+            # Wait a bit before checking again
+            time.sleep(5)
+            clone_thread.join(timeout=0.1)  # Short timeout to check if thread completed
+        
+        # Check results
+        if clone_result["error"]:
+            raise clone_result["error"]
+        
+        if not clone_result["completed"] or not clone_result["repo"]:
+            raise GitHubRepoContentExtractionError("Clone operation failed without error details")
+        
+        repo = clone_result["repo"]
+        elapsed = time.time() - start_time
+        logger.info(f"Cloned repository {repo_url} in {elapsed:.2f} seconds")
         return temp_dir, repo
+        
     except Exception as e:
         # Check if the error message indicates repository not found
         if "repository" in str(e).lower() and "not found" in str(e).lower():
@@ -205,7 +287,7 @@ def read_repository(repo_path):
     logger.info(f"Repository structure and contents read")
     return structure
 
-def save_repository(data_source, structure):
+def save_repository(data_source, structure, default_branch):
     """Save the read repository structure and contents to the database."""
     from core.models import GithubFile
     bulk_save = []
@@ -226,7 +308,8 @@ def save_repository(data_source, structure):
             data_source=data_source,
             path=file['path'],
             content=file['content'],
-            size=file['size']
+            size=file['size'],
+            link=f'{data_source.url}/tree/{default_branch}/{file["path"]}'
         ))
 
         if len(bulk_save) >= 100:
@@ -265,7 +348,7 @@ def process_github_repository(data_source):
         # Get repository structure and contents
         structure = read_repository(temp_dir)
 
-        save_repository(data_source, structure)
+        save_repository(data_source, structure, default_branch)
         
         # Clean up temporary directory
         repo.close()
