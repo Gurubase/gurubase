@@ -375,7 +375,7 @@ STACKOVERFLOW_ICON_URL = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/sta
 WEBSITE_ICON_URL = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/chrome/chrome-original.svg'
 FIRECRAWL_API_KEY = config('FIRECRAWL_API_KEY', default='xxx')
 LOG_STREAM_TIMES = config('LOG_STREAM_TIMES', default=False, cast=bool)
-DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS = config('DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS', default=120, cast=int)
+DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS = config('DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS', default=600, cast=int)
 DATA_SOURCE_FETCH_BATCH_SIZE = config('DATA_SOURCE_FETCH_BATCH_SIZE', default=100, cast=int)
 TASK_FETCH_LIMIT = config('TASK_FETCH_LIMIT', default=1000, cast=int)
 SLACK_NOTIFIER_WEBHOOK_URL = config('SLACK_NOTIFIER_WEBHOOK_URL', default='xxx')
