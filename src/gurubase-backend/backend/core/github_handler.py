@@ -205,7 +205,7 @@ def read_repository(repo_path):
     logger.info(f"Repository structure and contents read")
     return structure
 
-def save_repository(data_source, structure):
+def save_repository(data_source, structure, default_branch):
     """Save the read repository structure and contents to the database."""
     from core.models import GithubFile
     bulk_save = []
@@ -226,7 +226,8 @@ def save_repository(data_source, structure):
             data_source=data_source,
             path=file['path'],
             content=file['content'],
-            size=file['size']
+            size=file['size'],
+            link=f'{data_source.url}/tree/{default_branch}/{file["path"]}'
         ))
 
         if len(bulk_save) >= 100:
@@ -265,7 +266,7 @@ def process_github_repository(data_source):
         # Get repository structure and contents
         structure = read_repository(temp_dir)
 
-        save_repository(data_source, structure)
+        save_repository(data_source, structure, default_branch)
         
         # Clean up temporary directory
         repo.close()
