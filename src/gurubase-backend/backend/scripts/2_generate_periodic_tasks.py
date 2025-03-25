@@ -136,14 +136,6 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    'task_calculate_distances_for_old_questions': {
-        'every': 10,
-        'period': MINUTES,
-        'task': 'core.tasks.calculate_distances_for_old_questions',
-        'enabled': True,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
     'task_check_favicon_validity': {
         'every': 1,
         'period': DAYS,
@@ -272,7 +264,6 @@ if settings.ENV == 'selfhosted':
     periodic_tasks.pop('task_llm_eval_result')
     periodic_tasks.pop('task_get_content_links')
     periodic_tasks.pop('task_check_link_validity')
-    periodic_tasks.pop('task_calculate_distances_for_old_questions')
     periodic_tasks.pop('task_process_sitemap')
     periodic_tasks.pop('task_summarize_data_sources')
     periodic_tasks.pop('task_generate_questions_from_summaries')
