@@ -14,14 +14,12 @@ import { Button } from "@/components/ui/button";
 const Settings = () => {
   const [openAIKey, setOpenAIKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showKey, setShowKey] = useState(false);
   const [isKeyValid, setIsKeyValid] = useState(false);
   const [hasExistingKey, setHasExistingKey] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [scraperType, setScraperType] = useState("CRAWL4AI");
   const [firecrawlKey, setFirecrawlKey] = useState("");
-  const [showFirecrawlKey, setShowFirecrawlKey] = useState(false);
   const [isFirecrawlKeyValid, setIsFirecrawlKeyValid] = useState(false);
   const [hasExistingFirecrawlKey, setHasExistingFirecrawlKey] = useState(false);
   const [isFirecrawlEditing, setIsFirecrawlEditing] = useState(false);
@@ -40,10 +38,9 @@ const Settings = () => {
     const settings = await getSettings();
 
     if (settings) {
+      setOpenAIKey(settings.openai_api_key);
       setIsKeyValid(settings.is_openai_key_valid);
       setHasExistingKey(!!settings.openai_api_key);
-      setOpenAIKey("");
-      setIsEditing(!settings.is_openai_key_valid);
       setMaskedOpenAIKey(settings.openai_api_key || "");
 
       // Set scraper settings
@@ -53,15 +50,13 @@ const Settings = () => {
 
       setIsFirecrawlKeyValid(settings.is_firecrawl_key_valid);
       setHasExistingFirecrawlKey(!!settings.firecrawl_api_key);
-      setFirecrawlKey("");
-      setIsFirecrawlEditing(!settings.is_firecrawl_key_valid);
+      setFirecrawlKey(settings.firecrawl_api_key);
       setMaskedFirecrawlKey(settings.firecrawl_api_key || "");
 
       // Set YouTube API key settings
       setIsYoutubeKeyValid(settings.is_youtube_key_valid);
       setHasExistingYoutubeKey(!!settings.youtube_api_key);
-      setYoutubeApiKey("");
-      setIsYoutubeEditing(!settings.is_youtube_key_valid);
+      setYoutubeApiKey(settings.youtube_api_key);
       setMaskedYoutubeKey(settings.youtube_api_key || "");
     }
     if (isInitial) {
@@ -81,9 +76,17 @@ const Settings = () => {
 
   const startEditing = () => {
     setIsEditing(true);
-    setHasExistingKey(false);
-    setShowKey(false);
     setOpenAIKey("");
+  };
+
+  const startFirecrawlEditing = () => {
+    setIsFirecrawlEditing(true);
+    setFirecrawlKey("");
+  };
+
+  const startYoutubeEditing = () => {
+    setIsYoutubeEditing(true);
+    setYoutubeApiKey("");
   };
 
   const handleSubmit = async (e) => {
@@ -93,67 +96,74 @@ const Settings = () => {
     try {
       const formData = new FormData();
 
-      if (openAIKey.trim()) {
+      if (isEditing) {
         formData.append("openai_api_key", openAIKey.trim());
+        formData.append("openai_api_key_written", true);
+      } else {
+        formData.append("openai_api_key_written", false);
       }
 
       formData.append("scrape_type", scraperType);
 
-      if (scraperType === "FIRECRAWL" && firecrawlKey.trim()) {
-        formData.append("firecrawl_api_key", firecrawlKey.trim());
+      if (scraperType === "FIRECRAWL") {
+        if (isFirecrawlEditing) {
+          formData.append("firecrawl_api_key", firecrawlKey.trim());
+          formData.append("firecrawl_api_key_written", true);
+        } else {
+          formData.append("firecrawl_api_key_written", false);
+        }
       }
 
-      if (youtubeApiKey.trim()) {
+      if (isYoutubeEditing) {
         formData.append("youtube_api_key", youtubeApiKey.trim());
+        formData.append("youtube_api_key_written", true);
+      } else {
+        formData.append("youtube_api_key_written", false);
       }
 
       const result = await updateSettings(formData);
 
+      if (isEditing) setIsEditing(false);
+      if (isFirecrawlEditing) setIsFirecrawlEditing(false);
+      if (isYoutubeEditing) setIsYoutubeEditing(false);
+
       if (result) {
-        if (isEditing) {
-          setIsKeyValid(result.is_openai_key_valid);
-          setHasExistingKey(true);
-          if (result.is_openai_key_valid) {
-            setIsEditing(false);
-          } else {
-            CustomToast({
-              message: "Invalid OpenAI API key",
-              variant: "error"
-            });
+        if (result.is_openai_key_valid === false && result.openai_api_key) {
+          CustomToast({
+            message: "Invalid OpenAI API key",
+            variant: "error"
+          });
 
-            return;
-          }
+          return;
         }
 
-        if (scraperType === "FIRECRAWL" && isFirecrawlEditing) {
-          setIsFirecrawlKeyValid(result.is_firecrawl_key_valid);
-          setHasExistingFirecrawlKey(true);
-          if (result.is_firecrawl_key_valid) {
-            setIsFirecrawlEditing(false);
-          } else {
-            CustomToast({
-              message: "Invalid Firecrawl API key",
-              variant: "error"
-            });
+        setOpenAIKey(result.openai_api_key);
 
-            return;
-          }
+        if (
+          scraperType === "FIRECRAWL" &&
+          result.is_firecrawl_key_valid === false &&
+          result.firecrawl_api_key
+        ) {
+          CustomToast({
+            message: "Invalid Firecrawl API key",
+            variant: "error"
+          });
+
+          return;
         }
 
-        if (isYoutubeEditing) {
-          setIsYoutubeKeyValid(result.is_youtube_key_valid);
-          setHasExistingYoutubeKey(true);
-          if (result.is_youtube_key_valid) {
-            setIsYoutubeEditing(false);
-          } else {
-            CustomToast({
-              message: "Invalid YouTube API key",
-              variant: "error"
-            });
+        setFirecrawlKey(result.firecrawl_api_key);
 
-            return;
-          }
+        if (result.is_youtube_key_valid === false && result.youtube_api_key) {
+          CustomToast({
+            message: "Invalid YouTube API key",
+            variant: "error"
+          });
+
+          return;
         }
+
+        setYoutubeApiKey(result.youtube_api_key);
 
         CustomToast({
           message: "Settings saved successfully",
@@ -171,21 +181,8 @@ const Settings = () => {
     }
   };
 
-  const startFirecrawlEditing = () => {
-    setIsFirecrawlEditing(true);
-    setHasExistingFirecrawlKey(false);
-    setShowFirecrawlKey(false);
-    setFirecrawlKey("");
-  };
-
   const handleFirecrawlChange = (e) => {
     setFirecrawlKey(e.target.value);
-  };
-
-  const startYoutubeEditing = () => {
-    setIsYoutubeEditing(true);
-    setHasExistingYoutubeKey(false);
-    setYoutubeApiKey("");
   };
 
   const handleYoutubeChange = (e) => {
