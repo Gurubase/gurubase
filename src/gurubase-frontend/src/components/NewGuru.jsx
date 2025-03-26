@@ -932,72 +932,80 @@ export default function NewGuru({ guruData, isProcessing }) {
     return await poll();
   };
 
+  const validateSourceLimits = (sources, dirtyChanges, customGuruData) => {
+    if (!customGuruData) return true;
+
+    if (isSelfHosted) return true;
+
+    // Get current counts and limits
+    const youtubeCount = sources.filter(
+      (s) => s.type.toLowerCase() === "youtube" && !s.deleted
+    ).length;
+    const websiteCount = sources.filter(
+      (s) => s.type.toLowerCase() === "website" && !s.deleted
+    ).length;
+
+    // Calculate PDF size
+    let currentPdfSize = sources
+      .filter(
+        (s) => s.type.toLowerCase() === "pdf" && !s.deleted && !s.newAddedSource
+      )
+      .reduce((total, pdf) => total + (pdf.size || 0), 0);
+
+    // Add new PDF sizes
+    const newPdfSize = dirtyChanges.sources
+      .filter((s) => s.type === "pdf" && s.newAddedSource && !s.deleted)
+      .reduce((total, pdf) => total + (pdf.size || 0), 0);
+
+    const pdfSizeMb = (currentPdfSize + newPdfSize) / 1024 / 1024;
+
+    // Check against limits
+    const youtubeLimit =
+      customGuruData.youtube_limit === undefined
+        ? Infinity
+        : customGuruData.youtube_limit;
+    const websiteLimit =
+      customGuruData.website_limit === undefined
+        ? Infinity
+        : customGuruData.website_limit;
+    const pdfSizeLimitMb =
+      customGuruData.pdf_size_limit_mb === undefined
+        ? Infinity
+        : customGuruData.pdf_size_limit_mb;
+
+    // Validate limits
+    if (youtubeCount > youtubeLimit) {
+      CustomToast({
+        message: `You have exceeded the YouTube source limit (${youtubeLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (websiteCount > websiteLimit) {
+      CustomToast({
+        message: `You have exceeded the website source limit (${websiteLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (pdfSizeMb > pdfSizeLimitMb) {
+      CustomToast({
+        message: `You have exceeded the PDF size limit (${pdfSizeLimitMb} MB).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const onSubmit = async (data) => {
     try {
       // Check data source limits first
-      // Calculate current and potential new data sources
-      if (customGuruData) {
-        // Get current counts and limits
-        const youtubeCount = sources.filter(
-          (s) => s.type.toLowerCase() === "youtube" && !s.deleted
-        ).length;
-        const websiteCount = sources.filter(
-          (s) => s.type.toLowerCase() === "website" && !s.deleted
-        ).length;
-
-        // Calculate PDF size
-        let currentPdfSize = sources
-          .filter(
-            (s) =>
-              s.type.toLowerCase() === "pdf" && !s.deleted && !s.newAddedSource
-          )
-          .reduce((total, pdf) => total + (pdf.size || 0), 0);
-
-        // Add new PDF sizes
-        const newPdfSize = dirtyChanges.sources
-          .filter((s) => s.type === "pdf" && s.newAddedSource && !s.deleted)
-          .reduce((total, pdf) => total + (pdf.size || 0), 0);
-
-        const pdfSizeMb = (currentPdfSize + newPdfSize) / 1024 / 1024;
-
-        // Check against limits
-        const youtubeLimit =
-          customGuruData.youtube_limit === undefined
-            ? Infinity
-            : customGuruData.youtube_limit;
-        const websiteLimit =
-          customGuruData.website_limit === undefined
-            ? Infinity
-            : customGuruData.website_limit;
-        const pdfSizeLimitMb =
-          customGuruData.pdf_size_limit_mb === undefined
-            ? Infinity
-            : customGuruData.pdf_size_limit_mb;
-
-        // Validate limits
-        if (youtubeCount > youtubeLimit) {
-          CustomToast({
-            message: `You have exceeded the YouTube source limit (${youtubeLimit}).`,
-            variant: "error"
-          });
-          return;
-        }
-
-        if (websiteCount > websiteLimit) {
-          CustomToast({
-            message: `You have exceeded the website source limit (${websiteLimit}).`,
-            variant: "error"
-          });
-          return;
-        }
-
-        if (pdfSizeMb > pdfSizeLimitMb) {
-          CustomToast({
-            message: `You have exceeded the PDF size limit (${pdfSizeLimitMb} MB).`,
-            variant: "error"
-          });
-          return;
-        }
+      if (!validateSourceLimits(sources, dirtyChanges, customGuruData)) {
+        return;
       }
 
       // Only validate files if there are new files being added
