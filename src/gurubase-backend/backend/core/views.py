@@ -507,6 +507,9 @@ def my_gurus(request, guru_slug=None):
                 'youtubeCount': 0,
                 'pdfCount': 0,
                 'websiteCount': 0,
+                'youtube_limit': guru.youtube_count_limit,
+                'website_limit': guru.website_count_limit,
+                'pdf_size_limit_mb': guru.pdf_size_limit_mb,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit
             })
@@ -2644,11 +2647,11 @@ def manage_settings(request):
     elif request.method == 'PUT':
         serializer = SettingsSerializer(settings_obj, data=request.data, partial=True)
         if serializer.is_valid():
-            if not serializer.validated_data.get('openai_api_key'):
+            if not request.data.get('openai_api_key_written'):
                 serializer.validated_data['openai_api_key'] = settings_obj.openai_api_key
-            if not serializer.validated_data.get('firecrawl_api_key'):
+            if not request.data.get('firecrawl_api_key_written'):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
-            if not serializer.validated_data.get('youtube_api_key'):
+            if not request.data.get('youtube_api_key_written'):
                 serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
             serializer.save()
             return Response(serializer.data)

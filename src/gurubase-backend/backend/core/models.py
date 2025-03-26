@@ -478,10 +478,6 @@ class GuruType(models.Model):
         Returns (bool, str) tuple - (is_allowed, error_message)
         """
         if settings.ENV != 'selfhosted':
-            # Admin users bypass all limits
-            if user.is_admin:
-                return True, None
-
             # Check if user is maintainer
             if not self.maintainers.filter(id=user.id).exists():
                 return False, "You don't have permission to add data sources to this guru type"
@@ -1148,6 +1144,9 @@ class Settings(models.Model):
         null=True,
         blank=True
     )
+
+    code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
+    package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
 
     @classmethod
     def get_default_embedding_model(cls):
