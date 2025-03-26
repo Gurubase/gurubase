@@ -98,6 +98,18 @@ Like hundreds of GitHub repositories, add a badge to your README to guide your u
 
 <img src="imgs/badge_sample.png" alt="Gurubase Badge" width="500"/><br/>
 
+### 3. Slack Bot
+
+Gurubase also offers a Slack bot that allows you to ask questions in your Slack channels. Learn more about it [here](https://docs.gurubase.ai/integrations/slack-bot).
+
+<img src="imgs/slack-bot-showcase.png" alt="Gurubase Slack Bot Demo" width="500"/><br/>
+
+### 4. Discord Bot
+
+Gurubase also offers a Discord bot that allows you to ask questions in your Discord channels. Learn more about it [here](https://docs.gurubase.ai/integrations/discord-bot).
+
+<img src="imgs/discord-bot-showcase.png" alt="Gurubase Discord Bot Demo" width="500"/><br/>
+
 ## How to Update Datasources
 
 Datasources can include your tool's documentation webpages, YouTube videos, or PDF files. You can add new ones, remove existing ones, or reindex them. Reindexing ensures your Guru is updated based on changes to the indexed datasources. For example, if you update your tool's documentation, you can reindex those pages so your Guru generates answers based on the latest data.
@@ -113,6 +125,9 @@ Click the Guru you want to update. On the edit page, click "Reindex" for the dat
 You can also see the "Last Index Date" on the URL pages.
 
 <img src="imgs/image-2.png" alt="Gurubase Last Index Date" width="720"/><br/>
+
+> [!NOTE]
+> GitHub repositories are reindexed automatically twice a day.
 
 ## Contributing
 
@@ -391,7 +406,7 @@ Minimum requirements:
 - RAM: 8GB
 - Storage: 10GB SSD
 - OS: Linux or macOS (Windows via WSL2)
-See [INSTALL.md](INSTALL.md) for detailed requirements.
+See [INSTALL.md](INSTALL.md#system-requirements) for detailed requirements.
 
 
 ### What are the use cases for using my Gurus created on Gurubase?
@@ -399,10 +414,9 @@ See [INSTALL.md](INSTALL.md) for detailed requirements.
 1. You can use it on [Gurubase.io](https://gurubase.io/) (or on Gurubase Self-hosted if you've installed it on your servers).
 2. You can embed an [Ask AI widget](https://github.com/gurubase/gurubase-widget) into your website.
 3. You can add a [Gurubase badge](#2-badge) to your GitHub repository README.
-4. We will release an API soon.
-
-### Are there Discord/Slack integrations?
-Yes! Gurubase offers both [Slack](https://docs.gurubase.ai/integrations/slack-bot) and [Discord](https://docs.gurubase.ai/integrations/discord-bot) integrations. You can connect your Guru to your workspace or server and interact with it directly in your chat channels.
+4. You can add a [Slack bot](#3-slack-bot) to your Slack workspace to ask questions in your channels.
+5. You can add a [Discord bot](#4-discord-bot) to your Discord server to ask questions in your channels.
+6. You can use it over [API](https://docs.gurubase.ai/api-reference/introduction) to integrate with your own applications.
 
 
 ### What is Binge?
@@ -414,14 +428,11 @@ Binge lets you:
 
 ### How often is data reindexed?
 - Manual reindexing available anytime. Check [How to Update Datasources](#how-to-update-datasources) section to learn more
-- Periodic reindexing will be available soon
+- GitHub repositories are reindexed automatically twice a day.
+- Periodic reindexing for all data sources will be available soon
 
 ### Is there an API available?
-A public API is in development. Features will include:
-- Question answering
-- Data source management
-- Analytics and usage stats
-Join our [Discord](https://discord.gg/9CMRSQPqx6) for API release updates.
+Yes, Gurubase offers a [public API](https://docs.gurubase.ai/api-reference/introduction) to interact with your Gurus.
 
 ### What's the license for self-hosted Gurubase?
 - Code is licensed under [Apache 2.0](LICENSE)
