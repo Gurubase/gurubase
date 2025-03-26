@@ -1425,14 +1425,28 @@ export default function NewGuru({ guruData, isProcessing }) {
     }
   }, [dirtyChanges.sources, initialFormValues, form.setValue]);
 
-  // Modify hasFormChanged to be a pure function
-  const hasFormChanged = useCallback(() => {
-    // Check for changes in sources
-    if (redirectingRef.current) return false;
-    if (dirtyChanges.sources.length > 0) return true;
-    if (dirtyChanges.guruUpdated) return true;
+  const [hasFormChanged, setHasFormChanged] = useState(false);
 
-    if (!initialFormValues) return false;
+  // Modify hasFormChanged to be a pure function
+  useEffect(() => {
+    // Check for changes in sources
+    if (redirectingRef.current) {
+      setHasFormChanged(false);
+      return;
+    }
+    if (dirtyChanges.sources.length > 0) {
+      setHasFormChanged(true);
+      return;
+    }
+    if (dirtyChanges.guruUpdated) {
+      setHasFormChanged(true);
+      return;
+    }
+
+    if (!initialFormValues) {
+      setHasFormChanged(false);
+      return;
+    }
 
     const currentValues = form.getValues();
     // Check for changes in basic fields
@@ -1446,9 +1460,12 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     // Check for changes in arrays (files, links, urls)
     const compareArrays = (arr1 = [], arr2 = []) => {
-      return (
+      if (
         JSON.stringify([...arr1].sort()) !== JSON.stringify([...arr2].sort())
-      );
+      ) {
+        setHasFormChanged(true);
+        return;
+      }
     };
 
     const sourcesChanged =
@@ -1464,7 +1481,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     const logoChanged = selectedFile !== null;
 
-    return basicFieldsChanged || sourcesChanged || logoChanged;
+    setHasFormChanged(basicFieldsChanged || sourcesChanged || logoChanged);
   }, [dirtyChanges, initialFormValues, selectedFile, form]);
 
   // Update form onChange to track guru info changes
@@ -1531,7 +1548,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Leave site? Changes you made may not be saved.
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (hasFormChanged()) {
+      if (hasFormChanged) {
         e.preventDefault();
         e.returnValue = ""; // Required for Chrome
       }
@@ -2666,7 +2683,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               </Table>
             </div>
             <div className="w-full">
-              {hasFormChanged() && isEditMode && !isUpdating && (
+              {hasFormChanged && isEditMode && !isUpdating && (
                 <PendingChangesIndicator />
               )}
               {(isUpdating || isPublishing || isSourcesProcessing) && (
@@ -2710,7 +2727,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                   isUpdating ||
                   isPublishing ||
                   isSourcesProcessing ||
-                  (customGuru && !hasFormChanged())
+                  (customGuru && !hasFormChanged)
                 }
                 size="lg"
                 type="submit">
