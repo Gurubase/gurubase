@@ -1149,6 +1149,9 @@ class Settings(models.Model):
         blank=True
     )
 
+    code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
+    package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
+
     @classmethod
     def get_default_embedding_model(cls):
         """

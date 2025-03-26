@@ -4,6 +4,7 @@ import logging
 from git import Repo
 from pathlib import Path
 from django.conf import settings
+from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 
 logger = logging.getLogger(__name__)
@@ -163,7 +164,12 @@ def read_repository(repo_path):
     """Get the directory structure and file contents of the repository."""
     structure = []
     logger.info(f"Reading repository {repo_path}")
-    
+
+    default_settings = get_default_settings()
+
+    package_manifest_files = set(default_settings.package_manifest_files) # Turn into set to optimize existence check
+    code_file_extensions = set(default_settings.code_file_extensions) # Turn into set to optimize existence check
+
     for root, dirs, files in os.walk(repo_path):
         # Skip .git directory
         if '.git' in dirs:
