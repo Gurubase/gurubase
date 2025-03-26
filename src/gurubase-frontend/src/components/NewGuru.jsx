@@ -507,7 +507,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               : "Website",
         name: source.title,
         type: source.type.toLowerCase(),
-        size: source.type === "PDF" ? "N/A" : "N/A",
+        size: source.type === "PDF" ? source.size : "N/A",
         url: source.url || "",
         status: source.status,
         last_reindex_date: source.last_reindex_date || "",
@@ -560,7 +560,7 @@ export default function NewGuru({ guruData, isProcessing }) {
           .map((s) => ({
             file: null,
             name: s.name,
-            size: 0
+            size: s.size
           }))
       );
     }
@@ -584,15 +584,17 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    const newSources = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      sources: "File",
-      name: file.name,
-      type: "pdf",
-      size: file.size,
-      file: file,
-      newAddedSource: true
-    }));
+    const newSources = files
+      .filter((file) => !sources.some((s) => s.name === file.name))
+      .map((file) => ({
+        id: Date.now() + Math.random(),
+        sources: "File",
+        name: file.name,
+        type: "pdf",
+        size: file.size,
+        file: file,
+        newAddedSource: true
+      }));
 
     setSources((prevSources) => [...prevSources, ...newSources]);
 
@@ -627,6 +629,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         shouldDirty: true
       }
     );
+
+    // Clear the file input's value to allow uploading the same file again
+    event.target.value = "";
   };
 
   const handleAddUrls = useCallback(
@@ -851,7 +856,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                     : "Website",
               name: source.title,
               type: source.type.toLowerCase(),
-              size: source.type === "PDF" ? "N/A" : "N/A",
+              size: source.type === "PDF" ? source.size : "N/A",
               url: source.url || "",
               status: source.status,
               error: source.error || "",
@@ -880,7 +885,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                 .map((s) => ({
                   file: null,
                   name: s.name,
-                  size: 0
+                  size: s.size
                 }))
             };
 
@@ -932,8 +937,82 @@ export default function NewGuru({ guruData, isProcessing }) {
     return await poll();
   };
 
+  const validateSourceLimits = (sources, dirtyChanges, customGuruData) => {
+    if (!customGuruData) return true;
+
+    if (isSelfHosted) return true;
+
+    // Get current counts and limits
+    const youtubeCount = sources.filter(
+      (s) => s.type.toLowerCase() === "youtube" && !s.deleted
+    ).length;
+    const websiteCount = sources.filter(
+      (s) => s.type.toLowerCase() === "website" && !s.deleted
+    ).length;
+
+    // Calculate PDF size
+    let currentPdfSize = sources
+      .filter(
+        (s) => s.type.toLowerCase() === "pdf" && !s.deleted && !s.newAddedSource
+      )
+      .reduce((total, pdf) => total + (pdf.size || 0), 0);
+
+    // Add new PDF sizes
+    const newPdfSize = dirtyChanges.sources
+      .filter((s) => s.type === "pdf" && s.newAddedSource && !s.deleted)
+      .reduce((total, pdf) => total + (pdf.size || 0), 0);
+
+    const pdfSizeMb = (currentPdfSize + newPdfSize) / 1024 / 1024;
+
+    // Check against limits
+    const youtubeLimit =
+      customGuruData.youtube_limit === undefined
+        ? Infinity
+        : customGuruData.youtube_limit;
+    const websiteLimit =
+      customGuruData.website_limit === undefined
+        ? Infinity
+        : customGuruData.website_limit;
+    const pdfSizeLimitMb =
+      customGuruData.pdf_size_limit_mb === undefined
+        ? Infinity
+        : customGuruData.pdf_size_limit_mb;
+
+    // Validate limits
+    if (youtubeCount > youtubeLimit) {
+      CustomToast({
+        message: `You have exceeded the YouTube source limit (${youtubeLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (websiteCount > websiteLimit) {
+      CustomToast({
+        message: `You have exceeded the website source limit (${websiteLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (pdfSizeMb > pdfSizeLimitMb) {
+      CustomToast({
+        message: `You have exceeded the PDF size limit (${pdfSizeLimitMb} MB).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const onSubmit = async (data) => {
     try {
+      // Check data source limits first
+      if (!validateSourceLimits(sources, dirtyChanges, customGuruData)) {
+        return;
+      }
+
       // Only validate files if there are new files being added
       const newFiles = dirtyChanges.sources.filter(
         (source) =>
@@ -1288,15 +1367,21 @@ export default function NewGuru({ guruData, isProcessing }) {
     // Find URLs that are both in deleted and added states
     const duplicateUrls = dirtyChanges.sources.reduce((acc, source) => {
       const url = source.url;
+      const id = source.id;
       const isDeleted = dirtyChanges.sources.some(
-        (s) => s.deleted && s.url === url
+        (s) => s.deleted && (s.type === "pdf" ? s.id === id : s.url === url)
       );
       const isAdded = dirtyChanges.sources.some(
-        (s) => s.newAddedSource && s.url === url
+        (s) =>
+          s.newAddedSource && (s.type === "pdf" ? s.id === id : s.url === url)
       );
 
       if (isDeleted && isAdded) {
-        acc.add(url);
+        if (source.type === "pdf") {
+          acc.add(id);
+        } else {
+          acc.add(url);
+        }
       }
 
       return acc;
@@ -1306,7 +1391,13 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (duplicateUrls.size > 0) {
       setDirtyChanges((prev) => ({
         ...prev,
-        sources: prev.sources.filter((source) => !duplicateUrls.has(source.url))
+        sources: prev.sources.filter((source) => {
+          if (source.type === "pdf") {
+            return !duplicateUrls.has(source.id);
+          } else {
+            return !duplicateUrls.has(source.url);
+          }
+        })
       }));
 
       return;
@@ -1339,14 +1430,28 @@ export default function NewGuru({ guruData, isProcessing }) {
     }
   }, [dirtyChanges.sources, initialFormValues, form.setValue]);
 
-  // Modify hasFormChanged to be a pure function
-  const hasFormChanged = useCallback(() => {
-    // Check for changes in sources
-    if (redirectingRef.current) return false;
-    if (dirtyChanges.sources.length > 0) return true;
-    if (dirtyChanges.guruUpdated) return true;
+  const [hasFormChanged, setHasFormChanged] = useState(false);
 
-    if (!initialFormValues) return false;
+  // Modify hasFormChanged to be a pure function
+  useEffect(() => {
+    // Check for changes in sources
+    if (redirectingRef.current) {
+      setHasFormChanged(false);
+      return;
+    }
+    if (dirtyChanges.sources.length > 0) {
+      setHasFormChanged(true);
+      return;
+    }
+    if (dirtyChanges.guruUpdated) {
+      setHasFormChanged(true);
+      return;
+    }
+
+    if (!initialFormValues) {
+      setHasFormChanged(false);
+      return;
+    }
 
     const currentValues = form.getValues();
     // Check for changes in basic fields
@@ -1360,9 +1465,12 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     // Check for changes in arrays (files, links, urls)
     const compareArrays = (arr1 = [], arr2 = []) => {
-      return (
+      if (
         JSON.stringify([...arr1].sort()) !== JSON.stringify([...arr2].sort())
-      );
+      ) {
+        setHasFormChanged(true);
+        return;
+      }
     };
 
     const sourcesChanged =
@@ -1378,7 +1486,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     const logoChanged = selectedFile !== null;
 
-    return basicFieldsChanged || sourcesChanged || logoChanged;
+    setHasFormChanged(basicFieldsChanged || sourcesChanged || logoChanged);
   }, [dirtyChanges, initialFormValues, selectedFile, form]);
 
   // Update form onChange to track guru info changes
@@ -1445,7 +1553,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Leave site? Changes you made may not be saved.
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (hasFormChanged()) {
+      if (hasFormChanged) {
         e.preventDefault();
         e.returnValue = ""; // Required for Chrome
       }
@@ -2580,7 +2688,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               </Table>
             </div>
             <div className="w-full">
-              {hasFormChanged() && isEditMode && !isUpdating && (
+              {hasFormChanged && isEditMode && !isUpdating && (
                 <PendingChangesIndicator />
               )}
               {(isUpdating || isPublishing || isSourcesProcessing) && (
@@ -2624,7 +2732,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                   isUpdating ||
                   isPublishing ||
                   isSourcesProcessing ||
-                  (customGuru && !hasFormChanged())
+                  (customGuru && !hasFormChanged)
                 }
                 size="lg"
                 type="submit">

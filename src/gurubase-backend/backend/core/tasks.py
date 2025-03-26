@@ -8,7 +8,7 @@ from celery import shared_task
 from django.db import models
 import redis
 import requests
-from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
+from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
 from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
@@ -417,11 +417,18 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 data_source.user_error = str(e)
                 data_source.save()
                 continue
+            except YouTubeContentExtractionError as e:
+                logger.warning(f"Error while fetching YouTube data source: {e}")
+                data_source.status = DataSource.Status.FAIL
+                data_source.error = str(e)
+                data_source.user_error = str(e)
+                data_source.save()
+                continue
             except Exception as e:
                 logger.error(f"Error while fetching data source: {traceback.format_exc()}")
                 data_source.status = DataSource.Status.FAIL
                 data_source.error = str(e)
-                data_source.user_error = str(e)
+                data_source.user_error = "Error while fetching data source"
                 data_source.save()
                 continue
             

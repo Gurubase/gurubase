@@ -1,10 +1,54 @@
 import { toast } from "sonner";
-import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const CustomToast = ({ message, variant = "default", duration = 3000, action }) => {
-  toast(message, {
-    duration: duration,
+export const CustomToast = ({
+  message,
+  variant = "default",
+  duration = 3000,
+  action
+}) => {
+  let toastId;
+  let visibleStartTime = null;
+  let elapsed = 0;
+  let interval;
+
+  const startTracking = () => {
+    visibleStartTime = Date.now();
+    interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        const now = Date.now();
+        elapsed += now - visibleStartTime;
+        visibleStartTime = now;
+
+        if (elapsed >= duration) {
+          toast.dismiss(toastId);
+          cleanup();
+        }
+      }
+    }, 100); // Check every 100ms
+  };
+
+  const stopTracking = () => {
+    clearInterval(interval);
+    visibleStartTime = null;
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      visibleStartTime = Date.now();
+      startTracking();
+    } else {
+      stopTracking();
+    }
+  };
+
+  const cleanup = () => {
+    stopTracking();
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+  };
+
+  toastId = toast(message, {
+    duration: Infinity,
     className: cn(
       "guru-toast",
       variant === "success" && "guru-toast-success",
@@ -14,7 +58,12 @@ export const CustomToast = ({ message, variant = "default", duration = 3000, act
     ),
     action: action && {
       label: action.label,
-      onClick: action.onClick,
-    },
+      onClick: action.onClick
+    }
   });
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  if (document.visibilityState === "visible") {
+    startTracking();
+  }
 };
