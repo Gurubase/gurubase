@@ -1362,15 +1362,21 @@ export default function NewGuru({ guruData, isProcessing }) {
     // Find URLs that are both in deleted and added states
     const duplicateUrls = dirtyChanges.sources.reduce((acc, source) => {
       const url = source.url;
+      const id = source.id;
       const isDeleted = dirtyChanges.sources.some(
-        (s) => s.deleted && s.url === url
+        (s) => s.deleted && (s.type === "pdf" ? s.id === id : s.url === url)
       );
       const isAdded = dirtyChanges.sources.some(
-        (s) => s.newAddedSource && s.url === url
+        (s) =>
+          s.newAddedSource && (s.type === "pdf" ? s.id === id : s.url === url)
       );
 
       if (isDeleted && isAdded) {
-        acc.add(url);
+        if (source.type === "pdf") {
+          acc.add(id);
+        } else {
+          acc.add(url);
+        }
       }
 
       return acc;
@@ -1380,7 +1386,13 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (duplicateUrls.size > 0) {
       setDirtyChanges((prev) => ({
         ...prev,
-        sources: prev.sources.filter((source) => !duplicateUrls.has(source.url))
+        sources: prev.sources.filter((source) => {
+          if (source.type === "pdf") {
+            return !duplicateUrls.has(source.id);
+          } else {
+            return !duplicateUrls.has(source.url);
+          }
+        })
       }));
 
       return;
