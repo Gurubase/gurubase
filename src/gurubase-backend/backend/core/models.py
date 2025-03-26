@@ -478,10 +478,6 @@ class GuruType(models.Model):
         Returns (bool, str) tuple - (is_allowed, error_message)
         """
         if settings.ENV != 'selfhosted':
-            # Admin users bypass all limits
-            if user.is_admin:
-                return True, None
-
             # Check if user is maintainer
             if not self.maintainers.filter(id=user.id).exists():
                 return False, "You don't have permission to add data sources to this guru type"
