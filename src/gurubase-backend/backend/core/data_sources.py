@@ -48,6 +48,8 @@ def youtube_content_extraction(youtube_url):
     except NoTranscriptFound as e:
         logger.error(f"No transcript found for YouTube URL {youtube_url}")
         raise YouTubeContentExtractionError(f"No transcript found for the YouTube URL")
+    except YouTubeContentExtractionError as e:
+        raise e
     except Exception as e:
         logger.error(f"Error extracting content from YouTube URL {youtube_url}: {traceback.format_exc()}")
         raise YouTubeContentExtractionError(f"Error extracting content from the YouTube URL")
