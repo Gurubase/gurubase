@@ -584,15 +584,17 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    const newSources = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      sources: "File",
-      name: file.name,
-      type: "pdf",
-      size: file.size,
-      file: file,
-      newAddedSource: true
-    }));
+    const newSources = files
+      .filter((file) => !sources.some((s) => s.name === file.name))
+      .map((file) => ({
+        id: Date.now() + Math.random(),
+        sources: "File",
+        name: file.name,
+        type: "pdf",
+        size: file.size,
+        file: file,
+        newAddedSource: true
+      }));
 
     setSources((prevSources) => [...prevSources, ...newSources]);
 
@@ -627,6 +629,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         shouldDirty: true
       }
     );
+
+    // Clear the file input's value to allow uploading the same file again
+    event.target.value = "";
   };
 
   const handleAddUrls = useCallback(
