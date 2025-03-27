@@ -2953,113 +2953,101 @@ def fetch_youtube_channel_api(request):
 
 @api_view(['POST', 'GET'])
 def github_webhook(request):
-    if request.method == 'POST':
-        event_type = find_github_event_type(request.data)
-        if event_type is None:
-            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+    if request.method != 'POST':
+        return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-        if event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT, GithubEvent.PULL_REQUEST_OPENED]:
-            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+    event_type = find_github_event_type(request.data)
+    if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT, GithubEvent.PULL_REQUEST_OPENED]:
+        return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-        bot_name = 'gurubase'
-            
-        data = request.data
-        handler = GithubAppHandler()
-        installation_id = data.get('installation', {}).get('id')
+    bot_name = 'gurubase'
+    data = request.data
+    handler = GithubAppHandler()
+    installation_id = data.get('installation', {}).get('id')
+    
+    if not installation_id:
+        logger.error("No installation ID found in webhook payload")
+        return Response({'message': 'No installation ID found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Map event types to their data extraction functions
+    event_handlers = {
+        GithubEvent.DISCUSSION_OPENED: lambda d: {
+            'discussion_id': d.get('discussion', {}).get('node_id'),
+            'body': d.get('discussion', {}).get('body', ''),
+            'user': d.get('discussion', {}).get('user', {}).get('login', ''),
+            'api_url': None,
+            'reply_to_id': None
+        },
+        GithubEvent.DISCUSSION_COMMENT: lambda d: {
+            'discussion_id': d.get('discussion', {}).get('node_id'),
+            'body': d.get('comment', {}).get('body', ''),
+            'user': d.get('comment', {}).get('user', {}).get('login', ''),
+            'api_url': None,
+            'reply_to_id': d.get('comment', {}).get('node_id')
+        },
+        GithubEvent.ISSUE_OPENED: lambda d: {
+            'discussion_id': None,
+            'body': d.get('issue', {}).get('body', ''),
+            'user': d.get('issue', {}).get('user', {}).get('login', ''),
+            'api_url': d.get('issue', {}).get('url'),
+            'reply_to_id': None
+        },
+        GithubEvent.ISSUE_COMMENT: lambda d: {
+            'discussion_id': None,
+            'body': d.get('comment', {}).get('body', ''),
+            'user': d.get('comment', {}).get('user', {}).get('login', ''),
+            'api_url': d.get('issue', {}).get('url'),
+            'reply_to_id': None
+        },
+        GithubEvent.PULL_REQUEST_OPENED: lambda d: {
+            'discussion_id': None,
+            'body': d.get('pull_request', {}).get('body', ''),
+            'user': d.get('pull_request', {}).get('user', {}).get('login', ''),
+            'api_url': d.get('pull_request', {}).get('url', '').replace('pulls', 'issues'),
+            'reply_to_id': None
+        }
+    }
+
+    try:
+        # Extract event data using the appropriate handler
+        event_data = event_handlers[event_type](data)
         
-        if not installation_id:
-            logger.error("No installation ID found in webhook payload")
-            return Response({'message': 'No installation ID found'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            if event_type == GithubEvent.DISCUSSION_OPENED:
-                # Get discussion details
-                discussion = data.get('discussion', {})
-                discussion_id = discussion.get('node_id')
-                body = discussion.get('body', '')
-                user = discussion.get('user', {}).get('login', '')
-                
-                if discussion_id and handler.check_mentioned(body, bot_name):
-                    formatted_response = handler.format_github_response(body, user)
-                    handler.create_discussion_comment(
-                        discussion_id=discussion_id,
-                        body=formatted_response,
-                        installation_id=installation_id
-                    )
-                    
-            elif event_type == GithubEvent.DISCUSSION_COMMENT:
-                # Get discussion and comment details
-                discussion = data.get('discussion', {})
-                comment = data.get('comment', {})
-                discussion_id = discussion.get('node_id')
-                comment_node_id = comment.get('node_id')
-                comment_body = comment.get('body', '')
-                user = comment.get('user', {}).get('login', '')
-                
-                # Check if the comment is from the bot to avoid self-replies and contains @gurubase mention
-                if handler.check_mentioned(comment_body, bot_name):
-                    # If there's a parent_id, we need to get its node_id
-                    parent_id = comment.get('parent_id')
-                    if parent_id:
-                        # Get the parent comment's node_id using the GitHub API
-                        try:
-                            parent_comment_id = handler.get_discussion_comment(comment_node_id, installation_id)
-                            if parent_comment_id:
-                                reply_to_id = parent_comment_id
-                            else:
-                                reply_to_id = None
-                        except Exception as e:
-                            logger.error(f"Error fetching parent comment: {e}", exc_info=True)
-                            reply_to_id = None
-                    else:
-                        reply_to_id = comment.get('node_id')
-                    
-                    if discussion_id and reply_to_id:
-                        formatted_response = handler.format_github_response(comment_body, user)
-                        handler.create_discussion_comment(
-                            discussion_id=discussion_id,
-                            body=formatted_response,
-                            installation_id=installation_id,
-                            reply_to_id=reply_to_id
-                        )
-                        
-            elif event_type == GithubEvent.ISSUE_OPENED:
-                # Handle issue opened event
-                issue = data.get('issue', {})
-                api_url = issue.get('url')
-                body = issue.get('body', '')
-                user = issue.get('user', {}).get('login', '')
-                
-                if api_url and handler.check_mentioned(body, bot_name):
-                    formatted_response = handler.format_github_response(body, user)
-                    handler.respond_to_github_issue_event(api_url, installation_id, formatted_response)
-                    
-            elif event_type == GithubEvent.ISSUE_COMMENT:
-                # Handle issue comment event
-                issue = data.get('issue', {})
-                comment = data.get('comment', {})
-                api_url = issue.get('url')
-                comment_body = comment.get('body', '')
-                user = comment.get('user', {}).get('login', '')
-                
-                if api_url and handler.check_mentioned(comment_body, bot_name):
-                    formatted_response = handler.format_github_response(comment_body, user)
-                    handler.respond_to_github_issue_event(api_url, installation_id, formatted_response)
+        if not handler.check_mentioned(event_data['body'], bot_name):
+            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-            elif event_type == GithubEvent.PULL_REQUEST_OPENED:
-                pull_request = data.get('pull_request', {})
-                api_url = pull_request.get('url')
-                body = pull_request.get('body', '')
-                user = pull_request.get('user', {}).get('login', '')
-                
-                if api_url and handler.check_mentioned(body, bot_name):
-                    updated_api_url = api_url.replace('pulls', 'issues')
-                    formatted_response = handler.format_github_response(body, user)
-                    handler.respond_to_github_issue_event(updated_api_url, installation_id, formatted_response)                
-                    
-        except Exception as e:
-            logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)
-            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        formatted_response = handler.format_github_response(event_data['body'], event_data['user'])
+
+        # Handle discussion events
+        if event_data['discussion_id']:
+            if event_type == GithubEvent.DISCUSSION_COMMENT and event_data['reply_to_id']:
+                # For discussion comments, we need to get the parent comment's node_id
+                try:
+                    parent_comment_id = handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
+                    if parent_comment_id:
+                        event_data['reply_to_id'] = parent_comment_id
+                    else:
+                        event_data['reply_to_id'] = None
+                except Exception as e:
+                    logger.error(f"Error fetching parent comment: {e}", exc_info=True)
+                    event_data['reply_to_id'] = None
+
+            handler.create_discussion_comment(
+                discussion_id=event_data['discussion_id'],
+                body=formatted_response,
+                installation_id=installation_id,
+                reply_to_id=event_data['reply_to_id']
+            )
+        # Handle issue/PR events
+        elif event_data['api_url']:
+            handler.respond_to_github_issue_event(
+                event_data['api_url'],
+                installation_id,
+                formatted_response
+            )
+
+    except Exception as e:
+        logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)
+        return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
