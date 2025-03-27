@@ -35,6 +35,7 @@ class Question(models.Model):
         API = "API"
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     slug = models.SlugField(max_length=1500)
     question = models.TextField()
@@ -1688,6 +1689,7 @@ class Integration(models.Model):
     class Type(models.TextChoices):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     type = models.CharField(
         max_length=50,

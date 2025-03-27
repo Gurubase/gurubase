@@ -1306,7 +1306,7 @@ def get_binges(request):
     
     page_size = settings.BINGE_HISTORY_PAGE_SIZE
 
-    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK])
+    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK, Question.Source.GITHUB])
     
     # Base queryset
     if settings.ENV == 'selfhosted' or user.is_admin:

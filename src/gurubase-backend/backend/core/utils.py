@@ -2712,9 +2712,9 @@ def check_binge_auth(binge, user):
     if user and user.is_authenticated and user.is_admin:
         return True
     
-    # Allow access to SLACK and DISCORD questions for everyone
+    # Allow access to SLACK, DISCORD, and GITHUB questions for everyone
     root_question = binge.root_question
-    if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value]:
+    if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value]:
         return True
 
     if not root_question:
@@ -2748,7 +2748,7 @@ def search_question(
             # For anonymous users
             # API requests are not allowed
             # Widget requests are allowed
-            # SLACK and DISCORD questions are allowed
+            # SLACK, DISCORD, and GITHUB questions are allowed
             if only_widget:
                 return Q(source__in=[Question.Source.WIDGET_QUESTION.value])
             else:
@@ -2767,7 +2767,7 @@ def search_question(
                     return (
                         ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]) |
                         Q(source__in=[Question.Source.API.value], user=user) |
-                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value])
+                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value])
                     )
                 else:
                     return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])
@@ -3030,10 +3030,11 @@ class APIType:
     WIDGET = 'WIDGET'
     DISCORD = 'DISCORD'
     SLACK = 'SLACK'
+    GITHUB = 'GITHUB'
 
     @classmethod
     def is_api_type(cls, api_type: str) -> bool:
-        return api_type in [cls.API, cls.DISCORD, cls.SLACK]
+        return api_type in [cls.API, cls.DISCORD, cls.SLACK, cls.GITHUB]
 
     @classmethod
     def get_question_source(cls, api_type: str) -> str:
@@ -3042,6 +3043,7 @@ class APIType:
             cls.API: Question.Source.API.value,
             cls.DISCORD: Question.Source.DISCORD.value,
             cls.SLACK: Question.Source.SLACK.value,
+            cls.GITHUB: Question.Source.GITHUB.value,
         }[api_type]
 
 def api_ask(question: str, 
@@ -3061,7 +3063,7 @@ def api_ask(question: str,
         binge (Binge): The binge to simulate the summary and answer for.
         parent (Question): The parent question.
         fetch_existing (bool): Whether to fetch the existing question data.
-        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK).
+        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK, GITHUB).
         user (User): The user making the request.
     
     Returns:
@@ -3071,7 +3073,7 @@ def api_ask(question: str,
     is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
-    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
+    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API, APIType.GITHUB]:
         short_answer = True
 
     include_api = is_api

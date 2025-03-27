@@ -222,6 +222,8 @@ def api_key_auth(view_func):
                 request.api_type = APIType.DISCORD
             elif integration.type == Integration.Type.SLACK:
                 request.api_type = APIType.SLACK
+            elif integration.type == Integration.Type.GITHUB:
+                request.api_type = APIType.GITHUB
             else:
                 request.api_type = APIType.API
         else:
