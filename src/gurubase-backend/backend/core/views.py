@@ -3008,6 +3008,23 @@ def github_webhook(request):
         }
     }
 
+    # Try to get integration from cache first
+    cache = caches['alternate']
+    cache_key = f"github_integration:{installation_id}"
+    integration = cache.get(cache_key)
+    
+    if not integration:
+        try:
+            # If not in cache, get from database
+            integration = Integration.objects.get(type=Integration.Type.GITHUB, external_id=installation_id)
+            # Set cache timeout to 0. This is because dynamic updates are not immediately reflected
+            # And this may result in bad UX, and false positive bug reports
+            cache.set(cache_key, integration, timeout=0)
+        except Integration.DoesNotExist:
+            logger.error(f"No integration found for installation {installation_id}", exc_info=True)
+            return Response({'message': 'No integration found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    guru_type_object = integration.guru_type
     try:
         # Extract event data using the appropriate handler
         event_data = event_handlers[event_type](data)
@@ -3015,7 +3032,38 @@ def github_webhook(request):
         if not handler.check_mentioned(event_data['body'], bot_name):
             return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-        formatted_response = handler.format_github_response(event_data['body'], event_data['user'])
+        binge = create_fresh_binge(guru_type_object, None)
+        # Get the guru type from the integration
+        guru_type = integration.guru_type.slug
+        
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        # Prepare payload for the API
+        payload = {
+            'question': event_data['body'],
+            'stream': False,
+            'short_answer': True,
+            'fetch_existing': False,
+            'session_id': binge.id
+        }
+        
+        # Create request with API key from integration
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=integration.api_key.key,
+            format='json'
+        )
+        
+        # Call api_answer directly
+        response = api_answer(request, guru_type)
+        
+        if response.status_code != 200:
+            logger.error(f"Error getting answer from API: {response.data}")
+            return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        formatted_response = response.data.get('content', '')
 
         # Handle discussion events
         if event_data['discussion_id']:
@@ -3058,12 +3106,11 @@ def github_auth(request):
         print(data)
     else:
         try:
-            code = request.query_params.get('code')[0]
-            installation_id = request.query_params.get('installation_id')[0]
-            setup_action = request.query_params.get('setup_action')[0]
-            print(code, installation_id, setup_action)
+            code = request.query_params.get('code')
+            installation_id = request.query_params.get('installation_id')
+            setup_action = request.query_params.get('setup_action')
+            print(f'Code: {code}, Installation ID: {installation_id}, Setup Action: {setup_action}. Use the installation id as external_id in integrations page with your desired guru type to create one.')
         except Exception as e:
             print(e)
-        print(request.query_params)
     return Response({'message': 'Auth received'}, status=status.HTTP_200_OK)
             

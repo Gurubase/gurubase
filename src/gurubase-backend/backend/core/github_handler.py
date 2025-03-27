@@ -611,7 +611,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
 
-    def format_github_response(self, body: str, user: str) -> str:
+    def format_github_response(self, body: str, user: str, formatted_answer: str) -> str:
         """Format a GitHub response in the specified format.
         
         Args:
@@ -635,7 +635,7 @@ class GithubAppHandler:
 Hey @{user}
 Here is my answer:
 
-I got your message!"""
+{formatted_answer}"""
 
     def check_mentioned(self, body: str, user: str) -> bool:
         """Check if the user is mentioned in the body. However, it could be mentioning to itself like > @gurubase. Ignore these. Its line should not start with >"""
