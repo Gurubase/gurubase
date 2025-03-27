@@ -152,6 +152,7 @@ class AnalyticsService:
                 {'value': 'api', 'label': 'API'},
                 {'value': 'discord', 'label': 'Discord'},
                 {'value': 'slack', 'label': 'Slack'},
+                {'value': 'github', 'label': 'GitHub'},
             ]
         elif metric_type == 'referenced_sources':
             filters = [
