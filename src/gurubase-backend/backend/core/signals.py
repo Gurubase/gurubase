@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import string
 import requests
 from django.db.models.signals import pre_delete, post_delete, post_save, pre_save
 from django.conf import settings
@@ -818,7 +820,7 @@ def create_api_key_for_integration(sender, instance, **kwargs):
 
         api_key = APIKey.objects.create(
             user=user,
-            key=secrets.token_urlsafe(32),
+            key="gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30)),
             integration=True
         )
         instance.api_key = api_key
