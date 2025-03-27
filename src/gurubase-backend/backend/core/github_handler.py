@@ -1,11 +1,24 @@
+import enum
 import os
 import tempfile
 import logging
+import time
+import redis
+import jwt
 from git import Repo
 from pathlib import Path
 from django.conf import settings
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
+import requests
+
+redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=0,
+    charset="utf-8",
+    decode_responses=True,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -287,3 +300,312 @@ def process_github_repository(data_source):
         raise e
     except Exception as e:
         raise GitHubRepoContentExtractionError(f"Error processing GitHub repository: {str(e)}")
+
+class GithubEvent(enum.Enum):
+    # Reopens are not caught as comments are caught separately
+    ISSUE_OPENED = "issue_opened"
+    ISSUE_COMMENT = "issue_comment"
+
+    DISCUSSION_OPENED = "discussion_opened"
+    DISCUSSION_COMMENT = "discussion_comment"
+
+    PULL_REQUEST_OPENED = "pull_request_opened"
+    PULL_REQUEST_COMMENT = "pull_request_comment"
+
+    PULL_REQUEST_REVIEW_COMMENT = "pull_request_review_comment"
+    # PULL_REQUEST_REVIEW_REOPENED = "pull_request_review_reopened"
+
+    PULL_REQUEST_REVIEW_REQUESTED = "pull_request_review_requested"
+    # PULL_REQUEST_REVIEW_REQUESTED_REOPENED = "pull_request_review_requested_reopened"
+
+def find_github_event_type(data):
+    if 'issue' in data:
+        if 'comment' in data and data.get('action') == 'created':
+            return GithubEvent.ISSUE_COMMENT
+        elif data.get('action') == 'opened':
+            return GithubEvent.ISSUE_OPENED
+    elif 'discussion' in data:
+        if 'comment' in data and data.get('action') == 'created':
+            return GithubEvent.DISCUSSION_COMMENT
+        elif data.get('action') == 'opened':
+            return GithubEvent.DISCUSSION_OPENED
+    elif 'pull_request' in data:
+        if 'comment' in data and data.get('action') == 'created':
+            return GithubEvent.PULL_REQUEST_COMMENT
+        elif data.get('action') == 'opened':
+            return GithubEvent.PULL_REQUEST_OPENED
+    else:
+        return None
+
+class GithubAppHandler:
+    def __init__(self):
+        self.redis_client = redis_client
+        self.jwt_key = "github_app_jwt"
+        self.installation_jwt_key = "github_installation_jwt"
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.pem_path = os.path.join(self.base_path, "..", "github", "github.pem")
+        self.client_id = settings.GITHUB_APP_CLIENT_ID
+        self.github_api_url = "https://api.github.com"
+        self.github_graphql_url = "https://api.github.com/graphql"
+
+    def _get_or_create_app_jwt(self):
+        """Get existing JWT from Redis or create a new one if expired/missing."""
+        # Try to get existing JWT from Redis
+        existing_jwt = self.redis_client.get(self.jwt_key)
+        if existing_jwt:
+            try:
+                # Verify the token is still valid
+                jwt.decode(
+                    existing_jwt, 
+                    options={"verify_signature": False}
+                )
+                return existing_jwt.decode('utf-8')
+            except jwt.ExpiredSignatureError:
+                # Token expired, will generate new one
+                pass
+            except Exception as e:
+                logger.error(f"Error decoding JWT: {e}")
+                
+        # Generate new JWT
+        try:
+            with open(self.pem_path, 'rb') as pem_file:
+                signing_key = pem_file.read()
+
+            payload = {
+                'iat': int(time.time()),
+                'exp': int(time.time()) + 600,  # 10 minutes expiration
+                'iss': self.client_id
+            }
+
+            # Create new JWT
+            encoded_jwt = jwt.encode(payload, signing_key, algorithm='RS256')
+            
+            # Store in Redis with TTL of 9 minutes (slightly less than JWT expiration)
+            self.redis_client.setex(
+                self.jwt_key,
+                540,  # 9 minutes in seconds
+                encoded_jwt if isinstance(encoded_jwt, bytes) else encoded_jwt.encode('utf-8')
+            )
+            
+            return encoded_jwt if isinstance(encoded_jwt, str) else encoded_jwt.decode('utf-8')
+
+        except Exception as e:
+            logger.error(f"Error generating GitHub App JWT: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to generate GitHub App JWT: {str(e)}")
+
+    def _get_or_create_installation_jwt(self, installation_id):
+        """Get existing installation access token from Redis or create a new one if expired/missing."""
+        redis_key = f'{self.installation_jwt_key}_{installation_id}'
+        # Try to get existing installation token from Redis
+        existing_token = self.redis_client.get(redis_key)
+        if existing_token:
+            try:
+                # Verify the token is still valid
+                token_data = jwt.decode(
+                    existing_token, 
+                    options={"verify_signature": False}
+                )
+                # Check if token is expired or about to expire (within 5 minutes)
+                if token_data.get('exp', 0) > int(time.time()) + 300:
+                    return existing_token.decode('utf-8')
+            except Exception as e:
+                logger.error(f"Error decoding installation token: {e}")
+
+        # Get a new app JWT
+        app_jwt = self._get_or_create_app_jwt()
+
+        try:
+            # Request new installation access token
+            response = requests.post(
+                f"https://api.github.com/app/installations/{installation_id}/access_tokens",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {app_jwt}",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            response.raise_for_status()
+            token_data = response.json()
+            
+            # Store in Redis with TTL of 55 minutes (slightly less than 1 hour expiration)
+            self.redis_client.setex(
+                redis_key,
+                3300,  # 55 minutes in seconds
+                token_data['token']
+            )
+            
+            return token_data['token']
+
+        except Exception as e:
+            logger.error(f"Error getting GitHub installation access token: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to get GitHub installation access token: {str(e)}")
+
+    def respond_to_github_issue_event(self, api_url, installation_id):
+        installation_jwt = self._get_or_create_installation_jwt(installation_id)
+
+        response = requests.post(
+            f"{api_url}/comments",
+            headers={
+                "Authorization": f"Bearer {installation_jwt}",
+                "X-GitHub-Api-Version": "2022-11-28"
+            },
+            json={
+                "body": "I got your message!"
+            }
+        )
+
+        response.raise_for_status()
+
+    def create_discussion_comment(self, discussion_id: str, body: str, installation_id: str, reply_to_id: str = None):
+        """Create a comment on a GitHub discussion using GraphQL API.
+        
+        Args:
+            discussion_id (str): The node ID of the discussion to comment on
+            body (str): The content of the comment
+            installation_id (str): The GitHub App installation ID
+            reply_to_id (str, optional): The node ID of the discussion comment to reply to
+            
+        Returns:
+            dict: The created comment data from GitHub API
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get installation access token
+            installation_jwt = self._get_or_create_installation_jwt(installation_id)
+            
+            # Prepare the GraphQL mutation
+            mutation = """
+            mutation AddDiscussionComment($discussionId: ID!, $body: String!, $replyToId: ID) {
+                addDiscussionComment(input: {
+                    discussionId: $discussionId,
+                    body: $body,
+                    replyToId: $replyToId
+                }) {
+                    comment {
+                        id
+                        body
+                        createdAt
+                        author {
+                            login
+                        }
+                        replyTo {
+                            id
+                        }
+                    }
+                }
+            }
+            """
+            
+            # Prepare variables
+            variables = {
+                "discussionId": discussion_id,
+                "body": body,
+                "replyToId": reply_to_id
+            }
+            
+            # Make the GraphQL request
+            response = requests.post(
+                self.github_graphql_url,
+                headers={
+                    "Authorization": f"Bearer {installation_jwt}",
+                    "Content-Type": "application/json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                },
+                json={
+                    "query": mutation,
+                    "variables": variables
+                }
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            # Check for GraphQL errors
+            if "errors" in result:
+                error_msg = result["errors"][0]["message"]
+                logger.error(f"GraphQL error creating discussion comment: {error_msg}")
+                raise GitHubRepoContentExtractionError(f"Failed to create discussion comment: {error_msg}")
+            
+            return result["data"]["addDiscussionComment"]["comment"]
+            
+        except Exception as e:
+            logger.error(f"Error creating discussion comment: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to create discussion comment: {str(e)}")
+
+    def get_discussion_comment(self, comment_node_id: str, installation_id: str) -> str:
+        """Get a discussion comment's details using the GitHub API.
+        
+        Args:
+            discussion_id (str): The node ID of the discussion
+            comment_node_id (str): The node ID of the comment to fetch
+            installation_id (str): The GitHub App installation ID
+            
+        Returns:
+            dict: The comment data from GitHub API
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get installation access token
+            installation_jwt = self._get_or_create_installation_jwt(installation_id)
+            
+            # Prepare the GraphQL query
+            query = """
+            query GetDiscussionComment($commentId: ID!) {
+                node(id: $commentId) {
+                    ... on DiscussionComment {
+                        id
+                        body
+                        replyTo {
+                            id
+                            body
+                            replyTo {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+            """
+            
+            # Convert the numeric ID to a node ID format
+            
+            # Prepare variables
+            variables = {
+                "commentId": comment_node_id
+            }
+            
+            # Make the GraphQL request
+            response = requests.post(
+                self.github_graphql_url,
+                headers={
+                    "Authorization": f"Bearer {installation_jwt}",
+                    "Content-Type": "application/json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                },
+                json={
+                    "query": query,
+                    "variables": variables
+                }
+            )
+            
+            response.raise_for_status()
+            result = response.json()
+            
+            # Check for GraphQL errors
+            if "errors" in result:
+                error_msg = result["errors"][0]["message"]
+                logger.error(f"GraphQL error fetching discussion comment: {error_msg}")
+                raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {error_msg}")
+
+            if 'data' not in result or 'node' not in result['data'] or 'replyTo' not in result['data']['node'] or 'id' not in result['data']['node']['replyTo']:
+                return None
+            
+            return result['data']["node"]["replyTo"]["id"]
+            
+        except Exception as e:
+            logger.error(f"Error fetching discussion comment: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")

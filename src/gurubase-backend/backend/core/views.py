@@ -10,6 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
+from core.github_handler import GithubAppHandler, GithubEvent, find_github_event_type
 from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
@@ -2949,3 +2950,118 @@ def fetch_youtube_channel_api(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(data, status=return_status)
+
+@api_view(['POST', 'GET'])
+def github_webhook(request):
+    if request.method == 'POST':
+        event_type = find_github_event_type(request.data)
+        if event_type is None:
+            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+            
+        data = request.data
+        handler = GithubAppHandler()
+        installation_id = data.get('installation', {}).get('id')
+        
+        if not installation_id:
+            logger.error("No installation ID found in webhook payload")
+            return Response({'message': 'No installation ID found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            if event_type == GithubEvent.DISCUSSION_OPENED:
+                # Get discussion details
+                discussion = data.get('discussion', {})
+                discussion_id = discussion.get('node_id')
+                body = discussion.get('body', '')
+                
+                if discussion_id and '@gurubase' in body.lower():
+                    handler.create_discussion_comment(
+                        discussion_id=discussion_id,
+                        body="👋 Hello! I'm your Guru assistant. I'll help you with any questions or discussions you have.",
+                        installation_id=installation_id
+                    )
+                    
+            elif event_type == GithubEvent.DISCUSSION_COMMENT:
+                # Get discussion and comment details
+                discussion = data.get('discussion', {})
+                comment = data.get('comment', {})
+                discussion_id = discussion.get('node_id')
+                comment_node_id = comment.get('node_id')
+                comment_body = comment.get('body', '')
+                
+                # Check if the comment is from the bot to avoid self-replies and contains @gurubase mention
+                if '@gurubase' in comment_body.lower():
+                    # If there's a parent_id, we need to get its node_id
+                    parent_id = comment.get('parent_id')
+                    if parent_id:
+                        # Get the parent comment's node_id using the GitHub API
+                        try:
+                            parent_comment_id = handler.get_discussion_comment(comment_node_id, installation_id)
+                            if parent_comment_id:
+                                reply_to_id = parent_comment_id
+                            else:
+                                reply_to_id = None
+                        except Exception as e:
+                            logger.error(f"Error fetching parent comment: {e}", exc_info=True)
+                            reply_to_id = None
+                    else:
+                        reply_to_id = comment.get('node_id')
+                    
+                    if discussion_id and reply_to_id:
+                        handler.create_discussion_comment(
+                            discussion_id=discussion_id,
+                            body="I've received your message and will help you with that!",
+                            installation_id=installation_id,
+                            reply_to_id=reply_to_id
+                        )
+                        
+            elif event_type == GithubEvent.ISSUE_OPENED:
+                # Handle issue opened event
+                issue = data.get('issue', {})
+                api_url = issue.get('url')
+                body = issue.get('body', '')
+                
+                if api_url and '@gurubase' in body.lower():
+                    handler.respond_to_github_issue_event(api_url, installation_id)
+                    
+            elif event_type == GithubEvent.ISSUE_COMMENT:
+                # Handle issue comment event
+                issue = data.get('issue', {})
+                comment = data.get('comment', {})
+                api_url = issue.get('url')
+                comment_body = comment.get('body', '')
+                
+                if api_url and '@gurubase' in comment_body.lower():
+                    handler.respond_to_github_issue_event(api_url, installation_id)
+
+            elif event_type == GithubEvent.PULL_REQUEST_OPENED:
+                pull_request = data.get('pull_request', {})
+                comment = data.get('comment', {})
+                api_url = pull_request.get('url')
+                comment_body = comment.get('body', '')
+                
+                if api_url and '@gurubase' in comment_body.lower():
+                    updated_api_url = api_url.replace('pulls', 'issues')
+                    handler.respond_to_github_issue_event(updated_api_url, installation_id)                
+                    
+        except Exception as e:
+            logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)
+            return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+@api_view(['POST', 'GET'])
+def github_auth(request):
+    if request.method == 'POST':
+        data = request.data
+        print(data)
+    else:
+        try:
+            code = request.query_params.get('code')[0]
+            installation_id = request.query_params.get('installation_id')[0]
+            setup_action = request.query_params.get('setup_action')[0]
+            print(code, installation_id, setup_action)
+        except Exception as e:
+            print(e)
+        print(request.query_params)
+    return Response({'message': 'Auth received'}, status=status.HTTP_200_OK)
+            
