@@ -440,9 +440,10 @@ class GithubAppHandler:
             logger.error(f"Error getting GitHub installation access token: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to get GitHub installation access token: {str(e)}")
 
-    def respond_to_github_issue_event(self, api_url, installation_id):
+    def respond_to_github_issue_event(self, api_url, installation_id, formatted_response):
         installation_jwt = self._get_or_create_installation_jwt(installation_id)
 
+        # Post the formatted response
         response = requests.post(
             f"{api_url}/comments",
             headers={
@@ -450,14 +451,14 @@ class GithubAppHandler:
                 "X-GitHub-Api-Version": "2022-11-28"
             },
             json={
-                "body": "I got your message!"
+                "body": formatted_response
             }
         )
 
         response.raise_for_status()
 
     def create_discussion_comment(self, discussion_id: str, body: str, installation_id: str, reply_to_id: str = None):
-        """Create a comment on a GitHub discussion using GraphQL API.
+        """Create a thread on a GitHub discussion using GraphQL API.
         
         Args:
             discussion_id (str): The node ID of the discussion to comment on
@@ -535,7 +536,7 @@ class GithubAppHandler:
             raise GitHubRepoContentExtractionError(f"Failed to create discussion comment: {str(e)}")
 
     def get_discussion_comment(self, comment_node_id: str, installation_id: str) -> str:
-        """Get a discussion comment's details using the GitHub API.
+        """Gets the parent comment of a discussion thread.
         
         Args:
             discussion_id (str): The node ID of the discussion
@@ -609,3 +610,40 @@ class GithubAppHandler:
         except Exception as e:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
+
+    def format_github_response(self, body: str, user: str) -> str:
+        """Format a GitHub response in the specified format.
+        
+        Args:
+            body (str): The message body to quote
+            user (str): The username who mentioned the bot
+            
+        Returns:
+            str: Formatted response string
+        """
+
+        lines = body.split('\n')
+        formatted_lines = []
+        for line in lines:
+            formatted_lines.append(f"> {line}")
+
+        formatted_body = '\n'.join(formatted_lines)
+
+        return f"""
+{formatted_body}
+
+Hey @{user}
+Here is my answer:
+
+I got your message!"""
+
+    def check_mentioned(self, body: str, user: str) -> bool:
+        """Check if the user is mentioned in the body. However, it could be mentioning to itself like > @gurubase. Ignore these. Its line should not start with >"""
+        lower_body = body.lower()
+        lines = body.split('\n')
+        for line in lines:
+            if line.startswith('> '):
+                continue
+            if f"@{user.lower()}" in line:
+                return True
+        return False

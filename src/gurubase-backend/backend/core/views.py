@@ -2957,6 +2957,8 @@ def github_webhook(request):
         event_type = find_github_event_type(request.data)
         if event_type is None:
             return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+        bot_name = 'gurubase'
             
         data = request.data
         handler = GithubAppHandler()
@@ -2972,11 +2974,13 @@ def github_webhook(request):
                 discussion = data.get('discussion', {})
                 discussion_id = discussion.get('node_id')
                 body = discussion.get('body', '')
+                user = discussion.get('user', {}).get('login', '')
                 
-                if discussion_id and '@gurubase' in body.lower():
+                if discussion_id and handler.check_mentioned(body, bot_name):
+                    formatted_response = handler.format_github_response(body, user)
                     handler.create_discussion_comment(
                         discussion_id=discussion_id,
-                        body="👋 Hello! I'm your Guru assistant. I'll help you with any questions or discussions you have.",
+                        body=formatted_response,
                         installation_id=installation_id
                     )
                     
@@ -2987,9 +2991,10 @@ def github_webhook(request):
                 discussion_id = discussion.get('node_id')
                 comment_node_id = comment.get('node_id')
                 comment_body = comment.get('body', '')
+                user = comment.get('user', {}).get('login', '')
                 
                 # Check if the comment is from the bot to avoid self-replies and contains @gurubase mention
-                if '@gurubase' in comment_body.lower():
+                if handler.check_mentioned(comment_body, bot_name):
                     # If there's a parent_id, we need to get its node_id
                     parent_id = comment.get('parent_id')
                     if parent_id:
@@ -3007,9 +3012,10 @@ def github_webhook(request):
                         reply_to_id = comment.get('node_id')
                     
                     if discussion_id and reply_to_id:
+                        formatted_response = handler.format_github_response(comment_body, user)
                         handler.create_discussion_comment(
                             discussion_id=discussion_id,
-                            body="I've received your message and will help you with that!",
+                            body=formatted_response,
                             installation_id=installation_id,
                             reply_to_id=reply_to_id
                         )
@@ -3019,9 +3025,11 @@ def github_webhook(request):
                 issue = data.get('issue', {})
                 api_url = issue.get('url')
                 body = issue.get('body', '')
+                user = issue.get('user', {}).get('login', '')
                 
-                if api_url and '@gurubase' in body.lower():
-                    handler.respond_to_github_issue_event(api_url, installation_id)
+                if api_url and handler.check_mentioned(body, bot_name):
+                    formatted_response = handler.format_github_response(body, user)
+                    handler.respond_to_github_issue_event(api_url, installation_id, formatted_response)
                     
             elif event_type == GithubEvent.ISSUE_COMMENT:
                 # Handle issue comment event
@@ -3029,19 +3037,22 @@ def github_webhook(request):
                 comment = data.get('comment', {})
                 api_url = issue.get('url')
                 comment_body = comment.get('body', '')
+                user = comment.get('user', {}).get('login', '')
                 
-                if api_url and '@gurubase' in comment_body.lower():
-                    handler.respond_to_github_issue_event(api_url, installation_id)
+                if api_url and handler.check_mentioned(comment_body, bot_name):
+                    formatted_response = handler.format_github_response(comment_body, user)
+                    handler.respond_to_github_issue_event(api_url, installation_id, formatted_response)
 
             elif event_type == GithubEvent.PULL_REQUEST_OPENED:
                 pull_request = data.get('pull_request', {})
-                comment = data.get('comment', {})
                 api_url = pull_request.get('url')
-                comment_body = comment.get('body', '')
+                body = pull_request.get('body', '')
+                user = pull_request.get('user', {}).get('login', '')
                 
-                if api_url and '@gurubase' in comment_body.lower():
+                if api_url and handler.check_mentioned(body, bot_name):
                     updated_api_url = api_url.replace('pulls', 'issues')
-                    handler.respond_to_github_issue_event(updated_api_url, installation_id)                
+                    formatted_response = handler.format_github_response(body, user)
+                    handler.respond_to_github_issue_event(updated_api_url, installation_id, formatted_response)                
                     
         except Exception as e:
             logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)
