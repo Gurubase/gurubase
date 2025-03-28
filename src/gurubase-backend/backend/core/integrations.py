@@ -433,3 +433,13 @@ class NotEnoughData(Exception):
 
 class NotRelated(Exception):
     pass
+
+def strip_first_header(content: str) -> str:
+    """Remove the first header (starting with # and ending with newline) from content."""
+    if content.startswith('#'):
+        # Find the first newline
+        newline_index = content.find('\n')
+        if newline_index != -1:
+            # Return content after the newline
+            return content[newline_index + 1:].lstrip()
+    return content

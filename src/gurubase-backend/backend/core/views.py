@@ -52,7 +52,7 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from .integrations import IntegrationError, IntegrationFactory
+from .integrations import IntegrationError, IntegrationFactory, strip_first_header
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -3062,8 +3062,8 @@ def github_webhook(request):
         if response.status_code != 200:
             logger.error(f"Error getting answer from API: {response.data}")
             return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-        formatted_response = response.data.get('content', '')
+        formatted_answer = handler.format_github_answer(response.data)
+        formatted_response = handler.format_github_response(event_data['body'], event_data['user'], formatted_answer)
 
         # Handle discussion events
         if event_data['discussion_id']:

@@ -8,9 +8,11 @@ import jwt
 from git import Repo
 from pathlib import Path
 from django.conf import settings
+from core.integrations import strip_first_header
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 import requests
+import re
 
 redis_client = redis.Redis(
     host=settings.REDIS_HOST,
@@ -150,7 +152,6 @@ def clone_repository(repo_url):
         # Check if the error message indicates repository not found
         if "repository" in str(e).lower() and "not found" in str(e).lower():
             # Extract repo URL from error message using regex
-            import re
             match = re.search(r"repository '([^']+)' not found", str(e))
             if match:
                 repo_url = match.group(1)
@@ -610,6 +611,51 @@ class GithubAppHandler:
         except Exception as e:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
+
+    def format_github_answer(self, answer: dict) -> str:
+        """Format the response with trust score and references for GitHub.
+        Using GitHub's markdown formatting:
+        **bold**
+        *italic*
+        `code`
+        ```preformatted```
+        > blockquote
+        [text](url) for links
+        """
+        # Get the content and strip header
+        content = answer.get('content', '')
+        content = strip_first_header(content)
+        
+        formatted_msg = [content]
+        
+        # Add trust score with emoji
+        trust_score = answer.get('trust_score', 0)
+        trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
+        formatted_msg.append(f"\n---\n**Trust Score**: {trust_emoji} {trust_score}%")
+        
+        # Add references if they exist
+        references = answer.get('references', [])
+        if references:
+            formatted_msg.append("\n**Sources**:")
+            for ref in references:
+                # Clean up the title by removing emojis and extra spaces
+                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
+                clean_title = re.sub(
+                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+                    ' ',
+                    clean_title
+                ).strip()
+                clean_title = ' '.join(clean_title.split())
+                
+                formatted_msg.append(f"\n* [{clean_title}]({ref['link']})")
+        
+        # Add frontend link if it exists
+        question_url = answer.get('question_url')
+        if question_url:
+            formatted_msg.append(f"\n👀 [View on Gurubase for a better UX]({question_url})")
+        
+        return "\n".join(formatted_msg)
 
     def format_github_response(self, body: str, user: str, formatted_answer: str) -> str:
         """Format a GitHub response in the specified format.
