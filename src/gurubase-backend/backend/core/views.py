@@ -2957,7 +2957,7 @@ def github_webhook(request):
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
     event_type = find_github_event_type(request.data)
-    if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT, GithubEvent.PULL_REQUEST_OPENED]:
+    if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
     bot_name = 'gurubase'
