@@ -522,17 +522,14 @@ def vector_db_fetch(
         batch_texts = [result['entity']['text'] for result in batch]
         
         # Rerank with question
-        # TODO: If we get > 32 results, we need to batch them
         reranked_batch_question = rerank_texts(question, batch_texts)
         
         # Rerank with user_question if it's not too long
         reranked_batch_user_question = None
         if len(user_question) < 300:
-            # TODO: If we get > 32 results, we need to batch them
             reranked_batch_user_question = rerank_texts(user_question, batch_texts)
         
         # Rerank with enhanced_question
-        # TODO: If we get > 32 results, we need to batch them
         reranked_batch_enhanced_question = rerank_texts(enhanced_question, batch_texts)
         
         # If all reranking fails, use original order
