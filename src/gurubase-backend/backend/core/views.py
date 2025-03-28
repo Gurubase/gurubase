@@ -3164,19 +3164,3 @@ def github_webhook(request):
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
-
-@api_view(['POST', 'GET'])
-def github_auth(request):
-    if request.method == 'POST':
-        data = request.data
-        print(data)
-    else:
-        try:
-            code = request.query_params.get('code')
-            installation_id = request.query_params.get('installation_id')
-            setup_action = request.query_params.get('setup_action')
-            print(f'Code: {code}, Installation ID: {installation_id}, Setup Action: {setup_action}. Use the installation id as external_id in integrations page with your desired guru type to create one.')
-        except Exception as e:
-            print(e)
-    return Response({'message': 'Auth received'}, status=status.HTTP_200_OK)
-            

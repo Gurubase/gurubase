@@ -84,7 +84,6 @@ urlpatterns += [
     path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
 
     path('github/', core_views.github_webhook, name='github_webhook'),
-    path('github/auth/', core_views.github_auth, name='github_auth'),
 ]
 
 if settings.STREAM_ENABLED:
