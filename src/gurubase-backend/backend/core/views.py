@@ -3041,7 +3041,7 @@ def github_webhook(request):
         
         # Prepare payload for the API
         payload = {
-            'question': event_data['body'],
+            'question': handler.cleanup_user_question(event_data['body'], bot_name),
             'stream': False,
             'short_answer': True,
             'fetch_existing': False,

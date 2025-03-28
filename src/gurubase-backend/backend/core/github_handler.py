@@ -699,6 +699,17 @@ class GithubAppHandler:
                 return True
         return False
 
+    def cleanup_user_question(self, body:str, bot_name:str) -> str:
+        """Remove the bot name from the question if it is mentioned."""
+        lines = body.split('\n')
+        valid_lines = []
+        for line in lines:
+            if not line.startswith('> '):
+                valid_lines.append(line)
+
+        merged = '\n'.join(valid_lines)
+        return merged.replace(f'@{bot_name}', '').strip()
+
     def find_github_event_type(self, data:dict) -> GithubEvent:
         if 'issue' in data:
             if 'comment' in data and data.get('action') == 'created':
