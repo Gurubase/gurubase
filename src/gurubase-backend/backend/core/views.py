@@ -3094,7 +3094,7 @@ def github_webhook(request):
         if response.status_code != 200:
             logger.error(f"Error getting answer from API: {response.data}")
             return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        formatted_response = handler.format_github_answer(response.data, event_data['body'], event_data['user'])
+
 
         formatted_response = github_handler.format_github_answer(response.data, event_data['body'], event_data['user'])
 
