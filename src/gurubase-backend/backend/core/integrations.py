@@ -460,8 +460,9 @@ class GitHubStrategy(IntegrationStrategy):
         return True
 
     def revoke_access_token(self) -> None:
-        """GitHub doesn't support token revocation"""
-        pass
+        """Delete the installation"""
+        integration = self.get_integration()
+        self.github_handler.delete_installation(integration.external_id)
 
     def refresh_access_token(self, refresh_token: str) -> dict:
         """GitHub doesn't support token refresh"""

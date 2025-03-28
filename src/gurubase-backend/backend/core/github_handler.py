@@ -876,6 +876,42 @@ class GithubAppHandler:
             logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
             raise GitHubRepoContentExtractionError(f"Failed to fetch GitHub repositories: {str(e)}")
 
+
+    def delete_installation(self, installation_id: str) -> None:
+        """Delete a GitHub App installation.
+        
+        Args:
+            installation_id (str): The GitHub App installation ID to delete
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get app JWT token
+            app_jwt = self._get_or_create_app_jwt()
+            
+            # Make the DELETE request
+            response = requests.delete(
+                f"{self.github_api_url}/app/installations/{installation_id}",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {app_jwt}",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            
+            # Check if the installation was not found (404) - this is acceptable
+            if response.status_code == 404:
+                logger.info(f"Installation {installation_id} was already deleted or does not exist")
+                return
+                
+            response.raise_for_status()
+            logger.info(f"Successfully deleted installation {installation_id}")
+            
+        except Exception as e:
+            logger.error(f"Error deleting GitHub installation {installation_id}: {e}", exc_info=True)
+            raise GitHubRepoContentExtractionError(f"Failed to delete GitHub installation: {str(e)}")
+
     # def add_reaction(self, api_url: str, comment_id: str, installation_id: str, content: str = "eyes") -> None:
     #     """Add a reaction to a GitHub message.
         
