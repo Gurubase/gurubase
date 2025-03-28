@@ -594,7 +594,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
 
-    def format_github_answer(self, answer: dict, body: str = None, user: str = None) -> str:
+    def format_github_answer(self, answer: dict, body: str = None, user: str = None, success: bool = True) -> str:
         """Format the response with trust score and references for GitHub.
         Using GitHub's markdown formatting:
         **bold**
@@ -608,10 +608,28 @@ class GithubAppHandler:
             answer (dict): The answer dictionary containing content, trust_score, references, etc.
             body (str, optional): The message body to quote
             user (str, optional): The username who mentioned the bot
+            success (bool, optional): Whether the API call was successful. Defaults to True.
             
         Returns:
             str: Formatted response string
         """
+        # Build the final message
+        formatted_msg = []
+        
+        # Add quoted body if provided
+        if body and user:
+            for line in body.split('\n'):
+                formatted_msg.append(f"> {line}")
+            formatted_msg.append(f"\nHey @{user}\n")
+            if success:
+                formatted_msg.append("Here is my answer:\n")
+            else:
+                formatted_msg.append("Sorry, I don't have enough contexts to answer your question.")
+                return "\n".join(formatted_msg)
+        
+        if not success:
+            return "Sorry, I don't have enough contexts to answer your question."
+            
         # Calculate the length of the fixed sections first
         trust_score = answer.get('trust_score', 0)
         trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
@@ -668,15 +686,6 @@ class GithubAppHandler:
         content = strip_first_header(content)
         if len(content) > max_content_length:
             content = content[:max_content_length] + "..."
-        
-        # Build the final message
-        formatted_msg = []
-        
-        # Add quoted body if provided
-        if body and user:
-            for line in body.split('\n'):
-                formatted_msg.append(f"> {line}")
-            formatted_msg.append(f"\nHey @{user}\nHere is my answer:\n")
         
         # Add content and other sections
         formatted_msg.append(content)

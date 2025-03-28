@@ -3093,10 +3093,43 @@ def github_webhook(request):
         
         if response.status_code != 200:
             logger.error(f"Error getting answer from API: {response.data}")
-            return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            error_message = github_handler.format_github_answer(
+                response.data,
+                event_data['body'],
+                event_data['user'],
+                success=False
+            )
+            
+            # Handle discussion events
+            if event_data['discussion_id']:
+                if event_type == GithubEvent.DISCUSSION_COMMENT and event_data['reply_to_id']:
+                    # For discussion comments, we need to get the parent comment's node_id
+                    try:
+                        parent_comment_id = github_handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
+                        if parent_comment_id:
+                            event_data['reply_to_id'] = parent_comment_id
+                        else:
+                            event_data['reply_to_id'] = None
+                    except Exception as e:
+                        logger.error(f"Error fetching parent comment: {e}", exc_info=True)
+                        event_data['reply_to_id'] = None
 
+                    github_handler.create_discussion_comment(
+                        discussion_id=event_data['discussion_id'],
+                        body=error_message,
+                        installation_id=installation_id,
+                        reply_to_id=event_data['reply_to_id']
+                    )
+                # Handle issue/PR events
+            elif event_data['api_url']:
+                github_handler.respond_to_github_issue_event(
+                    event_data['api_url'],
+                    installation_id,
+                    error_message
+                )
+                return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        formatted_response = github_handler.format_github_answer(response.data, event_data['body'], event_data['user'])
+        formatted_response = github_handler.format_github_answer(response.data, event_data['body'], event_data['user'], success=True)
 
         # Handle discussion events
         if event_data['discussion_id']:
