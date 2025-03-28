@@ -722,11 +722,11 @@ class GithubAppHandler:
                     return None
             elif data.get('action') == 'opened':
                 return GithubEvent.ISSUE_OPENED
-        elif 'discussion' in data:
-            if 'comment' in data and data.get('action') == 'created':
-                return GithubEvent.DISCUSSION_COMMENT
-            elif data.get('action') == 'opened':
-                return GithubEvent.DISCUSSION_OPENED
+        # elif 'discussion' in data:
+        #     if 'comment' in data and data.get('action') == 'created':
+        #         return GithubEvent.DISCUSSION_COMMENT
+        #     elif data.get('action') == 'opened':
+        #         return GithubEvent.DISCUSSION_OPENED
         # elif 'pull_request' in data:
         #     if 'comment' in data and data.get('action') == 'created':
         #         return GithubEvent.PULL_REQUEST_COMMENT
