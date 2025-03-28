@@ -842,6 +842,40 @@ class GithubAppHandler:
             logger.error(f"Error fetching issue comments: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch issue comments: {str(e)}")
 
+    def fetch_repositories(self, installation_id: str) -> list:
+        """Fetch repositories for a GitHub installation.
+        
+        Args:
+            installation_id (str): The GitHub App installation ID
+            
+        Returns:
+            list: List of repository names
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get installation access token
+            access_token = self._get_or_create_installation_jwt(installation_id)
+            
+            # Fetch repositories
+            response = requests.get(
+                f"{self.github_api_url}/installation/repositories",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {access_token}",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extract repository names
+            return [repo['name'] for repo in data.get('repositories', [])]
+        except Exception as e:
+            logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
+            raise GitHubRepoContentExtractionError(f"Failed to fetch GitHub repositories: {str(e)}")
+
     # def add_reaction(self, api_url: str, comment_id: str, installation_id: str, content: str = "eyes") -> None:
     #     """Add a reaction to a GitHub message.
         

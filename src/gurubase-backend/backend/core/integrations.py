@@ -418,6 +418,19 @@ class SlackStrategy(IntegrationStrategy):
 
 
 class GitHubStrategy(IntegrationStrategy):
+    def __init__(self, integration: 'Integration' = None):
+        from .github_handler import GithubAppHandler
+        super().__init__(integration)
+        self.github_handler = GithubAppHandler()
+
+    def _fetch_repositories(self, installation_id: str) -> list:
+        """Fetch repositories for a GitHub installation"""
+        try:
+            return self.github_handler.fetch_repositories(installation_id)
+        except Exception as e:
+            logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
+            return []
+
     def exchange_token(self, code: str) -> dict:
         """For GitHub, we don't exchange a code. Instead, we use the installation_id as the external_id."""
         raise NotImplementedError("GitHub integration does not use code exchange")
@@ -427,8 +440,16 @@ class GitHubStrategy(IntegrationStrategy):
         return token_response.get('installation_id')
 
     def get_workspace_name(self, token_response: dict) -> str:
-        """For GitHub, we use the installation_id as the workspace name"""
-        return f"GitHub Installation {token_response.get('installation_id')}"
+        """For GitHub, we use the repository names as the workspace name"""
+        installation_id = token_response.get('installation_id')
+        if not installation_id:
+            return "GitHub Installation"
+            
+        repo_names = self._fetch_repositories(installation_id)
+        if not repo_names:
+            return f"GitHub Installation {installation_id}"
+            
+        return f"Repositories {', '.join(repo_names)}"
 
     def list_channels(self) -> list:
         """GitHub doesn't have channels"""
@@ -448,9 +469,12 @@ class GitHubStrategy(IntegrationStrategy):
 
     def fetch_workspace_details(self, bot_token: str) -> dict:
         """For GitHub, we use the installation_id as both external_id and workspace name"""
+        repo_names = self._fetch_repositories(bot_token)
+        workspace_name = f"Repositories {', '.join(repo_names)}" if repo_names else f"GitHub Installation {bot_token}"
+        
         return {
             'external_id': bot_token,  # bot_token is actually installation_id in this case
-            'workspace_name': f"GitHub Installation {bot_token}"
+            'workspace_name': workspace_name
         }
 
     def get_type(self) -> str:
@@ -464,12 +488,16 @@ class GitHubStrategy(IntegrationStrategy):
             raise IntegrationError(f"This integration type is already connected to this guru. Please disconnect the existing integration before connecting a new one.")
         
         try:
+            # Fetch repository names for workspace name
+            repo_names = self._fetch_repositories(installation_id)
+            workspace_name = f"repositories {', '.join(repo_names)}" if repo_names else f"GitHub Installation {installation_id}"
+            
             return Integration.objects.create(
                 type=self.get_type(),
                 external_id=installation_id,
                 guru_type=guru_type,
                 access_token=installation_id,  # For GitHub, we use installation_id as the access_token
-                workspace_name=f"GitHub Installation {installation_id}",
+                workspace_name=workspace_name,
                 channels=[]  # GitHub doesn't have channels
             )
         except Exception as e:
