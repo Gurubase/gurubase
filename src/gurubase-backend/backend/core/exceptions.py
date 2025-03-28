@@ -12,6 +12,11 @@ class ContentExtractionError(Exception):
     pass
 
 
+class GithubAppHandlerError(Exception):
+    """Exception raised for errors in GitHub app handler."""
+    pass
+
+
 class GitHubRepoContentExtractionError(ContentExtractionError):
     """Exception raised for errors in GitHub repository content extraction."""
     pass

@@ -10,7 +10,7 @@ from pathlib import Path
 from django.conf import settings
 from core.integrations import strip_first_header
 from core.utils import get_default_settings
-from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
+from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
 import requests
 import re
 
@@ -363,7 +363,7 @@ class GithubAppHandler:
 
         except Exception as e:
             logger.error(f"Error generating GitHub App JWT: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to generate GitHub App JWT: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to generate GitHub App JWT: {str(e)}")
 
     def _get_or_create_installation_jwt(self, installation_id):
         """Get existing installation access token from Redis or create a new one if expired/missing."""
@@ -400,7 +400,7 @@ class GithubAppHandler:
 
         except Exception as e:
             logger.error(f"Error getting GitHub installation access token: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to get GitHub installation access token: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to get GitHub installation access token: {str(e)}")
 
     def respond_to_github_issue_event(self, api_url, installation_id, formatted_response):
         installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -432,7 +432,7 @@ class GithubAppHandler:
             dict: The created comment data from GitHub API
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -489,13 +489,13 @@ class GithubAppHandler:
             if "errors" in result:
                 error_msg = result["errors"][0]["message"]
                 logger.error(f"GraphQL error creating discussion comment: {error_msg}")
-                raise GitHubRepoContentExtractionError(f"Failed to create discussion comment: {error_msg}")
+                raise GithubAppHandlerError(f"Failed to create discussion comment: {error_msg}")
             
             return result["data"]["addDiscussionComment"]["comment"]
             
         except Exception as e:
             logger.error(f"Error creating discussion comment: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to create discussion comment: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to create discussion comment: {str(e)}")
 
     def get_discussion_comment(self, comment_node_id: str, installation_id: str) -> str:
         """Gets the parent comment of a discussion thread.
@@ -509,7 +509,7 @@ class GithubAppHandler:
             dict: The comment data from GitHub API
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -562,7 +562,7 @@ class GithubAppHandler:
             if "errors" in result:
                 error_msg = result["errors"][0]["message"]
                 logger.error(f"GraphQL error fetching discussion comment: {error_msg}")
-                raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {error_msg}")
+                raise GithubAppHandlerError(f"Failed to fetch discussion comment: {error_msg}")
 
             if 'data' not in result or 'node' not in result['data'] or 'replyTo' not in result['data']['node'] or 'id' not in result['data']['node']['replyTo']:
                 return None
@@ -571,7 +571,7 @@ class GithubAppHandler:
             
         except Exception as e:
             logger.error(f"Error fetching discussion comment: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to fetch discussion comment: {str(e)}")
 
     def format_github_answer(self, answer: dict, body: str = None, user: str = None, success: bool = True) -> str:
         """Format the response with trust score and references for GitHub.
@@ -765,7 +765,7 @@ class GithubAppHandler:
             list: List of comments with their details
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -790,7 +790,7 @@ class GithubAppHandler:
             
         except Exception as e:
             logger.error(f"Error fetching issue comments: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to fetch issue comments: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to fetch issue comments: {str(e)}")
 
     def get_issue(self, api_url: str, installation_id: str) -> list:
         """Get the initial issue post.
@@ -803,7 +803,7 @@ class GithubAppHandler:
             dict: The issue data
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -828,7 +828,7 @@ class GithubAppHandler:
             
         except Exception as e:
             logger.error(f"Error fetching issue comments: {e}")
-            raise GitHubRepoContentExtractionError(f"Failed to fetch issue comments: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to fetch issue comments: {str(e)}")
 
     def get_installation(self, installation_id: str) -> dict:
         """Get the installation details.
@@ -840,7 +840,7 @@ class GithubAppHandler:
             dict: The installation details
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -862,7 +862,7 @@ class GithubAppHandler:
         
         except Exception as e:
             logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
-            raise GitHubRepoContentExtractionError(f"Failed to fetch GitHub installation: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to fetch GitHub installation: {str(e)}")
 
     def fetch_repositories(self, installation_id: str) -> list:
         """Fetch repositories for a GitHub installation.
@@ -874,7 +874,7 @@ class GithubAppHandler:
             list: List of repository names
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get installation access token
@@ -896,7 +896,7 @@ class GithubAppHandler:
             return [repo['name'] for repo in data.get('repositories', [])]
         except Exception as e:
             logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
-            raise GitHubRepoContentExtractionError(f"Failed to fetch GitHub repositories: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to fetch GitHub repositories: {str(e)}")
 
 
     def delete_installation(self, installation_id: str) -> None:
@@ -906,7 +906,7 @@ class GithubAppHandler:
             installation_id (str): The GitHub App installation ID to delete
             
         Raises:
-            GitHubRepoContentExtractionError: If the API call fails
+            GithubAppHandlerError: If the API call fails
         """
         try:
             # Get app JWT token
@@ -932,7 +932,7 @@ class GithubAppHandler:
             
         except Exception as e:
             logger.error(f"Error deleting GitHub installation {installation_id}: {e}", exc_info=True)
-            raise GitHubRepoContentExtractionError(f"Failed to delete GitHub installation: {str(e)}")
+            raise GithubAppHandlerError(f"Failed to delete GitHub installation: {str(e)}")
 
     # def add_reaction(self, api_url: str, comment_id: str, installation_id: str, content: str = "eyes") -> None:
     #     """Add a reaction to a GitHub message.
@@ -943,7 +943,7 @@ class GithubAppHandler:
     #         content (str, optional): The reaction emoji. Defaults to "eyes".
             
     #     Raises:
-    #         GitHubRepoContentExtractionError: If the API call fails
+    #         GithubAppHandlerError: If the API call fails
     #     """
     #     try:
     #         # Get installation access token
@@ -969,4 +969,4 @@ class GithubAppHandler:
             
     #     except Exception as e:
     #         logger.error(f"Error adding reaction: {e}")
-    #         raise GitHubRepoContentExtractionError(f"Failed to add reaction: {str(e)}")
+    #         raise GithubAppHandlerError(f"Failed to add reaction: {str(e)}")
