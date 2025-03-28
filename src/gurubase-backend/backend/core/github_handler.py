@@ -612,7 +612,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GitHubRepoContentExtractionError(f"Failed to fetch discussion comment: {str(e)}")
 
-    def format_github_answer(self, answer: dict) -> str:
+    def format_github_answer(self, answer: dict, body: str = None, user: str = None) -> str:
         """Format the response with trust score and references for GitHub.
         Using GitHub's markdown formatting:
         **bold**
@@ -621,22 +621,25 @@ class GithubAppHandler:
         ```preformatted```
         > blockquote
         [text](url) for links
+
+        Args:
+            answer (dict): The answer dictionary containing content, trust_score, references, etc.
+            body (str, optional): The message body to quote
+            user (str, optional): The username who mentioned the bot
+            
+        Returns:
+            str: Formatted response string
         """
-        # Get the content and strip header
-        content = answer.get('content', '')
-        content = strip_first_header(content)
-        
-        formatted_msg = [content]
-        
-        # Add trust score with emoji
+        # Calculate the length of the fixed sections first
         trust_score = answer.get('trust_score', 0)
         trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
-        formatted_msg.append(f"\n---\n**Trust Score**: {trust_emoji} {trust_score}%")
+        trust_score_section = f"\n---\n**Trust Score**: {trust_emoji} {trust_score}%"
         
-        # Add references if they exist
+        # Calculate references section length
         references = answer.get('references', [])
+        references_section = ""
         if references:
-            formatted_msg.append("\n**Sources**:")
+            references_section = "\n**Sources**:"
             for ref in references:
                 # Clean up the title by removing emojis and extra spaces
                 clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
@@ -647,41 +650,61 @@ class GithubAppHandler:
                     clean_title
                 ).strip()
                 clean_title = ' '.join(clean_title.split())
-                
-                formatted_msg.append(f"\n* [{clean_title}]({ref['link']})")
+                references_section += f"\n* [{clean_title}]({ref['link']})"
         
-        # Add frontend link if it exists
+        # Calculate frontend link section length
         question_url = answer.get('question_url')
+        frontend_link_section = ""
         if question_url:
-            formatted_msg.append(f"\n👀 [View on Gurubase for a better UX]({question_url})")
+            frontend_link_section = f"\n👀 [View on Gurubase for a better UX]({question_url})"
+        
+        # Calculate the length of the quoted body and user mention if provided
+        quoted_body_length = 0
+        user_mention_length = 0
+        if body and user:
+            # Calculate length of quoted body
+            lines = body.split('\n')
+            quoted_body_length = sum(len(f"> {line}\n") for line in lines)
+            
+            # Calculate length of user mention
+            user_mention_length = len(f"\nHey @{user}\nHere is my answer:\n\n")
+        
+        # Calculate total length of fixed sections
+        fixed_sections_length = (
+            len(trust_score_section) + 
+            len(references_section) + 
+            len(frontend_link_section) + 
+            quoted_body_length + 
+            user_mention_length
+        )
+        
+        # Calculate maximum allowed content length (65536 - fixed sections - some buffer)
+        max_content_length = 65536 - fixed_sections_length - 100  # 100 chars buffer
+        
+        # Get and truncate content if needed
+        content = answer.get('content', '')
+        content = strip_first_header(content)
+        if len(content) > max_content_length:
+            content = content[:max_content_length] + "..."
+        
+        # Build the final message
+        formatted_msg = []
+        
+        # Add quoted body if provided
+        if body and user:
+            for line in body.split('\n'):
+                formatted_msg.append(f"> {line}")
+            formatted_msg.append(f"\nHey @{user}\nHere is my answer:\n")
+        
+        # Add content and other sections
+        formatted_msg.append(content)
+        formatted_msg.append(trust_score_section)
+        if references:
+            formatted_msg.append(references_section)
+        if question_url:
+            formatted_msg.append(frontend_link_section)
         
         return "\n".join(formatted_msg)
-
-    def format_github_response(self, body: str, user: str, formatted_answer: str) -> str:
-        """Format a GitHub response in the specified format.
-        
-        Args:
-            body (str): The message body to quote
-            user (str): The username who mentioned the bot
-            
-        Returns:
-            str: Formatted response string
-        """
-
-        lines = body.split('\n')
-        formatted_lines = []
-        for line in lines:
-            formatted_lines.append(f"> {line}")
-
-        formatted_body = '\n'.join(formatted_lines)
-
-        return f"""
-{formatted_body}
-
-Hey @{user}
-Here is my answer:
-
-{formatted_answer}"""
 
     def check_mentioned(self, body: str, user: str) -> bool:
         """Check if the user is mentioned in the body. However, it could be mentioning to itself like > @gurubase. Ignore these. Its line should not start with >"""
