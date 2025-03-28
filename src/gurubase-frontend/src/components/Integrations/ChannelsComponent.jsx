@@ -14,6 +14,7 @@ import {
   sendIntegrationTestMessage
 } from "@/app/actions";
 import LoadingSkeleton from "@/components/Content/LoadingSkeleton";
+import { useEffect } from "react";
 import {
   Command,
   CommandInput,
@@ -37,29 +38,35 @@ const ChannelsComponent = ({ guruData, type, integrationData, selfhosted }) => {
   const [open, setOpen] = useState(false);
   const [internalError, setInternalError] = useState(null);
 
-  const fetchChannels = async () => {
-    try {
-      const channelsData = await getIntegrationChannels(
-        guruData?.slug,
-        type.toUpperCase()
-      );
-      if (channelsData?.error) {
-        setInternalError(
-          selfhosted
-            ? "Failed to fetch channels. Please make sure your bot token is correct."
-            : "Failed to fetch channels."
+  useEffect(() => {
+    const fetchChannels = async () => {
+      try {
+        const channelsData = await getIntegrationChannels(
+          guruData?.slug,
+          type.toUpperCase()
         );
-      } else {
-        setChannels(channelsData?.channels || []);
-        setOriginalChannels(channelsData?.channels || []);
-        setInternalError(null);
+        if (channelsData?.error) {
+          setInternalError(
+            selfhosted
+              ? "Failed to fetch channels. Please make sure your bot token is correct."
+              : "Failed to fetch channels."
+          );
+        } else {
+          setChannels(channelsData?.channels || []);
+          setOriginalChannels(channelsData?.channels || []);
+          setInternalError(null);
+        }
+      } catch (err) {
+        setInternalError(err.message);
+      } finally {
+        setChannelsLoading(false);
       }
-    } catch (err) {
-      setInternalError(err.message);
-    } finally {
-      setChannelsLoading(false);
+    };
+
+    if (channelsLoading) {
+      fetchChannels();
     }
-  };
+  }, [guruData?.slug, type, channelsLoading]);
 
   if (channelsLoading) {
     return (
