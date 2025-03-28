@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import string
 import requests
 from django.db.models.signals import pre_delete, post_delete, post_save, pre_save
 from django.conf import settings
@@ -631,7 +633,7 @@ def notify_new_user_question(sender, instance: Question, created, **kwargs):
         if instance.guru_type.send_notification:
             webhook_url = settings.SLACK_CUSTOM_GURU_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
-        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK]:
+        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK, Question.Source.GITHUB]:
             webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
         
@@ -856,7 +858,7 @@ def create_api_key_for_integration(sender, instance, **kwargs):
 
         api_key = APIKey.objects.create(
             user=user,
-            key=secrets.token_urlsafe(32),
+            key="gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30)),
             integration=True
         )
         instance.api_key = api_key

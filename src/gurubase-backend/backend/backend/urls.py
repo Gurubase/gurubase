@@ -82,6 +82,8 @@ urlpatterns += [
 
     path('youtube/playlist/', core_views.fetch_youtube_playlist_admin, name='fetch_youtube_playlist_admin'),
     path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
+
+    path('github/', core_views.github_webhook, name='github_webhook'),
 ]
 
 if settings.STREAM_ENABLED:

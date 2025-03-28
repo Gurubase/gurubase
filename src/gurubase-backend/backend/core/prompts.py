@@ -2,6 +2,11 @@ summary_prompt_widget_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
+github_context_template = """
+This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the previous comments for the issue:
+{github_comments}
+"""
+
 summary_prompt_non_widget_addition = """
 Short answer is simple and up to 100 words, the others are SEO friendly and between 600-1200 words.
 """
@@ -17,8 +22,11 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_prompt_widget_addition}
 <enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters.
 
+{github_context}
+
 For any questions related to date, remember today's date is {date}.
 """
+
 
 binge_mini_prompt = """
 The user has started a conversation with you. The previously asked questions are:
@@ -46,6 +54,8 @@ First, carefully read and analyze the following contexts:
 <contexts>
 {contexts}
 </contexts>
+
+{github_context}
 
 When answering the question, follow these guidelines:
 1. Use only the information provided in the contexts. Do not use prior knowledge or hallucinate information.

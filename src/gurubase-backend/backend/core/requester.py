@@ -475,6 +475,8 @@ class OpenAIRequester():
             raise ValueError("Invalid JSON response from OpenAI")
         
     def embed_texts(self, texts, model_name=settings.OPENAI_TEXT_EMBEDDING_MODEL):
+        while '' in texts:
+            texts.remove('')
         response = self.client.embeddings.create(input=texts, model=model_name)
         embeddings = []
         for embedding in response.data:

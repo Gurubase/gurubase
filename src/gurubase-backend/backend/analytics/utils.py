@@ -109,7 +109,8 @@ def map_filter_to_source(filter_type):
         'reddit': 'REDDIT',
         'api': 'API',
         'discord': 'DISCORD',
-        'slack': 'SLACK'
+        'slack': 'SLACK',
+        'github': 'GITHUB'
     }
     
     return source_map.get(filter_type.lower(), filter_type.upper()) 

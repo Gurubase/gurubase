@@ -35,6 +35,7 @@ class Question(models.Model):
         API = "API"
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     slug = models.SlugField(max_length=1500)
     question = models.TextField()
@@ -119,6 +120,7 @@ class Question(models.Model):
             if existing_by_slug:
                 raise ValidationError("A question with this slug and guru type already exists")
 
+            # This does not include Slack and Discord as all of the questions there belong to binges.
             if self.source not in [Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]:
                 existing_by_question = Question.objects.exclude(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]).filter(
                     question=self.question,
@@ -143,6 +145,10 @@ class Question(models.Model):
         for prices in self.llm_usages.values():
             total_cost_dollars += prices['cost_dollars']
         self.cost_dollars = total_cost_dollars
+
+        if not self.user_question:
+            self.user_question = self.question
+
         super().save(*args, **kwargs)
 
     class Meta:
@@ -1689,6 +1695,7 @@ class Integration(models.Model):
     class Type(models.TextChoices):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     type = models.CharField(
         max_length=50,
