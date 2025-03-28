@@ -1771,7 +1771,7 @@ def create_integration(request):
     code = request.query_params.get('code')
     state = request.query_params.get('state')
 
-    if not all([code, state]):
+    if not state:
         return Response({
             'msg': 'Missing required parameters'
         }, status=status.HTTP_400_BAD_REQUEST)
@@ -1782,6 +1782,7 @@ def create_integration(request):
         integration_type = state_json.get('type')
         guru_type_slug = state_json.get('guru_type')
         encoded_guru_slug = state_json.get('encoded_guru_slug')
+        installation_id = state_json.get('installation_id')
 
         if not all([integration_type, guru_type_slug, encoded_guru_slug]):
             return Response({
@@ -1809,7 +1810,18 @@ def create_integration(request):
 
     try:
         strategy = IntegrationFactory.get_strategy(integration_type)
-        integration = strategy.create_integration(code, guru_type)
+        if integration_type.upper() == 'GITHUB':
+            if not installation_id:
+                return Response({
+                    'msg': 'Missing installation_id for GitHub integration'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            integration = strategy.create_integration(installation_id, guru_type)
+        else:
+            if not code:
+                return Response({
+                    'msg': 'Missing code parameter'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            integration = strategy.create_integration(code, guru_type)
     except IntegrationError as e:
         return Response({
             'msg': str(e)

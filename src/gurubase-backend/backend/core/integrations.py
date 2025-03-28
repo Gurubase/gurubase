@@ -417,6 +417,66 @@ class SlackStrategy(IntegrationStrategy):
         }
 
 
+class GitHubStrategy(IntegrationStrategy):
+    def exchange_token(self, code: str) -> dict:
+        """For GitHub, we don't exchange a code. Instead, we use the installation_id as the external_id."""
+        raise NotImplementedError("GitHub integration does not use code exchange")
+
+    def get_external_id(self, token_response: dict) -> str:
+        """For GitHub, the external_id is the installation_id"""
+        return token_response.get('installation_id')
+
+    def get_workspace_name(self, token_response: dict) -> str:
+        """For GitHub, we use the installation_id as the workspace name"""
+        return f"GitHub Installation {token_response.get('installation_id')}"
+
+    def list_channels(self) -> list:
+        """GitHub doesn't have channels"""
+        return []
+
+    def send_test_message(self, channel_id: str) -> bool:
+        """GitHub doesn't support test messages"""
+        return True
+
+    def revoke_access_token(self) -> None:
+        """GitHub doesn't support token revocation"""
+        pass
+
+    def refresh_access_token(self, refresh_token: str) -> dict:
+        """GitHub doesn't support token refresh"""
+        raise NotImplementedError("GitHub tokens don't expire and can't be refreshed")
+
+    def fetch_workspace_details(self, bot_token: str) -> dict:
+        """For GitHub, we use the installation_id as both external_id and workspace name"""
+        return {
+            'external_id': bot_token,  # bot_token is actually installation_id in this case
+            'workspace_name': f"GitHub Installation {bot_token}"
+        }
+
+    def get_type(self) -> str:
+        return 'GITHUB'
+
+    def create_integration(self, installation_id: str, guru_type: GuruType) -> Integration:
+        """Create GitHub integration with the installation ID"""
+        # Check if integration already exists for this type and external_id
+        if Integration.objects.filter(type=self.get_type(), external_id=installation_id).exists():
+            logger.error(f"Integration for {self.get_type()} with ID {installation_id} already exists")
+            raise IntegrationError(f"This integration type is already connected to this guru. Please disconnect the existing integration before connecting a new one.")
+        
+        try:
+            return Integration.objects.create(
+                type=self.get_type(),
+                external_id=installation_id,
+                guru_type=guru_type,
+                access_token=installation_id,  # For GitHub, we use installation_id as the access_token
+                workspace_name=f"GitHub Installation {installation_id}",
+                channels=[]  # GitHub doesn't have channels
+            )
+        except Exception as e:
+            logger.error(f"Error creating GitHub integration: {e}", exc_info=True)
+            raise IntegrationError(f"Error creating GitHub integration. Please try again. If the problem persists, please contact support.")
+
+
 class IntegrationFactory:
     @staticmethod
     def get_strategy(integration_type: str, integration: 'Integration' = None) -> IntegrationStrategy:
@@ -425,8 +485,10 @@ class IntegrationFactory:
             return DiscordStrategy(integration)
         elif integration_type == 'SLACK':
             return SlackStrategy(integration)
+        elif integration_type == 'GITHUB':
+            return GitHubStrategy(integration)
         else:
-            raise ValueError(f'Invalid integration type: {integration_type}') 
+            raise ValueError(f'Invalid integration type: {integration_type}')
 
 class NotEnoughData(Exception):
     pass
