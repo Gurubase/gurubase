@@ -16,7 +16,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
 import secrets
-from .models import Integration, APIKey, GuruCreationForm
+from .models import Integration, APIKey, GuruCreationForm, OutOfContextQuestion
 from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
@@ -615,25 +615,63 @@ def rename_question_guru_types(sender, instance: GuruType, **kwargs):
 def notify_new_user_question(sender, instance: Question, created, **kwargs):
     if settings.ENV == 'selfhosted':
         return
+    
+    if created and settings.SLACK_NOTIFIER_ENABLED:
+        payload = None
+        webhook_url = None
 
-    if created and instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION] and settings.SLACK_NOTIFIER_ENABLED:
+        # Prepare the message
         question_url = f"{settings.BASE_URL}/g/{instance.guru_type.slug}/{instance.slug}"
-        message = f"Title: {instance.question}\nURL: {question_url}\nUser Question: {instance.user_question}\nSource: {instance.source}"
+        message = f":large_green_circle: New question answered\n\n*Guru Type:* {instance.guru_type.slug}\n*Question:* {instance.question}\n*User Question:* {instance.user_question}\n*Date:* {instance.date_created}\n*URL:* {question_url}\n*Source:* {instance.source}\n*Trust Score:* {instance.trust_score:.2f}"
 
         if instance.user:
-            message += f"\nUser Email: {instance.user.email}"
+            message += f"\n*User Email:* {instance.user.email}"
         else:
-            message += f"\nUser: Anonymous"
+            message += f"\n*User:* Anonymous"
+
+        # Set the webhook url and payload if valid
+        if instance.guru_type.send_notification:
+            webhook_url = settings.SLACK_CUSTOM_GURU_NOTIFIER_WEBHOOK_URL
+            payload = {"text": message}
+        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK]:
+            webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
+            payload = {"text": message}
         
-        webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
-        payload = {"text": message}
-        
+        if not payload or not webhook_url:
+            return
+
         try:
             response = requests.post(webhook_url, json=payload, timeout=30)
             response.raise_for_status()
             logger.info(f"Slack notification sent for new question: {instance.id}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to send Slack notification for question {instance.id}: {str(e)}", exc_info=True)
+
+@receiver(post_save, sender=OutOfContextQuestion)
+def notify_out_of_context_question(sender, instance: OutOfContextQuestion, created, **kwargs):
+    if settings.ENV == 'selfhosted':
+        return
+    
+    if created and settings.SLACK_NOTIFIER_ENABLED:
+        webhook_url = None
+        payload = None
+
+        # Prepare the message
+        message = f"🔴 Out of context question detected\n\n*Guru Type:* {instance.guru_type.slug}\n*User Question:* {instance.user_question}\n*Question:* {instance.question}\n*Rerank threshold:* {instance.rerank_threshold}\n*Trust score threshold:* {instance.trust_score_threshold}\n*Source:* {instance.source}\n*Date:* {instance.date_created}\n*Enhanced question:* {instance.enhanced_question}"
+
+
+        if instance.guru_type.send_notification:
+            webhook_url = settings.SLACK_CUSTOM_GURU_NOTIFIER_WEBHOOK_URL
+            payload = {"text": message}
+        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK]:
+            webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
+            payload = {"text": message}
+
+        try:
+            response = requests.post(webhook_url, json=payload, timeout=30)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to send Slack notification for out of context question: {str(e)}", exc_info=True)
 
 
 @receiver(post_save, sender=User)

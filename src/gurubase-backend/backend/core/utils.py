@@ -1130,17 +1130,6 @@ class GptSummary(BaseModel):
     enhanced_question: str
 
 
-def slack_send_outofcontext_question_notification(guru_type, user_question, question, user=None):
-    if settings.SLACK_NOTIFIER_ENABLED:
-        payload = {"text": f"🔴 Out of context question detected\nGuru Type: {guru_type}\nUser Question: {user_question}\nQuestion: {question}"}
-        if user:
-            payload["text"] += f"\nUser Email: {user.email}"
-        try:
-            response = requests.post(settings.SLACK_NOTIFIER_WEBHOOK_URL, json=payload, timeout=30)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to send Slack notification for out of context question: {str(e)}", exc_info=True)
-
 def get_github_details_if_applicable(guru_type):
     guru_type_obj = get_guru_type_object(guru_type)
     response = ""
@@ -1268,7 +1257,6 @@ def ask_question_with_stream(
             enhanced_question=enhanced_question
         )
 
-        slack_send_outofcontext_question_notification(guru_type, user_question, question, user)
         times['total'] = time.perf_counter() - start_total
         return None, None, None, None, None, None, None, None, None, times
 
@@ -2970,17 +2958,6 @@ def handle_failed_root_reanswer(question_slug: str, guru_type_slug: str, user_qu
     Returns:
         None
     """
-
-    def slack_send_outofcontext_question_notification(guru_type_slug: str, user_question: str, question: str, trust_score_threshold: float, was_on_sitemap: bool):
-        payload = {"text": f":rotating_light: Re-answer failed due to lack of context\nGuru Type: {guru_type_slug}\nUser Question: {user_question}\nQuestion: {question}\nContext relevance threshold: {trust_score_threshold}\nWas on sitemap: {was_on_sitemap}"}
-        if settings.SLACK_NOTIFIER_ENABLED:
-            try:
-                response = requests.post(settings.SLACK_NOTIFIER_WEBHOOK_URL, json=payload, timeout=30)
-                response.raise_for_status()
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Failed to send Slack notification for out of context question: {str(e)}", exc_info=True)
-        else:
-            logger.info(payload['text'])
         
     # Check if question exists in db
     question_obj = Question.objects.filter(slug=question_slug, guru_type__slug=guru_type_slug, binge=None)
@@ -2991,7 +2968,6 @@ def handle_failed_root_reanswer(question_slug: str, guru_type_slug: str, user_qu
 
     # Notify the guru type maintainer
     def_settings = get_default_settings()
-    slack_send_outofcontext_question_notification(guru_type_slug, user_question, question, def_settings.trust_score_threshold, question_obj.add_to_sitemap)
 
     # Remove from sitemap (if it is on sitemap)
     if question_obj.add_to_sitemap:
