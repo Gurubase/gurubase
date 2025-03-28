@@ -336,18 +336,7 @@ class GithubAppHandler:
         # Try to get existing JWT from Redis
         existing_jwt = self.redis_client.get(self.jwt_key)
         if existing_jwt:
-            try:
-                # Verify the token is still valid
-                jwt.decode(
-                    existing_jwt, 
-                    options={"verify_signature": False}
-                )
-                return existing_jwt.decode('utf-8')
-            except jwt.ExpiredSignatureError:
-                # Token expired, will generate new one
-                pass
-            except Exception as e:
-                logger.error(f"Error decoding JWT: {e}")
+            return existing_jwt
                 
         # Generate new JWT
         try:
@@ -382,17 +371,7 @@ class GithubAppHandler:
         # Try to get existing installation token from Redis
         existing_token = self.redis_client.get(redis_key)
         if existing_token:
-            try:
-                # Verify the token is still valid
-                token_data = jwt.decode(
-                    existing_token, 
-                    options={"verify_signature": False}
-                )
-                # Check if token is expired or about to expire (within 5 minutes)
-                if token_data.get('exp', 0) > int(time.time()) + 300:
-                    return existing_token.decode('utf-8')
-            except Exception as e:
-                logger.error(f"Error decoding installation token: {e}")
+            return existing_token
 
         # Get a new app JWT
         app_jwt = self._get_or_create_app_jwt()
