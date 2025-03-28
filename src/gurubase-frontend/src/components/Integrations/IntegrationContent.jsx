@@ -143,7 +143,13 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   };
   const config = integrationConfig[type];
 
-  const integrationUrl = config.url;
+  const integrationUrl = `${config.url}${type !== "github" ? "&" : "?"}state=${JSON.stringify(
+    {
+      type: type,
+      guru_type: guruData?.slug,
+      encoded_guru_slug: integrationData?.encoded_guru_slug
+    }
+  )}`;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -269,6 +275,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               type={type}
               integrationData={integrationData}
               selfhosted={selfhosted}
+              loading={loading}
             />
           )}
           {type === "github" && (
@@ -277,6 +284,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               type={type}
               integrationData={integrationData}
               selfhosted={selfhosted}
+              loading={loading}
             />
           )}
         </div>
@@ -441,17 +449,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                   setIsConnecting(false);
                 }
               } else {
-                const queryParamExists = window.location.search.includes("?");
-                window.open(
-                  `${integrationUrl}${queryParamExists ? "&" : "?"}state=${JSON.stringify(
-                    {
-                      type: type,
-                      guru_type: guruData?.slug,
-                      encoded_guru_slug: integrationData?.encoded_guru_slug
-                    }
-                  )}`,
-                  "_blank"
-                );
+                window.open(integrationUrl, "_blank");
               }
             }}>
             {isConnecting ? (
