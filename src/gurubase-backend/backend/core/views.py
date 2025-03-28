@@ -10,7 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-from core.github_handler import GithubAppHandler, GithubEvent, find_github_event_type
+from core.github_handler import GithubAppHandler, GithubEvent
 from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
@@ -2956,13 +2956,13 @@ def github_webhook(request):
     if request.method != 'POST':
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-    event_type = find_github_event_type(request.data)
+    handler = GithubAppHandler()
+    event_type = handler.find_github_event_type(request.data)
     if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
     bot_name = 'gurubase'
     data = request.data
-    handler = GithubAppHandler()
     installation_id = data.get('installation', {}).get('id')
     
     if not installation_id:

@@ -319,30 +319,6 @@ class GithubEvent(enum.Enum):
     PULL_REQUEST_REVIEW_REQUESTED = "pull_request_review_requested"
     # PULL_REQUEST_REVIEW_REQUESTED_REOPENED = "pull_request_review_requested_reopened"
 
-def find_github_event_type(data):
-    if 'issue' in data:
-        if 'comment' in data and data.get('action') == 'created':
-            # Can be pr and issue comment
-            if data.get('issue').get('html_url').split('/')[-2] == 'issues':
-                # Issue comment
-                return GithubEvent.ISSUE_COMMENT
-            else:
-                # Pr comment
-                return None
-        elif data.get('action') == 'opened':
-            return GithubEvent.ISSUE_OPENED
-    elif 'discussion' in data:
-        if 'comment' in data and data.get('action') == 'created':
-            return GithubEvent.DISCUSSION_COMMENT
-        elif data.get('action') == 'opened':
-            return GithubEvent.DISCUSSION_OPENED
-    # elif 'pull_request' in data:
-    #     if 'comment' in data and data.get('action') == 'created':
-    #         return GithubEvent.PULL_REQUEST_COMMENT
-    #     elif data.get('action') == 'opened':
-    #         return GithubEvent.PULL_REQUEST_OPENED
-    else:
-        return None
 
 class GithubAppHandler:
     def __init__(self):
@@ -722,3 +698,28 @@ class GithubAppHandler:
             if f"@{user.lower()}" in line:
                 return True
         return False
+
+    def find_github_event_type(self, data:dict) -> GithubEvent:
+        if 'issue' in data:
+            if 'comment' in data and data.get('action') == 'created':
+                # Can be pr and issue comment
+                if data.get('issue').get('html_url').split('/')[-2] == 'issues':
+                    # Issue comment
+                    return GithubEvent.ISSUE_COMMENT
+                else:
+                    # Pr comment
+                    return None
+            elif data.get('action') == 'opened':
+                return GithubEvent.ISSUE_OPENED
+        elif 'discussion' in data:
+            if 'comment' in data and data.get('action') == 'created':
+                return GithubEvent.DISCUSSION_COMMENT
+            elif data.get('action') == 'opened':
+                return GithubEvent.DISCUSSION_OPENED
+        # elif 'pull_request' in data:
+        #     if 'comment' in data and data.get('action') == 'created':
+        #         return GithubEvent.PULL_REQUEST_COMMENT
+        #     elif data.get('action') == 'opened':
+        #         return GithubEvent.PULL_REQUEST_OPENED
+        else:
+            return None
