@@ -145,6 +145,10 @@ class Question(models.Model):
         for prices in self.llm_usages.values():
             total_cost_dollars += prices['cost_dollars']
         self.cost_dollars = total_cost_dollars
+
+        if not self.user_question:
+            self.user_question = self.question
+
         super().save(*args, **kwargs)
 
     class Meta:

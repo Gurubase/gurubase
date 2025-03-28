@@ -220,10 +220,13 @@ def api_key_auth(view_func):
             integration = api_key_obj.integration_owner
             if integration.type == Integration.Type.DISCORD:
                 request.api_type = APIType.DISCORD
+                request.external_id = integration.external_id
             elif integration.type == Integration.Type.SLACK:
                 request.api_type = APIType.SLACK
+                request.external_id = integration.external_id
             elif integration.type == Integration.Type.GITHUB:
                 request.api_type = APIType.GITHUB
+                request.external_id = integration.external_id
             else:
                 request.api_type = APIType.API
         else:

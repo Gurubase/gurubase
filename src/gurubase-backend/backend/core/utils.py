@@ -1234,7 +1234,11 @@ def ask_question_with_stream(
     parent_question, 
     source,
     enhanced_question,
-    user=None):
+    user=None,
+    github_comments: list | None = None):
+    from core.prompts import github_context_template
+    from core.github_handler import GithubAppHandler
+
     start_total = time.perf_counter()
     times = {
         'total': 0,
@@ -1249,6 +1253,11 @@ def ask_question_with_stream(
     context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, enhanced_question)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
+
+    github_context = ""
+    if github_comments:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+        github_context = github_context_template.format(github_comments=comment_contexts)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1274,6 +1283,7 @@ def ask_question_with_stream(
     guru_variables['user_intent'] = user_intent
     guru_variables['answer_length'] = answer_length
     guru_variables['github_details_if_applicable'] = simplified_github_details
+    guru_variables['github_context'] = github_context
 
     start_history = time.perf_counter()
     history = get_question_history(parent_question)
@@ -1301,7 +1311,7 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False):
+def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1309,7 +1319,8 @@ def get_summary(question, guru_type, short_answer=False):
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
+    from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition, github_context_template
+    from core.github_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
@@ -1320,10 +1331,18 @@ def get_summary(question, guru_type, short_answer=False):
         summary_prompt_widget_addition = ""
         summary_prompt_non_widget_addition = summary_prompt_non_widget_addition
 
+    # TODO: Add the github comments to the prompt
+
+    github_context = ""
+    if github_comments:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+        github_context = github_context_template.format(github_comments=comment_contexts)
+
     prompt = summary_template.format(
         **context_variables, 
         summary_prompt_widget_addition=summary_prompt_widget_addition, 
-        summary_prompt_non_widget_addition=summary_prompt_non_widget_addition
+        summary_prompt_non_widget_addition=summary_prompt_non_widget_addition,
+        github_context=github_context
     )
 
     if guru_type.lower() not in question.lower():
@@ -1359,13 +1378,13 @@ def get_summary(question, guru_type, short_answer=False):
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None):
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, short_answer)
+    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -1422,6 +1441,7 @@ def stream_question_answer(
         enhanced_question,
         parent_question=None,
         user=None,
+        github_comments: list | None = None
     ):
     guru_type_obj = get_guru_type_object(guru_type)
     collection_name = guru_type_obj.milvus_collection_name
@@ -1438,7 +1458,8 @@ def stream_question_answer(
         parent_question,
         source,
         enhanced_question,
-        user
+        user,
+        github_comments
     )
     if not response:
         return None, None, None, None, None, None, None, None, None, times
@@ -2994,6 +3015,7 @@ class APIAskResponse:
     error: Optional[str]                      # Error message if any
     question_obj: Optional[Question]                 # Question model instance if exists
     is_existing: bool                         # Whether this is an existing question
+    question: Optional[str]                   # Question text
 
     @classmethod
     def from_existing(cls, question_obj: Question) -> 'APIAskResponse':
@@ -3002,17 +3024,19 @@ class APIAskResponse:
             content=question_obj.content,
             error=None,
             question_obj=question_obj,
-            is_existing=True
+            is_existing=True,
+            question=question_obj.question
         )
 
     @classmethod
-    def from_stream(cls, stream_generator: Generator) -> 'APIAskResponse':
+    def from_stream(cls, stream_generator: Generator, question: str) -> 'APIAskResponse':
         """Create response for new streaming question"""
         return cls(
             content=stream_generator,
             error=None,
             question_obj=None,
-            is_existing=False
+            is_existing=False,
+            question=question
         )
 
     @classmethod
@@ -3022,7 +3046,8 @@ class APIAskResponse:
             content=None,
             error=error_msg,
             question_obj=None,
-            is_existing=False
+            is_existing=False,
+            question=None
         )
 
 class APIType:
@@ -3052,7 +3077,8 @@ def api_ask(question: str,
             parent: Question | None, 
             fetch_existing: bool, 
             api_type: APIType, 
-            user: User | None) -> APIAskResponse:
+            user: User | None,
+            github_comments: list | None = None) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -3065,7 +3091,8 @@ def api_ask(question: str,
         fetch_existing (bool): Whether to fetch the existing question data.
         api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK, GITHUB).
         user (User): The user making the request.
-    
+        github_comments (list): The comments for the GitHub issue.
+
     Returns:
         APIAskResponse: A dataclass containing all response information
     """
@@ -3097,7 +3124,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget, github_comments=github_comments)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
@@ -3133,7 +3160,8 @@ def api_ask(question: str,
             question_source,
             enhanced_question,
             parent,
-            user
+            user,
+            github_comments
         )
 
         if not response:
@@ -3173,7 +3201,7 @@ def api_ask(question: str,
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
         return APIAskResponse.from_error(f"There was an error in the stream. We are investigating the issue. Please try again later.")
     
-    return APIAskResponse.from_stream(stream_generator)
+    return APIAskResponse.from_stream(stream_generator, question)
 
 def format_trust_score(trust_score: float) -> str:
     return int(trust_score * 100) if trust_score is not None else None

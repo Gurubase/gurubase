@@ -129,6 +129,8 @@ from core.utils import (
     validate_image,
 )
 
+github_handler = GithubAppHandler()
+
 logger = logging.getLogger(__name__)
 
 def conditional_csrf_exempt(view_func):
@@ -1618,6 +1620,10 @@ def api_answer(request, guru_type):
     user = request.user
     api_type = request.api_type  # This is now set by the api_key_auth decorator
 
+    github_api_url = None
+    if api_type == APIType.GITHUB:
+        github_api_url = request.data.get('github_api_url')
+
     # Initialize with default values
     binge = None
     parent = None
@@ -1635,6 +1641,13 @@ def api_answer(request, guru_type):
         # Find the last question in the binge as the parent
         parent = Question.objects.filter(binge=binge).order_by('-date_updated').first()
 
+    github_comments = None
+    if github_api_url:
+        github_issue = github_handler.get_issue(github_api_url, request.external_id)
+        github_comments = github_handler.get_issue_comments(github_api_url, request.external_id)
+        github_comments.append(github_issue) # Add it as last since the helper reverses the comments before processing
+        github_comments = github_handler.prepare_issue_comments(github_comments)
+
     # Get API response
     api_response = api_ask(
         question=question,
@@ -1643,7 +1656,8 @@ def api_answer(request, guru_type):
         parent=parent,
         fetch_existing=fetch_existing,
         api_type=api_type,
-        user=user
+        user=user,
+        github_comments=github_comments
     )
     
     # Handle error case
@@ -1675,6 +1689,8 @@ def api_answer(request, guru_type):
             pass
 
         # Fetch updated question
+        if not question:
+            question = api_response.question
         try:
             result = search_question(
                 user=user,
@@ -2956,8 +2972,7 @@ def github_webhook(request):
     if request.method != 'POST':
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-    handler = GithubAppHandler()
-    event_type = handler.find_github_event_type(request.data)
+    event_type = github_handler.find_github_event_type(request.data)
     if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
@@ -2990,14 +3005,14 @@ def github_webhook(request):
             'body': d.get('issue', {}).get('body', ''),
             'user': d.get('issue', {}).get('user', {}).get('login', ''),
             'api_url': d.get('issue', {}).get('url'),
-            'reply_to_id': None
+            'reply_to_id': None,
         },
         GithubEvent.ISSUE_COMMENT: lambda d: {
             'discussion_id': None,
             'body': d.get('comment', {}).get('body', ''),
             'user': d.get('comment', {}).get('user', {}).get('login', ''),
             'api_url': d.get('issue', {}).get('url'),
-            'reply_to_id': None
+            'reply_to_id': None,
         },
         GithubEvent.PULL_REQUEST_OPENED: lambda d: {
             'discussion_id': None,
@@ -3029,7 +3044,7 @@ def github_webhook(request):
         # Extract event data using the appropriate handler
         event_data = event_handlers[event_type](data)
         
-        if not handler.check_mentioned(event_data['body'], bot_name):
+        if not github_handler.check_mentioned(event_data['body'], bot_name):
             return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
         binge = create_fresh_binge(guru_type_object, None)
@@ -3041,12 +3056,15 @@ def github_webhook(request):
         
         # Prepare payload for the API
         payload = {
-            'question': handler.cleanup_user_question(event_data['body'], bot_name),
+            'question': github_handler.cleanup_user_question(event_data['body'], bot_name),
             'stream': False,
             'short_answer': True,
             'fetch_existing': False,
             'session_id': binge.id
         }
+
+        if event_data['api_url']:
+            payload['github_api_url'] = event_data['api_url']
         
         # Create request with API key from integration
         request = factory.post(
@@ -3064,12 +3082,14 @@ def github_webhook(request):
             return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         formatted_response = handler.format_github_answer(response.data, event_data['body'], event_data['user'])
 
+        formatted_response = github_handler.format_github_answer(response.data, event_data['body'], event_data['user'])
+
         # Handle discussion events
         if event_data['discussion_id']:
             if event_type == GithubEvent.DISCUSSION_COMMENT and event_data['reply_to_id']:
                 # For discussion comments, we need to get the parent comment's node_id
                 try:
-                    parent_comment_id = handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
+                    parent_comment_id = github_handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
                     if parent_comment_id:
                         event_data['reply_to_id'] = parent_comment_id
                     else:
@@ -3078,7 +3098,7 @@ def github_webhook(request):
                     logger.error(f"Error fetching parent comment: {e}", exc_info=True)
                     event_data['reply_to_id'] = None
 
-            handler.create_discussion_comment(
+            github_handler.create_discussion_comment(
                 discussion_id=event_data['discussion_id'],
                 body=formatted_response,
                 installation_id=installation_id,
@@ -3086,7 +3106,7 @@ def github_webhook(request):
             )
         # Handle issue/PR events
         elif event_data['api_url']:
-            handler.respond_to_github_issue_event(
+            github_handler.respond_to_github_issue_event(
                 event_data['api_url'],
                 installation_id,
                 formatted_response

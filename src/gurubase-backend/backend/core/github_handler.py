@@ -734,3 +734,110 @@ class GithubAppHandler:
         #         return GithubEvent.PULL_REQUEST_OPENED
         else:
             return None
+        
+    def prepare_issue_comments(self, comments: list) -> list:
+        """Prepare the comments for the issue.
+
+        They are already formatted, we just need to limit the length and get them in reverse date order.
+
+        Args:
+            comments (list): The comments to prepare
+            
+        Returns:
+            list: The prepared comments
+        """
+
+        limit = settings.GITHUB_CONTEXT_CHAR_LIMIT
+        total_length = 0
+        reversed_comments = list(reversed(comments))
+        for i, comment in enumerate(reversed_comments):
+            total_length += len(comment['body'])
+            if total_length > limit:
+                break
+
+        if total_length < limit:
+            i += 1
+        return reversed_comments[:i]
+
+    def format_comments_for_prompt(self, comments: list) -> str:
+        """Format the comments for the prompt."""
+        processed_comments = []
+        for c in comments:
+            processed_comments.append(f"<Github comment>\nAuthor association: {c['author_association']}\nBody: {c['body']}\n</Github comment>\n")
+        return '\n'.join(processed_comments)
+
+    def get_issue_comments(self, api_url: str, installation_id: str) -> list:
+        """Get all comments for a specific issue.
+        
+        Args:
+            api_url (str): The API URL of the issue
+            installation_id (str): The GitHub App installation ID
+            
+        Returns:
+            list: List of comments with their details
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get installation access token
+            installation_jwt = self._get_or_create_installation_jwt(installation_id)
+            
+            # Prepare the API URL
+            url = f"{api_url}/comments?sort=created&direction=desc&per_page=100"
+            
+            # Make the API request
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {installation_jwt}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            
+            response.raise_for_status()
+            comments = response.json()
+            return [{'body': comment['body'], 'author_association': comment['author_association']} for comment in comments]
+            
+        except Exception as e:
+            logger.error(f"Error fetching issue comments: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to fetch issue comments: {str(e)}")
+
+    def get_issue(self, api_url: str, installation_id: str) -> list:
+        """Get the initial issue post.
+        
+        Args:
+            api_url (str): The API URL of the issue
+            installation_id (str): The GitHub App installation ID
+            
+        Returns:
+            dict: The issue data
+            
+        Raises:
+            GitHubRepoContentExtractionError: If the API call fails
+        """
+        try:
+            # Get installation access token
+            installation_jwt = self._get_or_create_installation_jwt(installation_id)
+            
+            # Prepare the API URL
+            url = f"{api_url}"
+            
+            # Make the API request
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {installation_jwt}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            
+            response.raise_for_status()
+            issue = response.json()
+            return {'body': issue['body'], 'author_association': issue['author_association']}
+            
+        except Exception as e:
+            logger.error(f"Error fetching issue comments: {e}")
+            raise GitHubRepoContentExtractionError(f"Failed to fetch issue comments: {str(e)}")
