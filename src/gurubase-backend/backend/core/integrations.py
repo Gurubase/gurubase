@@ -430,6 +430,14 @@ class GitHubStrategy(IntegrationStrategy):
         except Exception as e:
             logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
             return []
+        
+    def _fetch_installation(self, installation_id: str) -> dict:
+        """Fetch installation details for a GitHub installation"""
+        try:
+            return self.github_handler.get_installation(installation_id)
+        except Exception as e:
+            logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
+            return {}
 
     def exchange_token(self, code: str) -> dict:
         """For GitHub, we don't exchange a code. Instead, we use the installation_id as the external_id."""
@@ -439,21 +447,18 @@ class GitHubStrategy(IntegrationStrategy):
         """For GitHub, the external_id is the installation_id"""
         return token_response.get('installation_id')
 
-    def get_workspace_name(self, token_response: dict) -> str:
+    def get_workspace_name(self, installation_id: str) -> str:
         """For GitHub, we use the repository names as the workspace name"""
-        installation_id = token_response.get('installation_id')
-        if not installation_id:
-            return "GitHub Installation"
-            
-        repo_names = self._fetch_repositories(installation_id)
-        if not repo_names:
+        installation = self._fetch_installation(installation_id)
+        if not installation:
             return f"GitHub Installation {installation_id}"
             
-        return f"Repositories {', '.join(repo_names)}"
+        return installation.get('account', {}).get('login')
 
     def list_channels(self) -> list:
-        """GitHub doesn't have channels"""
-        return []
+        """For GitHub, we return repositories as channels"""
+        repo_names = self._fetch_repositories(self.get_integration().external_id)
+        return [{'id': name, 'name': name, 'allowed': True} for name in repo_names]
 
     def send_test_message(self, channel_id: str) -> bool:
         """GitHub doesn't support test messages"""
@@ -470,8 +475,10 @@ class GitHubStrategy(IntegrationStrategy):
 
     def fetch_workspace_details(self, bot_token: str) -> dict:
         """For GitHub, we use the installation_id as both external_id and workspace name"""
-        repo_names = self._fetch_repositories(bot_token)
-        workspace_name = f"Repositories {', '.join(repo_names)}" if repo_names else f"GitHub Installation {bot_token}"
+        installation = self._fetch_installation(bot_token)
+        workspace_name = installation.get('account', {}).get('login')
+        if not workspace_name:
+            workspace_name = f"GitHub Installation {bot_token}"
         
         return {
             'external_id': bot_token,  # bot_token is actually installation_id in this case
@@ -490,8 +497,7 @@ class GitHubStrategy(IntegrationStrategy):
         
         try:
             # Fetch repository names for workspace name
-            repo_names = self._fetch_repositories(installation_id)
-            workspace_name = f"repositories {', '.join(repo_names)}" if repo_names else f"GitHub Installation {installation_id}"
+            workspace_name = self.get_workspace_name(installation_id)
             
             return Integration.objects.create(
                 type=self.get_type(),

@@ -1987,12 +1987,15 @@ def list_channels(request, guru_type, integration_type):
         }
         
         # Process each API channel
-        processed_channels = []
-        for channel in api_channels:
-            # If channel exists in DB, use its allowed status
-            # Otherwise, default to False for new channels
-            channel['allowed'] = db_channels_map.get(channel['id'], False)
-            processed_channels.append(channel)
+        if integration_type == 'GITHUB':
+            processed_channels = api_channels
+        else:
+            processed_channels = []
+            for channel in api_channels:
+                # If channel exists in DB, use its allowed status
+                # Otherwise, default to False for new channels
+                channel['allowed'] = db_channels_map.get(channel['id'], False)
+                processed_channels.append(channel)
         
         return Response({
             'channels': processed_channels
