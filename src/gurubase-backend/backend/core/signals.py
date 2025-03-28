@@ -633,7 +633,7 @@ def notify_new_user_question(sender, instance: Question, created, **kwargs):
         if instance.guru_type.send_notification:
             webhook_url = settings.SLACK_CUSTOM_GURU_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
-        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK]:
+        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK, Question.Source.GITHUB]:
             webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
         
