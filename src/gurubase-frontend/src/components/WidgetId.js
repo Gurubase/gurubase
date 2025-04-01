@@ -35,7 +35,7 @@ export default function WidgetModal({
     data-widget-id="${widgetId}"
     data-text="Ask AI"
     data-margins='{"bottom": "1rem", "right": "1rem"}'
-    data-light-mode="light"${
+    data-light-mode="auto"${
       isSelfHosted
         ? `
     data-baseUrl="http://localhost:8029/api/"  <!-- If you haven't changed it, this is the default Gurubase instance URL. -->`
