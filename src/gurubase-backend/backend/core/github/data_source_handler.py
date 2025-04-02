@@ -4,7 +4,6 @@ import logging
 from git import Repo
 from pathlib import Path
 from django.conf import settings
-from core.integrations import cleanup_title, get_trust_score_emoji, strip_first_header
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
 import re

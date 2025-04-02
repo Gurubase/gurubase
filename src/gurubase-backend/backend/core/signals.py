@@ -942,7 +942,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
     if settings.ENV != 'selfhosted':
         if instance.type == Integration.Type.DISCORD:
             try:
-                from .integrations import IntegrationFactory
+                from core.integrations.factory import IntegrationFactory
                 discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
                 
                 def leave_guild():
@@ -963,7 +963,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         # Step 2: Revoke access token
         try:
-            from .integrations import IntegrationFactory
+            from core.integrations.factory import IntegrationFactory
             strategy = IntegrationFactory.get_strategy(instance.type, instance)
             strategy.revoke_access_token()
         except Exception as e:

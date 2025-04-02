@@ -6,9 +6,8 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.integrations import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji
+from core.integrations.helpers import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji
 from core.models import Integration, Thread
-from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
 from core.utils import create_fresh_binge
 import time

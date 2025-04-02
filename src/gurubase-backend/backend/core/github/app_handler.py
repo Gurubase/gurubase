@@ -6,7 +6,7 @@ import time
 import redis
 
 from core.github.models import GithubEvent
-from core.integrations import cleanup_title, get_trust_score_emoji, strip_first_header
+from core.integrations.helpers import cleanup_title, get_trust_score_emoji, strip_first_header
 from core.exceptions import GithubAppHandlerError
 import hmac
 import hashlib

@@ -10,7 +10,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
@@ -51,7 +50,8 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from .integrations import IntegrationError, IntegrationFactory, cleanup_title, get_trust_score_emoji, strip_first_header
+from core.integrations.helpers import IntegrationError, cleanup_title, get_trust_score_emoji, strip_first_header, NotEnoughData, NotRelated
+from core.integrations.factory import IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -128,7 +128,7 @@ from core.utils import (
     validate_guru_type,
     validate_image,
 )
-from .integration_commands import GetIntegrationCommand, DeleteIntegrationCommand, CreateIntegrationCommand
+from core.integrations.rest_commands import GetIntegrationCommand, DeleteIntegrationCommand, CreateIntegrationCommand
 from .github.event_handler import GitHubEventFactory, GitHubEventHandler
 from .github.app_handler import GithubAppHandler
 
