@@ -629,7 +629,7 @@ class GithubAppHandler:
         question_url = answer.get('question_url')
         frontend_link_section = ""
         if question_url:
-            frontend_link_section = f"\n_👀 [View on Gurubase for a better UX]({question_url})_"
+            frontend_link_section = f"\n_👀 [View on Gurubase for a better UX]({question_url})_\n\n_Tag @gurubase to ask me a question._"
         
         # Calculate the length of the quoted body and user mention if provided
         quoted_body_length = 0
@@ -677,7 +677,7 @@ class GithubAppHandler:
         for line in lines:
             if line.startswith('> '):
                 continue
-            if f"@{user.lower()}" in line:
+            if f"@{user.lower()}" in line and not line.startswith(f'_Tag @{user.lower()} to ask me a question'):
                 return True
         return False
 
