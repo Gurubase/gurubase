@@ -745,7 +745,11 @@ class GithubAppHandler:
         """Format the comments for the prompt."""
         processed_comments = []
         for c in comments:
-            processed_comments.append(f"<Github comment>\nAuthor association: {c['author_association']}\nBody: {c['body']}\n</Github comment>\n")
+            author_association = c['author_association']
+            if author_association == 'NONE':
+                author_association = 'USER'
+
+            processed_comments.append(f"<Github comment>\nAuthor association: {author_association}\nBody: {c['body']}\n</Github comment>\n")
         return '\n'.join(processed_comments)
 
     def get_issue_comments(self, api_url: str, installation_id: str) -> list:

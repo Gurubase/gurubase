@@ -3,8 +3,22 @@ This should be no more than {widget_answer_max_length} words.
 """
 
 github_context_template = """
-This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the previous comments for the issue:
+This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
+
+- COLLABORATOR: Author has been invited to collaborate on the repository.
+- CONTRIBUTOR: Author has previously committed to the repository.
+- FIRST_TIMER: Author has not previously committed to GitHub.
+- FIRST_TIME_CONTRIBUTOR: Author has not previously committed to the repository.
+- MANNEQUIN: Author is a placeholder for an unclaimed user.
+- MEMBER: Author is a member of the organization that owns the repository.
+- USER: Author is a user of the repository.
+- OWNER: Author is the owner of the repository.
+
+Here are the previous comments for the issue:
+
+<Github comments>
 {github_comments}
+</Github comments>
 """
 
 summary_prompt_non_widget_addition = """
