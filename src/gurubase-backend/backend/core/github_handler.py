@@ -935,6 +935,19 @@ class GithubAppHandler:
             logger.error(f"Error deleting GitHub installation {installation_id}: {e}", exc_info=True)
             raise GithubAppHandlerError(f"Failed to delete GitHub installation: {str(e)}")
 
+    def will_answer(self, body: str, bot_name: str, event_type: GithubEvent, mode: str) -> bool:
+        """Check if the bot will answer based on the mode and event type."""
+
+        # New issue and mode is auto
+        if event_type == GithubEvent.ISSUE_OPENED and mode == 'auto':
+            return True
+
+        # Else, gurubase is mentioned
+        if self.check_mentioned(body, bot_name):
+            return True
+
+        return False
+
     # def add_reaction(self, api_url: str, comment_id: str, installation_id: str, content: str = "eyes") -> None:
     #     """Add a reaction to a GitHub message.
         

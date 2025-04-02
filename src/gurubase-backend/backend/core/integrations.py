@@ -455,10 +455,10 @@ class GitHubStrategy(IntegrationStrategy):
             
         return installation.get('account', {}).get('login')
 
-    def list_channels(self) -> list:
+    def list_channels(self, installation_id: str = None) -> list:
         """For GitHub, we return repositories as channels"""
-        repo_names = self._fetch_repositories(self.get_integration().external_id)
-        return [{'id': name, 'name': name, 'allowed': True} for name in repo_names]
+        repo_names = self._fetch_repositories(installation_id or self.get_integration().external_id)
+        return [{'id': name, 'name': name, 'mode': 'auto'} for name in repo_names]
 
     def send_test_message(self, channel_id: str) -> bool:
         """GitHub doesn't support test messages"""
@@ -498,6 +498,7 @@ class GitHubStrategy(IntegrationStrategy):
         try:
             # Fetch repository names for workspace name
             workspace_name = self.get_workspace_name(installation_id)
+            channels = self.list_channels(installation_id)
             
             return Integration.objects.create(
                 type=self.get_type(),
@@ -505,7 +506,7 @@ class GitHubStrategy(IntegrationStrategy):
                 guru_type=guru_type,
                 access_token=installation_id,  # For GitHub, we use installation_id as the access_token
                 workspace_name=workspace_name,
-                channels=[]  # GitHub doesn't have channels
+                channels=channels
             )
         except Exception as e:
             logger.error(f"Error creating GitHub integration: {e}", exc_info=True)
@@ -540,3 +541,15 @@ def strip_first_header(content: str) -> str:
             # Return content after the newline
             return content[newline_index + 1:].lstrip()
     return content
+
+def get_trust_score_emoji(trust_score: int) -> str:
+    if trust_score >= 80:
+        return "🟢"
+    elif trust_score >= 60:
+        return "🟡"
+    elif trust_score >= 40:
+        return "🟡"
+    elif trust_score >= 20:
+        return "🟠"
+    else:
+        return "🔴"

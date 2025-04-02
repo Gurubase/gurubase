@@ -1978,18 +1978,25 @@ def list_channels(request, guru_type, integration_type):
         # Get channels from API
         strategy = IntegrationFactory.get_strategy(integration_type, integration)
         api_channels = strategy.list_channels()
-        
-        # Create a map of channel IDs to their allowed status from DB
-        db_channels_map = {
-            channel['id']: channel['allowed']
-            for channel in integration.channels
-        }
-        
-        # Process each API channel
+
+        processed_channels = []
         if integration_type == 'GITHUB':
-            processed_channels = api_channels
+            # Create a map of channel IDs to their allowed status from DB
+            db_channels_map = {
+                channel['id']: channel['mode']
+                for channel in integration.channels
+            }
+            # Process each API channel
+            for channel in api_channels:
+                channel['mode'] = db_channels_map.get(channel['id'], 'auto')
+                processed_channels.append(channel)
         else:
-            processed_channels = []
+            # Create a map of channel IDs to their allowed status from DB
+            db_channels_map = {
+                channel['id']: channel['allowed']
+                for channel in integration.channels
+            }
+            # Process each API channel
             for channel in api_channels:
                 # If channel exists in DB, use its allowed status
                 # Otherwise, default to False for new channels
@@ -3005,14 +3012,16 @@ def github_webhook(request):
             'body': d.get('discussion', {}).get('body', ''),
             'user': d.get('discussion', {}).get('user', {}).get('login', ''),
             'api_url': None,
-            'reply_to_id': None
+            'reply_to_id': None,
+            'repository_name': d.get('repository', {}).get('name'),
         },
         GithubEvent.DISCUSSION_COMMENT: lambda d: {
             'discussion_id': d.get('discussion', {}).get('node_id'),
             'body': d.get('comment', {}).get('body', ''),
             'user': d.get('comment', {}).get('user', {}).get('login', ''),
             'api_url': None,
-            'reply_to_id': d.get('comment', {}).get('node_id')
+            'reply_to_id': d.get('comment', {}).get('node_id'),
+            'repository_name': d.get('repository', {}).get('name'),
         },
         GithubEvent.ISSUE_OPENED: lambda d: {
             'discussion_id': None,
@@ -3020,6 +3029,7 @@ def github_webhook(request):
             'user': d.get('issue', {}).get('user', {}).get('login', ''),
             'api_url': d.get('issue', {}).get('url'),
             'reply_to_id': None,
+            'repository_name': d.get('repository', {}).get('name'),
         },
         GithubEvent.ISSUE_COMMENT: lambda d: {
             'discussion_id': None,
@@ -3027,13 +3037,15 @@ def github_webhook(request):
             'user': d.get('comment', {}).get('user', {}).get('login', ''),
             'api_url': d.get('issue', {}).get('url'),
             'reply_to_id': None,
+            'repository_name': d.get('repository', {}).get('name'),
         },
         GithubEvent.PULL_REQUEST_OPENED: lambda d: {
             'discussion_id': None,
             'body': d.get('pull_request', {}).get('body', ''),
             'user': d.get('pull_request', {}).get('user', {}).get('login', ''),
             'api_url': d.get('pull_request', {}).get('url', '').replace('pulls', 'issues'),
-            'reply_to_id': None
+            'reply_to_id': None,
+            'repository_name': d.get('repository', {}).get('name'),
         }
     }
 
@@ -3053,12 +3065,22 @@ def github_webhook(request):
             logger.error(f"No integration found for installation {installation_id}", exc_info=True)
             return Response({'message': 'No integration found'}, status=status.HTTP_400_BAD_REQUEST)
 
+    event_data = event_handlers[event_type](data)
     guru_type_object = integration.guru_type
+    channel = None
+    for channel_itr in integration.channels:
+        if channel_itr['name'] == event_data['repository_name']:
+            channel = channel_itr
+            break
+
+    if not channel:
+        # Assume
+        logger.error(f"No channel found for repository {event_data['repository_name']}", exc_info=True)
+        return Response({'message': 'No channel found'}, status=status.HTTP_400_BAD_REQUEST)
     try:
         # Extract event data using the appropriate handler
-        event_data = event_handlers[event_type](data)
         
-        if not github_handler.check_mentioned(event_data['body'], bot_name):
+        if not github_handler.will_answer(event_data['body'], bot_name, event_type, channel['mode']):
             return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
         binge = create_fresh_binge(guru_type_object, None)
