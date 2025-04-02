@@ -407,14 +407,19 @@ class GithubAppHandler:
         return "\n".join(formatted_msg)
 
     def check_mentioned(self, body: str, user: str) -> bool:
-        """Check if the user is mentioned in the body. However, it could be mentioning to itself like > @gurubase. Ignore these. Its line should not start with >"""
+        """Check if the user is mentioned in the body. However, it could be mentioning to itself like > @gurubase. Ignore these. Its line should not start with >.
+        Also ignores email addresses like contact@gurubase.io and only considers exact @gurubase mentions with possible spaces."""
         lower_body = body.lower()
-        lines = body.split('\n')
+        lines = lower_body.split('\n')
         for line in lines:
             if line.startswith('> '):
                 continue
-            if f"@{user.lower()}" in line and not line.startswith(f'_Tag @{user.lower()} to ask me a question') and not line.startswith(f'Hey @{user.lower()}'):
-                return True
+            # Split the line into words to check for exact @gurubase mentions
+            words = line.split()
+            for word in words:
+                # Check if the word is exactly @gurubase (case insensitive)
+                if word.lower() == f"@{user.lower()}" and not line.startswith(f'_tag @{user.lower()} to ask me a question') and not line.startswith(f'hey @{user.lower()}'):
+                    return True
         return False
 
     def cleanup_user_question(self, body:str, bot_name:str) -> str:
