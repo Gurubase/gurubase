@@ -28,7 +28,7 @@ class GithubAppHandler:
         self.jwt_key = "github_app_jwt"
         self.installation_jwt_key = "github_installation_jwt"
         self.base_path = os.path.dirname(os.path.abspath(__file__))
-        self.pem_path = os.path.join(self.base_path, "..", "github", "github.pem")
+        self.pem_path = os.path.join(self.base_path, "github.pem")
         self.client_id = settings.GITHUB_APP_CLIENT_ID
         self.github_api_url = "https://api.github.com"
         self.github_graphql_url = "https://api.github.com/graphql"
