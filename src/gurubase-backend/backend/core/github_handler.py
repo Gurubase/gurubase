@@ -8,7 +8,7 @@ import jwt
 from git import Repo
 from pathlib import Path
 from django.conf import settings
-from core.integrations import get_trust_score_emoji, strip_first_header
+from core.integrations import cleanup_title, get_trust_score_emoji, strip_first_header
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
 import requests
@@ -613,30 +613,23 @@ class GithubAppHandler:
         trust_score = answer.get('trust_score', 0)
         trust_emoji = get_trust_score_emoji(trust_score)
 
-        trust_score_section = f"\n---\n**Trust Score**: {trust_emoji} {trust_score}%"
+        trust_score_section = f"\n---\n_**Trust Score**: {trust_emoji} {trust_score}%_"
         
         # Calculate references section length
         references = answer.get('references', [])
         references_section = ""
         if references:
-            references_section = "\n**Sources**:"
+            references_section = "\n_**Sources**:_ "
             for ref in references:
                 # Clean up the title by removing emojis and extra spaces
-                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
-                clean_title = re.sub(
-                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
-                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
-                    ' ',
-                    clean_title
-                ).strip()
-                clean_title = ' '.join(clean_title.split())
-                references_section += f"\n* [{clean_title}]({ref['link']})"
+                clean_title = cleanup_title(ref['title'])
+                references_section += f"\n_* [{clean_title}]({ref['link']})_"
         
         # Calculate frontend link section length
         question_url = answer.get('question_url')
         frontend_link_section = ""
         if question_url:
-            frontend_link_section = f"\n👀 [View on Gurubase for a better UX]({question_url})"
+            frontend_link_section = f"\n_👀 [View on Gurubase for a better UX]({question_url})_"
         
         # Calculate the length of the quoted body and user mention if provided
         quoted_body_length = 0

@@ -6,7 +6,7 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.integrations import NotEnoughData, NotRelated, get_trust_score_emoji
+from core.integrations import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji
 from core.models import Integration, Thread
 from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
@@ -433,13 +433,7 @@ class Command(BaseCommand):
                             metadata += "\n_**Sources:**_"
                             for ref in response['references']:
                                 # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
-                                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
-                                clean_title = re.sub(
-                                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
-                                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
-                                    ' ',
-                                    clean_title
-                                ).strip()
+                                clean_title = cleanup_title(ref['title'])
                                 metadata += f"\n• [*{clean_title}*](<{ref['link']}>)"
                         
                         metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"

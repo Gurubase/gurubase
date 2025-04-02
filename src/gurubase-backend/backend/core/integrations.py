@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import re
 import requests
 from django.conf import settings
 from .models import Integration, GuruType
@@ -553,3 +554,17 @@ def get_trust_score_emoji(trust_score: int) -> str:
         return "🟠"
     else:
         return "🔴"
+
+def cleanup_title(title: str) -> str:
+    """Clean up the title of a repository"""
+    clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', title)
+    clean_title = re.sub(
+        r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
+        r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
+        ' ',
+        clean_title
+    ).strip()
+
+    clean_title = ' '.join(clean_title.split())
+
+    return clean_title

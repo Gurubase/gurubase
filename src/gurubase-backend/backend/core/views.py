@@ -52,7 +52,7 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from .integrations import IntegrationError, IntegrationFactory, get_trust_score_emoji, strip_first_header
+from .integrations import IntegrationError, IntegrationFactory, cleanup_title, get_trust_score_emoji, strip_first_header
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -2121,18 +2121,7 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
         formatted_msg.append("\n_*Sources*_:")
         for ref in references:
             # First remove Slack-style emoji codes with adjacent spaces
-            clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
-
-            # Then remove Unicode emojis and their modifiers with adjacent spaces
-            clean_title = re.sub(
-                r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
-                r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
-                ' ',
-                clean_title
-            ).strip()
-            
-            # Clean up multiple spaces and trim
-            clean_title = ' '.join(clean_title.split())
+            clean_title = cleanup_title(ref['title'])
             
             formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
     
