@@ -1723,13 +1723,19 @@ class Integration(models.Model):
     @property
     def masked_access_token(self):
         if settings.ENV == 'selfhosted':
-            return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+            if self.access_token:
+                return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+            else:
+                return None
         return None
 
     @property
     def masked_github_client_id(self):
         if settings.ENV == 'selfhosted':
-            return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
+            if self.github_client_id:
+                return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
+            else:
+                return None
         return None
 
     @property
