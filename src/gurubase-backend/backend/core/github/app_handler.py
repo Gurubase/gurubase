@@ -413,7 +413,7 @@ class GithubAppHandler:
         for line in lines:
             if line.startswith('> '):
                 continue
-            if f"@{user.lower()}" in line and not line.startswith(f'_Tag @{user.lower()} to ask me a question'):
+            if f"@{user.lower()}" in line and not line.startswith(f'_Tag @{user.lower()} to ask me a question') and not line.startswith(f'Hey @{user.lower()}'):
                 return True
         return False
 
