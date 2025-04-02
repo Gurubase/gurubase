@@ -92,31 +92,19 @@ class IssueEventHandler(GitHubEventHandler):
             'repository_name': data.get('repository', {}).get('name'),
         }
 
-    def handle_response(self, response: Response, event_data: Dict[str, Any]) -> None:
-        if response.status_code != 200:
-            error_message = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=False
-            )
-            self.github_handler.respond_to_github_issue_event(
-                event_data['api_url'],
-                self.integration.external_id,
-                error_message
-            )
-        else:
-            formatted_response = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=True
-            )
-            self.github_handler.respond_to_github_issue_event(
-                event_data['api_url'],
-                self.integration.external_id,
-                formatted_response
-            )
+    def handle_response(self, response: Response, event_data: Dict[str, Any], bot_name: str) -> None:
+        error_message = self.github_handler.format_github_answer(
+            response.data,
+            bot_name,
+            event_data['body'],
+            event_data['user'],
+            success=response.status_code == 200
+        )
+        self.github_handler.respond_to_github_issue_event(
+            event_data['api_url'],
+            self.integration.external_id,
+            error_message
+        )
 
 class IssueCommentEventHandler(GitHubEventHandler):
     def extract_event_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -129,31 +117,19 @@ class IssueCommentEventHandler(GitHubEventHandler):
             'repository_name': data.get('repository', {}).get('name'),
         }
 
-    def handle_response(self, response: Response, event_data: Dict[str, Any]) -> None:
-        if response.status_code != 200:
-            error_message = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=False
-            )
-            self.github_handler.respond_to_github_issue_event(
-                event_data['api_url'],
-                self.integration.external_id,
-                error_message
-            )
-        else:
-            formatted_response = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=True
-            )
-            self.github_handler.respond_to_github_issue_event(
-                event_data['api_url'],
-                self.integration.external_id,
-                formatted_response
-            )
+    def handle_response(self, response: Response, event_data: Dict[str, Any], bot_name: str) -> None:
+        error_message = self.github_handler.format_github_answer(
+            response.data,
+            bot_name,
+            event_data['body'],
+            event_data['user'],
+            success=response.status_code == 200
+        )
+        self.github_handler.respond_to_github_issue_event(
+            event_data['api_url'],
+            self.integration.external_id,
+            error_message
+        )
 
 class DiscussionEventHandler(GitHubEventHandler):
     def extract_event_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -166,23 +142,16 @@ class DiscussionEventHandler(GitHubEventHandler):
             'repository_name': data.get('repository', {}).get('name'),
         }
 
-    def handle_response(self, response: Response, event_data: Dict[str, Any]) -> None:
-        if response.status_code != 200:
-            error_message = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=False
-            )
-            self._create_discussion_comment(event_data, error_message)
-        else:
-            formatted_response = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=True
-            )
-            self._create_discussion_comment(event_data, formatted_response)
+    def handle_response(self, response: Response, event_data: Dict[str, Any], bot_name: str) -> None:
+        error_message = self.github_handler.format_github_answer(
+            response.data,
+            bot_name,
+            event_data['body'],
+            event_data['user'],
+            success=response.status_code == 200
+        )
+        self._create_discussion_comment(event_data, error_message)
+
 
     def _create_discussion_comment(self, event_data: Dict[str, Any], response: str) -> None:
         if event_data['discussion_id']:
@@ -204,23 +173,15 @@ class DiscussionCommentEventHandler(GitHubEventHandler):
             'repository_name': data.get('repository', {}).get('name'),
         }
 
-    def handle_response(self, response: Response, event_data: Dict[str, Any]) -> None:
-        if response.status_code != 200:
-            error_message = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=False
-            )
-            self._create_discussion_comment(event_data, error_message)
-        else:
-            formatted_response = self.github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=True
-            )
-            self._create_discussion_comment(event_data, formatted_response)
+    def handle_response(self, response: Response, event_data: Dict[str, Any], bot_name: str) -> None:
+        error_message = self.github_handler.format_github_answer(
+            response.data,
+            bot_name,
+            event_data['body'],
+            event_data['user'],
+            success=response.status_code == 200
+        )
+        self._create_discussion_comment(event_data, error_message)
 
     def _create_discussion_comment(self, event_data: Dict[str, Any], response: str) -> None:
         if event_data['discussion_id']:

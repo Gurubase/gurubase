@@ -2945,7 +2945,6 @@ def github_webhook(request):
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
     body = request.body
-    bot_name = 'gurubase'
     data = request.data
     installation_id = data.get('installation', {}).get('id')
     
@@ -2971,6 +2970,7 @@ def github_webhook(request):
 
     assert integration is not None
 
+    bot_name = integration.github_bot_name
     github_handler = GithubAppHandler(integration)
     # Verify GitHub webhook signature
     try:
@@ -3038,7 +3038,7 @@ def github_webhook(request):
         response = api_answer(request, guru_type)
         
         # Handle the response using the event handler
-        event_handler.handle_response(response, event_data)
+        event_handler.handle_response(response, event_data, bot_name)
 
     except Exception as e:
         logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)

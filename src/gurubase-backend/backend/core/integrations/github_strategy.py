@@ -34,14 +34,6 @@ class GitHubStrategy(IntegrationStrategy):
         """For GitHub, the external_id is the installation_id"""
         return token_response.get('installation_id')
 
-    def get_workspace_name(self, installation_id: str) -> str:
-        """For GitHub, we use the repository names as the workspace name"""
-        installation = self._fetch_installation(installation_id)
-        if not installation:
-            return f"GitHub Installation {installation_id}"
-            
-        return installation.get('account', {}).get('login')
-
     def list_channels(self, installation_id: str = None, client_id: str = None, private_key: str = None) -> list:
         """For GitHub, we return repositories as channels"""
         repo_names = self._fetch_repositories(installation_id or self.get_integration().external_id, client_id, private_key)
@@ -70,9 +62,14 @@ class GitHubStrategy(IntegrationStrategy):
         if not workspace_name:
             workspace_name = f"GitHub Installation {installation_id}"
         
+        bot_slug = installation.get('app_slug')
+        if not bot_slug:
+            bot_slug = 'gurubase'
+
         return {
             'external_id': installation_id,  # bot_token is actually installation_id in this case
-            'workspace_name': workspace_name
+            'workspace_name': workspace_name,
+            'bot_slug': bot_slug
         }
 
     def get_type(self) -> str:
@@ -87,7 +84,7 @@ class GitHubStrategy(IntegrationStrategy):
         
         try:
             # Fetch repository names for workspace name
-            workspace_name = self.get_workspace_name(installation_id)
+            installation_details = self.fetch_workspace_details(installation_id)
             channels = self.list_channels(installation_id)
             
             return Integration.objects.create(
@@ -95,7 +92,8 @@ class GitHubStrategy(IntegrationStrategy):
                 external_id=installation_id,
                 guru_type=guru_type,
                 access_token=installation_id,  # For GitHub, we use installation_id as the access_token
-                workspace_name=workspace_name,
+                workspace_name=installation_details.get('workspace_name'),
+                github_bot_name=installation_details.get('bot_slug'),
                 channels=channels
             )
         except Exception as e:

@@ -309,7 +309,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GithubAppHandlerError(f"Failed to fetch discussion comment: {str(e)}")
 
-    def format_github_answer(self, answer: dict, body: str = None, user: str = None, success: bool = True) -> str:
+    def format_github_answer(self, answer: dict, bot_name: str, body: str = None, user: str = None, success: bool = True) -> str:
         """Format the response with trust score and references for GitHub.
         Using GitHub's markdown formatting:
         **bold**
@@ -321,6 +321,7 @@ class GithubAppHandler:
 
         Args:
             answer (dict): The answer dictionary containing content, trust_score, references, etc.
+            bot_name (str): The name of the bot
             body (str, optional): The message body to quote
             user (str, optional): The username who mentioned the bot
             success (bool, optional): Whether the API call was successful. Defaults to True.
@@ -365,7 +366,7 @@ class GithubAppHandler:
         question_url = answer.get('question_url')
         frontend_link_section = ""
         if question_url:
-            frontend_link_section = f"\n_👀 [View on Gurubase for a better UX]({question_url})_\n\n_Tag @gurubase to ask me a question._"
+            frontend_link_section = f"\n_👀 [View on Gurubase for a better UX]({question_url})_\n\n_Tag **@{bot_name}** to ask me a question._"
         
         # Calculate the length of the quoted body and user mention if provided
         quoted_body_length = 0
