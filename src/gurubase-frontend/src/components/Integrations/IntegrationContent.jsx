@@ -437,6 +437,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                     } finally {
                       setIsDisconnecting(false);
                       setShowDeleteDialog(false);
+                      setLoading(true);
                     }
                   }}>
                   {isDisconnecting ? "Disconnecting..." : "Disconnect"}
