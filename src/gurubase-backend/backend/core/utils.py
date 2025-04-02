@@ -1316,8 +1316,6 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         summary_prompt_widget_addition = ""
         summary_prompt_non_widget_addition = summary_prompt_non_widget_addition
 
-    # TODO: Add the github comments to the prompt
-
     github_context = ""
     if github_comments:
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
