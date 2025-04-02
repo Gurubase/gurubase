@@ -127,6 +127,7 @@ class CreateIntegrationCommand(IntegrationCommand):
                 channels=channels,
                 github_client_id=self.data['client_id'],
                 github_secret=self.data.get('github_secret'),
+                github_bot_name=workspace_details['bot_slug'],
             )
         else:
             return Integration.objects.create(
