@@ -128,6 +128,7 @@ from core.utils import (
     validate_guru_type,
     validate_image,
 )
+from .integration_commands import GetIntegrationCommand, DeleteIntegrationCommand, CreateIntegrationCommand
 
 
 logger = logging.getLogger(__name__)
@@ -1872,92 +1873,14 @@ def manage_integration(request, guru_type, integration_type):
             integration = None
 
         if request.method == 'GET':
-            return Response({
-                'id': integration.id,
-                'type': integration.type,
-                'workspace_name': integration.workspace_name,
-                'external_id': integration.external_id,
-                'channels': integration.channels,
-                'github_client_id': integration.masked_github_client_id,
-                'github_secret': integration.masked_github_secret,
-                'date_created': integration.date_created,
-                'date_updated': integration.date_updated,
-                'access_token': integration.masked_access_token,
-            })
+            command = GetIntegrationCommand(integration)
+            return command.execute()
         elif request.method == 'DELETE':
-            # Delete the integration - token revocation is handled by signal
-            integration.delete()
-            return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
+            command = DeleteIntegrationCommand(integration, guru_type_object)
+            return command.execute()
         elif request.method == 'POST':
-            if settings.ENV != 'selfhosted':
-                return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
-
-            try:
-                if integration_type == Integration.Type.GITHUB:
-                    client_id = request.data.get('client_id')
-                    private_key = request.data.get('private_key')
-                    installation_id = request.data.get('installation_id')
-                    secret = request.data.get('github_secret')
-                    if not client_id:
-                        return Response({'msg': 'Missing client ID for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
-                    if not installation_id:
-                        return Response({'msg': 'Missing installation ID for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
-                    if not private_key:
-                        return Response({'msg': 'Missing private key for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    access_token = request.data.get('access_token')
-                    if not access_token:
-                        return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
-
-                # Get the appropriate integration strategy
-                strategy = IntegrationFactory.get_strategy(integration_type)
-                
-                # Fetch workspace details using bot token
-                try:
-                    if integration_type == Integration.Type.GITHUB:
-                        workspace_details = strategy.fetch_workspace_details(installation_id, client_id, private_key)
-                        channels = strategy.list_channels(installation_id, client_id, private_key)
-                    else:
-                        workspace_details = strategy.fetch_workspace_details(access_token)
-                except Exception as e:
-                    logger.error(f"Error fetching workspace details: {e}", exc_info=True)
-                    return Response({'msg': 'Failed to fetch workspace details. Please make sure your inputs are valid.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-                if integration_type == Integration.Type.GITHUB:
-                    integration = Integration.objects.create(
-                        guru_type=guru_type_object,
-                        type=integration_type,
-                        workspace_name=workspace_details['workspace_name'],
-                        external_id=installation_id,
-                        github_private_key=private_key,
-                        channels=channels,
-                        github_client_id=client_id,
-                        github_secret=secret,
-                    )
-                else:
-                    integration = Integration.objects.create(
-                        guru_type=guru_type_object,
-                        type=integration_type,
-                        workspace_name=workspace_details['workspace_name'],
-                        external_id=workspace_details['external_id'],
-                        access_token=access_token,
-                        channels=[]
-                    )
-                
-                return Response({
-                    'id': integration.id,
-                    'type': integration.type,
-                    'workspace_name': integration.workspace_name,
-                    'external_id': integration.external_id,
-                    'channels': integration.channels,
-                    'date_created': integration.date_created,
-                    'date_updated': integration.date_updated,
-                    'access_token': integration.masked_access_token,
-                }, status=status.HTTP_201_CREATED)
-                
-            except Exception as e:
-                logger.error(f"Error creating integration: {e}", exc_info=True)
-                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            command = CreateIntegrationCommand(guru_type_object, integration_type, request.data)
+            return command.execute()
             
     except Integration.DoesNotExist:
         if request.method == 'GET':
