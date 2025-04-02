@@ -1919,7 +1919,7 @@ def manage_integration(request, guru_type, integration_type):
                         workspace_details = strategy.fetch_workspace_details(access_token)
                 except Exception as e:
                     logger.error(f"Error fetching workspace details: {e}", exc_info=True)
-                    return Response({'msg': 'Failed to fetch workspace details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response({'msg': 'Failed to fetch workspace details. Please make sure your inputs are valid.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                 if integration_type == Integration.Type.GITHUB:
                     integration = Integration.objects.create(
