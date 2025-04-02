@@ -1439,7 +1439,7 @@ def update_github_repositories(successful_repos=True):
     """
 
     def process_guru_type(guru_type):
-        from core.github_handler import clone_repository, read_repository
+        from core.github.data_source_handler import clone_repository, read_repository
         from django.db import transaction
         import os
         from datetime import datetime        

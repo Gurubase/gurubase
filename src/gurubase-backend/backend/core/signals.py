@@ -974,7 +974,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
             instance.api_key.delete()
 
     if instance.type == Integration.Type.GITHUB:
-        from .github_handler import GithubAppHandler
+        from .github.app_handler import GithubAppHandler
         GithubAppHandler(instance).clear_redis_cache()
 
 @receiver(post_save, sender=GuruCreationForm)

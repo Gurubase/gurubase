@@ -13,7 +13,7 @@ from core.exceptions import NotFoundError, PDFContentExtractionError, WebsiteCon
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
-from core.github_handler import process_github_repository, extract_repo_name
+from core.github.data_source_handler import process_github_repository, extract_repo_name
 from core.requester import get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess

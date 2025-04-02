@@ -10,7 +10,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-from core.github_handler import GithubAppHandler, GithubEvent
 from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
@@ -89,6 +88,7 @@ from core.models import (
     GuruType,
     Question,
     WidgetId,
+    Integration,
 )
 from core.requester import GeminiRequester
 from core.serializers import (
@@ -129,6 +129,8 @@ from core.utils import (
     validate_image,
 )
 from .integration_commands import GetIntegrationCommand, DeleteIntegrationCommand, CreateIntegrationCommand
+from .github.event_handler import GitHubEventFactory, GitHubEventHandler
+from .github.app_handler import GithubAppHandler
 
 
 logger = logging.getLogger(__name__)
@@ -2937,16 +2939,12 @@ def fetch_youtube_channel_api(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(data, status=return_status)
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 def github_webhook(request):
     if request.method != 'POST':
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
     body = request.body
-    event_type = GithubAppHandler().find_github_event_type(request.data)
-    if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
-        return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
-
     bot_name = 'gurubase'
     data = request.data
     installation_id = data.get('installation', {}).get('id')
@@ -2954,50 +2952,6 @@ def github_webhook(request):
     if not installation_id:
         logger.error("No installation ID found in webhook payload")
         return Response({'message': 'No installation ID found'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Map event types to their data extraction functions
-    event_handlers = {
-        GithubEvent.DISCUSSION_OPENED: lambda d: {
-            'discussion_id': d.get('discussion', {}).get('node_id'),
-            'body': d.get('discussion', {}).get('body', ''),
-            'user': d.get('discussion', {}).get('user', {}).get('login', ''),
-            'api_url': None,
-            'reply_to_id': None,
-            'repository_name': d.get('repository', {}).get('name'),
-        },
-        GithubEvent.DISCUSSION_COMMENT: lambda d: {
-            'discussion_id': d.get('discussion', {}).get('node_id'),
-            'body': d.get('comment', {}).get('body', ''),
-            'user': d.get('comment', {}).get('user', {}).get('login', ''),
-            'api_url': None,
-            'reply_to_id': d.get('comment', {}).get('node_id'),
-            'repository_name': d.get('repository', {}).get('name'),
-        },
-        GithubEvent.ISSUE_OPENED: lambda d: {
-            'discussion_id': None,
-            'body': d.get('issue', {}).get('body', ''),
-            'user': d.get('issue', {}).get('user', {}).get('login', ''),
-            'api_url': d.get('issue', {}).get('url'),
-            'reply_to_id': None,
-            'repository_name': d.get('repository', {}).get('name'),
-        },
-        GithubEvent.ISSUE_COMMENT: lambda d: {
-            'discussion_id': None,
-            'body': d.get('comment', {}).get('body', ''),
-            'user': d.get('comment', {}).get('user', {}).get('login', ''),
-            'api_url': d.get('issue', {}).get('url'),
-            'reply_to_id': None,
-            'repository_name': d.get('repository', {}).get('name'),
-        },
-        GithubEvent.PULL_REQUEST_OPENED: lambda d: {
-            'discussion_id': None,
-            'body': d.get('pull_request', {}).get('body', ''),
-            'user': d.get('pull_request', {}).get('user', {}).get('login', ''),
-            'api_url': d.get('pull_request', {}).get('url', '').replace('pulls', 'issues'),
-            'reply_to_id': None,
-            'repository_name': d.get('repository', {}).get('name'),
-        }
-    }
 
     # Try to get integration from cache first
     cache = caches['alternate']
@@ -3026,26 +2980,35 @@ def github_webhook(request):
         logger.error(f"GitHub webhook signature verification failed: {e}")
         return Response({'message': 'Invalid signature'}, status=status.HTTP_403_FORBIDDEN)
 
-    event_data = event_handlers[event_type](data)
-    guru_type_object = integration.guru_type
-    channel = None
-    for channel_itr in integration.channels:
-        if channel_itr['name'] == event_data['repository_name']:
-            channel = channel_itr
-            break
-
-    if not channel:
-        # Assume
-        logger.error(f"No channel found for repository {event_data['repository_name']}", exc_info=True)
-        return Response({'message': 'No channel found'}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        # Extract event data using the appropriate handler
+        # Get event type and validate
+        event_type = GitHubEventHandler.find_github_event_type(data)
+        if not GitHubEventHandler.is_supported_event(event_type):
+            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+        # Get the appropriate event handler
+        event_handler = GitHubEventFactory.get_handler(event_type, integration, github_handler)
         
+        # Extract event data
+        event_data = event_handler.extract_event_data(data)
+        
+        # Find the appropriate channel
+        channel = None
+        for channel_itr in integration.channels:
+            if channel_itr['name'] == event_data['repository_name']:
+                channel = channel_itr
+                break
+
+        if not channel:
+            logger.error(f"No channel found for repository {event_data['repository_name']}", exc_info=True)
+            return Response({'message': 'No channel found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if we should answer
         if not github_handler.will_answer(event_data['body'], bot_name, event_type, channel['mode']):
             return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-        binge = create_fresh_binge(guru_type_object, None)
-        # Get the guru type from the integration
+        # Create a new binge
+        binge = create_fresh_binge(integration.guru_type, None)
         guru_type = integration.guru_type.slug
         
         # Create request using APIRequestFactory
@@ -3074,73 +3037,8 @@ def github_webhook(request):
         # Call api_answer directly
         response = api_answer(request, guru_type)
         
-        if response.status_code != 200:
-            logger.error(f"Error getting answer from API: {response.data}")
-            error_message = github_handler.format_github_answer(
-                response.data,
-                event_data['body'],
-                event_data['user'],
-                success=False
-            )
-            
-            # Handle discussion events
-            if event_data['discussion_id']:
-                if event_type == GithubEvent.DISCUSSION_COMMENT and event_data['reply_to_id']:
-                    # For discussion comments, we need to get the parent comment's node_id
-                    try:
-                        parent_comment_id = github_handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
-                        if parent_comment_id:
-                            event_data['reply_to_id'] = parent_comment_id
-                        else:
-                            event_data['reply_to_id'] = None
-                    except Exception as e:
-                        logger.error(f"Error fetching parent comment: {e}", exc_info=True)
-                        event_data['reply_to_id'] = None
-
-                    github_handler.create_discussion_comment(
-                        discussion_id=event_data['discussion_id'],
-                        body=error_message,
-                        installation_id=installation_id,
-                        reply_to_id=event_data['reply_to_id']
-                    )
-                # Handle issue/PR events
-            elif event_data['api_url']:
-                github_handler.respond_to_github_issue_event(
-                    event_data['api_url'],
-                    installation_id,
-                    error_message
-                )
-                return Response({'message': 'Error getting answer from API'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        formatted_response = github_handler.format_github_answer(response.data, event_data['body'], event_data['user'], success=True)
-
-        # Handle discussion events
-        if event_data['discussion_id']:
-            if event_type == GithubEvent.DISCUSSION_COMMENT and event_data['reply_to_id']:
-                # For discussion comments, we need to get the parent comment's node_id
-                try:
-                    parent_comment_id = github_handler.get_discussion_comment(event_data['reply_to_id'], installation_id)
-                    if parent_comment_id:
-                        event_data['reply_to_id'] = parent_comment_id
-                    else:
-                        event_data['reply_to_id'] = None
-                except Exception as e:
-                    logger.error(f"Error fetching parent comment: {e}", exc_info=True)
-                    event_data['reply_to_id'] = None
-
-            github_handler.create_discussion_comment(
-                discussion_id=event_data['discussion_id'],
-                body=formatted_response,
-                installation_id=installation_id,
-                reply_to_id=event_data['reply_to_id']
-            )
-        # Handle issue/PR events
-        elif event_data['api_url']:
-            github_handler.respond_to_github_issue_event(
-                event_data['api_url'],
-                installation_id,
-                formatted_response
-            )
+        # Handle the response using the event handler
+        event_handler.handle_response(response, event_data)
 
     except Exception as e:
         logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)

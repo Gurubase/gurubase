@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import re
 import requests
 from django.conf import settings
+
 from .models import Integration, GuruType
 import logging
 
@@ -420,7 +421,7 @@ class SlackStrategy(IntegrationStrategy):
 
 class GitHubStrategy(IntegrationStrategy):
     def __init__(self, integration: 'Integration' = None):
-        from .github_handler import GithubAppHandler
+        from core.github.app_handler import GithubAppHandler
         super().__init__(integration)
         self.github_handler = GithubAppHandler(integration)
 
