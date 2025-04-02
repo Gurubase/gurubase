@@ -52,7 +52,7 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from .integrations import IntegrationError, IntegrationFactory, strip_first_header
+from .integrations import IntegrationError, IntegrationFactory, get_trust_score_emoji, strip_first_header
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -2106,7 +2106,7 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
     formatted_msg = [content]
     
     # Add trust score with emoji
-    trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
+    trust_emoji = get_trust_score_emoji(trust_score)
     formatted_msg.append(f"\n---------\n_*Trust Score*: {trust_emoji} {trust_score}_%")
     
     # Add references if they exist

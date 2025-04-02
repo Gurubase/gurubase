@@ -8,7 +8,7 @@ import jwt
 from git import Repo
 from pathlib import Path
 from django.conf import settings
-from core.integrations import strip_first_header
+from core.integrations import get_trust_score_emoji, strip_first_header
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
 import requests
@@ -611,7 +611,8 @@ class GithubAppHandler:
             
         # Calculate the length of the fixed sections first
         trust_score = answer.get('trust_score', 0)
-        trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
+        trust_emoji = get_trust_score_emoji(trust_score)
+
         trust_score_section = f"\n---\n**Trust Score**: {trust_emoji} {trust_score}%"
         
         # Calculate references section length
