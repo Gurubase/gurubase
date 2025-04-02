@@ -13,12 +13,14 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
+import Link from "next/link";
 
 const RepositoriesComponent = ({
   guruData,
   type,
   integrationData,
-  selfhosted
+  selfhosted,
+  externalId
 }) => {
   const [repositories, setRepositories] = useState([]);
   const [repositoriesLoading, setRepositoriesLoading] = useState(true);
@@ -82,7 +84,23 @@ const RepositoriesComponent = ({
           the bot with <strong>@gurubase</strong> in the repository issues.
         </p>
         <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+          To manage your repositories, you can visit the GitHub installation
+          settings{" "}
+          <Link
+            href={`https://github.com/settings/installations/${externalId}`}
+            target="_blank"
+            className="text-blue-500 hover:text-blue-600">
+            here
+          </Link>
+          .
+        </p>
+        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
           Up to <strong>100</strong> repositories can be connected at a time.
+        </p>
+        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+          "Auto" mode will automatically answer all new issues. "Manual" mode
+          will require you to call the bot with <strong>@gurubase</strong> in
+          the issue comment to answer.
         </p>
       </div>
       {/* Repositories List */}

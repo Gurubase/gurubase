@@ -297,6 +297,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               integrationData={integrationData}
               selfhosted={selfhosted}
               loading={loading}
+              externalId={integrationData?.external_id}
             />
           )}
         </div>
