@@ -26,6 +26,9 @@ class GitHubStrategy(IntegrationStrategy):
         except Exception as e:
             raise IntegrationError(f"Error fetching GitHub installation: {e}")
 
+    def get_workspace_name(self, token_response: dict) -> str:
+        raise NotImplementedError("GitHub integration does not support getting workspace name")
+
     def exchange_token(self, code: str) -> dict:
         """For GitHub, we don't exchange a code. Instead, we use the installation_id as the external_id."""
         raise NotImplementedError("GitHub integration does not use code exchange")
