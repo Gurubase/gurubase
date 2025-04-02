@@ -182,14 +182,14 @@ const RepositoriesComponent = ({
                     "_blank"
                   )
                 }>
-                <ExternalLinkIcon className="h-4 w-4" />
                 Manage
+                <ExternalLinkIcon className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>
-                Manage your repositories. All updates are then reflected to this
-                page upon refresh.
+                Manage your repositories on GitHub. All updates are then
+                reflected to this page upon refresh.
               </p>
             </TooltipContent>
           </Tooltip>
