@@ -83,8 +83,24 @@ class SearchQuestionTests(TestCase):
             user=self.user2
         )
 
+        # Create Github questions
+        self.github_question = Question.objects.create(
+            question="Github question",
+            slug="github-question",
+            guru_type=self.guru_type,
+            source=Question.Source.GITHUB.value
+        )
+
+        self.bot_question_github = Question.objects.create(
+            question="Bot question via Github",
+            slug="bot-question-github",
+            guru_type=self.guru_type,
+            source=Question.Source.GITHUB.value,
+            user=self.user1
+        )
+
     def test_anonymous_user_regular_search(self):
-        """Test anonymous user can find regular questions, Slack questions, Discord questions but not API/widget questions"""
+        """Test anonymous user can find regular questions, Slack questions, Discord questions, and Github questions but not API/widget questions"""
         # Should find regular question
         result = search_question(
             user=None,
@@ -111,6 +127,15 @@ class SearchQuestionTests(TestCase):
             slug="discord-question"
         )
         self.assertEqual(result, self.discord_question)
+
+        # Should find Github question
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="github-question"
+        )
+        self.assertEqual(result, self.github_question)
         
         # Should not find widget question
         result = search_question(
@@ -461,9 +486,9 @@ class SearchQuestionTests(TestCase):
         self.assertEqual(result, binge2_question) 
 
     def test_bot_questions_accessibility(self):
-        """Test that bot questions (SLACK and DISCORD sources) are accessible by anyone"""
+        """Test that bot questions (SLACK, DISCORD, and GITHUB sources) are accessible by anyone"""
         
-        # Anonymous user should find bot questions from both sources
+        # Anonymous user should find bot questions from all sources
         result = search_question(
             user=None,
             guru_type_object=self.guru_type,
@@ -479,6 +504,14 @@ class SearchQuestionTests(TestCase):
             slug="bot-question-discord"
         )
         self.assertEqual(result, self.bot_question_discord)
+
+        result = search_question(
+            user=None,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-github"
+        )
+        self.assertEqual(result, self.bot_question_github)
 
         # Owner user should find their bot question
         result = search_question(
@@ -527,8 +560,8 @@ class SearchQuestionTests(TestCase):
         )
         self.assertIsNone(result)
 
-        # Test that both SLACK and DISCORD sources are treated the same way
-        for question in [self.bot_question_slack, self.bot_question_discord]:
+        # Test that SLACK, DISCORD, and GITHUB sources are treated the same way
+        for question in [self.bot_question_slack, self.bot_question_discord, self.bot_question_github]:
             # Should be accessible by any user
             result = search_question(
                 user=self.user2,  # different user
@@ -603,6 +636,16 @@ class SearchQuestionTests(TestCase):
         )
         self.assertEqual(result, self.discord_question)
 
+        # Maintainer should find Github question
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="github-question",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.github_question)
+
         # Maintainer should find bot question via Slack
         result = search_question(
             user=self.user1,
@@ -622,6 +665,16 @@ class SearchQuestionTests(TestCase):
             allow_maintainer_access=True
         )
         self.assertEqual(result, self.bot_question_discord)
+
+        # Maintainer should find bot question via Github
+        result = search_question(
+            user=self.user1,
+            guru_type_object=self.guru_type,
+            binge=None,
+            slug="bot-question-github",
+            allow_maintainer_access=True
+        )
+        self.assertEqual(result, self.bot_question_github)
 
         # Maintainer should find binge question
         from core.models import Binge
