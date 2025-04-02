@@ -973,6 +973,10 @@ def handle_integration_deletion(sender, instance, **kwargs):
         if instance.api_key:
             instance.api_key.delete()
 
+    if instance.type == Integration.Type.GITHUB:
+        from .github_handler import GithubAppHandler
+        GithubAppHandler(instance).clear_redis_cache()
+
 @receiver(post_save, sender=GuruCreationForm)
 def notify_admin_on_guru_creation_form_submission(sender, instance, **kwargs):
     if instance.notified:

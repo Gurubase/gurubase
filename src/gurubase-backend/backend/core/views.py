@@ -129,7 +129,6 @@ from core.utils import (
     validate_image,
 )
 
-github_handler = GithubAppHandler()
 
 logger = logging.getLogger(__name__)
 
@@ -1627,6 +1626,10 @@ def api_answer(request, guru_type):
     binge = None
     parent = None
 
+    assert request.integration is not None
+
+    github_handler = GithubAppHandler(request.integration)
+
     # Handle binge if provided
     if binge_id:
         try:
@@ -1875,6 +1878,7 @@ def manage_integration(request, guru_type, integration_type):
                 'workspace_name': integration.workspace_name,
                 'external_id': integration.external_id,
                 'channels': integration.channels,
+                'github_client_id': integration.masked_github_client_id,
                 'date_created': integration.date_created,
                 'date_updated': integration.date_updated,
                 'access_token': integration.masked_access_token,
@@ -1888,28 +1892,55 @@ def manage_integration(request, guru_type, integration_type):
                 return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
 
             try:
-                access_token = request.data.get('access_token')
-                if not access_token:
-                    return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
+                if integration_type == Integration.Type.GITHUB:
+                    client_id = request.data.get('client_id')
+                    private_key = request.data.get('private_key')
+                    installation_id = request.data.get('installation_id')
+                    if not client_id:
+                        return Response({'msg': 'Missing client ID for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
+                    if not installation_id:
+                        return Response({'msg': 'Missing installation ID for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
+                    if not private_key:
+                        return Response({'msg': 'Missing private key for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    access_token = request.data.get('access_token')
+                    if not access_token:
+                        return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
 
                 # Get the appropriate integration strategy
                 strategy = IntegrationFactory.get_strategy(integration_type)
                 
                 # Fetch workspace details using bot token
                 try:
-                    workspace_details = strategy.fetch_workspace_details(access_token)
+                    if integration_type == Integration.Type.GITHUB:
+                        workspace_details = strategy.fetch_workspace_details(installation_id, client_id, private_key)
+                        channels = strategy.list_channels(installation_id, client_id, private_key)
+                    else:
+                        workspace_details = strategy.fetch_workspace_details(access_token)
                 except Exception as e:
                     logger.error(f"Error fetching workspace details: {e}", exc_info=True)
                     return Response({'msg': 'Failed to fetch workspace details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                integration = Integration.objects.create(
-                    guru_type=guru_type_object,
-                    type=integration_type,
-                    workspace_name=workspace_details['workspace_name'],
-                    external_id=workspace_details['external_id'],
-                    access_token=access_token,
-                    channels=[]
-                )
+                if integration_type == Integration.Type.GITHUB:
+                    integration = Integration.objects.create(
+                        guru_type=guru_type_object,
+                        type=integration_type,
+                        workspace_name=workspace_details['workspace_name'],
+                        external_id=installation_id,
+                        github_private_key=private_key,
+                        channels=channels,
+                        github_client_id=client_id,
+
+                    )
+                else:
+                    integration = Integration.objects.create(
+                        guru_type=guru_type_object,
+                        type=integration_type,
+                        workspace_name=workspace_details['workspace_name'],
+                        external_id=workspace_details['external_id'],
+                        access_token=access_token,
+                        channels=[]
+                    )
                 
                 return Response({
                     'id': integration.id,
@@ -2986,7 +3017,7 @@ def github_webhook(request):
     if request.method != 'POST':
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
-    event_type = github_handler.find_github_event_type(request.data)
+    event_type = GithubAppHandler().find_github_event_type(request.data)
     if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
@@ -3057,6 +3088,10 @@ def github_webhook(request):
         except Integration.DoesNotExist:
             logger.error(f"No integration found for installation {installation_id}", exc_info=True)
             return Response({'message': 'No integration found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    assert integration is not None
+
+    github_handler = GithubAppHandler(integration)
 
     event_data = event_handlers[event_type](data)
     guru_type_object = integration.guru_type

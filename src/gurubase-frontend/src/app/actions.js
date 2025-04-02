@@ -1036,7 +1036,10 @@ export async function createSelfhostedIntegration(
         body: JSON.stringify({
           workspace_name: data.workspaceName,
           external_id: data.externalId,
-          access_token: data.accessToken
+          access_token: data.accessToken,
+          client_id: data.clientId,
+          installation_id: data.installationId,
+          private_key: data.privateKey
         })
       }
     );

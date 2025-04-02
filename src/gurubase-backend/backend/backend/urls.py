@@ -102,6 +102,7 @@ if settings.STREAM_ENABLED:
             path('api/<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples_api'),
             path('api/slack/events/', core_views.slack_events, name='slack_events_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
+            path('api/github/', core_views.github_webhook, name='github_webhook'),
         ]
 
 if settings.ENV != 'selfhosted':

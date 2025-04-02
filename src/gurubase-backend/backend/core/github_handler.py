@@ -321,7 +321,7 @@ class GithubEvent(enum.Enum):
 
 
 class GithubAppHandler:
-    def __init__(self):
+    def __init__(self, integration = None):
         self.redis_client = redis_client
         self.jwt_key = "github_app_jwt"
         self.installation_jwt_key = "github_installation_jwt"
@@ -330,8 +330,37 @@ class GithubAppHandler:
         self.client_id = settings.GITHUB_APP_CLIENT_ID
         self.github_api_url = "https://api.github.com"
         self.github_graphql_url = "https://api.github.com/graphql"
+        self.integration = integration
 
-    def _get_or_create_app_jwt(self):
+    def clear_redis_cache(self):
+        """Clear the Redis cache."""
+        self.redis_client.delete(self.jwt_key)
+        # Clear all installation JWT keys using pattern matching
+        for key in self.redis_client.keys(f"{self.installation_jwt_key}_*"):
+            self.redis_client.delete(key)
+
+    def _get_private_key(self):
+        """Get the private key from the database."""
+        if settings.ENV == 'selfhosted':
+            if self.integration:
+                return self.integration.github_private_key
+            else:
+                raise GithubAppHandlerError("No integration found")
+        else:
+            with open(self.pem_path, 'rb') as pem_file:
+                return pem_file.read()
+
+    def _get_client_id(self):
+        """Get the client ID from the database."""
+        if settings.ENV == 'selfhosted':
+            if self.integration:
+                return self.integration.github_client_id
+            else:
+                raise GithubAppHandlerError("No integration found")
+        else:
+            return self.client_id
+
+    def _get_or_create_app_jwt(self, client_id: str = None, private_key: str = None):
         """Get existing JWT from Redis or create a new one if expired/missing."""
         # Try to get existing JWT from Redis
         existing_jwt = self.redis_client.get(self.jwt_key)
@@ -340,13 +369,18 @@ class GithubAppHandler:
                 
         # Generate new JWT
         try:
-            with open(self.pem_path, 'rb') as pem_file:
-                signing_key = pem_file.read()
+            if not private_key:
+                signing_key = self._get_private_key()
+            else:
+                signing_key = private_key
+
+            if not client_id:
+                client_id = self._get_client_id()
 
             payload = {
                 'iat': int(time.time()),
                 'exp': int(time.time()) + 600,  # 10 minutes expiration
-                'iss': self.client_id
+                'iss': client_id
             }
 
             # Create new JWT
@@ -365,7 +399,7 @@ class GithubAppHandler:
             logger.error(f"Error generating GitHub App JWT: {e}")
             raise GithubAppHandlerError(f"Failed to generate GitHub App JWT: {str(e)}")
 
-    def _get_or_create_installation_jwt(self, installation_id):
+    def _get_or_create_installation_jwt(self, installation_id, client_id: str = None, private_key: str = None):
         """Get existing installation access token from Redis or create a new one if expired/missing."""
         redis_key = f'{self.installation_jwt_key}_{installation_id}'
         # Try to get existing installation token from Redis
@@ -374,7 +408,7 @@ class GithubAppHandler:
             return existing_token
 
         # Get a new app JWT
-        app_jwt = self._get_or_create_app_jwt()
+        app_jwt = self._get_or_create_app_jwt(client_id, private_key)
 
         try:
             # Request new installation access token
@@ -828,7 +862,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching issue comments: {e}")
             raise GithubAppHandlerError(f"Failed to fetch issue comments: {str(e)}")
 
-    def get_installation(self, installation_id: str) -> dict:
+    def get_installation(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
         """Get the installation details.
         
         Args:
@@ -842,7 +876,7 @@ class GithubAppHandler:
         """
         try:
             # Get installation access token
-            installation_jwt = self._get_or_create_app_jwt()
+            installation_jwt = self._get_or_create_app_jwt(client_id, private_key)
 
             # Make the API request
             response = requests.get(
@@ -862,7 +896,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
             raise GithubAppHandlerError(f"Failed to fetch GitHub installation: {str(e)}")
 
-    def fetch_repositories(self, installation_id: str) -> list:
+    def fetch_repositories(self, installation_id: str, client_id: str = None, private_key: str = None) -> list:
         """Fetch repositories for a GitHub installation.
         
         Args:
@@ -876,7 +910,7 @@ class GithubAppHandler:
         """
         try:
             # Get installation access token
-            access_token = self._get_or_create_installation_jwt(installation_id)
+            access_token = self._get_or_create_installation_jwt(installation_id, client_id, private_key)
             
             # Fetch repositories
             response = requests.get(

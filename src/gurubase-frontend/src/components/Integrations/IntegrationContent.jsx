@@ -46,6 +46,9 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [workspaceName, setWorkspaceName] = useState("");
   const [externalId, setExternalId] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [installationId, setInstallationId] = useState("");
+  const [privateKey, setPrivateKey] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
 
   const integrationConfig = {
@@ -246,40 +249,122 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             </div>
           </div>
           {selfhosted ? (
-            <div className="space-y-8">
-              <div>
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-lg font-medium">
-                    {config.accessTokenLabel}
-                  </h3>
-                  <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                    {config.selfhostedDescription}
-                  </p>
-                </div>
-                <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
-                  <Input
-                    readOnly={!!integrationData?.access_token}
-                    className={cn(
-                      "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
-                      integrationData?.access_token ? "bg-gray-50" : "bg-white"
+            <>
+              <div className="space-y-8">
+                {type === "github" ? (
+                  <>
+                    <div>
+                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                        {config.selfhostedDescription}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Bot Client ID</h3>
+                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                          Enter your GitHub App's client ID
+                        </p>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <Input
+                          readOnly={!!integrationData?.github_client_id}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.github_client_id
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.github_client_id || clientId}
+                          onChange={
+                            !integrationData?.github_client_id
+                              ? (e) => setClientId(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter GitHub App client ID..."
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Installation ID</h3>
+                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                          Enter your GitHub App's installation ID
+                        </p>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <Input
+                          readOnly={!!integrationData?.external_id}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.external_id
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.external_id || installationId}
+                          onChange={
+                            !integrationData?.external_id
+                              ? (e) => setInstallationId(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter GitHub App installation ID..."
+                        />
+                      </div>
+                    </div>
+                    {!integrationData?.github_client_id && (
+                      <div>
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-lg font-medium">Private Key</h3>
+                          <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                            Enter your GitHub App's private key
+                          </p>
+                        </div>
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                          <textarea
+                            className="h-32 w-full px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white resize-none"
+                            value={privateKey}
+                            onChange={(e) => setPrivateKey(e.target.value)}
+                            placeholder="Enter GitHub App private key..."
+                          />
+                        </div>
+                      </div>
                     )}
-                    value={integrationData?.access_token || accessToken}
-                    onChange={
-                      !integrationData?.access_token
-                        ? (e) => setAccessToken(e.target.value)
-                        : undefined
-                    }
-                    placeholder={
-                      !integrationData?.access_token
-                        ? type === "discord"
-                          ? "Enter Discord bot token..."
-                          : "Enter Slack bot token..."
-                        : undefined
-                    }
-                  />
-                </div>
+                  </>
+                ) : (
+                  <div>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-medium">
+                        {config.accessTokenLabel}
+                      </h3>
+                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                        {config.selfhostedDescription}
+                      </p>
+                    </div>
+                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <Input
+                        readOnly={!!integrationData?.access_token}
+                        className={cn(
+                          "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                          integrationData?.access_token
+                            ? "bg-gray-50"
+                            : "bg-white"
+                        )}
+                        value={integrationData?.access_token || accessToken}
+                        onChange={
+                          !integrationData?.access_token
+                            ? (e) => setAccessToken(e.target.value)
+                            : undefined
+                        }
+                        placeholder={
+                          !integrationData?.access_token
+                            ? type === "discord"
+                              ? "Enter Discord bot token..."
+                              : "Enter Slack bot token..."
+                            : undefined
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            </>
           ) : null}
           {config.showChannels && type !== "github" && (
             <ChannelsComponent
@@ -386,40 +471,118 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           {selfhosted ? (
             <>
               <div className="space-y-8">
-                <div>
-                  <div className="flex flex-col gap-2">
-                    <h3 className="text-lg font-medium">
-                      {config.accessTokenLabel}
-                    </h3>
-                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                      {config.selfhostedDescription}
-                    </p>
+                {type === "github" ? (
+                  <>
+                    <div>
+                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                        {config.selfhostedDescription}
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Bot Client ID</h3>
+                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                          Enter your GitHub App's client ID
+                        </p>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <Input
+                          readOnly={!!integrationData?.github_client_id}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.github_client_id
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.github_client_id || clientId}
+                          onChange={
+                            !integrationData?.github_client_id
+                              ? (e) => setClientId(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter GitHub App client ID..."
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Installation ID</h3>
+                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                          Enter your GitHub App's installation ID
+                        </p>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <Input
+                          readOnly={!!integrationData?.external_id}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.external_id
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.external_id || installationId}
+                          onChange={
+                            !integrationData?.external_id
+                              ? (e) => setInstallationId(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter GitHub App installation ID..."
+                        />
+                      </div>
+                    </div>
+                    {!integrationData?.github_client_id && (
+                      <div>
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-lg font-medium">Private Key</h3>
+                          <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                            Enter your GitHub App's private key
+                          </p>
+                        </div>
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                          <textarea
+                            className="h-32 w-full px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white resize-none"
+                            value={privateKey}
+                            onChange={(e) => setPrivateKey(e.target.value)}
+                            placeholder="Enter GitHub App private key..."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-medium">
+                        {config.accessTokenLabel}
+                      </h3>
+                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                        {config.selfhostedDescription}
+                      </p>
+                    </div>
+                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <Input
+                        readOnly={!!integrationData?.access_token}
+                        className={cn(
+                          "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                          integrationData?.access_token
+                            ? "bg-gray-50"
+                            : "bg-white"
+                        )}
+                        value={integrationData?.access_token || accessToken}
+                        onChange={
+                          !integrationData?.access_token
+                            ? (e) => setAccessToken(e.target.value)
+                            : undefined
+                        }
+                        placeholder={
+                          !integrationData?.access_token
+                            ? type === "discord"
+                              ? "Enter Discord bot token..."
+                              : "Enter Slack bot token..."
+                            : undefined
+                        }
+                      />
+                    </div>
                   </div>
-                  <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
-                    <Input
-                      readOnly={!!integrationData?.access_token}
-                      className={cn(
-                        "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
-                        integrationData?.access_token
-                          ? "bg-gray-50"
-                          : "bg-white"
-                      )}
-                      value={integrationData?.access_token || accessToken}
-                      onChange={
-                        !integrationData?.access_token
-                          ? (e) => setAccessToken(e.target.value)
-                          : undefined
-                      }
-                      placeholder={
-                        !integrationData?.access_token
-                          ? type === "discord"
-                            ? "Enter Discord bot token..."
-                            : "Enter Slack bot token..."
-                          : undefined
-                      }
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             </>
           ) : null}
@@ -440,11 +603,17 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                   const response = await createSelfhostedIntegration(
                     guruData?.slug,
                     type.toUpperCase(),
-                    {
-                      workspaceName,
-                      externalId,
-                      accessToken
-                    }
+                    type === "github"
+                      ? {
+                          clientId,
+                          installationId,
+                          privateKey
+                        }
+                      : {
+                          workspaceName,
+                          externalId,
+                          accessToken
+                        }
                   );
 
                   if (!response?.error) {
@@ -453,7 +622,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                     setInternalError(null);
                   } else {
                     setInternalError(
-                      "Failed to create integration. Please make sure your bot token is correct."
+                      response.message ||
+                        "Failed to create integration. Please make sure your bot token is correct."
                     );
                   }
                 } catch (error) {

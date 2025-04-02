@@ -1711,6 +1711,8 @@ class Integration(models.Model):
     access_token = models.TextField()
     refresh_token = models.TextField(null=True, blank=True)
     channels = models.JSONField(default=list, blank=True, null=False)
+    github_private_key = models.TextField(null=True, blank=True)
+    github_client_id = models.TextField(null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1721,6 +1723,12 @@ class Integration(models.Model):
     def masked_access_token(self):
         if settings.ENV == 'selfhosted':
             return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+        return None
+
+    @property
+    def masked_github_client_id(self):
+        if settings.ENV == 'selfhosted':
+            return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
         return None
 
     class Meta:

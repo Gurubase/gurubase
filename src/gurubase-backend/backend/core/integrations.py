@@ -32,7 +32,7 @@ class IntegrationStrategy(ABC):
         pass
 
     @abstractmethod
-    def list_channels(self) -> list:
+    def list_channels(self, installation_id: str = None, client_id: str = None, private_key: str = None) -> list:
         """List available channels"""
         pass
 
@@ -422,20 +422,20 @@ class GitHubStrategy(IntegrationStrategy):
     def __init__(self, integration: 'Integration' = None):
         from .github_handler import GithubAppHandler
         super().__init__(integration)
-        self.github_handler = GithubAppHandler()
+        self.github_handler = GithubAppHandler(integration)
 
-    def _fetch_repositories(self, installation_id: str) -> list:
+    def _fetch_repositories(self, installation_id: str, client_id: str = None, private_key: str = None) -> list:
         """Fetch repositories for a GitHub installation"""
         try:
-            return self.github_handler.fetch_repositories(installation_id)
+            return self.github_handler.fetch_repositories(installation_id, client_id, private_key)
         except Exception as e:
             logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
             return []
         
-    def _fetch_installation(self, installation_id: str) -> dict:
+    def _fetch_installation(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
         """Fetch installation details for a GitHub installation"""
         try:
-            return self.github_handler.get_installation(installation_id)
+            return self.github_handler.get_installation(installation_id, client_id, private_key)
         except Exception as e:
             logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
             return {}
@@ -456,9 +456,9 @@ class GitHubStrategy(IntegrationStrategy):
             
         return installation.get('account', {}).get('login')
 
-    def list_channels(self, installation_id: str = None) -> list:
+    def list_channels(self, installation_id: str = None, client_id: str = None, private_key: str = None) -> list:
         """For GitHub, we return repositories as channels"""
-        repo_names = self._fetch_repositories(installation_id or self.get_integration().external_id)
+        repo_names = self._fetch_repositories(installation_id or self.get_integration().external_id, client_id, private_key)
         return [{'id': name, 'name': name, 'mode': 'auto'} for name in repo_names]
 
     def send_test_message(self, channel_id: str) -> bool:
@@ -474,15 +474,18 @@ class GitHubStrategy(IntegrationStrategy):
         """GitHub doesn't support token refresh"""
         raise NotImplementedError("GitHub tokens don't expire and can't be refreshed")
 
-    def fetch_workspace_details(self, bot_token: str) -> dict:
+    def fetch_workspace_details(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
         """For GitHub, we use the installation_id as both external_id and workspace name"""
-        installation = self._fetch_installation(bot_token)
+        installation = self._fetch_installation(installation_id, client_id, private_key)
+        if not installation:
+            self.github_handler.clear_redis_cache()
+            raise ValueError(f"GitHub installation not found for ID: {installation_id}")
         workspace_name = installation.get('account', {}).get('login')
         if not workspace_name:
-            workspace_name = f"GitHub Installation {bot_token}"
+            workspace_name = f"GitHub Installation {installation_id}"
         
         return {
-            'external_id': bot_token,  # bot_token is actually installation_id in this case
+            'external_id': installation_id,  # bot_token is actually installation_id in this case
             'workspace_name': workspace_name
         }
 
