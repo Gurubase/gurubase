@@ -883,7 +883,7 @@ class GithubAppHandler:
             
             # Fetch repositories
             response = requests.get(
-                f"{self.github_api_url}/installation/repositories",
+                f"{self.github_api_url}/installation/repositories?per_page=100",
                 headers={
                     "Accept": "application/vnd.github+json",
                     "Authorization": f"Bearer {access_token}",
