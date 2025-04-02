@@ -1990,6 +1990,10 @@ def list_channels(request, guru_type, integration_type):
             for channel in api_channels:
                 channel['mode'] = db_channels_map.get(channel['id'], 'auto')
                 processed_channels.append(channel)
+
+            # Save the new channels, we save them in retrieval because it is set on GitHub settings. We only read what is set. We can't update them.
+            integration.channels = processed_channels
+            integration.save()
         else:
             # Create a map of channel IDs to their allowed status from DB
             db_channels_map = {
