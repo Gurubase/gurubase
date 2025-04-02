@@ -29,14 +29,19 @@ import {
 } from "@/components/ui/popover";
 import { CustomToast } from "@/components/CustomToast";
 
-const ChannelsComponent = ({ guruData, type, integrationData, selfhosted }) => {
+const ChannelsComponent = ({
+  guruData,
+  type,
+  integrationData,
+  selfhosted,
+  setInternalError
+}) => {
   const [channels, setChannels] = useState([]);
   const [originalChannels, setOriginalChannels] = useState([]);
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [open, setOpen] = useState(false);
-  const [internalError, setInternalError] = useState(null);
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -47,9 +52,10 @@ const ChannelsComponent = ({ guruData, type, integrationData, selfhosted }) => {
         );
         if (channelsData?.error) {
           setInternalError(
-            selfhosted
-              ? "Failed to fetch channels. Please make sure your bot token is correct."
-              : "Failed to fetch channels."
+            channelsData?.message ||
+              (selfhosted
+                ? "Failed to fetch channels. Please make sure your bot token is correct."
+                : "Failed to fetch channels.")
           );
         } else {
           setChannels(channelsData?.channels || []);

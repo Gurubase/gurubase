@@ -386,6 +386,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               integrationData={integrationData}
               selfhosted={selfhosted}
               loading={loading}
+              setInternalError={setInternalError}
             />
           )}
           {type === "github" && (
@@ -396,6 +397,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               selfhosted={selfhosted}
               loading={loading}
               externalId={integrationData?.external_id}
+              setInternalError={setInternalError}
             />
           )}
         </div>

@@ -25,11 +25,11 @@ const RepositoriesComponent = ({
   type,
   integrationData,
   selfhosted,
-  externalId
+  externalId,
+  setInternalError
 }) => {
   const [repositories, setRepositories] = useState([]);
   const [repositoriesLoading, setRepositoriesLoading] = useState(true);
-  const [internalError, setInternalError] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -43,10 +43,12 @@ const RepositoriesComponent = ({
 
         console.log("repositoriesData", repositoriesData);
         if (repositoriesData?.error) {
+          console.log("repositoriesData?.error", repositoriesData?.error);
           setInternalError(
-            selfhosted
-              ? "Failed to fetch repositories. Please make sure your bot token is correct."
-              : "Failed to fetch repositories."
+            repositoriesData?.message ||
+              (selfhosted
+                ? "Failed to fetch repositories. Please make sure your bot token is correct."
+                : "Failed to fetch repositories.")
           );
         } else {
           // Ensure each repository has a mode value, defaulting to "auto" if not present

@@ -17,16 +17,14 @@ class GitHubStrategy(IntegrationStrategy):
         try:
             return self.github_handler.fetch_repositories(installation_id, client_id, private_key)
         except Exception as e:
-            logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
-            return []
+            raise IntegrationError(f"Error fetching GitHub repositories: {e}")
         
     def _fetch_installation(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
         """Fetch installation details for a GitHub installation"""
         try:
             return self.github_handler.get_installation(installation_id, client_id, private_key)
         except Exception as e:
-            logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
-            return {}
+            raise IntegrationError(f"Error fetching GitHub installation: {e}")
 
     def exchange_token(self, code: str) -> dict:
         """For GitHub, we don't exchange a code. Instead, we use the installation_id as the external_id."""

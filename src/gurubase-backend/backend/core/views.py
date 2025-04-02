@@ -1970,7 +1970,7 @@ def manage_channels(request, guru_type, integration_type):
         })
     except Exception as e:
         logger.error(f"Error listing channels: {e}", exc_info=True)
-        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'msg': 'Error listing channels. Please make sure the integration is valid.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tuple[Thread, Binge]:
     """Get or create a thread and its associated binge."""
