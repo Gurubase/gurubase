@@ -12,8 +12,13 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { ChevronDownIcon } from "@radix-ui/react-icons";
-import Link from "next/link";
+import { ChevronDownIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
 
 const RepositoriesComponent = ({
   guruData,
@@ -84,17 +89,6 @@ const RepositoriesComponent = ({
           the bot with <strong>@gurubase</strong> in the repository issues.
         </p>
         <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-          To manage your repositories, you can visit the GitHub installation
-          settings{" "}
-          <Link
-            href={`https://github.com/settings/installations/${externalId}`}
-            target="_blank"
-            className="text-blue-500 hover:text-blue-600">
-            here
-          </Link>
-          .
-        </p>
-        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
           Up to <strong>100</strong> repositories can be connected at a time.
         </p>
         <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
@@ -146,7 +140,7 @@ const RepositoriesComponent = ({
           </div>
         ))}
       </div>
-      <div className="guru-xs:mt-6 mt-4">
+      <div className="guru-xs:mt-6 mt-4 flex gap-3">
         <Button
           disabled={!hasChanges || isSaving}
           className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg bg-[#1B242D] hover:bg-[#2a363f] text-white guru-xs:w-full md:w-auto"
@@ -176,6 +170,30 @@ const RepositoriesComponent = ({
             "Save"
           )}
         </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium guru-xs:w-full md:w-auto"
+                onClick={() =>
+                  window.open(
+                    `https://github.com/settings/installations/${externalId}`,
+                    "_blank"
+                  )
+                }>
+                <ExternalLinkIcon className="h-4 w-4" />
+                Manage
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Manage your repositories. All updates are then reflected to this
+                page upon refresh.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
