@@ -574,7 +574,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         <div className="flex flex-col gap-2">
                           <h3 className="text-lg font-medium">Private Key</h3>
                           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                            Enter your GitHub App's private key
+                            Enter your GitHub App's private key (Make sure the
+                            newlines are included)
                           </p>
                         </div>
                         <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
