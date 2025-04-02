@@ -120,7 +120,19 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
     },
     github: {
       name: "GitHub",
-      description: "Connect your GitHub repositories to your Guru.",
+      description: (
+        <>
+          By connecting your repositories, you can ask your Guru directly in
+          GitHub. Here is the guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/github-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            learn more
+          </Link>
+          .
+        </>
+      ),
       iconSize: "w-5 h-5",
       url: process.env.NEXT_PUBLIC_GITHUB_INTEGRATION_URL,
       icon: GitHubIcon,
