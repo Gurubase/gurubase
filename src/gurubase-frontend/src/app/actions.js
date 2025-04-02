@@ -1039,7 +1039,8 @@ export async function createSelfhostedIntegration(
           access_token: data.accessToken,
           client_id: data.clientId,
           installation_id: data.installationId,
-          private_key: data.privateKey
+          private_key: data.privateKey,
+          github_secret: data.secret
         })
       }
     );

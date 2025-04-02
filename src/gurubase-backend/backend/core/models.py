@@ -1713,6 +1713,7 @@ class Integration(models.Model):
     channels = models.JSONField(default=list, blank=True, null=False)
     github_private_key = models.TextField(null=True, blank=True)
     github_client_id = models.TextField(null=True, blank=True)
+    github_secret = models.TextField(null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1729,6 +1730,15 @@ class Integration(models.Model):
     def masked_github_client_id(self):
         if settings.ENV == 'selfhosted':
             return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
+        return None
+
+    @property
+    def masked_github_secret(self):
+        if settings.ENV == 'selfhosted':
+            if self.github_secret:
+                return self.github_secret[:3] + ('*' * len(self.github_secret[3:-3])) + self.github_secret[-3:]
+            else:
+                return None
         return None
 
     class Meta:

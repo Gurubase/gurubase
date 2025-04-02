@@ -13,6 +13,8 @@ from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
 import requests
 import re
+import hmac
+import hashlib
 
 redis_client = redis.Redis(
     host=settings.REDIS_HOST,
@@ -978,3 +980,46 @@ class GithubAppHandler:
             return True
 
         return False
+
+    def _get_webhook_secret(self):
+        """Get the webhook secret from the database or environment."""
+        if settings.ENV == 'selfhosted':
+            if self.integration:
+                return self.integration.github_secret
+            else:
+                raise GithubAppHandlerError("No integration found")
+        else:
+            return settings.GITHUB_SECRET_KEY
+
+    def verify_signature(self, payload_body: bytes, signature_header: str) -> None:
+        """Verify that the payload was sent from GitHub by validating SHA256.
+
+        Args:
+            payload_body: original request body to verify (request.body())
+            signature_header: header received from GitHub (x-hub-signature-256)
+
+        Raises:
+            GithubAppHandlerError: If signature verification fails
+        """
+        secret_token = self._get_webhook_secret()
+        if not secret_token:
+            # If no secret token is set, we don't need to verify the signature
+            return 
+
+        if not signature_header:
+            raise GithubAppHandlerError("x-hub-signature-256 header is missing!")
+
+        try:
+            hash_object = hmac.new(
+                secret_token.encode('utf-8'),
+                msg=payload_body,
+                digestmod=hashlib.sha256
+            )
+            expected_signature = "sha256=" + hash_object.hexdigest()
+            
+            if not hmac.compare_digest(expected_signature, signature_header):
+                raise GithubAppHandlerError("Request signatures didn't match!")
+
+        except Exception as e:
+            logger.error(f"Error verifying GitHub webhook signature: {e}")
+            raise GithubAppHandlerError(f"Failed to verify webhook signature: {str(e)}")

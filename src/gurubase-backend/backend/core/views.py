@@ -47,7 +47,7 @@ from core.utils import (
     
 )
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import PermissionError, NotFoundError
+from core.exceptions import GithubAppHandlerError, PermissionError, NotFoundError
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -1879,6 +1879,7 @@ def manage_integration(request, guru_type, integration_type):
                 'external_id': integration.external_id,
                 'channels': integration.channels,
                 'github_client_id': integration.masked_github_client_id,
+                'github_secret': integration.masked_github_secret,
                 'date_created': integration.date_created,
                 'date_updated': integration.date_updated,
                 'access_token': integration.masked_access_token,
@@ -1896,6 +1897,7 @@ def manage_integration(request, guru_type, integration_type):
                     client_id = request.data.get('client_id')
                     private_key = request.data.get('private_key')
                     installation_id = request.data.get('installation_id')
+                    secret = request.data.get('github_secret')
                     if not client_id:
                         return Response({'msg': 'Missing client ID for GitHub integration'}, status=status.HTTP_400_BAD_REQUEST)
                     if not installation_id:
@@ -1930,7 +1932,7 @@ def manage_integration(request, guru_type, integration_type):
                         github_private_key=private_key,
                         channels=channels,
                         github_client_id=client_id,
-
+                        github_secret=secret,
                     )
                 else:
                     integration = Integration.objects.create(
@@ -3012,11 +3014,12 @@ def fetch_youtube_channel_api(request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(data, status=return_status)
 
-@api_view(['POST', 'GET'])
+@api_view(['POST'])
 def github_webhook(request):
     if request.method != 'POST':
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
 
+    body = request.body
     event_type = GithubAppHandler().find_github_event_type(request.data)
     if event_type is None or event_type not in [GithubEvent.ISSUE_OPENED, GithubEvent.ISSUE_COMMENT, GithubEvent.DISCUSSION_OPENED, GithubEvent.DISCUSSION_COMMENT]:
         return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
@@ -3092,6 +3095,13 @@ def github_webhook(request):
     assert integration is not None
 
     github_handler = GithubAppHandler(integration)
+    # Verify GitHub webhook signature
+    try:
+        signature_header = request.headers.get('x-hub-signature-256')
+        github_handler.verify_signature(body, signature_header)
+    except GithubAppHandlerError as e:
+        logger.error(f"GitHub webhook signature verification failed: {e}")
+        return Response({'message': 'Invalid signature'}, status=status.HTTP_403_FORBIDDEN)
 
     event_data = event_handlers[event_type](data)
     guru_type_object = integration.guru_type

@@ -50,6 +50,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [installationId, setInstallationId] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+  const [secret, setSecret] = useState("");
 
   const integrationConfig = {
     slack: {
@@ -308,20 +309,32 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         />
                       </div>
                     </div>
-                    {!integrationData?.github_client_id && (
+                    {integrationData?.github_secret && (
                       <div>
                         <div className="flex flex-col gap-2">
-                          <h3 className="text-lg font-medium">Private Key</h3>
+                          <h3 className="text-lg font-medium">
+                            Webhook Secret (Optional)
+                          </h3>
                           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                            Enter your GitHub App's private key
+                            Enter your GitHub App's webhook secret
                           </p>
                         </div>
                         <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
-                          <textarea
-                            className="h-32 w-full px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white resize-none"
-                            value={privateKey}
-                            onChange={(e) => setPrivateKey(e.target.value)}
-                            placeholder="Enter GitHub App private key..."
+                          <Input
+                            readOnly={!!integrationData?.github_secret}
+                            className={cn(
+                              "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                              integrationData?.github_secret
+                                ? "bg-gray-50"
+                                : "bg-white"
+                            )}
+                            value={integrationData?.github_secret || secret}
+                            onChange={
+                              !integrationData?.github_secret
+                                ? (e) => setSecret(e.target.value)
+                                : undefined
+                            }
+                            placeholder="Enter GitHub App webhook secret..."
                           />
                         </div>
                       </div>
@@ -528,6 +541,34 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         />
                       </div>
                     </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Webhook Secret (Optional)
+                        </h3>
+                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                          Enter your GitHub App's webhook secret
+                        </p>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <Input
+                          readOnly={!!integrationData?.github_secret}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.github_secret
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.github_secret || secret}
+                          onChange={
+                            !integrationData?.github_secret
+                              ? (e) => setSecret(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter GitHub App webhook secret..."
+                        />
+                      </div>
+                    </div>
                     {!integrationData?.github_client_id && (
                       <div>
                         <div className="flex flex-col gap-2">
@@ -607,7 +648,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       ? {
                           clientId,
                           installationId,
-                          privateKey
+                          privateKey,
+                          secret
                         }
                       : {
                           workspaceName,
