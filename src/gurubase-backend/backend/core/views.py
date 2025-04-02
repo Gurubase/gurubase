@@ -1895,7 +1895,7 @@ def manage_integration(request, guru_type, integration_type):
 
 @api_view(['GET', 'POST'])
 @jwt_auth
-def list_channels(request, guru_type, integration_type):
+def manage_channels(request, guru_type, integration_type):
     """Get or update channels for a specific integration type of a guru type."""
     try:
         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)

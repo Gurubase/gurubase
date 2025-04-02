@@ -73,7 +73,7 @@ urlpatterns += [
     path('<str:guru_type>/integrations/<str:integration_type>/', core_views.manage_integration, name='manage_integration'),
     path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
     path('integrations/create/', core_views.create_integration, name='create_integration'),
-    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
+    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.manage_channels, name='manage_channels'),
     path('analytics/', include('analytics.urls')),
 
     path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
