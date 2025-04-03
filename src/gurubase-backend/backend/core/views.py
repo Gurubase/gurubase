@@ -18,6 +18,7 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
+from core.github.exceptions import GithubAppHandlerError
 from core.requester import GeminiRequester, OpenAIRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
@@ -45,7 +46,7 @@ from core.utils import (
     
 )
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import GithubAppHandlerError, PermissionError, NotFoundError
+from core.exceptions import PermissionError, NotFoundError
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response

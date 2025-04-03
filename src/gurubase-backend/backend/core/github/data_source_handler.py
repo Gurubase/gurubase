@@ -5,7 +5,7 @@ from git import Repo
 from pathlib import Path
 from django.conf import settings
 from core.utils import get_default_settings
-from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, GithubAppHandlerError
+from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 import re
 
 
