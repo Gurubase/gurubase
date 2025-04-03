@@ -465,11 +465,9 @@ const Content = (props) => {
           "xs:grid-cols-[112px_minmax(0,_1fr)] guru-md:grid-cols-[253px_minmax(112px,_1fr)] guru-lg:grid-cols-[253px_minmax(112px,_1fr)_253px]"
         )}>
         {/* OtherGurus section */}
-        {windowWidth >= 768 && (
-          <div className={clsx("guru-sm:hidden")}>
-            <OtherGurus allGuruTypes={allGuruTypes} />
-          </div>
-        )}
+        <div className={clsx("guru-sm:hidden")}>
+          <OtherGurus allGuruTypes={allGuruTypes} />
+        </div>
 
         {/* Main content section */}
         <section

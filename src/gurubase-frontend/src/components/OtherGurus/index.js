@@ -18,8 +18,24 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
   const [isClient, setIsClient] = useState(false);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
+  // state for window width
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
+
+  // track window width on client-side
   useEffect(() => {
-    setIsClient(true);
+    // set initial window width
+    setWindowWidth(window.innerWidth);
+
+    // add resize event listener
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const findActiveGuru = (gurus, guruType) => {
@@ -121,7 +137,7 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
             </Button>
           </div>
         </div>
-        {false ? (
+        {windowWidth === null || windowWidth < 768 ? (
           <header className="flex flex-col w-full px-3">
             <Skeleton count={7} height={50} />
           </header>
