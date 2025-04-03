@@ -7,6 +7,7 @@ import logging
 from core.models import Integration, GuruType
 from .helpers import IntegrationError
 from .factory import IntegrationFactory
+from core.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,12 @@ class CreateIntegrationCommand(IntegrationCommand):
                 'access_token': integration.masked_access_token,
             }, status=status.HTTP_201_CREATED)
                 
+        except GithubPrivateKeyError as e:
+            return Response({'msg': 'Invalid private key'}, status=status.HTTP_400_BAD_REQUEST)
+        except GithubInvalidInstallationError as e:
+            return Response({'msg': 'Invalid installation ID'}, status=status.HTTP_400_BAD_REQUEST)
+        except GithubAPIError as e:
+            return Response({'msg': 'Invalid client ID.'}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrationError as e:
             return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -107,11 +114,16 @@ class CreateIntegrationCommand(IntegrationCommand):
                 )
             else:
                 return strategy.fetch_workspace_details(self.data['access_token'])
+        except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching workspace details: {e}", exc_info=True)
             raise IntegrationError('Failed to fetch workspace details. Please make sure your inputs are valid.')
 
     def _create_integration(self, strategy, workspace_details: Dict[str, Any]) -> Integration:
+        """Create integration with CRUD.
+        Used in selfhosted only.
+        """
         if self.integration_type == Integration.Type.GITHUB:
             channels = strategy.list_channels(
                 self.data['installation_id'],

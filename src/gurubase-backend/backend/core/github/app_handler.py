@@ -4,13 +4,17 @@ import jwt
 import logging
 import time
 import redis
-
-from core.github.models import GithubEvent
-from core.integrations.helpers import cleanup_title, get_trust_score_emoji, strip_first_header
-from core.exceptions import GithubAppHandlerError
 import hmac
 import hashlib
 import requests
+
+from core.github.models import GithubEvent
+from core.integrations.helpers import cleanup_title, get_trust_score_emoji, strip_first_header
+from core.github.exceptions import (
+    GithubAppHandlerError, GithubAppTokenError, GithubInstallationTokenError, GithubInvalidInstallationError, GithubPrivateKeyError, GithubTokenError, GithubWebhookError,
+    GithubAPIError, GithubGraphQLError, GithubInstallationError,
+    GithubRepositoryError, GithubDiscussionError, GithubCommentError, GithubWebhookSecretError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +53,11 @@ class GithubAppHandler:
             else:
                 raise GithubAppHandlerError("No integration found")
         else:
-            with open(self.pem_path, 'rb') as pem_file:
-                return pem_file.read()
+            try:
+                with open(self.pem_path, 'rb') as pem_file:
+                    return pem_file.read()
+            except Exception as e:
+                raise GithubPrivateKeyError(f"Failed to read private key file: {str(e)}")
 
     def _get_client_id(self):
         """Get the client ID from the database."""
@@ -64,13 +71,13 @@ class GithubAppHandler:
 
     def _get_or_create_app_jwt(self, client_id: str = None, private_key: str = None):
         """Get existing JWT from Redis or create a new one if expired/missing."""
-        # Try to get existing JWT from Redis
-        existing_jwt = self.redis_client.get(self.jwt_key)
-        if existing_jwt:
-            return existing_jwt
-                
-        # Generate new JWT
         try:
+            # Try to get existing JWT from Redis
+            existing_jwt = self.redis_client.get(self.jwt_key)
+            if existing_jwt:
+                return existing_jwt
+                    
+            # Generate new JWT
             if not private_key:
                 signing_key = self._get_private_key()
             else:
@@ -97,22 +104,34 @@ class GithubAppHandler:
             
             return encoded_jwt if isinstance(encoded_jwt, str) else encoded_jwt.decode('utf-8')
 
+        except jwt.InvalidTokenError as e:
+            logger.error(f"Invalid JWT token: {e}")
+            self.clear_redis_cache()
+            raise GithubAppTokenError(f"Failed to generate valid JWT token: {str(e)}") from e
+        except jwt.InvalidKeyError as e:
+            logger.error(f"Invalid key error: {e}")
+            self.clear_redis_cache()
+            raise GithubPrivateKeyError(f"Failed to generate valid JWT token: {str(e)}") from e
+        except GithubPrivateKeyError as e:
+            self.clear_redis_cache()
+            raise e
         except Exception as e:
             logger.error(f"Error generating GitHub App JWT: {e}")
-            raise GithubAppHandlerError(f"Failed to generate GitHub App JWT: {str(e)}")
+            self.clear_redis_cache()
+            raise GithubAppTokenError(f"Failed to generate GitHub App JWT: {str(e)}") from e
 
     def _get_or_create_installation_jwt(self, installation_id, client_id: str = None, private_key: str = None):
         """Get existing installation access token from Redis or create a new one if expired/missing."""
-        redis_key = f'{self.installation_jwt_key}_{installation_id}'
-        # Try to get existing installation token from Redis
-        existing_token = self.redis_client.get(redis_key)
-        if existing_token:
-            return existing_token
-
-        # Get a new app JWT
-        app_jwt = self._get_or_create_app_jwt(client_id, private_key)
-
         try:
+            redis_key = f'{self.installation_jwt_key}_{installation_id}'
+            # Try to get existing installation token from Redis
+            existing_token = self.redis_client.get(redis_key)
+            if existing_token:
+                return existing_token
+
+            # Get a new app JWT
+            app_jwt = self._get_or_create_app_jwt(client_id, private_key)
+
             # Request new installation access token
             response = requests.post(
                 f"https://api.github.com/app/installations/{installation_id}/access_tokens",
@@ -122,7 +141,10 @@ class GithubAppHandler:
                     "X-GitHub-Api-Version": "2022-11-28"
                 }
             )
-            response.raise_for_status()
+            
+            if response.status_code != 201:
+                raise GithubTokenError(f"Failed to get installation token. Status: {response.status_code}, Response: {response.text}")
+                
             token_data = response.json()
             
             # Store in Redis with TTL of 55 minutes (slightly less than 1 hour expiration)
@@ -134,9 +156,11 @@ class GithubAppHandler:
             
             return token_data['token']
 
+        except (GithubTokenError, GithubPrivateKeyError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error getting GitHub installation access token: {e}")
-            raise GithubAppHandlerError(f"Failed to get GitHub installation access token: {str(e)}")
+            raise GithubInstallationTokenError(f"Failed to get GitHub installation access token: {str(e)}") from e
 
     def respond_to_github_issue_event(self, api_url, installation_id, formatted_response):
         installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -156,20 +180,7 @@ class GithubAppHandler:
         response.raise_for_status()
 
     def create_discussion_comment(self, discussion_id: str, body: str, installation_id: str, reply_to_id: str = None):
-        """Create a thread on a GitHub discussion using GraphQL API.
-        
-        Args:
-            discussion_id (str): The node ID of the discussion to comment on
-            body (str): The content of the comment
-            installation_id (str): The GitHub App installation ID
-            reply_to_id (str, optional): The node ID of the discussion comment to reply to
-            
-        Returns:
-            dict: The created comment data from GitHub API
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Create a thread on a GitHub discussion using GraphQL API."""
         try:
             # Get installation access token
             installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -218,35 +229,31 @@ class GithubAppHandler:
                 }
             )
             
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise GithubAPIError(
+                    f"Failed to create discussion comment. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             result = response.json()
             
             # Check for GraphQL errors
             if "errors" in result:
                 error_msg = result["errors"][0]["message"]
                 logger.error(f"GraphQL error creating discussion comment: {error_msg}")
-                raise GithubAppHandlerError(f"Failed to create discussion comment: {error_msg}")
+                raise GithubGraphQLError(f"Failed to create discussion comment: {error_msg}")
             
             return result["data"]["addDiscussionComment"]["comment"]
             
+        except (GithubAPIError, GithubGraphQLError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error creating discussion comment: {e}")
-            raise GithubAppHandlerError(f"Failed to create discussion comment: {str(e)}")
+            raise GithubDiscussionError(f"Failed to create discussion comment: {str(e)}")
 
     def get_discussion_comment(self, comment_node_id: str, installation_id: str) -> str:
-        """Gets the parent comment of a discussion thread.
-        
-        Args:
-            discussion_id (str): The node ID of the discussion
-            comment_node_id (str): The node ID of the comment to fetch
-            installation_id (str): The GitHub App installation ID
-            
-        Returns:
-            dict: The comment data from GitHub API
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Gets the parent comment of a discussion thread."""
         try:
             # Get installation access token
             installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -270,8 +277,6 @@ class GithubAppHandler:
             }
             """
             
-            # Convert the numeric ID to a node ID format
-            
             # Prepare variables
             variables = {
                 "commentId": comment_node_id
@@ -291,23 +296,31 @@ class GithubAppHandler:
                 }
             )
             
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise GithubAPIError(
+                    f"Failed to fetch discussion comment. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             result = response.json()
             
             # Check for GraphQL errors
             if "errors" in result:
                 error_msg = result["errors"][0]["message"]
                 logger.error(f"GraphQL error fetching discussion comment: {error_msg}")
-                raise GithubAppHandlerError(f"Failed to fetch discussion comment: {error_msg}")
+                raise GithubGraphQLError(f"Failed to fetch discussion comment: {error_msg}")
 
             if 'data' not in result or 'node' not in result['data'] or 'replyTo' not in result['data']['node'] or 'id' not in result['data']['node']['replyTo']:
                 return None
             
             return result['data']["node"]["replyTo"]["id"]
             
+        except (GithubAPIError, GithubGraphQLError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching discussion comment: {e}")
-            raise GithubAppHandlerError(f"Failed to fetch discussion comment: {str(e)}")
+            raise GithubCommentError(f"Failed to fetch discussion comment: {str(e)}") from e
 
     def format_github_answer(self, answer: dict, bot_name: str, body: str = None, user: str = None, success: bool = True) -> str:
         """Format the response with trust score and references for GitHub.
@@ -470,18 +483,7 @@ class GithubAppHandler:
         return '\n'.join(processed_comments)
 
     def get_issue_comments(self, api_url: str, installation_id: str) -> list:
-        """Get all comments for a specific issue.
-        
-        Args:
-            api_url (str): The API URL of the issue
-            installation_id (str): The GitHub App installation ID
-            
-        Returns:
-            list: List of comments with their details
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Get all comments for a specific issue."""
         try:
             # Get installation access token
             installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -499,27 +501,24 @@ class GithubAppHandler:
                 }
             )
             
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise GithubAPIError(
+                    f"Failed to fetch issue comments. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             comments = response.json()
             return [{'body': comment['body'], 'author_association': comment['author_association']} for comment in comments]
             
+        except GithubAPIError as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching issue comments: {e}")
-            raise GithubAppHandlerError(f"Failed to fetch issue comments: {str(e)}")
+            raise GithubCommentError(f"Failed to fetch issue comments: {str(e)}") from e
 
     def get_issue(self, api_url: str, installation_id: str) -> list:
-        """Get the initial issue post.
-        
-        Args:
-            api_url (str): The API URL of the issue
-            installation_id (str): The GitHub App installation ID
-            
-        Returns:
-            dict: The issue data
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Get the initial issue post."""
         try:
             # Get installation access token
             installation_jwt = self._get_or_create_installation_jwt(installation_id)
@@ -537,26 +536,24 @@ class GithubAppHandler:
                 }
             )
             
-            response.raise_for_status()
+            if response.status_code != 200:
+                raise GithubAPIError(
+                    f"Failed to fetch issue. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             issue = response.json()
             return {'body': issue['body'], 'author_association': issue['author_association']}
             
+        except GithubAPIError as e:
+            raise e
         except Exception as e:
-            logger.error(f"Error fetching issue comments: {e}")
-            raise GithubAppHandlerError(f"Failed to fetch issue comments: {str(e)}")
+            logger.error(f"Error fetching issue: {e}")
+            raise GithubCommentError(f"Failed to fetch issue: {str(e)}") from e
 
     def get_installation(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
-        """Get the installation details.
-        
-        Args:
-            installation_id (str): The GitHub App installation ID
-
-        Returns:
-            dict: The installation details
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Get the installation details."""
         try:
             # Get installation access token
             installation_jwt = self._get_or_create_app_jwt(client_id, private_key)
@@ -571,26 +568,27 @@ class GithubAppHandler:
                 }
             )
 
-            response.raise_for_status()
+            if response.status_code != 200:
+                self.clear_redis_cache()
+                if response.status_code == 404:
+                    raise GithubInvalidInstallationError(f"Installation {installation_id} not found")
+
+                raise GithubAPIError(
+                    f"Failed to fetch installation. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+
             installation = response.json()
             return installation
         
+        except GithubAPIError as e:
+            raise e
         except Exception as e:
-            logger.error(f"Error fetching GitHub installation: {e}", exc_info=True)
-            raise GithubAppHandlerError(f"Failed to fetch GitHub installation: {str(e)}")
+            raise e
 
     def fetch_repositories(self, installation_id: str, client_id: str = None, private_key: str = None) -> list:
-        """Fetch repositories for a GitHub installation.
-        
-        Args:
-            installation_id (str): The GitHub App installation ID
-            
-        Returns:
-            list: List of repository names
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Fetch repositories for a GitHub installation."""
         try:
             # Get installation access token
             access_token = self._get_or_create_installation_jwt(installation_id, client_id, private_key)
@@ -604,25 +602,27 @@ class GithubAppHandler:
                     "X-GitHub-Api-Version": "2022-11-28"
                 }
             )
-            response.raise_for_status()
+            
+            if response.status_code != 200:
+                raise GithubAPIError(
+                    f"Failed to fetch repositories. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             data = response.json()
             
             # Extract repository names
             return [repo['name'] for repo in data.get('repositories', [])]
+            
+        except GithubAPIError as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching GitHub repositories: {e}", exc_info=True)
-            raise GithubAppHandlerError(f"Failed to fetch GitHub repositories: {str(e)}")
-
+            raise GithubRepositoryError(f"Failed to fetch GitHub repositories: {str(e)}")
 
     def delete_installation(self, installation_id: str) -> None:
-        """Delete a GitHub App installation.
-        
-        Args:
-            installation_id (str): The GitHub App installation ID to delete
-            
-        Raises:
-            GithubAppHandlerError: If the API call fails
-        """
+        """Delete a GitHub App installation."""
         try:
             # Get app JWT token
             app_jwt = self._get_or_create_app_jwt()
@@ -642,12 +642,20 @@ class GithubAppHandler:
                 logger.info(f"Installation {installation_id} was already deleted or does not exist")
                 return
                 
-            response.raise_for_status()
+            if response.status_code != 204:
+                raise GithubAPIError(
+                    f"Failed to delete installation. Status: {response.status_code}",
+                    status_code=response.status_code,
+                    response_data=response.json()
+                )
+                
             logger.info(f"Successfully deleted installation {installation_id}")
             
+        except GithubAPIError as e:
+            raise e
         except Exception as e:
             logger.error(f"Error deleting GitHub installation {installation_id}: {e}", exc_info=True)
-            raise GithubAppHandlerError(f"Failed to delete GitHub installation: {str(e)}")
+            raise GithubInstallationError(f"Failed to delete GitHub installation: {str(e)}") from e
 
     def will_answer(self, body: str, bot_name: str, event_type: GithubEvent, mode: str) -> bool:
         """Check if the bot will answer based on the mode and event type."""
@@ -668,29 +676,21 @@ class GithubAppHandler:
             if self.integration:
                 return self.integration.github_secret
             else:
-                raise GithubAppHandlerError("No integration found")
+                raise GithubWebhookSecretError("No integration found")
         else:
             return settings.GITHUB_SECRET_KEY
 
     def verify_signature(self, payload_body: bytes, signature_header: str) -> None:
-        """Verify that the payload was sent from GitHub by validating SHA256.
-
-        Args:
-            payload_body: original request body to verify (request.body())
-            signature_header: header received from GitHub (x-hub-signature-256)
-
-        Raises:
-            GithubAppHandlerError: If signature verification fails
-        """
-        secret_token = self._get_webhook_secret()
-        if not secret_token:
-            # If no secret token is set, we don't need to verify the signature
-            return 
-
-        if not signature_header:
-            raise GithubAppHandlerError("x-hub-signature-256 header is missing!")
-
+        """Verify that the payload was sent from GitHub by validating SHA256."""
         try:
+            secret_token = self._get_webhook_secret()
+            if not secret_token:
+                # If no secret token is set, we don't need to verify the signature
+                return 
+
+            if not signature_header:
+                raise GithubWebhookSecretError("x-hub-signature-256 header is missing!")
+
             hash_object = hmac.new(
                 secret_token.encode('utf-8'),
                 msg=payload_body,
@@ -699,8 +699,10 @@ class GithubAppHandler:
             expected_signature = "sha256=" + hash_object.hexdigest()
             
             if not hmac.compare_digest(expected_signature, signature_header):
-                raise GithubAppHandlerError("Request signatures didn't match!")
+                raise GithubWebhookSecretError("Request signatures didn't match!")
 
+        except GithubWebhookSecretError as e:
+            raise e
         except Exception as e:
             logger.error(f"Error verifying GitHub webhook signature: {e}")
-            raise GithubAppHandlerError(f"Failed to verify webhook signature: {str(e)}")
+            raise GithubWebhookError(f"Failed to verify webhook signature: {str(e)}") from e

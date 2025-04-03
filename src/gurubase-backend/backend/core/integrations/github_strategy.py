@@ -1,5 +1,5 @@
-
 import logging
+from core.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
 from core.integrations.helpers import IntegrationError
 from core.integrations.strategy import IntegrationStrategy
 from core.models import GuruType, Integration
@@ -14,17 +14,11 @@ class GitHubStrategy(IntegrationStrategy):
 
     def _fetch_repositories(self, installation_id: str, client_id: str = None, private_key: str = None) -> list:
         """Fetch repositories for a GitHub installation"""
-        try:
-            return self.github_handler.fetch_repositories(installation_id, client_id, private_key)
-        except Exception as e:
-            raise IntegrationError(f"Error fetching GitHub repositories: {e}")
+        return self.github_handler.fetch_repositories(installation_id, client_id, private_key)
         
     def _fetch_installation(self, installation_id: str, client_id: str = None, private_key: str = None) -> dict:
         """Fetch installation details for a GitHub installation"""
-        try:
-            return self.github_handler.get_installation(installation_id, client_id, private_key)
-        except Exception as e:
-            raise IntegrationError(f"Error fetching GitHub installation: {e}")
+        return self.github_handler.get_installation(installation_id, client_id, private_key)
 
     def get_workspace_name(self, token_response: dict) -> str:
         raise NotImplementedError("GitHub integration does not support getting workspace name")
@@ -79,7 +73,9 @@ class GitHubStrategy(IntegrationStrategy):
         return 'GITHUB'
 
     def create_integration(self, installation_id: str, guru_type: GuruType) -> Integration:
-        """Create GitHub integration with the installation ID"""
+        """Create GitHub integration with the installation ID
+        Used in OAuth flow.
+        """
         # Check if integration already exists for this type and external_id
         if Integration.objects.filter(type=self.get_type(), external_id=installation_id).exists():
             logger.error(f"Integration for {self.get_type()} with ID {installation_id} already exists")
@@ -99,6 +95,8 @@ class GitHubStrategy(IntegrationStrategy):
                 github_bot_name=installation_details.get('bot_slug'),
                 channels=channels
             )
+        except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error creating GitHub integration: {e}", exc_info=True)
             raise IntegrationError(f"Error creating GitHub integration. Please try again. If the problem persists, please contact support.")
