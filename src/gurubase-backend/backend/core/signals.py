@@ -619,7 +619,7 @@ def notify_new_user_question(sender, instance: Question, created, **kwargs):
         webhook_url = None
 
         # Prepare the message
-        question_url = f"{settings.BASE_URL}/g/{instance.guru_type.slug}/{instance.slug}"
+        question_url = instance.frontend_url
         message = f":large_green_circle: New question answered\n\n*Guru Type:* {instance.guru_type.slug}\n*Question:* {instance.question}\n*User Question:* {instance.user_question}\n*Date:* {instance.date_created}\n*URL:* {question_url}\n*Source:* {instance.source}\n*Trust Score:* {instance.trust_score:.2f}"
 
         if instance.user:
