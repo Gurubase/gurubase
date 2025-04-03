@@ -41,9 +41,7 @@ const RepositoriesComponent = ({
           type.toUpperCase()
         );
 
-        console.log("repositoriesData", repositoriesData);
         if (repositoriesData?.error) {
-          console.log("repositoriesData?.error", repositoriesData?.error);
           setInternalError(
             repositoriesData?.message ||
               (selfhosted
