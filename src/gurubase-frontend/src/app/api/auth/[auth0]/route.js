@@ -1,9 +1,20 @@
-import { handleAuth, handleLogin } from "@auth0/nextjs-auth0";
+import { initAuth0 } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
 
-const authHandler = handleAuth({
-  // Add prompt=login parameter to prevent Auth0 to use the previous session. Could have also used federated=True while logging out, but this logs the user out from their own identity provider.
-  login: handleLogin({ authorizationParams: { prompt: "login" } })
+const auth0 = initAuth0({
+  session: {
+    // This config makes the session cookie to be valid for 3 days.
+    // Each auth0 interaction will refresh the cookie for another 3 days, up to total 30 days.
+    rolling: true,
+    rollingDuration: 259200, // 3 days in seconds
+    absoluteDuration: 2592000 // 30 days in seconds
+  }
+});
+
+const authHandler = auth0.handleAuth({
+  // Add prompt=login parameter to prevent Auth0 to use the previous session.
+  // Could have also used federated=True while logging out, but this logs the user out from their own identity provider.
+  login: auth0.handleLogin({ authorizationParams: { prompt: "login" } })
 });
 
 export const GET = async (req, ctx) => {
