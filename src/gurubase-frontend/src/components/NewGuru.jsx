@@ -1434,6 +1434,10 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   // Modify hasFormChanged to be a pure function
   useEffect(() => {
+    if (!isEditMode || isPublishing) {
+      setHasFormChanged(false);
+      return;
+    }
     // Check for changes in sources
     if (redirectingRef.current) {
       setHasFormChanged(false);
