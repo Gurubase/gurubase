@@ -58,7 +58,7 @@ const IntegrationTypesList = ({ guruData }) => {
     },
     {
       id: "github",
-      name: "GitHub",
+      name: "GitHub Bot",
       description: "Connect your GitHub repositories to your Guru.",
       icon: GitHubIcon,
       type: "GITHUB"
