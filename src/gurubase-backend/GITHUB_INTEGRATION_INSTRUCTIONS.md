@@ -19,7 +19,7 @@ Example: `https://aral-local-api.gurubase.ai/github/`
 
 ![Webhook](imgs/github-webhook.png)
 
-11. Keep Secret empty. (This can be added as a future todo)
+11. Fill the Webhook secret. Set this as `GITHUB_SECRET_KEY` as a backend env.
 12. Keep SSL verification enabled
 13. Under permissions, click "Repository permissions"
 14. Select "Read and write" for these:
