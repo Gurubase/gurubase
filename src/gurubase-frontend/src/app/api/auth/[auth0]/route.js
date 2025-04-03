@@ -2,6 +2,7 @@ import { handleAuth, handleLogin } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
 
 const authHandler = handleAuth({
+  // Add prompt=login parameter to prevent Auth0 to use the previous session. Could have also used federated=True while logging out, but this logs the user out from their own identity provider.
   login: handleLogin({ authorizationParams: { prompt: "login" } })
 });
 
