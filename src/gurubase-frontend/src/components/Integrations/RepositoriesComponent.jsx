@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import { CustomToast } from "@/components/CustomToast";
 
 const RepositoriesComponent = ({
   guruData,
@@ -164,11 +165,23 @@ const RepositoriesComponent = ({
                 repositories
               );
               if (!response?.error) {
+                CustomToast({
+                  message: "Repository modes are saved successfully.",
+                  variant: "success"
+                });
                 setHasChanges(false);
                 setInitialRepositories(repositories);
+              } else {
+                CustomToast({
+                  message: response?.message,
+                  variant: "error"
+                });
               }
             } catch (error) {
-              setInternalError(error.message);
+              CustomToast({
+                message: error.message,
+                variant: "error"
+              });
             } finally {
               setIsSaving(false);
             }
