@@ -420,7 +420,6 @@ const Content = (props) => {
     { name: "Discord", type: "discord" }
   ];
 
-  console.log("finalSource", finalSource);
   const botType = botTypes.find(
     (bot) => bot.type === finalSource.toLowerCase()
   );
