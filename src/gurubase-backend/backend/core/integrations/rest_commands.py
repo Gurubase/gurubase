@@ -81,11 +81,11 @@ class CreateIntegrationCommand(IntegrationCommand):
             }, status=status.HTTP_201_CREATED)
                 
         except GithubPrivateKeyError as e:
-            return Response({'msg': 'Invalid private key.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid private key'}, status=status.HTTP_400_BAD_REQUEST)
         except GithubInvalidInstallationError as e:
-            return Response({'msg': 'Invalid installation ID.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid installation ID'}, status=status.HTTP_400_BAD_REQUEST)
         except GithubAPIError as e:
-            return Response({'msg': 'Invalid client ID.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid client ID'}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrationError as e:
             return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
