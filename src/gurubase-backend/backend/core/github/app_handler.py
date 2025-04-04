@@ -446,7 +446,7 @@ class GithubAppHandler:
         merged = '\n'.join(valid_lines)
         return merged.replace(f'@{bot_name}', '').strip()
 
-    def prepare_issue_comments(self, comments: list) -> list:
+    def limit_issue_comments_by_length(self, comments: list) -> list:
         """Prepare the comments for the issue.
 
         They are already formatted, we just need to limit the length and get them in reverse date order.
