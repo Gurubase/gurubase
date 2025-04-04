@@ -101,7 +101,11 @@ const MobileOtherGurus = ({ allGuruTypes, isLongGuruName }) => {
           }}>
           <span className="h-[5px] min-w-[36px] bg-gray-300 rounded-md"></span>
         </div>
-        <OtherGurus isMobile allGuruTypes={allGuruTypes} className="z-30" />
+        <OtherGurus
+          allGuruTypes={allGuruTypes}
+          className="z-30"
+          isMobile={true}
+        />
       </ReactSlidingPane>
     </div>
   );

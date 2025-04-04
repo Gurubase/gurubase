@@ -1,6 +1,6 @@
 "use server";
 
-import { getAccessToken, getSession } from "@auth0/nextjs-auth0";
+import { auth0 } from "@/config/auth0";
 import { redirect } from "next/navigation";
 
 import HttpError from "@/utils/HttpError";
@@ -9,12 +9,12 @@ const shouldUsePublicRequest = () => {
   return process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 };
 
-const getUserSession = async () => {
+export const getUserSession = async () => {
   if (process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted") {
     return null;
   }
 
-  return getSession();
+  return auth0.getSession();
 };
 
 // Helper function for handling errors
@@ -66,7 +66,7 @@ export const makeAuthenticatedRequest = async (
       redirect("/api/auth/login", "replace");
     }
 
-    const { accessToken } = await getAccessToken();
+    const { accessToken } = await auth0.getAccessToken();
 
     const headers = {
       Authorization: `Bearer ${accessToken}`,
@@ -696,7 +696,7 @@ export async function getAuthTokenForStream() {
     if (!session?.user) {
       return null;
     }
-    const { accessToken } = await getAccessToken();
+    const { accessToken } = await auth0.getAccessToken();
 
     return accessToken;
   } catch (error) {

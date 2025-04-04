@@ -1,4 +1,4 @@
-import { getSession } from "@auth0/nextjs-auth0";
+import { getUserSession } from "@/app/actions";
 import { redirect } from "next/navigation";
 
 import SettingsMainPage from "@/components/SettingsMainPage";
@@ -14,7 +14,7 @@ const SettingsPage = async () => {
   if (process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted") {
     session = null;
   } else {
-    session = await getSession();
+    session = await getUserSession();
     if (!session?.user) {
       redirect("/not-found");
     }
@@ -27,4 +27,4 @@ const SettingsPage = async () => {
   );
 };
 
-export default SettingsPage; 
+export default SettingsPage;
