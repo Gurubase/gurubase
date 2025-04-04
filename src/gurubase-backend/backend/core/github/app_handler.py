@@ -437,6 +437,8 @@ class GithubAppHandler:
 
     def cleanup_user_question(self, body:str, bot_name:str) -> str:
         """Remove the bot name from the question if it is mentioned."""
+        if not body:
+            return ''
         lines = body.split('\n')
         valid_lines = []
         for line in lines:
