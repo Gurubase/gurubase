@@ -413,12 +413,19 @@ const Content = (props) => {
   const isAnswerValid = useAppSelector((state) => state.mainForm.isAnswerValid);
   const reduxSource = useAppSelector((state) => state.mainForm.source);
   const finalSource = reduxSource || source;
-  const shouldHideFollowUp =
-    finalSource?.toLowerCase() === "discord" ||
-    finalSource?.toLowerCase() === "slack";
 
-  // console.log("Should hide follow up", shouldHideFollowUp);
-  // console.log("Source", finalSource);
+  const botTypes = [
+    { name: "GitHub", type: "github" },
+    { name: "Slack", type: "slack" },
+    { name: "Discord", type: "discord" }
+  ];
+
+  console.log("finalSource", finalSource);
+  const botType = botTypes.find(
+    (bot) => bot.type === finalSource.toLowerCase()
+  );
+
+  const shouldHideFollowUp = botType !== undefined;
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
   const { user } = isSelfHosted ? { user: true, isLoading: false } : useUser();
@@ -571,10 +578,8 @@ const Content = (props) => {
                   </div>
                   <h1 className="text-2xl font-semibold">Bot Conversation</h1>
                   <p className="text-md text-muted-foreground text-center max-w-lg mx-4">
-                    This binge is from a conversation on{" "}
-                    {finalSource?.charAt(0).toUpperCase() +
-                      finalSource?.slice(1).toLowerCase()}
-                    . You can't ask follow up questions.
+                    This binge is from a conversation on {botType?.name}. You
+                    can't ask follow up questions.
                   </p>
                   <Button
                     className="gap-2 rounded-[24px]"
