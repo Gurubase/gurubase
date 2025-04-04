@@ -34,6 +34,7 @@ const RepositoriesComponent = ({
   const [repositoriesLoading, setRepositoriesLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showReload, setShowReload] = useState(false);
 
   useEffect(() => {
     const fetchRepositories = async () => {
@@ -201,12 +202,13 @@ const RepositoriesComponent = ({
               <Button
                 variant="outline"
                 className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium guru-xs:w-full md:w-auto"
-                onClick={() =>
+                onClick={() => {
                   window.open(
                     `https://github.com/settings/installations/${externalId}`,
                     "_blank"
-                  )
-                }>
+                  );
+                  setShowReload(true);
+                }}>
                 Manage
                 <ExternalLinkIcon className="h-4 w-4" />
               </Button>
@@ -219,6 +221,27 @@ const RepositoriesComponent = ({
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {showReload && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg border border-[#2563eb] bg-white hover:bg-[#2563eb] hover:text-white active:bg-[#1d4ed8] text-[#2563eb] font-inter text-[14px] font-medium guru-xs:w-full md:w-auto"
+                  onClick={() => window.location.reload()}>
+                  Refresh Page
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  For the GitHub installation updates to be reflected, refresh
+                  this page once you are done.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     </div>
   );
