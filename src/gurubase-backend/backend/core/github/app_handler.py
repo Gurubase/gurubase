@@ -355,7 +355,7 @@ class GithubAppHandler:
         if success:
             formatted_msg.append("Here is my answer:\n")
         else:
-            formatted_msg.append("Sorry, I don't have enough contexts to answer your question.")
+            formatted_msg.append(f"Sorry, I don't have enough contexts to answer your question.\n\n_Tag **@{bot_name}** to ask me a question._")
             return "\n".join(formatted_msg)
         
         # Calculate the length of the fixed sections first
