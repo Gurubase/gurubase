@@ -346,19 +346,18 @@ class GithubAppHandler:
         formatted_msg = []
         
         # Add quoted body if provided
-        if body and user:
+        if body:
             for line in body.split('\n'):
                 formatted_msg.append(f"> {line}")
+        if user:
             formatted_msg.append(f"\nHey @{user}\n")
-            if success:
-                formatted_msg.append("Here is my answer:\n")
-            else:
-                formatted_msg.append("Sorry, I don't have enough contexts to answer your question.")
-                return "\n".join(formatted_msg)
+
+        if success:
+            formatted_msg.append("Here is my answer:\n")
+        else:
+            formatted_msg.append("Sorry, I don't have enough contexts to answer your question.")
+            return "\n".join(formatted_msg)
         
-        if not success:
-            return "Sorry, I don't have enough contexts to answer your question."
-            
         # Calculate the length of the fixed sections first
         trust_score = answer.get('trust_score', 0)
         trust_emoji = get_trust_score_emoji(trust_score)
