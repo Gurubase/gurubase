@@ -13,12 +13,14 @@ This question is asked on a GitHub issue. Make sure you place importance on the 
 - MEMBER: Author is a member of the organization that owns the repository.
 - USER: Author is a user of the repository.
 - OWNER: Author is the owner of the repository.
+- YOU: Author is the bot.
 
 Here are the previous comments for the issue:
 
-<Github comments>
+<Github contexts>
 {github_comments}
-</Github comments>
+</Github contexts>
+
 """
 
 summary_prompt_non_widget_addition = """

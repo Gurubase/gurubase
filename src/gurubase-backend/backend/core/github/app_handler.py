@@ -470,6 +470,26 @@ class GithubAppHandler:
             i += 1
         return reversed_comments[:i]
 
+    def strip_and_format_issue_comments(self, comments: list, bot_name: str) -> list:
+        """Strip the comments and format them for the prompt."""
+        processed_comments = []
+        for c in comments:
+            stripped_comment = {
+                'body': c['body'] if c['body'] else '',
+                'author_association': c['author_association'],
+                'author': c['user']['login']
+            }
+
+            # Actually, the right place to do this is in `format_comments_for_prompt`, but otherwise we need to pass the bot id 3-4 layers below.
+            if stripped_comment['author'] == f'{bot_name}[bot]':
+                stripped_comment['author_association'] = 'YOU'
+
+            if 'title' in c:
+                stripped_comment['title'] = c['title']
+
+            processed_comments.append(stripped_comment)
+        return processed_comments
+
     def format_comments_for_prompt(self, comments: list) -> str:
         """Format the comments for the prompt."""
         processed_comments = []
@@ -478,7 +498,12 @@ class GithubAppHandler:
             if author_association == 'NONE':
                 author_association = 'USER'
 
-            processed_comments.append(f"<Github comment>\nAuthor association: {author_association}\nBody: {c['body']}\n</Github comment>\n")
+            if 'title' in c:
+                context = f'<Github issue>\nTitle: {c["title"]}\n\nAuthor: {c["author"]}\nAuthor association: {author_association}\nBody: {c["body"]}\n</Github issue>\n'
+            else:
+                context = f'<Github comment>\nAuthor: {c["author"]}\nAuthor association: {author_association}\nBody: {c["body"]}\n</Github comment>\n'
+
+            processed_comments.append(context)
         return '\n'.join(processed_comments)
 
     def get_issue_comments(self, api_url: str, installation_id: str) -> list:
@@ -508,7 +533,7 @@ class GithubAppHandler:
                 )
                 
             comments = response.json()
-            return [{'body': comment['body'], 'author_association': comment['author_association']} for comment in comments]
+            return comments
             
         except GithubAPIError as e:
             raise e
@@ -543,7 +568,7 @@ class GithubAppHandler:
                 )
                 
             issue = response.json()
-            return {'body': issue['body'], 'author_association': issue['author_association']}
+            return issue
             
         except GithubAPIError as e:
             raise e
