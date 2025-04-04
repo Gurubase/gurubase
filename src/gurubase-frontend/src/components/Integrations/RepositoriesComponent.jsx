@@ -29,6 +29,7 @@ const RepositoriesComponent = ({
   setInternalError
 }) => {
   const [repositories, setRepositories] = useState([]);
+  const [initialRepositories, setInitialRepositories] = useState([]);
   const [repositoriesLoading, setRepositoriesLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,6 +57,7 @@ const RepositoriesComponent = ({
               mode: repo.mode || "auto"
             })) || [];
           setRepositories(repositoriesWithMode);
+          setInitialRepositories(repositoriesWithMode);
           setInternalError(null);
         }
       } catch (err) {
@@ -67,6 +69,14 @@ const RepositoriesComponent = ({
 
     fetchRepositories();
   }, [guruData?.slug, type, selfhosted]);
+
+  useEffect(() => {
+    // Compare current repositories with initial repositories to determine if there are changes
+    const hasModeChanges = repositories.some(
+      (repo, index) => repo.mode !== initialRepositories[index]?.mode
+    );
+    setHasChanges(hasModeChanges);
+  }, [repositories, initialRepositories]);
 
   if (repositoriesLoading) {
     return (
@@ -124,7 +134,6 @@ const RepositoriesComponent = ({
                       r.id === repo.id ? { ...r, mode: value } : r
                     )
                   );
-                  setHasChanges(true);
                 }}>
                 <SelectTrigger className="w-[100px] flex items-center justify-center">
                   <SelectValue
@@ -156,6 +165,7 @@ const RepositoriesComponent = ({
               );
               if (!response?.error) {
                 setHasChanges(false);
+                setInitialRepositories(repositories);
               }
             } catch (error) {
               setInternalError(error.message);
