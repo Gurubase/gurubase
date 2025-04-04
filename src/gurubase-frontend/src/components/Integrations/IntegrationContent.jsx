@@ -254,17 +254,14 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               <div className="space-y-8">
                 {type === "github" ? (
                   <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
                     <div>
-                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
-                        {config.selfhostedDescription}
-                      </p>
                       <div className="flex flex-col gap-2">
                         <h3 className="text-lg font-medium">Bot Client ID</h3>
-                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                          Enter your GitHub App's client ID
-                        </p>
                       </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
                           readOnly={!!integrationData?.github_client_id}
                           className={cn(
@@ -286,11 +283,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                     <div>
                       <div className="flex flex-col gap-2">
                         <h3 className="text-lg font-medium">Installation ID</h3>
-                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                          Enter your GitHub App's installation ID
-                        </p>
                       </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
                           readOnly={!!integrationData?.external_id}
                           className={cn(
@@ -305,7 +299,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                               ? (e) => setInstallationId(e.target.value)
                               : undefined
                           }
-                          placeholder="Enter GitHub App installation ID..."
+                          placeholder="Enter GitHub App installation ID"
                         />
                       </div>
                     </div>
@@ -315,11 +309,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                           <h3 className="text-lg font-medium">
                             Webhook Secret (Optional)
                           </h3>
-                          <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                            Enter your GitHub App's webhook secret
-                          </p>
                         </div>
-                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                           <Input
                             readOnly={!!integrationData?.github_secret}
                             className={cn(
@@ -350,7 +341,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         {config.selfhostedDescription}
                       </p>
                     </div>
-                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                       <Input
                         readOnly={!!integrationData?.access_token}
                         className={cn(
@@ -489,17 +480,14 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               <div className="space-y-8">
                 {type === "github" ? (
                   <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
                     <div>
-                      <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
-                        {config.selfhostedDescription}
-                      </p>
                       <div className="flex flex-col gap-2">
                         <h3 className="text-lg font-medium">Bot Client ID</h3>
-                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                          Enter your GitHub App's client ID
-                        </p>
                       </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
                           readOnly={!!integrationData?.github_client_id}
                           className={cn(
@@ -521,11 +509,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                     <div>
                       <div className="flex flex-col gap-2">
                         <h3 className="text-lg font-medium">Installation ID</h3>
-                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                          Enter your GitHub App's installation ID
-                        </p>
                       </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
                           readOnly={!!integrationData?.external_id}
                           className={cn(
@@ -549,11 +534,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         <h3 className="text-lg font-medium">
                           Webhook Secret (Optional)
                         </h3>
-                        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                          Enter your GitHub App's webhook secret
-                        </p>
                       </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
                           readOnly={!!integrationData?.github_secret}
                           className={cn(
@@ -577,8 +559,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         <div className="flex flex-col gap-2">
                           <h3 className="text-lg font-medium">Private Key</h3>
                           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                            Enter your GitHub App's private key (Make sure the
-                            newlines are included)
+                            Make sure the newlines are included
                           </p>
                         </div>
                         <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
@@ -602,7 +583,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         {config.selfhostedDescription}
                       </p>
                     </div>
-                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                    <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                       <Input
                         readOnly={!!integrationData?.access_token}
                         className={cn(
