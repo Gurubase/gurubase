@@ -79,6 +79,19 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
     }
   }, [filter, allGuruTypes]);
 
+  const componentMatchesWidth = () => {
+    // This component is rendered twice for all views (desktop and mobile).
+    // If the window width is less than 768px and isMobile is true, then the component is rendered for mobile.
+    // If the window width is greater than 768px and isMobile is false, then the component is rendered for desktop.
+    // This is to ensure that only one of these components is rendered at a time.
+    if ((windowWidth === null || windowWidth < 768) && isMobile) {
+      return true;
+    } else if (windowWidth >= 768 && !isMobile) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <>
       <section
@@ -137,7 +150,8 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
             </Button>
           </div>
         </div>
-        {windowWidth === null || windowWidth < 768 ? (
+        {!componentMatchesWidth() ? (
+          // Use a loading skeleton, as the status might change when the page finishes loading and windowWidth is received.
           <header className="flex flex-col w-full px-3">
             <Skeleton count={7} height={50} />
           </header>
