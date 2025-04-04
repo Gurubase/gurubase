@@ -1,7 +1,12 @@
-import { handleAuth, handleCallback } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
 
-const authHandler = handleAuth();
+import { auth0 } from "@/config/auth0";
+
+const authHandler = auth0.handleAuth({
+  // Add prompt=login parameter to prevent Auth0 to use the previous session.
+  // Could have also used federated=True while logging out, but this logs the user out from their own identity provider.
+  login: auth0.handleLogin({ authorizationParams: { prompt: "login" } })
+});
 
 export const GET = async (req, ctx) => {
   if (process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted") {
@@ -18,6 +23,7 @@ export const GET = async (req, ctx) => {
       error,
       error_description: errorDescription || ""
     }).toString();
+
     return redirect(`/auth/error?${errorParams}`);
   }
 

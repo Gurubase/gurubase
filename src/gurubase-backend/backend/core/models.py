@@ -481,7 +481,11 @@ class GuruType(models.Model):
         if settings.ENV != 'selfhosted':
             # Check if user is maintainer
             if not self.maintainers.filter(id=user.id).exists():
-                return False, "You don't have permission to add data sources to this guru type"
+                if user.is_admin:
+                    # If user is admin, only check the limits
+                    pass
+                else:
+                    return False, "You don't have permission to add data sources to this guru type"
         
         if settings.ENV == 'selfhosted':
             # Selfhosted users bypass all limits

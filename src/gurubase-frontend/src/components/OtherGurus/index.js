@@ -18,8 +18,24 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
   const [isClient, setIsClient] = useState(false);
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
+  // state for window width
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 0
+  );
+
+  // track window width on client-side
   useEffect(() => {
-    setIsClient(true);
+    // set initial window width
+    setWindowWidth(window.innerWidth);
+
+    // add resize event listener
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const findActiveGuru = (gurus, guruType) => {
@@ -62,6 +78,19 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
       setFilteredGurus(allGuruTypes);
     }
   }, [filter, allGuruTypes]);
+
+  const componentMatchesWidth = () => {
+    // This component is rendered twice for all views (desktop and mobile).
+    // If the window width is less than 768px and isMobile is true, then the component is rendered for mobile.
+    // If the window width is greater than 768px and isMobile is false, then the component is rendered for desktop.
+    // This is to ensure that only one of these components is rendered at a time.
+    if ((windowWidth === null || windowWidth < 768) && isMobile) {
+      return true;
+    } else if (windowWidth >= 768 && !isMobile) {
+      return true;
+    }
+    return false;
+  };
 
   return (
     <>
@@ -121,7 +150,8 @@ const OtherGurus = ({ isMobile, allGuruTypes }) => {
             </Button>
           </div>
         </div>
-        {false ? (
+        {!componentMatchesWidth() ? (
+          // Use a loading skeleton, as the status might change when the page finishes loading and windowWidth is received.
           <header className="flex flex-col w-full px-3">
             <Skeleton count={7} height={50} />
           </header>
