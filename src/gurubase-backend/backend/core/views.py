@@ -1652,6 +1652,7 @@ def api_answer(request, guru_type):
         github_issue = github_handler.get_issue(github_api_url, request.external_id)
         github_comments = github_handler.get_issue_comments(github_api_url, request.external_id)
         github_comments.append(github_issue) # Add it as last since the helper reverses the comments before processing
+        github_comments = github_handler.strip_and_format_issue_comments(github_comments, request.integration.github_bot_name)
         github_comments = github_handler.limit_issue_comments_by_length(github_comments)
 
     # Get API response
