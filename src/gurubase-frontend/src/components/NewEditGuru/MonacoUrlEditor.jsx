@@ -21,7 +21,8 @@ import {
 
 // Add this dynamic import for MonacoEditor
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
-  ssr: false
+  ssr: false,
+  loading: () => <div>Loading editor...</div>
 });
 
 const editorOptions = {
