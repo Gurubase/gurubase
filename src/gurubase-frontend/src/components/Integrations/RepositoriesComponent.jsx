@@ -99,16 +99,17 @@ const RepositoriesComponent = ({
       <div className="flex flex-col gap-2">
         <h3 className="text-lg font-medium">Repositories</h3>
         <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-          The following repositories are connected to your Guru. You can call
-          the bot with <strong>{botSlug}</strong> in the repository issues.
+          The following repositories are connected to your Guru.
         </p>
         <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-          Up to <strong>100</strong> repositories can be connected at a time.
-        </p>
-        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-          "Auto" mode will automatically answer all new issues. "Manual" mode
-          will require you to call the bot with <strong>{botSlug}</strong> in
-          the issue comment to answer.
+          In <strong>Auto</strong> mode, the bot replies to new issues
+          automatically, but follow-up comments require a mention.
+          <br />
+          In <strong>Manual</strong> mode, all replies require mentioning the
+          bot.
+          <br />
+          You can call the bot with <strong>{botSlug}</strong> in the GitHub
+          issues.
         </p>
       </div>
       {/* Repositories List */}
