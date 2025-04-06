@@ -1297,21 +1297,19 @@ def get_summary(question, guru_type, short_answer=False):
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
     if short_answer:
-        summary_prompt_widget_addition = summary_prompt_widget_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
-        summary_prompt_non_widget_addition = ""
+        # Slack only
+        summary_addition = summary_short_answer_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
     else:
-        summary_prompt_widget_addition = ""
-        summary_prompt_non_widget_addition = summary_prompt_non_widget_addition
+        summary_addition = summary_addition
 
     prompt = summary_template.format(
         **context_variables, 
-        summary_prompt_widget_addition=summary_prompt_widget_addition, 
-        summary_prompt_non_widget_addition=summary_prompt_non_widget_addition
+        summary_addition=summary_addition
     )
 
     if guru_type.lower() not in question.lower():
@@ -3047,8 +3045,13 @@ def api_ask(question: str,
     is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
-    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
+    if api_type == APIType.SLACK:
         short_answer = True
+    else:
+        short_answer = False
+
+    # if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
+    #     short_answer = True
 
     include_api = is_api
     only_widget = api_type == APIType.WIDGET
@@ -3071,7 +3074,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
@@ -3086,7 +3089,6 @@ def api_ask(question: str,
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
-        # Double check just in case
         answer_length = default_settings.widget_answer_max_length
     
     user_question = summary_data['user_question']
