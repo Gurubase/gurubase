@@ -61,7 +61,7 @@
     "mixpanel-browser": "^2.58.0",
     "monaco-editor": "^0.52.0",
     "monaco-editor-webpack-plugin": "^7.1.0",
-    "next": "14.2.25",
+    "next": "14.2.26",
     "next-runtime-env": "^3.2.2",
     "node-cron": "^3.0.3",
     "posthog-js": "^1.203.1",
