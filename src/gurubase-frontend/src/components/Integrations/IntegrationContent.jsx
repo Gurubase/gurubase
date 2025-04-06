@@ -389,6 +389,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               loading={loading}
               externalId={integrationData?.external_id}
               setInternalError={setInternalError}
+              githubAppSlug={integrationData?.github_bot_name}
             />
           )}
         </div>

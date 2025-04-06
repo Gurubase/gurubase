@@ -27,7 +27,8 @@ const RepositoriesComponent = ({
   integrationData,
   selfhosted,
   externalId,
-  setInternalError
+  setInternalError,
+  githubAppSlug
 }) => {
   const [repositories, setRepositories] = useState([]);
   const [initialRepositories, setInitialRepositories] = useState([]);
@@ -92,7 +93,7 @@ const RepositoriesComponent = ({
     );
   }
 
-  const botSlug = selfhosted ? "@<github_app_slug>" : "@gurubase";
+  const botSlug = selfhosted ? `@${githubAppSlug}` : "@gurubase";
 
   return (
     <div className="">
