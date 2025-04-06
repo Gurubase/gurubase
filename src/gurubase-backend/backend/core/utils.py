@@ -423,12 +423,7 @@ def vector_db_fetch(
     start_embedding = time.perf_counter()
     
     # Prepare texts to embed
-    texts_to_embed = []
-    if question:
-        texts_to_embed = [question]
-    else:
-        text_embedding = None
-        code_embedding = None
+    texts_to_embed = [question] # Assuming question is always present
 
     if user_question and len(user_question) < 300:
         texts_to_embed.append(user_question)
@@ -452,9 +447,8 @@ def vector_db_fetch(
     times['embedding'] = time.perf_counter() - embedding_start
     
     # Unpack the embeddings
-    if question:
-        text_embedding = text_embeddings[0]
-        code_embedding = code_embeddings[0]
+    text_embedding = text_embeddings[0]
+    code_embedding = code_embeddings[0]
     
     # Get user question embeddings if available
     if user_question and len(user_question) < 300:
