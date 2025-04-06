@@ -420,9 +420,9 @@ const Content = (props) => {
     { name: "Discord", type: "discord" }
   ];
 
-  const botType = botTypes.find(
-    (bot) => bot.type === finalSource.toLowerCase()
-  );
+  const botType = finalSource
+    ? botTypes.find((bot) => bot.type === finalSource.toLowerCase())
+    : undefined;
 
   const shouldHideFollowUp = botType !== undefined;
 
