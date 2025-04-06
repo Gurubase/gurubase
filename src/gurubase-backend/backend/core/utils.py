@@ -398,21 +398,18 @@ def vector_db_fetch(
         'stackoverflow': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
         'non_stackoverflow': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
         'github_repo': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
@@ -641,7 +638,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
@@ -771,7 +768,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['non_stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
@@ -853,7 +850,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['github_repo']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
