@@ -604,11 +604,6 @@ def vector_db_fetch(
         )[0]
         times['stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
-        if not batch:
-            times['stackoverflow']['total'] = time.perf_counter() - start_so
-            return [], []
-
-        start_pre_rerank = time.perf_counter()
         if text_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=text_collection_name,
@@ -738,11 +733,7 @@ def vector_db_fetch(
         )[0]
         times['non_stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
         
-        if not batch:
-            times['non_stackoverflow']['total'] = time.perf_counter() - start_non_so
-            return [], []
 
-        start_pre_rerank = time.perf_counter()
         if text_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=text_collection_name,
@@ -825,11 +816,6 @@ def vector_db_fetch(
         )[0]
         times['github_repo']['milvus_search'] = time.perf_counter() - start_milvus
         
-        if not batch:
-            times['github_repo']['total'] = time.perf_counter() - start_github
-            return [], []
-
-        start_pre_rerank = time.perf_counter()
         if code_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=code_collection_name,
