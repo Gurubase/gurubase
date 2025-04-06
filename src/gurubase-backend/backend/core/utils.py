@@ -528,7 +528,7 @@ def vector_db_fetch(
         
         # Rerank with user_question if it's not too long
         reranked_batch_user_question = None
-        if len(user_question) < 300:
+        if user_question and len(user_question) < 300:
             reranked_batch_user_question = rerank_texts(user_question, batch_texts)
         
         # Rerank with enhanced_question
