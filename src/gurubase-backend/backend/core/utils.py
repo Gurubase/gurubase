@@ -3042,16 +3042,12 @@ def api_ask(question: str,
         APIAskResponse: A dataclass containing all response information
     """
 
-    is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
     if api_type == APIType.SLACK:
         short_answer = True
     else:
         short_answer = False
-
-    # if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
-    #     short_answer = True
 
     include_api = is_api
     only_widget = api_type == APIType.WIDGET
@@ -3089,6 +3085,7 @@ def api_ask(question: str,
     default_settings = get_default_settings()
 
     if short_answer and answer_length > default_settings.widget_answer_max_length:
+        # Double check just in case
         answer_length = default_settings.widget_answer_max_length
     
     user_question = summary_data['user_question']
