@@ -29,6 +29,7 @@ class GetIntegrationCommand(IntegrationCommand):
             'channels': self.integration.channels,
             'github_client_id': self.integration.masked_github_client_id,
             'github_secret': self.integration.masked_github_secret,
+            'github_bot_name': self.integration.github_bot_name,
             'date_created': self.integration.date_created,
             'date_updated': self.integration.date_updated,
             'access_token': self.integration.masked_access_token,
