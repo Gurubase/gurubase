@@ -10,7 +10,6 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Generator
 import re
-from core.integrations import NotEnoughData, NotRelated
 from accounts.models import User
 from django.conf import settings
 from django.core.cache import caches
@@ -19,6 +18,7 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
+from core.github.exceptions import GithubAppHandlerError
 from core.requester import GeminiRequester, OpenAIRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
@@ -51,7 +51,8 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
-from .integrations import IntegrationError, IntegrationFactory
+from core.integrations.helpers import IntegrationError, cleanup_title, get_trust_score_emoji, strip_first_header, NotEnoughData, NotRelated
+from core.integrations.factory import IntegrationFactory
 from rest_framework.decorators import api_view, parser_classes, throttle_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -88,6 +89,7 @@ from core.models import (
     GuruType,
     Question,
     WidgetId,
+    Integration,
 )
 from core.requester import GeminiRequester
 from core.serializers import (
@@ -127,6 +129,10 @@ from core.utils import (
     validate_guru_type,
     validate_image,
 )
+from core.integrations.rest_commands import GetIntegrationCommand, DeleteIntegrationCommand, CreateIntegrationCommand
+from .github.event_handler import GitHubEventFactory, GitHubEventHandler
+from .github.app_handler import GithubAppHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -1304,7 +1310,7 @@ def get_binges(request):
     
     page_size = settings.BINGE_HISTORY_PAGE_SIZE
 
-    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK])
+    binges = Binge.objects.exclude(root_question__source__in=[Question.Source.DISCORD, Question.Source.SLACK, Question.Source.GITHUB])
     
     # Base queryset
     if settings.ENV == 'selfhosted' or user.is_admin:
@@ -1616,9 +1622,17 @@ def api_answer(request, guru_type):
     user = request.user
     api_type = request.api_type  # This is now set by the api_key_auth decorator
 
+    github_api_url = None
+    if api_type == APIType.GITHUB:
+        github_api_url = request.data.get('github_api_url')
+
     # Initialize with default values
     binge = None
     parent = None
+
+    assert request.integration is not None
+
+    github_handler = GithubAppHandler(request.integration)
 
     # Handle binge if provided
     if binge_id:
@@ -1633,6 +1647,14 @@ def api_answer(request, guru_type):
         # Find the last question in the binge as the parent
         parent = Question.objects.filter(binge=binge).order_by('-date_updated').first()
 
+    github_comments = None
+    if github_api_url:
+        github_issue = github_handler.get_issue(github_api_url, request.external_id)
+        github_comments = github_handler.get_issue_comments(github_api_url, request.external_id)
+        github_comments.append(github_issue) # Add it as last since the helper reverses the comments before processing
+        github_comments = github_handler.strip_and_format_issue_comments(github_comments, request.integration.github_bot_name)
+        github_comments = github_handler.limit_issue_comments_by_length(github_comments)
+
     # Get API response
     api_response = api_ask(
         question=question,
@@ -1641,7 +1663,8 @@ def api_answer(request, guru_type):
         parent=parent,
         fetch_existing=fetch_existing,
         api_type=api_type,
-        user=user
+        user=user,
+        github_comments=github_comments
     )
     
     # Handle error case
@@ -1673,6 +1696,8 @@ def api_answer(request, guru_type):
             pass
 
         # Fetch updated question
+        if not question:
+            question = api_response.question
         try:
             result = search_question(
                 user=user,
@@ -1753,7 +1778,7 @@ def create_integration(request):
     code = request.query_params.get('code')
     state = request.query_params.get('state')
 
-    if not all([code, state]):
+    if not state:
         return Response({
             'msg': 'Missing required parameters'
         }, status=status.HTTP_400_BAD_REQUEST)
@@ -1764,6 +1789,7 @@ def create_integration(request):
         integration_type = state_json.get('type')
         guru_type_slug = state_json.get('guru_type')
         encoded_guru_slug = state_json.get('encoded_guru_slug')
+        installation_id = state_json.get('installation_id')
 
         if not all([integration_type, guru_type_slug, encoded_guru_slug]):
             return Response({
@@ -1791,7 +1817,18 @@ def create_integration(request):
 
     try:
         strategy = IntegrationFactory.get_strategy(integration_type)
-        integration = strategy.create_integration(code, guru_type)
+        if integration_type.upper() == 'GITHUB':
+            if not installation_id:
+                return Response({
+                    'msg': 'Missing installation_id for GitHub integration'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            integration = strategy.create_integration(installation_id, guru_type)
+        else:
+            if not code:
+                return Response({
+                    'msg': 'Missing code parameter'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            integration = strategy.create_integration(code, guru_type)
     except IntegrationError as e:
         return Response({
             'msg': str(e)
@@ -1840,62 +1877,14 @@ def manage_integration(request, guru_type, integration_type):
             integration = None
 
         if request.method == 'GET':
-            return Response({
-                'id': integration.id,
-                'type': integration.type,
-                'workspace_name': integration.workspace_name,
-                'external_id': integration.external_id,
-                'channels': integration.channels,
-                'date_created': integration.date_created,
-                'date_updated': integration.date_updated,
-                'access_token': integration.masked_access_token,
-            })
+            command = GetIntegrationCommand(integration)
+            return command.execute()
         elif request.method == 'DELETE':
-            # Delete the integration - token revocation is handled by signal
-            integration.delete()
-            return Response({"encoded_guru_slug": encode_guru_slug(guru_type_object.slug)}, status=status.HTTP_202_ACCEPTED)
+            command = DeleteIntegrationCommand(integration, guru_type_object)
+            return command.execute()
         elif request.method == 'POST':
-            if settings.ENV != 'selfhosted':
-                return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
-
-            try:
-                access_token = request.data.get('access_token')
-                if not access_token:
-                    return Response({'msg': 'Missing access token'}, status=status.HTTP_400_BAD_REQUEST)
-
-                # Get the appropriate integration strategy
-                strategy = IntegrationFactory.get_strategy(integration_type)
-                
-                # Fetch workspace details using bot token
-                try:
-                    workspace_details = strategy.fetch_workspace_details(access_token)
-                except Exception as e:
-                    logger.error(f"Error fetching workspace details: {e}", exc_info=True)
-                    return Response({'msg': 'Failed to fetch workspace details'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-                integration = Integration.objects.create(
-                    guru_type=guru_type_object,
-                    type=integration_type,
-                    workspace_name=workspace_details['workspace_name'],
-                    external_id=workspace_details['external_id'],
-                    access_token=access_token,
-                    channels=[]
-                )
-                
-                return Response({
-                    'id': integration.id,
-                    'type': integration.type,
-                    'workspace_name': integration.workspace_name,
-                    'external_id': integration.external_id,
-                    'channels': integration.channels,
-                    'date_created': integration.date_created,
-                    'date_updated': integration.date_updated,
-                    'access_token': integration.masked_access_token,
-                }, status=status.HTTP_201_CREATED)
-                
-            except Exception as e:
-                logger.error(f"Error creating integration: {e}", exc_info=True)
-                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            command = CreateIntegrationCommand(guru_type_object, integration_type, request.data)
+            return command.execute()
             
     except Integration.DoesNotExist:
         if request.method == 'GET':
@@ -1908,7 +1897,7 @@ def manage_integration(request, guru_type, integration_type):
 
 @api_view(['GET', 'POST'])
 @jwt_auth
-def list_channels(request, guru_type, integration_type):
+def manage_channels(request, guru_type, integration_type):
     """Get or update channels for a specific integration type of a guru type."""
     try:
         guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
@@ -1949,27 +1938,42 @@ def list_channels(request, guru_type, integration_type):
         # Get channels from API
         strategy = IntegrationFactory.get_strategy(integration_type, integration)
         api_channels = strategy.list_channels()
-        
-        # Create a map of channel IDs to their allowed status from DB
-        db_channels_map = {
-            channel['id']: channel['allowed']
-            for channel in integration.channels
-        }
-        
-        # Process each API channel
+
         processed_channels = []
-        for channel in api_channels:
-            # If channel exists in DB, use its allowed status
-            # Otherwise, default to False for new channels
-            channel['allowed'] = db_channels_map.get(channel['id'], False)
-            processed_channels.append(channel)
+        if integration_type == 'GITHUB':
+            # Create a map of channel IDs to their allowed status from DB
+            db_channels_map = {
+                channel['id']: channel['mode']
+                for channel in integration.channels
+            }
+            # Process each API channel
+            for channel in api_channels:
+                channel['mode'] = db_channels_map.get(channel['id'], 'auto')
+                processed_channels.append(channel)
+
+            # Save the new channels, we save them in retrieval because it is set on GitHub settings. We only read what is set. We can't update them.
+            integration.channels = processed_channels
+            integration.save()
+        else:
+            # Create a map of channel IDs to their allowed status from DB
+            db_channels_map = {
+                channel['id']: channel['allowed']
+                for channel in integration.channels
+            }
+            # Process each API channel
+            for channel in api_channels:
+                # If channel exists in DB, use its allowed status
+                # Otherwise, default to False for new channels
+                channel['allowed'] = db_channels_map.get(channel['id'], False)
+                processed_channels.append(channel)
         
         return Response({
             'channels': processed_channels
         })
     except Exception as e:
         logger.error(f"Error listing channels: {e}", exc_info=True)
-        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        keyword = 'repositories' if integration_type == 'GITHUB' else 'channels'
+        return Response({'msg': f'Error listing {keyword}. Please make sure the integration is valid.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tuple[Thread, Binge]:
     """Get or create a thread and its associated binge."""
@@ -2074,7 +2078,7 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
     formatted_msg = [content]
     
     # Add trust score with emoji
-    trust_emoji = "🟢" if trust_score >= 80 else "🟡" if trust_score >= 60 else "🟠" if trust_score >= 40 else "🔴"
+    trust_emoji = get_trust_score_emoji(trust_score)
     formatted_msg.append(f"\n---------\n_*Trust Score*: {trust_emoji} {trust_score}_%")
     
     # Add references if they exist
@@ -2082,18 +2086,7 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
         formatted_msg.append("\n_*Sources*_:")
         for ref in references:
             # First remove Slack-style emoji codes with adjacent spaces
-            clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
-
-            # Then remove Unicode emojis and their modifiers with adjacent spaces
-            clean_title = re.sub(
-                r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
-                r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
-                ' ',
-                clean_title
-            ).strip()
-            
-            # Clean up multiple spaces and trim
-            clean_title = ' '.join(clean_title.split())
+            clean_title = cleanup_title(ref['title'])
             
             formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
     
@@ -2948,3 +2941,110 @@ def fetch_youtube_channel_api(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(data, status=return_status)
+
+@api_view(['GET', 'POST'])
+def github_webhook(request):
+    if request.method != 'POST':
+        return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+    body = request.body
+    data = request.data
+    installation_id = data.get('installation', {}).get('id')
+    
+    if not installation_id:
+        logger.error("No installation ID found in webhook payload")
+        return Response({'message': 'No installation ID found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Try to get integration from cache first
+    cache = caches['alternate']
+    cache_key = f"github_integration:{installation_id}"
+    integration = cache.get(cache_key)
+    
+    if not integration:
+        try:
+            # If not in cache, get from database
+            integration = Integration.objects.get(type=Integration.Type.GITHUB, external_id=installation_id)
+            # Set cache timeout to 0. This is because dynamic updates are not immediately reflected
+            # And this may result in bad UX, and false positive bug reports
+            cache.set(cache_key, integration, timeout=0)
+        except Integration.DoesNotExist:
+            logger.error(f"No integration found for installation {installation_id}", exc_info=True)
+            return Response({'message': 'No integration found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    assert integration is not None
+
+    bot_name = integration.github_bot_name
+    github_handler = GithubAppHandler(integration)
+    # Verify GitHub webhook signature
+    try:
+        signature_header = request.headers.get('x-hub-signature-256')
+        github_handler.verify_signature(body, signature_header)
+    except GithubAppHandlerError as e:
+        logger.error(f"GitHub webhook signature verification failed: {e}")
+        return Response({'message': 'Invalid signature'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        # Get event type and validate
+        event_type = GitHubEventHandler.find_github_event_type(data)
+        if not GitHubEventHandler.is_supported_event(event_type):
+            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+        # Get the appropriate event handler
+        event_handler = GitHubEventFactory.get_handler(event_type, integration, github_handler)
+        
+        # Extract event data
+        event_data = event_handler.extract_event_data(data)
+        
+        # Find the appropriate channel
+        channel = None
+        for channel_itr in integration.channels:
+            if channel_itr['name'] == event_data['repository_name']:
+                channel = channel_itr
+                break
+
+        if not channel:
+            logger.error(f"No channel found for repository {event_data['repository_name']}", exc_info=True)
+            return Response({'message': 'No channel found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if we should answer
+        if not github_handler.will_answer(event_data['body'], bot_name, event_type, channel['mode']):
+            return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+        # Create a new binge
+        binge = create_fresh_binge(integration.guru_type, None)
+        guru_type = integration.guru_type.slug
+        
+        # Create request using APIRequestFactory
+        factory = APIRequestFactory()
+        
+        # Prepare payload for the API
+        payload = {
+            'question': github_handler.cleanup_user_question(event_data['body'], bot_name),
+            'stream': False,
+            'short_answer': True,
+            'fetch_existing': False,
+            'session_id': binge.id
+        }
+
+        if event_data['api_url']:
+            payload['github_api_url'] = event_data['api_url']
+        
+        # Create request with API key from integration
+        request = factory.post(
+            f'/api/v1/{guru_type}/answer/',
+            payload,
+            HTTP_X_API_KEY=integration.api_key.key,
+            format='json'
+        )
+        
+        # Call api_answer directly
+        response = api_answer(request, guru_type)
+        
+        # Handle the response using the event handler
+        event_handler.handle_response(response, event_data, bot_name)
+
+    except Exception as e:
+        logger.error(f"Error processing GitHub webhook: {e}", exc_info=True)
+        return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)

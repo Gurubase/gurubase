@@ -584,6 +584,8 @@ The following integrations are available:
 - Discord
 - Web Widget
 
+- `helpers.py` file in the `integrations` folder keep some of the helpers used commonly in all integrations. These can be trust score emoji mappings, title cleanups, stripping the initial header etc.
+
 #### Slack
 
 <img src="imgs/slack-bot.png" width="500" alt="Slack Bot"/>
@@ -666,6 +668,43 @@ Here are the functions used and their purposes:
 ##### Installation
 
 > You can check the [Discord Integration](https://docs.gurubase.ai/integrations/discord-bot) documentation for the installation process.
+
+#### GitHub
+
+<img src="imgs/github-bot.png" width="500" alt="GitHub Bot"/>
+
+The GitHub integration uses its own API key in the background. This API key is synced with the integration. The questions are answered by the API answer endpoint (for details, see the [API Support](#api-support) section).
+
+The GitHub integration works as following:
+
+1. Upon a new issue or an issue comment in an allowed repository, GitHub sends a callback request to the `github/` endpoint.
+2. It looks up the database to find an integration with the received app installation id.
+3. If yes, it then gets the bot name from the integration details.
+4. If webhook secret is set, it checks the signature using `verify_signature` function defined in `GithubAppHandler`.
+5. Then it categorizes the event type. If it is not issue creation or issue comment creation, it returns immediately.
+6. It looks up the integration configuration to see if the repository is allowed.
+7. It then checks if the event shsould be answered using the `will_answer` function defined in `GithubAppHandler`. This function returns true when:
+  - A new issue is created and repository mode is "Auto".
+  - The bot is mentioned
+7. It then creates a new binge for the answer.
+8. It then sends a request to the API endpoint for the answer. Since GitHub bot does not support streaming, it returns the answer as a JSON.
+9. Then, it posts this message using `handle_response` function defined in `GithubAppHandler`.
+
+Here are the classes/functions used and their purposes:
+
+- `GithubAppHandler`: The class that manages the authorization, and sending requests to the GitHub REST and GraphQL API.
+  - It manages GitHub app token, and GitHub app installation tokens. App token is for the single app, but there can be multiple installation tokens generated from a single app. App token is managed through the `_get_or_create_app_jwt` function, and app installation tokens are managed through `_get_or_create_installation_jwt`. These tokens are cached in Redis during their TTL.
+  - Upon a fail or integration delete, the Redis cache is cleared using `clear_redis_cache` to ease the installation process while keeping the optimizations for a happy path usage.
+  - `_get_private_key`, `_get_client_id`, `_get_webhook_secret` functions manage the environment variables. On cloud, they fetch the env variables set in `settings.py`. But on selfhosted, they fetch them from the `Integration` objects.
+- `GitHubEventHandler`: The class that handles the GitHub events and responds to them.
+- `GitHubStrategy`: The class that manages the `Integration` objects during OAuth creation and deletion.
+
+> Questions asked by the GitHub bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+
+##### Installation
+
+> You can check the [GitHub Integration](https://docs.gurubase.ai/integrations/github-bot) documentation for the installation process.
+
 
 #### Web Widget
 

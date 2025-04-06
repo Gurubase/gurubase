@@ -167,6 +167,7 @@ backend/backend/static
 envs/*.env
 !envs/selfhosted-dev.env
 backend/gcp/credentials.json
+backend/core/github/github.pem
 local_scripts
 media/
 .cursorrules
