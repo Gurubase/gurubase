@@ -471,6 +471,7 @@ def vector_db_fetch(
     search_params = None
 
     def merge_splits(fetched_doc, collection_name, link_key, link, code=False, merge_limit=None):
+        # TODO: This does not have question / user question / enhanced question separation. It only uses the question.
         # Merge fetched doc with its other splits
         merged_text = {}
         # Fetching all splits once as they are already limited by stackoverflow itself and pymilvus does not support ordering
