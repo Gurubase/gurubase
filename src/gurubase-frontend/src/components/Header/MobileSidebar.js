@@ -112,20 +112,6 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
                   border border-[#E2E2E2] bg-white text-[#191919] text-sm w-full
                   hover:bg-[#F5F5F5] active:bg-[#EAEAEA]
                   transition-all duration-200"
-                href="https://x.com/gurubaseio"
-                prefetch={false}
-                target="_blank">
-                <Icon
-                  className="w-5 h-5 text-[#191919]"
-                  icon="ri:twitter-x-fill"
-                />
-                Follow Us
-              </Link>
-              <Link
-                className="flex h-8 px-2 justify-center items-center gap-2 rounded 
-                  border border-[#E2E2E2] bg-white text-[#191919] text-sm w-full
-                  hover:bg-[#F5F5F5] active:bg-[#EAEAEA]
-                  transition-all duration-200"
                 href="https://github.com/Gurubase/gurubase?utm_source=gurubase&utm_medium=mobile_menu&utm_campaign=social"
                 prefetch={false}
                 target="_blank">
