@@ -423,11 +423,24 @@ def vector_db_fetch(
     start_embedding = time.perf_counter()
     
     # Prepare texts to embed
-    texts_to_embed = [question]
-    if len(user_question) < 300:
+    texts_to_embed = []
+    if question:
+        texts_to_embed = [question]
+    else:
+        text_embedding = None
+        code_embedding = None
+
+    if user_question and len(user_question) < 300:
         texts_to_embed.append(user_question)
+    else:
+        text_embedding_user = None
+        code_embedding_user = None
+
     if enhanced_question:
         texts_to_embed.append(enhanced_question)
+    else:
+        text_embedding_enhanced_question = None
+        code_embedding_enhanced_question = None
     
     # Get all text and code embeddings in two batched calls
     embedding_start = time.perf_counter()
@@ -439,24 +452,19 @@ def vector_db_fetch(
     times['embedding'] = time.perf_counter() - embedding_start
     
     # Unpack the embeddings
-    text_embedding = text_embeddings[0]
-    code_embedding = code_embeddings[0]
+    if question:
+        text_embedding = text_embeddings[0]
+        code_embedding = code_embeddings[0]
     
     # Get user question embeddings if available
-    if len(user_question) < 300:
+    if user_question and len(user_question) < 300:
         text_embedding_user = text_embeddings[1]
         code_embedding_user = code_embeddings[1]
-    else:
-        text_embedding_user = None
-        code_embedding_user = None
-    
+
     # Get enhanced question embeddings if available
     if enhanced_question:
         text_embedding_enhanced_question = text_embeddings[-1]
         code_embedding_enhanced_question = code_embeddings[-1]
-    else:
-        text_embedding_enhanced_question = None
-        code_embedding_enhanced_question = None
 
     times['embedding'] = time.perf_counter() - start_embedding
 
