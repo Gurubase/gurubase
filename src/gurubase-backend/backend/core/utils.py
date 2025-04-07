@@ -1290,17 +1290,16 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition, github_context_template
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_context_template
     from core.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
     if short_answer:
-        summary_prompt_widget_addition = summary_prompt_widget_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
-        summary_prompt_non_widget_addition = ""
+        # Slack only
+        summary_addition = summary_short_answer_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
     else:
-        summary_prompt_widget_addition = ""
-        summary_prompt_non_widget_addition = summary_prompt_non_widget_addition
+        summary_addition = summary_addition
 
     github_context = ""
     if github_comments:
@@ -1309,8 +1308,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
 
     prompt = summary_template.format(
         **context_variables, 
-        summary_prompt_widget_addition=summary_prompt_widget_addition, 
-        summary_prompt_non_widget_addition=summary_prompt_non_widget_addition,
+        summary_addition=summary_addition,
         github_context=github_context
     )
 
@@ -3054,11 +3052,12 @@ def api_ask(question: str,
         APIAskResponse: A dataclass containing all response information
     """
 
-    is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
-    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API, APIType.GITHUB]:
+    if api_type == APIType.SLACK:
         short_answer = True
+    else:
+        short_answer = False
 
     include_api = is_api
     only_widget = api_type == APIType.WIDGET
@@ -3081,7 +3080,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget, github_comments=github_comments)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
