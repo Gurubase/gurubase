@@ -63,10 +63,16 @@ class GitHubStrategy(IntegrationStrategy):
         if not bot_slug:
             bot_slug = 'gurubase'
 
+        html_url = installation.get('html_url')
+        if not html_url:
+            # Fallback, works on non-organization installations
+            html_url = f"https://github.com/settings/installations/{installation_id}"
+
         return {
             'external_id': installation_id,  # bot_token is actually installation_id in this case
             'workspace_name': workspace_name,
-            'bot_slug': bot_slug
+            'bot_slug': bot_slug,
+            'html_url': html_url
         }
 
     def get_type(self) -> str:
@@ -93,6 +99,7 @@ class GitHubStrategy(IntegrationStrategy):
                 access_token=installation_id,  # For GitHub, we use installation_id as the access_token
                 workspace_name=installation_details.get('workspace_name'),
                 github_bot_name=installation_details.get('bot_slug'),
+                github_html_url=installation_details.get('html_url'),
                 channels=channels
             )
         except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:

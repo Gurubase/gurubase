@@ -390,6 +390,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               externalId={integrationData?.external_id}
               setInternalError={setInternalError}
               githubAppSlug={integrationData?.github_bot_name}
+              installationUrl={integrationData?.github_html_url}
             />
           )}
         </div>
