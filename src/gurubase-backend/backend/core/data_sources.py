@@ -13,7 +13,7 @@ from core.exceptions import NotFoundError, PDFContentExtractionError, WebsiteCon
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
-from core.github_handler import process_github_repository, extract_repo_name
+from core.github.data_source_handler import process_github_repository, extract_repo_name
 from core.requester import get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
@@ -599,14 +599,13 @@ class InternalLinkSpider(scrapy.Spider):
                     if any(word in clean_url for word in not_follow_words):
                         continue
                     
-                    normalized_url = clean_url.rstrip('/')
+                    normalized_url = full_url.rstrip('/')
                     if not any(link.rstrip('/') == normalized_url for link in self.internal_links):
                         if settings.ENV == 'selfhosted':
                             meta = {'download_timeout': 10}
                             time.sleep(0.1)
                         else:
                             meta = {'download_timeout': 10, 'proxy': random.choice(self.proxies)}
-                        # logger.info(f"Crawling URL: {normalized_url}")
                         yield scrapy.Request(
                             full_url, 
                             callback=self.parse,

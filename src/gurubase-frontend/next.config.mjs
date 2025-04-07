@@ -50,7 +50,29 @@ const nextConfig = {
     if (!isServer) {
       config.plugins.push(
         new MonacoWebpackPlugin({
-          languages: ["javascript", "typescript", "html", "css", "json"],
+          languages: [],
+          features: [
+            "!gotoSymbol",
+            "!referenceSearch",
+            "!quickOutline",
+            "!documentSymbols",
+            "!colorPicker",
+            "!codelens",
+            "!contextmenu",
+            "!folding",
+            "!format",
+            "!hover",
+            "!inPlaceReplace",
+            "!iPadShowKeyboard",
+            "!links",
+            "!parameterHints",
+            "!rename",
+            "!suggest",
+            "!toggleHighContrast",
+            "!wordHighlighter",
+            "!wordOperations",
+            "!wordPartOperations"
+          ],
           filename: "static/[name].worker.js"
         })
       );

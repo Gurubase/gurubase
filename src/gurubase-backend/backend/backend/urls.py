@@ -73,7 +73,7 @@ urlpatterns += [
     path('<str:guru_type>/integrations/<str:integration_type>/', core_views.manage_integration, name='manage_integration'),
     path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
     path('integrations/create/', core_views.create_integration, name='create_integration'),
-    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.list_channels, name='list_channels'),
+    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.manage_channels, name='manage_channels'),
     path('analytics/', include('analytics.urls')),
 
     path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
@@ -82,6 +82,8 @@ urlpatterns += [
 
     path('youtube/playlist/', core_views.fetch_youtube_playlist_admin, name='fetch_youtube_playlist_admin'),
     path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
+
+    path('github/', core_views.github_webhook, name='github_webhook'),
 ]
 
 if settings.STREAM_ENABLED:
@@ -100,6 +102,7 @@ if settings.STREAM_ENABLED:
             path('api/<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples_api'),
             path('api/slack/events/', core_views.slack_events, name='slack_events_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
+            path('api/github/', core_views.github_webhook, name='github_webhook'),
         ]
 
 if settings.ENV != 'selfhosted':

@@ -398,21 +398,18 @@ def vector_db_fetch(
         'stackoverflow': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
         'non_stackoverflow': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
         'github_repo': {
             'total': 0,
             'milvus_search': 0,
-            'pre_rerank': 0,
             'rerank': 0,
             'post_rerank': 0
         },
@@ -423,11 +420,19 @@ def vector_db_fetch(
     start_embedding = time.perf_counter()
     
     # Prepare texts to embed
-    texts_to_embed = [question]
-    if len(user_question) < 300:
+    texts_to_embed = [question] # Assuming question is always present
+
+    if user_question and len(user_question) < 300:
         texts_to_embed.append(user_question)
+    else:
+        text_embedding_user = None
+        code_embedding_user = None
+
     if enhanced_question:
         texts_to_embed.append(enhanced_question)
+    else:
+        text_embedding_enhanced_question = None
+        code_embedding_enhanced_question = None
     
     # Get all text and code embeddings in two batched calls
     embedding_start = time.perf_counter()
@@ -443,20 +448,14 @@ def vector_db_fetch(
     code_embedding = code_embeddings[0]
     
     # Get user question embeddings if available
-    if len(user_question) < 300:
+    if user_question and len(user_question) < 300:
         text_embedding_user = text_embeddings[1]
         code_embedding_user = code_embeddings[1]
-    else:
-        text_embedding_user = None
-        code_embedding_user = None
-    
+
     # Get enhanced question embeddings if available
     if enhanced_question:
         text_embedding_enhanced_question = text_embeddings[-1]
         code_embedding_enhanced_question = code_embeddings[-1]
-    else:
-        text_embedding_enhanced_question = None
-        code_embedding_enhanced_question = None
 
     times['embedding'] = time.perf_counter() - start_embedding
 
@@ -469,6 +468,7 @@ def vector_db_fetch(
     search_params = None
 
     def merge_splits(fetched_doc, collection_name, link_key, link, code=False, merge_limit=None):
+        # TODO: This does not have question / user question / enhanced question separation. It only uses the question.
         # Merge fetched doc with its other splits
         merged_text = {}
         # Fetching all splits once as they are already limited by stackoverflow itself and pymilvus does not support ordering
@@ -522,17 +522,14 @@ def vector_db_fetch(
         batch_texts = [result['entity']['text'] for result in batch]
         
         # Rerank with question
-        # TODO: If we get > 32 results, we need to batch them
         reranked_batch_question = rerank_texts(question, batch_texts)
         
         # Rerank with user_question if it's not too long
         reranked_batch_user_question = None
-        if len(user_question) < 300:
-            # TODO: If we get > 32 results, we need to batch them
+        if user_question and len(user_question) < 300:
             reranked_batch_user_question = rerank_texts(user_question, batch_texts)
         
         # Rerank with enhanced_question
-        # TODO: If we get > 32 results, we need to batch them
         reranked_batch_enhanced_question = rerank_texts(enhanced_question, batch_texts)
         
         # If all reranking fails, use original order
@@ -605,11 +602,6 @@ def vector_db_fetch(
         )[0]
         times['stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
-        if not batch:
-            times['stackoverflow']['total'] = time.perf_counter() - start_so
-            return [], []
-
-        start_pre_rerank = time.perf_counter()
         if text_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=text_collection_name,
@@ -646,7 +638,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
@@ -739,11 +731,7 @@ def vector_db_fetch(
         )[0]
         times['non_stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
         
-        if not batch:
-            times['non_stackoverflow']['total'] = time.perf_counter() - start_non_so
-            return [], []
 
-        start_pre_rerank = time.perf_counter()
         if text_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=text_collection_name,
@@ -780,7 +768,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['non_stackoverflow']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['non_stackoverflow']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
@@ -826,11 +814,6 @@ def vector_db_fetch(
         )[0]
         times['github_repo']['milvus_search'] = time.perf_counter() - start_milvus
         
-        if not batch:
-            times['github_repo']['total'] = time.perf_counter() - start_github
-            return [], []
-
-        start_pre_rerank = time.perf_counter()
         if code_embedding_user:
             user_question_batch = milvus_client.search(
                 collection_name=code_collection_name,
@@ -867,7 +850,7 @@ def vector_db_fetch(
             if doc["id"] not in [doc["id"] for doc in batch]:
                 batch.append(doc)
 
-        times['github_repo']['pre_rerank'] = time.perf_counter() - start_pre_rerank
+        times['github_repo']['milvus_search'] = time.perf_counter() - start_milvus
 
         start_rerank = time.perf_counter()
         reranked_batch_indices, reranked_batch_scores = rerank_batch(batch, question, user_question, enhanced_question, llm_eval)
@@ -1223,7 +1206,11 @@ def ask_question_with_stream(
     parent_question, 
     source,
     enhanced_question,
-    user=None):
+    user=None,
+    github_comments: list | None = None):
+    from core.prompts import github_context_template
+    from core.github.app_handler import GithubAppHandler
+
     start_total = time.perf_counter()
     times = {
         'total': 0,
@@ -1238,6 +1225,11 @@ def ask_question_with_stream(
     context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, enhanced_question)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
+
+    github_context = ""
+    if github_comments:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+        github_context = github_context_template.format(github_comments=comment_contexts)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1262,6 +1254,7 @@ def ask_question_with_stream(
     guru_variables['user_intent'] = user_intent
     guru_variables['answer_length'] = answer_length
     guru_variables['github_details_if_applicable'] = simplified_github_details
+    guru_variables['github_context'] = github_context
 
     start_history = time.perf_counter()
     history = get_question_history(parent_question)
@@ -1289,7 +1282,7 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False):
+def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1297,21 +1290,26 @@ def get_summary(question, guru_type, short_answer=False):
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_prompt_widget_addition, summary_prompt_non_widget_addition
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_context_template
+    from core.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
     if short_answer:
-        summary_prompt_widget_addition = summary_prompt_widget_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
-        summary_prompt_non_widget_addition = ""
+        # Slack only
+        summary_addition = summary_short_answer_addition.format(widget_answer_max_length=default_settings.widget_answer_max_length)
     else:
-        summary_prompt_widget_addition = ""
-        summary_prompt_non_widget_addition = summary_prompt_non_widget_addition
+        summary_addition = summary_addition
+
+    github_context = ""
+    if github_comments:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+        github_context = github_context_template.format(github_comments=comment_contexts)
 
     prompt = summary_template.format(
         **context_variables, 
-        summary_prompt_widget_addition=summary_prompt_widget_addition, 
-        summary_prompt_non_widget_addition=summary_prompt_non_widget_addition
+        summary_addition=summary_addition,
+        github_context=github_context
     )
 
     if guru_type.lower() not in question.lower():
@@ -1347,13 +1345,13 @@ def get_summary(question, guru_type, short_answer=False):
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None):
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, short_answer)
+    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -1410,6 +1408,7 @@ def stream_question_answer(
         enhanced_question,
         parent_question=None,
         user=None,
+        github_comments: list | None = None
     ):
     guru_type_obj = get_guru_type_object(guru_type)
     collection_name = guru_type_obj.milvus_collection_name
@@ -1426,7 +1425,8 @@ def stream_question_answer(
         parent_question,
         source,
         enhanced_question,
-        user
+        user,
+        github_comments
     )
     if not response:
         return None, None, None, None, None, None, None, None, None, times
@@ -2700,9 +2700,9 @@ def check_binge_auth(binge, user):
     if user and user.is_authenticated and user.is_admin:
         return True
     
-    # Allow access to SLACK and DISCORD questions for everyone
+    # Allow access to SLACK, DISCORD, and GITHUB questions for everyone
     root_question = binge.root_question
-    if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value]:
+    if root_question and root_question.source in [Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value]:
         return True
 
     if not root_question:
@@ -2736,7 +2736,7 @@ def search_question(
             # For anonymous users
             # API requests are not allowed
             # Widget requests are allowed
-            # SLACK and DISCORD questions are allowed
+            # SLACK, DISCORD, and GITHUB questions are allowed
             if only_widget:
                 return Q(source__in=[Question.Source.WIDGET_QUESTION.value])
             else:
@@ -2755,7 +2755,7 @@ def search_question(
                     return (
                         ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]) |
                         Q(source__in=[Question.Source.API.value], user=user) |
-                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value])
+                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value])
                     )
                 else:
                     return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])
@@ -2970,6 +2970,7 @@ class APIAskResponse:
     error: Optional[str]                      # Error message if any
     question_obj: Optional[Question]                 # Question model instance if exists
     is_existing: bool                         # Whether this is an existing question
+    question: Optional[str]                   # Question text
 
     @classmethod
     def from_existing(cls, question_obj: Question) -> 'APIAskResponse':
@@ -2978,17 +2979,19 @@ class APIAskResponse:
             content=question_obj.content,
             error=None,
             question_obj=question_obj,
-            is_existing=True
+            is_existing=True,
+            question=question_obj.question
         )
 
     @classmethod
-    def from_stream(cls, stream_generator: Generator) -> 'APIAskResponse':
+    def from_stream(cls, stream_generator: Generator, question: str) -> 'APIAskResponse':
         """Create response for new streaming question"""
         return cls(
             content=stream_generator,
             error=None,
             question_obj=None,
-            is_existing=False
+            is_existing=False,
+            question=question
         )
 
     @classmethod
@@ -2998,7 +3001,8 @@ class APIAskResponse:
             content=None,
             error=error_msg,
             question_obj=None,
-            is_existing=False
+            is_existing=False,
+            question=None
         )
 
 class APIType:
@@ -3006,10 +3010,11 @@ class APIType:
     WIDGET = 'WIDGET'
     DISCORD = 'DISCORD'
     SLACK = 'SLACK'
+    GITHUB = 'GITHUB'
 
     @classmethod
     def is_api_type(cls, api_type: str) -> bool:
-        return api_type in [cls.API, cls.DISCORD, cls.SLACK]
+        return api_type in [cls.API, cls.DISCORD, cls.SLACK, cls.GITHUB]
 
     @classmethod
     def get_question_source(cls, api_type: str) -> str:
@@ -3018,6 +3023,7 @@ class APIType:
             cls.API: Question.Source.API.value,
             cls.DISCORD: Question.Source.DISCORD.value,
             cls.SLACK: Question.Source.SLACK.value,
+            cls.GITHUB: Question.Source.GITHUB.value,
         }[api_type]
 
 def api_ask(question: str, 
@@ -3026,7 +3032,8 @@ def api_ask(question: str,
             parent: Question | None, 
             fetch_existing: bool, 
             api_type: APIType, 
-            user: User | None) -> APIAskResponse:
+            user: User | None,
+            github_comments: list | None = None) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -3037,18 +3044,20 @@ def api_ask(question: str,
         binge (Binge): The binge to simulate the summary and answer for.
         parent (Question): The parent question.
         fetch_existing (bool): Whether to fetch the existing question data.
-        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK).
+        api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK, GITHUB).
         user (User): The user making the request.
-    
+        github_comments (list): The comments for the GitHub issue.
+
     Returns:
         APIAskResponse: A dataclass containing all response information
     """
 
-    is_widget = api_type == APIType.WIDGET
     is_api = APIType.is_api_type(api_type)
 
-    if is_widget or api_type in [APIType.DISCORD, APIType.SLACK, APIType.API]:
+    if api_type == APIType.SLACK:
         short_answer = True
+    else:
+        short_answer = False
 
     include_api = is_api
     only_widget = api_type == APIType.WIDGET
@@ -3071,7 +3080,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=is_widget)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
@@ -3107,7 +3116,8 @@ def api_ask(question: str,
             question_source,
             enhanced_question,
             parent,
-            user
+            user,
+            github_comments
         )
 
         if not response:
@@ -3147,7 +3157,7 @@ def api_ask(question: str,
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
         return APIAskResponse.from_error(f"There was an error in the stream. We are investigating the issue. Please try again later.")
     
-    return APIAskResponse.from_stream(stream_generator)
+    return APIAskResponse.from_stream(stream_generator, question)
 
 def format_trust_score(trust_score: float) -> str:
     return int(trust_score * 100) if trust_score is not None else None

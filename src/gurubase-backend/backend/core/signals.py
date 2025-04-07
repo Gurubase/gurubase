@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import string
 import requests
 from django.db.models.signals import pre_delete, post_delete, post_save, pre_save
 from django.conf import settings
@@ -631,7 +633,7 @@ def notify_new_user_question(sender, instance: Question, created, **kwargs):
         if instance.guru_type.send_notification:
             webhook_url = settings.SLACK_CUSTOM_GURU_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
-        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK]:
+        elif instance.source in [Question.Source.USER, Question.Source.WIDGET_QUESTION, Question.Source.API, Question.Source.DISCORD, Question.Source.SLACK, Question.Source.GITHUB]:
             webhook_url = settings.SLACK_NOTIFIER_WEBHOOK_URL
             payload = {"text": message}
         
@@ -856,7 +858,7 @@ def create_api_key_for_integration(sender, instance, **kwargs):
 
         api_key = APIKey.objects.create(
             user=user,
-            key=secrets.token_urlsafe(32),
+            key="gb-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=30)),
             integration=True
         )
         instance.api_key = api_key
@@ -940,7 +942,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
     if settings.ENV != 'selfhosted':
         if instance.type == Integration.Type.DISCORD:
             try:
-                from .integrations import IntegrationFactory
+                from core.integrations.factory import IntegrationFactory
                 discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
                 
                 def leave_guild():
@@ -961,7 +963,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         # Step 2: Revoke access token
         try:
-            from .integrations import IntegrationFactory
+            from core.integrations.factory import IntegrationFactory
             strategy = IntegrationFactory.get_strategy(instance.type, instance)
             strategy.revoke_access_token()
         except Exception as e:
@@ -970,6 +972,10 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         if instance.api_key:
             instance.api_key.delete()
+
+    if instance.type == Integration.Type.GITHUB:
+        from .github.app_handler import GithubAppHandler
+        GithubAppHandler(instance).clear_redis_cache()
 
 @receiver(post_save, sender=GuruCreationForm)
 def notify_admin_on_guru_creation_form_submission(sender, instance, **kwargs):

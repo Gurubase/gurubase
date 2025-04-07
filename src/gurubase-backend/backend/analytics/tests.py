@@ -67,7 +67,17 @@ class AnalyticsFilteringTests(TestCase):
             slug="discord-root-question"
         )
         
-        # Non-slack root question with binge (should be excluded)
+        # Github binge root question (should be included)
+        self.github_root_question = Question.objects.create(
+            guru_type=self.guru_type,
+            question="Github root question",
+            user_question="Github root question",
+            source=Question.Source.GITHUB.value,
+            binge=self.binge,
+            slug="github-root-question"
+        )
+        
+        # Non-slack-discord-github root question with binge (should be excluded)
         self.root_binge_question = Question.objects.create(
             guru_type=self.guru_type,
             question="Root binge question",
@@ -114,10 +124,11 @@ class AnalyticsFilteringTests(TestCase):
         # - slack_child_question
         # - slack_root_question
         # - discord_root_question
+        # - github_root_question
         # - child_binge_question
         # Should exclude:
-        # - root_binge_question (non-slack/discord root binge question)
-        self.assertEqual(total_questions, 5)
+        # - root_binge_question (non-slack/discord/github root binge question)
+        self.assertEqual(total_questions, 6)
         
         # Referenced sources should be 1 (from regular_question)
         self.assertEqual(referenced_sources, 1)
@@ -134,16 +145,17 @@ class AnalyticsFilteringTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         
-        # Should return 5 questions (excluding root_binge_question)
-        self.assertEqual(data['total_items'], 5)
+        # Should return 6 questions (excluding root_binge_question)
+        self.assertEqual(data['total_items'], 6)
         
         # Verify that root_binge_question is not in results
         question_titles = [result['title'] for result in data['results']]
         self.assertNotIn("Root binge question", question_titles)
         
-        # Verify that slack/discord root questions are in results
+        # Verify that slack/discord/github root questions are in results
         self.assertIn("Slack root question", question_titles)
         self.assertIn("Discord root question", question_titles)
+        self.assertIn("Github root question", question_titles)
         
         # Test filtering by source
         response = self.client.get(url, {
@@ -170,6 +182,18 @@ class AnalyticsFilteringTests(TestCase):
         # Should return the discord root question
         self.assertEqual(data['total_items'], 1)
         self.assertEqual(data['results'][0]['title'], "Discord root question")
+
+        # Test filtering by github
+        response = self.client.get(url, {
+            'metric_type': 'questions',
+            'interval': 'today',
+            'filter_type': 'github'
+        })
+        
+        data = response.json()
+        # Should return the github root question
+        self.assertEqual(data['total_items'], 1)
+        self.assertEqual(data['results'][0]['title'], "Github root question")
 
     def test_binge_question_hierarchy(self):
         """Test that binge question hierarchy is correctly handled"""
@@ -213,12 +237,12 @@ class AnalyticsFilteringTests(TestCase):
         total_questions, _, _ = stats
         
         # Should include:
-        # - Previous questions (5)
+        # - Previous questions (6)
         # - child1
         # - child2
         # Should exclude:
         # - root (non-slack/discord root)
-        expected_total = 7  # 5 previous + child1 + child2
+        expected_total = 8  # 6 previous + child1 + child2
         self.assertEqual(total_questions, expected_total)
 
     def test_binge_root_filtering(self):
@@ -278,16 +302,17 @@ class AnalyticsFilteringTests(TestCase):
         data = response.json()
         
         # Should include:
-        # - Previous questions (5)
+        # - Previous questions (6)
         # - api_child
         # - widget_child
-        self.assertEqual(data['total_items'], 7)
+        self.assertEqual(data['total_items'], 8)
         
         question_titles = [result['title'] for result in data['results']]
         
         # Verify root questions are properly filtered
         self.assertIn("Slack root question", question_titles)
         self.assertIn("Discord root question", question_titles)
+        self.assertIn("Github root question", question_titles)
         self.assertNotIn("API root question", question_titles)
         self.assertNotIn("Widget root question", question_titles)
         

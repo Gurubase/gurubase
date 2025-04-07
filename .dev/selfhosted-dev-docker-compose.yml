@@ -29,6 +29,8 @@ services:
       POSTGRES_USER: postgres
     volumes:
       - ./.devdata/selfhosted/postgres:/var/lib/postgresql/data
+    ports:
+      - 5435:5432
     restart: always
 
   redis:
@@ -36,6 +38,8 @@ services:
     container_name: selfhosted-dev-gurubase-redis
     volumes:
       - ./.devdata/selfhosted/redis:/data
+    ports:
+      - 6381:6379
     restart: always
 
   nginx:
@@ -46,6 +50,13 @@ services:
       - ./.devdata/selfhosted/backend_media:/django_media_files
     ports:
       - "8019:8019"
+    restart: always
+
+  attu:
+    image: zilliz/attu:latest
+    container_name: local-dev-gurubase-attu
+    ports:
+      - 8001:3000
     restart: always
 
 networks:

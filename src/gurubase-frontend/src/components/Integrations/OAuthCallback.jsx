@@ -20,7 +20,8 @@ const OAuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get("code");
-      const state = searchParams.get("state");
+      let state = searchParams.get("state");
+      const installationId = searchParams.get("installation_id");
 
       if (!code || !state) {
         setError("Missing required parameters");
@@ -32,6 +33,13 @@ const OAuthCallback = () => {
       try {
         const stateData = JSON.parse(state);
         const { guru_type, type } = stateData;
+
+        // Add installation_id to state if it exists and type is github
+        if (installationId && type.toLowerCase() === "github") {
+          stateData.installation_id = installationId;
+          state = JSON.stringify(stateData); // Update state with installation_id
+        }
+
         url = `/guru/${guru_type}/integrations/${type.toLowerCase()}`;
         const response = await createIntegration(code, state);
 

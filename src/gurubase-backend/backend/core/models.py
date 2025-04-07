@@ -1,4 +1,5 @@
 import secrets
+from django.db import transaction
 import traceback
 import logging
 import os
@@ -35,6 +36,7 @@ class Question(models.Model):
         API = "API"
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     slug = models.SlugField(max_length=1500)
     question = models.TextField()
@@ -119,6 +121,7 @@ class Question(models.Model):
             if existing_by_slug:
                 raise ValidationError("A question with this slug and guru type already exists")
 
+            # This does not include Slack and Discord as all of the questions there belong to binges.
             if self.source not in [Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]:
                 existing_by_question = Question.objects.exclude(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]).filter(
                     question=self.question,
@@ -143,6 +146,10 @@ class Question(models.Model):
         for prices in self.llm_usages.values():
             total_cost_dollars += prices['cost_dollars']
         self.cost_dollars = total_cost_dollars
+
+        if not self.user_question:
+            self.user_question = self.question
+
         super().save(*args, **kwargs)
 
     class Meta:
@@ -940,6 +947,50 @@ class DataSource(models.Model):
 
         self.save()
 
+    def scrape_main_content(self):
+        """
+        Scrape the main content of the data source using Gemini to extract the main content from HTML.
+        Updates Milvus immediately after processing.
+        Skips if the content has already been rewritten or is not in a success status.
+        """
+        from core.requester import GeminiRequester
+        gemini_requester = GeminiRequester(model_name=settings.LARGE_GEMINI_MODEL)
+
+        try:
+            # Skip if already rewritten or not in success status
+            if self.content_rewritten or self.status != DataSource.Status.SUCCESS:
+                logger.info(f"Skipping data source {self.id} - already rewritten or not in success status")
+                return
+                
+            if not self.content:
+                logger.warning(f"Data source {self.id} has no content to process")
+                return
+                
+            # Store original content if not already stored
+            if not self.original_content:
+                self.original_content = self.content
+            
+            # Scrape main content using Gemini
+            main_content = gemini_requester.scrape_main_content(self.content)
+            
+            # Update data source with new content
+            self.content = main_content
+            self.content_rewritten = True
+
+            with transaction.atomic():
+                # Save to database
+                self.save()
+                
+                # Delete from Milvus
+                self.delete_from_milvus()
+                
+                # Write to Milvus
+                self.write_to_milvus()
+
+            
+        except Exception as e:
+            logger.error(f"Error scraping main content for data source {self.id}: {str(e)}", exc_info=True)
+
     def create_initial_summarizations(self, max_length=settings.SUMMARIZATION_MAX_LENGTH, chunk_overlap=settings.SUMMARIZATION_OVERLAP_LENGTH):
         """
         Summarizes the content of the data source by using RecursiveCharacterTextSplitter and generating summaries.
@@ -1693,6 +1744,7 @@ class Integration(models.Model):
     class Type(models.TextChoices):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
+        GITHUB = "GITHUB"
 
     type = models.CharField(
         max_length=50,
@@ -1708,6 +1760,11 @@ class Integration(models.Model):
     access_token = models.TextField()
     refresh_token = models.TextField(null=True, blank=True)
     channels = models.JSONField(default=list, blank=True, null=False)
+    github_private_key = models.TextField(null=True, blank=True)
+    github_client_id = models.TextField(null=True, blank=True)
+    github_secret = models.TextField(null=True, blank=True)
+    github_bot_name = models.TextField(null=True, blank=True)
+    github_html_url = models.TextField(null=True, blank=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1717,7 +1774,28 @@ class Integration(models.Model):
     @property
     def masked_access_token(self):
         if settings.ENV == 'selfhosted':
-            return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+            if self.access_token:
+                return self.access_token[:10] + ('*' * len(self.access_token[10:]))
+            else:
+                return None
+        return None
+
+    @property
+    def masked_github_client_id(self):
+        if settings.ENV == 'selfhosted':
+            if self.github_client_id:
+                return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
+            else:
+                return None
+        return None
+
+    @property
+    def masked_github_secret(self):
+        if settings.ENV == 'selfhosted':
+            if self.github_secret:
+                return self.github_secret[:3] + ('*' * len(self.github_secret[3:-3])) + self.github_secret[-3:]
+            else:
+                return None
         return None
 
     class Meta:

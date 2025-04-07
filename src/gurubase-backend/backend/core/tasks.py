@@ -1,5 +1,6 @@
 from datetime import datetime, UTC
 from random import sample
+from typing import List
 from PIL import Image
 import io
 import logging
@@ -13,12 +14,11 @@ from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
-from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
+from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
 import re
-from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Avg, StdDev, Count, Sum, Exists, OuterRef
 from statistics import median, mean, stdev
 from django.utils import timezone
@@ -1439,7 +1439,7 @@ def update_github_repositories(successful_repos=True):
     """
 
     def process_guru_type(guru_type):
-        from core.github_handler import clone_repository, read_repository
+        from core.github.data_source_handler import clone_repository, read_repository
         from django.db import transaction
         import os
         from datetime import datetime        
@@ -1759,3 +1759,29 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
     except Exception as e:
         logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
         raise
+
+
+@shared_task
+@with_redis_lock(
+    redis_client,
+    'scrape_main_content_lock',
+    1800
+)
+def scrape_main_content(data_source_ids: List[int]):
+    """
+    Scrape the main content of a list of data sources using Gemini to extract the main content from HTML.
+    Updates Milvus immediately after processing each data source.
+    Skips data sources that have already been rewritten or are not in a success status.
+    
+    Args:
+        data_source_ids: List of DataSource IDs to process
+    """
+    logger.info(f"Starting to scrape main content for {len(data_source_ids)} data sources")
+    
+    from core.models import DataSource
+    data_sources = DataSource.objects.filter(id__in=data_source_ids)
+    
+    for data_source in data_sources:
+        data_source.scrape_main_content()
+    
+    logger.info("Completed scraping main content for all data sources")

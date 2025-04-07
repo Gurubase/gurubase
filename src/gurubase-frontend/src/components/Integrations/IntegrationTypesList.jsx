@@ -5,7 +5,8 @@ import {
   ConnectedIntegrationIcon,
   DiscordIcon,
   SlackIcon,
-  WebWidgetIcon
+  WebWidgetIcon,
+  GitHubIcon
 } from "@/components/Icons";
 import { Link } from "@/components/Link";
 import clsx from "clsx";
@@ -54,6 +55,13 @@ const IntegrationTypesList = ({ guruData }) => {
       description: "Easily integrate your Guru into your website.",
       icon: WebWidgetIcon,
       type: "WEB_WIDGET"
+    },
+    {
+      id: "github",
+      name: "GitHub Bot",
+      description: "Connect your GitHub repositories to your Guru.",
+      icon: GitHubIcon,
+      type: "GITHUB"
     }
   ];
 

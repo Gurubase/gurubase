@@ -6,9 +6,8 @@ import sys
 import aiohttp
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from core.integrations import NotEnoughData, NotRelated
+from core.integrations.helpers import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji
 from core.models import Integration, Thread
-from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
 from core.utils import create_fresh_binge
 import time
@@ -31,19 +30,6 @@ class Command(BaseCommand):
         # And this may result in bad UX, and false positive bug reports
         self.cache_timeout = 0
 
-    def get_trust_score_emoji(self, trust_score):
-        score = trust_score / 100.0
-        if score >= 0.8:
-            return "🟢"  # Green
-        elif score >= 0.6:
-            return "🟡"  # Yellow
-        elif score >= 0.4:
-            return "🟡"  # Yellow
-        elif score >= 0.2:
-            return "🟠"  # Orange
-        else:
-            return "🔴"  # Red
-
     def strip_first_header(self, content):
         """Remove the first header (starting with # and ending with newline) from content."""
         if content.startswith('#'):
@@ -61,7 +47,7 @@ class Command(BaseCommand):
         
         # Calculate space needed for metadata (trust score and references)
         trust_score = response.get('trust_score', 0)
-        trust_emoji = self.get_trust_score_emoji(trust_score)
+        trust_emoji = get_trust_score_emoji(trust_score)
         formatted_msg.append(f"---------\n_**Trust Score**: {trust_emoji} {trust_score}%_")
         
         if response.get('references'):
@@ -432,7 +418,7 @@ class Command(BaseCommand):
                         
                         # Format metadata
                         trust_score = response.get('trust_score', 0)
-                        trust_emoji = self.get_trust_score_emoji(trust_score)
+                        trust_emoji = get_trust_score_emoji(trust_score)
                         metadata = f"\n---------\n_**Trust Score**: {trust_emoji} {trust_score}%_"
                         
                         if 'msg' in response and 'doesn\'t have enough data' in response['msg']:
@@ -446,13 +432,7 @@ class Command(BaseCommand):
                             metadata += "\n_**Sources:**_"
                             for ref in response['references']:
                                 # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
-                                clean_title = re.sub(r'\s*:[a-zA-Z0-9_+-]+:\s*', ' ', ref['title'])
-                                clean_title = re.sub(
-                                    r'\s*(?:[\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F9FF\U0001FA70-\U0001FAFF]'
-                                    r'[\uFE00-\uFE0F\U0001F3FB-\U0001F3FF]?\s*)+',
-                                    ' ',
-                                    clean_title
-                                ).strip()
+                                clean_title = cleanup_title(ref['title'])
                                 metadata += f"\n• [*{clean_title}*](<{ref['link']}>)"
                         
                         metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
