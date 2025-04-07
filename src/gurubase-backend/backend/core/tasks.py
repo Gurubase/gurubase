@@ -1762,6 +1762,11 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
 
 
 @shared_task
+@with_redis_lock(
+    redis_client,
+    'scrape_main_content_lock',
+    1800
+)
 def scrape_main_content(data_source_ids: List[int]):
     """
     Scrape the main content of a list of data sources using Gemini to extract the main content from HTML.
