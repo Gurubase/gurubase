@@ -7,6 +7,7 @@ from django.conf import settings
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
 import re
+import glob
 
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,21 @@ package_manifest_files = {
     'Makefile.PL',
 }
 
+def expand_braces(pattern):
+    """Expand brace patterns like {js,ts} into multiple patterns."""
+    if '{' not in pattern or '}' not in pattern:
+        return [pattern]
+    
+    # Find content between braces
+    match = re.search(r'{([^}]+)}', pattern)
+    if not match:
+        return [pattern]
+    
+    # Split options and create new patterns
+    options = match.group(1).split(',')
+    start, end = pattern.split('{' + match.group(1) + '}', 1)
+    return [f"{start}{option}{end}" for option in options]
+
 def extract_repo_name(repo_url):
     """Extract repository name from GitHub URL."""
     try:
@@ -161,8 +177,15 @@ def get_file_content(file_path):
         logger.warning(f"Error reading file {file_path}: {str(e)}")
         return None
     
-def read_repository(repo_path):
-    """Get the directory structure and file contents of the repository."""
+def read_repository(repo_path, include=True, glob_pattern=None):
+    """Get the directory structure and file contents of the repository.
+    
+    Args:
+        repo_path (str): Path to the repository
+        include (bool): If True, only include files matching glob_pattern. If False, exclude files matching glob_pattern.
+        glob_pattern (str): Glob pattern to filter files. If None or empty, no filtering is applied.
+                          Supports brace expansion, e.g., "**/*.{js,ts}" will match both .js and .ts files.
+    """
     structure = []
     logger.info(f"Reading repository {repo_path}")
 
@@ -170,6 +193,16 @@ def read_repository(repo_path):
 
     package_manifest_files = set(default_settings.package_manifest_files) # Turn into set to optimize existence check
     code_file_extensions = set(default_settings.code_file_extensions) # Turn into set to optimize existence check
+
+    # If glob pattern is provided, get matching files
+    matching_files = set()
+    if glob_pattern:
+        # Handle brace expansion and collect all matching files
+        patterns = expand_braces(glob_pattern)
+        for pattern in patterns:
+            # Make glob pattern relative to repo_path
+            full_pattern = os.path.join(repo_path, pattern)
+            matching_files.update(os.path.relpath(f, repo_path) for f in glob.glob(full_pattern, recursive=True))
 
     for root, dirs, files in os.walk(repo_path):
         # Skip .git directory
@@ -201,6 +234,12 @@ def read_repository(repo_path):
                 # Skip files larger than 10MB
                 if os.path.getsize(file_path) > 1024 * 1024 * 10:
                     continue
+                
+                # Apply glob pattern filtering if pattern is provided
+                if glob_pattern:
+                    matches_pattern = relative_path in matching_files
+                    if (include and not matches_pattern) or (not include and matches_pattern):
+                        continue
                 
                 content = get_file_content(file_path)
                 structure.append({
