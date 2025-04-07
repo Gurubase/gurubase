@@ -13,12 +13,11 @@ from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
-from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, RawQuestion, RawQuestionGeneration, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
+from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
 import re
-from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Avg, StdDev, Count, Sum, Exists, OuterRef
 from statistics import median, mean, stdev
 from django.utils import timezone
@@ -1439,7 +1438,7 @@ def update_github_repositories(successful_repos=True):
     """
 
     def process_guru_type(guru_type):
-        from core.github_handler import clone_repository, read_repository
+        from core.github.data_source_handler import clone_repository, read_repository
         from django.db import transaction
         import os
         from datetime import datetime        

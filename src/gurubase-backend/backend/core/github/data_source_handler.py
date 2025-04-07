@@ -6,6 +6,8 @@ from pathlib import Path
 from django.conf import settings
 from core.utils import get_default_settings
 from core.exceptions import GitHubRepoContentExtractionError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
+import re
+
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +139,6 @@ def clone_repository(repo_url):
         # Check if the error message indicates repository not found
         if "repository" in str(e).lower() and "not found" in str(e).lower():
             # Extract repo URL from error message using regex
-            import re
             match = re.search(r"repository '([^']+)' not found", str(e))
             if match:
                 repo_url = match.group(1)
@@ -287,3 +288,4 @@ def process_github_repository(data_source):
         raise e
     except Exception as e:
         raise GitHubRepoContentExtractionError(f"Error processing GitHub repository: {str(e)}")
+

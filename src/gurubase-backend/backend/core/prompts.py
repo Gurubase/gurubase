@@ -2,6 +2,28 @@ summary_short_answer_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
+github_context_template = """
+This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
+
+- COLLABORATOR: Author has been invited to collaborate on the repository.
+- CONTRIBUTOR: Author has previously committed to the repository.
+- FIRST_TIMER: Author has not previously committed to GitHub.
+- FIRST_TIME_CONTRIBUTOR: Author has not previously committed to the repository.
+- MANNEQUIN: Author is a placeholder for an unclaimed user.
+- MEMBER: Author is a member of the organization that owns the repository.
+- USER: Author is a user of the repository.
+- OWNER: Author is the owner of the repository.
+- YOU: Author is the bot.
+
+Here are the previous comments for the issue:
+
+<Github contexts>
+{github_comments}
+</Github contexts>
+
+Make sure you consider the github context while generating your answer. There can be some important information in the github context that can help you answer the question. Also make sure you extend the enhanced question with the github context.
+"""
+
 summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
 """
@@ -16,8 +38,11 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_addition}
 <enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters.
 
+{github_context}
+
 For any questions related to date, remember today's date is {date}.
 """
+
 
 binge_mini_prompt = """
 The user has started a conversation with you. The previously asked questions are:
@@ -45,6 +70,8 @@ First, carefully read and analyze the following contexts:
 <contexts>
 {contexts}
 </contexts>
+
+{github_context}
 
 When answering the question, follow these guidelines:
 1. Use only the information provided in the contexts. Do not use prior knowledge or hallucinate information.
