@@ -1,5 +1,6 @@
 from datetime import datetime, UTC
 from random import sample
+from typing import List
 from PIL import Image
 import io
 import logging
@@ -1758,3 +1759,24 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
     except Exception as e:
         logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
         raise
+
+
+@shared_task
+def scrape_main_content(data_source_ids: List[int]):
+    """
+    Scrape the main content of a list of data sources using Gemini to extract the main content from HTML.
+    Updates Milvus immediately after processing each data source.
+    Skips data sources that have already been rewritten or are not in a success status.
+    
+    Args:
+        data_source_ids: List of DataSource IDs to process
+    """
+    logger.info(f"Starting to scrape main content for {len(data_source_ids)} data sources")
+    
+    from core.models import DataSource
+    data_sources = DataSource.objects.filter(id__in=data_source_ids)
+    
+    for data_source in data_sources:
+        data_source.scrape_main_content()
+    
+    logger.info("Completed scraping main content for all data sources")

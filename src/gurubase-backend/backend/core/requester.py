@@ -610,6 +610,12 @@ class GeminiRequester():
             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
 
+    def scrape_main_content(self, content):
+        from .prompts import scrape_main_content_prompt
+        prompt = scrape_main_content_prompt.format(content=content)
+        response = self.client.generate_content(prompt)
+        return response.text
+
     def summarize_text(self, text, guru_type):
         from .prompts import summarize_data_sources_prompt
         from core.utils import get_llm_usage_from_response

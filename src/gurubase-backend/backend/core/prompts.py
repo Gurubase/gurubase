@@ -842,3 +842,11 @@ Context 11 Text:
 # Best way to reverse a string in Python \n def reverse_string(s): return s[::-1] \n print(reverse_string("hello"))
 ```
 </Code context>'''
+
+scrape_main_content_prompt = """
+Extract the website texts in markdown format from that markdown. Get only the main part, remove sidebars, footer, header, etc. Here is the content:
+
+{content}
+
+Do not add any other text or comments. Just return the markdown content. Do not format it like ```markdown, just return the markdown content.
+"""
