@@ -370,7 +370,6 @@ const GuruCreationForm = ({
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='5'/%3E%3Cpath d='M20 21a8 8 0 0 0-16 0'/%3E%3C/svg%3E";
-                            console.error('Failed to load image');
                           }}
                         />
                       </div>
@@ -387,7 +386,6 @@ const GuruCreationForm = ({
                         loading="eager"
                         onError={(e) => {
                           e.target.onerror = null;
-                          console.error('Failed to load image');
                         }}
                       />
                     </div>
