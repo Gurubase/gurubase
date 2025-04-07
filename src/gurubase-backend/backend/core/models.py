@@ -1,4 +1,5 @@
 import secrets
+from django.db import transaction
 import traceback
 import logging
 import os
@@ -945,6 +946,50 @@ class DataSource(models.Model):
             GithubFile.objects.filter(data_source=self).update(in_milvus=False, doc_ids=[])
 
         self.save()
+
+    def scrape_main_content(self):
+        """
+        Scrape the main content of the data source using Gemini to extract the main content from HTML.
+        Updates Milvus immediately after processing.
+        Skips if the content has already been rewritten or is not in a success status.
+        """
+        from core.requester import GeminiRequester
+        gemini_requester = GeminiRequester(model_name=settings.LARGE_GEMINI_MODEL)
+
+        try:
+            # Skip if already rewritten or not in success status
+            if self.content_rewritten or self.status != DataSource.Status.SUCCESS:
+                logger.info(f"Skipping data source {self.id} - already rewritten or not in success status")
+                return
+                
+            if not self.content:
+                logger.warning(f"Data source {self.id} has no content to process")
+                return
+                
+            # Store original content if not already stored
+            if not self.original_content:
+                self.original_content = self.content
+            
+            # Scrape main content using Gemini
+            main_content = gemini_requester.scrape_main_content(self.content)
+            
+            # Update data source with new content
+            self.content = main_content
+            self.content_rewritten = True
+
+            with transaction.atomic():
+                # Save to database
+                self.save()
+                
+                # Delete from Milvus
+                self.delete_from_milvus()
+                
+                # Write to Milvus
+                self.write_to_milvus()
+
+            
+        except Exception as e:
+            logger.error(f"Error scraping main content for data source {self.id}: {str(e)}", exc_info=True)
 
     def create_initial_summarizations(self, max_length=settings.SUMMARIZATION_MAX_LENGTH, chunk_overlap=settings.SUMMARIZATION_OVERLAP_LENGTH):
         """

@@ -29,6 +29,8 @@ services:
       POSTGRES_USER: postgres
     volumes:
       - ./.devdata/local/postgres:/var/lib/postgresql/data
+    ports:
+      - 5434:5432
     restart: always
 
   redis:
@@ -36,7 +38,17 @@ services:
     container_name: local-dev-gurubase-redis
     volumes:
       - ./.devdata/local/redis:/data
+    ports:
+      - 6380:6379
     restart: always
+
+  attu:
+    image: zilliz/attu:latest
+    container_name: local-dev-gurubase-attu
+    ports:
+      - 8000:3000
+    restart: always
+    
 
 networks:
   default:
