@@ -982,22 +982,14 @@ class DataSource(models.Model):
                 self.save()
                 
                 # Delete from Milvus
-                try:
-                    self.delete_from_milvus()
-                except Exception as e:
-                    logger.error(f"Error deleting data source {self.id} from Milvus: {str(e)}", exc_info=True)
+                self.delete_from_milvus()
                 
                 # Write to Milvus
-                try:
-                    self.write_to_milvus()
-                except Exception as e:
-                    logger.error(f"Error writing data source {self.id} to Milvus: {str(e)}", exc_info=True)
+                self.write_to_milvus()
+
             
         except Exception as e:
             logger.error(f"Error scraping main content for data source {self.id}: {str(e)}", exc_info=True)
-            self.error = str(e)
-            self.user_error = "Failed to extract main content from the page"
-            self.save()
 
     def create_initial_summarizations(self, max_length=settings.SUMMARIZATION_MAX_LENGTH, chunk_overlap=settings.SUMMARIZATION_OVERLAP_LENGTH):
         """
