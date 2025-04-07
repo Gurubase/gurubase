@@ -1775,6 +1775,7 @@ def api_reindex_data_sources(request, guru_type):
 
 @api_view(['GET'])
 def create_integration(request):
+    # OAuth flow
     code = request.query_params.get('code')
     state = request.query_params.get('state')
 

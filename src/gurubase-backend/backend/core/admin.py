@@ -204,7 +204,7 @@ class DataSourceAdmin(admin.ModelAdmin):
     list_filter = ('type', 'status', 'in_milvus', 'content_rewritten', 'initial_summarizations_created', 'final_summarization_created', 'guru_type__slug', 'reindex_count', 'private')
     search_fields = ['id', 'title', 'guru_type__slug', 'type', 'url']
     ordering = ('-id',)
-    actions = ['write_to_milvus', 'delete_from_milvus', 'change_status_to_not_processed', 'reset_initial_summarizations_created', 'reset_final_summarization_created']
+    actions = ['write_to_milvus', 'delete_from_milvus', 'change_status_to_not_processed', 'reset_initial_summarizations_created', 'reset_final_summarization_created', 'scrape_main_content']
 
     def write_to_milvus(self, request, queryset):
         for obj in queryset:
@@ -234,6 +234,12 @@ class DataSourceAdmin(admin.ModelAdmin):
     def reset_final_summarization_created(self, request, queryset):
         queryset.update(final_summarization_created=False)
     reset_final_summarization_created.short_description = "Reset final summarization created"
+
+    def scrape_main_content(self, request, queryset):
+        from core.tasks import scrape_main_content
+        data_source_ids = list(queryset.values_list('id', flat=True))
+        scrape_main_content.delay(data_source_ids)
+    scrape_main_content.short_description = "Scrape main content"
 
 
 @admin.register(Favicon)

@@ -30,6 +30,7 @@ class GetIntegrationCommand(IntegrationCommand):
             'github_client_id': self.integration.masked_github_client_id,
             'github_secret': self.integration.masked_github_secret,
             'github_bot_name': self.integration.github_bot_name,
+            'github_html_url': self.integration.github_html_url,
             'date_created': self.integration.date_created,
             'date_updated': self.integration.date_updated,
             'access_token': self.integration.masked_access_token,
@@ -141,6 +142,7 @@ class CreateIntegrationCommand(IntegrationCommand):
                 github_client_id=self.data['client_id'],
                 github_secret=self.data.get('github_secret'),
                 github_bot_name=workspace_details['bot_slug'],
+                github_html_url=workspace_details['html_url']
             )
         else:
             return Integration.objects.create(
