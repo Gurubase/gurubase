@@ -44,7 +44,7 @@ For any questions related to date, remember today's date is {date}.
 """
 
 
-binge_mini_prompt = """
+binge_answer_prompt = """
 The user has started a conversation with you. The previously asked questions are:
 
 {question_history}
@@ -63,7 +63,7 @@ You are a {guru_type} Guru with extensive knowledge about {domain_knowledge}. Yo
 
 {github_details_if_applicable}
 
-{binge_mini_prompt}
+{binge_answer_prompt}
 
 First, carefully read and analyze the following contexts:
 

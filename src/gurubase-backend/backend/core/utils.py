@@ -1166,23 +1166,23 @@ def format_question_history(history):
     return history_text.strip()
 
 def prepare_chat_messages(user_question, question, guru_variables, context_vals, history=None):
-    from core.prompts import prompt_template, binge_mini_prompt
+    from core.prompts import prompt_template, binge_answer_prompt
     """Prepare messages for the chat completion API."""
     user_message = f"User Question: {user_question}\nQuestion: {question}"
     
     if history:
         question_history = format_question_history(history)
         last_answer = history[-1]['answer']
-        binge_mini_prompt = binge_mini_prompt.format(
+        binge_answer_prompt = binge_answer_prompt.format(
             question_history=question_history,
             answer=last_answer
         )
     else:
-        binge_mini_prompt = ""
+        binge_answer_prompt = ""
     
-    # Insert binge_mini_prompt into the main prompt
+    # Insert binge_answer_prompt into the main prompt
     final_prompt = prompt_template.format(
-        binge_mini_prompt=binge_mini_prompt if history else "",
+        binge_answer_prompt=binge_answer_prompt if history else "",
         **guru_variables,
         **context_vals
     )
