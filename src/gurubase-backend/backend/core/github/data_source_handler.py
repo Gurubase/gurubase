@@ -226,7 +226,7 @@ def save_repository(data_source, structure, default_branch):
         
         # Check if total size exceeds limit
         if total_size > data_source.guru_type.github_repo_size_limit_mb * 1024 * 1024:
-            raise GithubRepoSizeLimitError(f"The codebase exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported")
+            raise GithubRepoSizeLimitError(f"The codebase ({total_size / (1024 * 1024):.2f} MB) exceeds the maximum size limit of {data_source.guru_type.github_repo_size_limit_mb} MB supported")
 
     for file in structure:
         bulk_save.append(GithubFile(
