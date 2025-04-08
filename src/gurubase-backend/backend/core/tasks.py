@@ -1460,7 +1460,10 @@ def update_github_repositories(successful_repos=True):
                 
                 try:
                     # Read the repository structure
-                    structure = read_repository(temp_dir)
+                    structure = read_repository(
+                        temp_dir, 
+                        data_source.github_glob_include, 
+                        data_source.github_glob_pattern)
 
                     if len(structure) > data_source.guru_type.github_file_count_limit_per_repo_hard:
                         raise GithubRepoFileCountLimitError(
