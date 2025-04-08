@@ -471,51 +471,65 @@ def vector_db_fetch(
         # TODO: This does not have question / user question / enhanced question separation. It only uses the question.
         # Merge fetched doc with its other splits
         merged_text = {}
-        
-        # Get the closest vector's split_num (should be in fetched_doc)
-        closest_split_num = fetched_doc['entity']['metadata'].get('split_num', 1)
-        merged_text[closest_split_num] = fetched_doc['entity']['text']
-        used_indices = {closest_split_num}
+        used_indices = set()
 
-        # Determine potential adjacent indices
-        adjacent_indices = [closest_split_num - 2, closest_split_num - 1, closest_split_num + 1, closest_split_num + 2]
-        
-        # Query for adjacent splits
-        if adjacent_indices:
-            adjacent_filter = " || ".join([f'metadata["split_num"] == {idx}' for idx in adjacent_indices if idx >= 0])
-            if adjacent_filter:
-                adjacent_results = milvus_client.search(
-                    collection_name=collection_name,
-                    data=[text_embedding if not code else code_embedding],
-                    limit=4,  # Max number of adjacent splits we're looking for
-                    output_fields=['text', 'metadata'],
-                    filter=f'metadata["{link_key}"] == "{link}" && ({adjacent_filter})'
-                )[0]
+        if merge_limit:
+            # Get the closest vector's split_num (should be in fetched_doc)
+            closest_split_num = fetched_doc['entity']['metadata'].get('split_num', 1)
+            merged_text[closest_split_num] = fetched_doc['entity']['text']
+            used_indices = {closest_split_num}
 
-                adjacent_results.sort(key=lambda x: x['entity']['metadata'].get('split_num', 1))
+            # Determine potential adjacent indices
+            adjacent_indices = [closest_split_num - 2, closest_split_num - 1, closest_split_num + 1, closest_split_num + 2]
+            
+            # Query for adjacent splits
+            if adjacent_indices:
+                adjacent_filter = " || ".join([f'metadata["split_num"] == {idx}' for idx in adjacent_indices if idx >= 0])
+                if adjacent_filter:
+                    adjacent_results = milvus_client.search(
+                        collection_name=collection_name,
+                        data=[text_embedding if not code else code_embedding],
+                        limit=4,  # Max number of adjacent splits we're looking for
+                        output_fields=['text', 'metadata'],
+                        filter=f'metadata["{link_key}"] == "{link}" && ({adjacent_filter})'
+                    )[0]
 
-                if len(adjacent_results) > 2:
-                    adjacent_results = adjacent_results[1:3] # Get the middle to find the closest adjacents
+                    adjacent_results.sort(key=lambda x: x['entity']['metadata'].get('split_num', 1))
 
-                for result in adjacent_results:
-                    split_num = result['entity']['metadata'].get('split_num', len(merged_text))
-                    if split_num not in used_indices:
-                        merged_text[split_num] = result['entity']['text']
-                        used_indices.add(split_num)
+                    if len(adjacent_results) > 2:
+                        adjacent_results = adjacent_results[1:3] # Get the middle to find the closest adjacents
 
-        # Get additional non-adjacent splits (up to 3 more)
-        exclude_filter = " && ".join([f'metadata["split_num"] != {idx}' for idx in used_indices])
-        additional_results = milvus_client.search(
-            collection_name=collection_name,
-            data=[text_embedding if not code else code_embedding],
-            limit=merge_limit - len(used_indices),
-            output_fields=['text', 'metadata'],
-            filter=f'metadata["{link_key}"] == "{link}" && ({exclude_filter})'
-        )[0]
+                    for result in adjacent_results:
+                        split_num = result['entity']['metadata'].get('split_num', len(merged_text))
+                        if split_num not in used_indices:
+                            merged_text[split_num] = result['entity']['text']
+                            used_indices.add(split_num)
 
-        for result in additional_results:
-            split_num = result['entity']['metadata'].get('split_num', len(merged_text))
-            if split_num not in used_indices:
+            # Get additional non-adjacent splits (up to 3 more)
+            exclude_filter = " && ".join([f'metadata["split_num"] != {idx}' for idx in used_indices])
+            additional_results = milvus_client.search(
+                collection_name=collection_name,
+                data=[text_embedding if not code else code_embedding],
+                limit=merge_limit - len(used_indices),
+                output_fields=['text', 'metadata'],
+                filter=f'metadata["{link_key}"] == "{link}" && ({exclude_filter})'
+            )[0]
+
+            for result in additional_results:
+                split_num = result['entity']['metadata'].get('split_num', len(merged_text))
+                if split_num not in used_indices:
+                    merged_text[split_num] = result['entity']['text']
+                    used_indices.add(split_num)
+        else:
+            results = milvus_client.search(
+                collection_name=collection_name, 
+                data=[text_embedding if not code else code_embedding], 
+                limit=16384,
+                output_fields=['text', 'metadata'], 
+                filter=f'metadata["{link_key}"] == "{link}"'
+            )[0]
+            for result in results:
+                split_num = result['entity']['metadata'].get('split_num', len(merged_text))
                 merged_text[split_num] = result['entity']['text']
                 used_indices.add(split_num)
 
