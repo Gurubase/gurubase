@@ -203,7 +203,7 @@ class FirecrawlScraper(WebScraper):
         try:
             batch_scrape_result = self.app.batch_scrape_urls(
                 urls,
-                params={'formats': ['markdown'], 'onlyMainContent': True, 'timeout': settings.FIRECRAWL_TIMEOUT_MS}
+                params={'formats': ['markdown'], 'onlyMainContent': True, 'timeout': settings.FIRECRAWL_TIMEOUT_MS, 'waitFor': 2000}
             )
 
             # batch_scrape_result = {'metadata': {'statusCode': 429, 'description': 'Rate limit exceeded'}}
@@ -609,6 +609,12 @@ class GeminiRequester():
             HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
             HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
+
+    def scrape_main_content(self, content):
+        from .prompts import scrape_main_content_prompt
+        prompt = scrape_main_content_prompt.format(content=content)
+        response = self.client.generate_content(prompt)
+        return response.text
 
     def summarize_text(self, text, guru_type):
         from .prompts import summarize_data_sources_prompt

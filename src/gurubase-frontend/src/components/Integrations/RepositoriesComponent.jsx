@@ -28,7 +28,8 @@ const RepositoriesComponent = ({
   selfhosted,
   externalId,
   setInternalError,
-  githubAppSlug
+  githubAppSlug,
+  installationUrl
 }) => {
   const [repositories, setRepositories] = useState([]);
   const [initialRepositories, setInitialRepositories] = useState([]);
@@ -205,10 +206,7 @@ const RepositoriesComponent = ({
                 variant="outline"
                 className="inline-flex min-h-[48px] max-h-[48px] px-4 justify-center items-center gap-2 rounded-lg border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium guru-xs:w-full md:w-auto"
                 onClick={() => {
-                  window.open(
-                    `https://github.com/settings/installations/${externalId}`,
-                    "_blank"
-                  );
+                  window.open(installationUrl, "_blank");
                   setShowReload(true);
                 }}>
                 Manage
