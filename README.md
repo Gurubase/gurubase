@@ -6,7 +6,7 @@
 
 # Gurubase - AI-powered Q&A assistants for any topic
 
-![Gurubase Intro](imgs/gurubase_intro.png)
+![Gurubase Intro](imgs/gurubase-intro.png)
 
 
 <div align="center">
