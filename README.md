@@ -28,7 +28,7 @@
 - [Quick Install](#quick-install)
 - [How to Create a Guru](#how-to-create-a-guru)
 - [How to Claim a Guru](#how-to-claim-a-guru)
-- [Showcase Your Guru](#showcase-your-guru)
+- [Integrate Your Guru](#integrate-your-guru)
 - [How to Update Datasources](#how-to-update-datasources)
 - [Contributing](#contributing)
 - [License](#license)
@@ -53,6 +53,7 @@ Start asking questions directly on Gurubase, or [embed it on your website](https
 - 📚 **Multiple Data Sources**: Add web pages, PDFs, videos, and GitHub repositories as data sources for your Guru.
 - 🔌 **Easy Integration**: 
   - [Website Widget](https://docs.gurubase.ai/integrations/website-widget) for embedding on your site
+  - [GitHub Integration](https://docs.gurubase.ai/integrations/github-bot) for asking questions on GitHub issues.
   - [Slack Bot](https://docs.gurubase.ai/integrations/slack-bot) for asking questions in Slack
   - [Discord Bot](https://docs.gurubase.ai/integrations/discord-bot) for asking questions in Discord
 - 🎯 **Custom Gurus**: Create specialized AI assistants for specific topics
@@ -79,7 +80,7 @@ Currently, only the Gurubase team can create a Guru on [Gurubase.io](https://gur
 
 Although you can't create a Guru on [Gurubase.io](https://gurubase.io/), you can manage it on Gurubase. For example, you can add, remove, or reindex the datasources. To claim a Guru, you must have a Gurubase account and be one of the tool's maintainers. Please [open an issue](https://github.com/Gurubase/gurubase/issues/new?template=guru_claim_request.md) with the title "Guru Claim Request". Include the link to the Guru (e.g., `https://gurubase.io/g/anteon`), your Gurubase username, and a link proving you are one of the maintainers of the tool, such as a PR merged by you.
 
-## Showcase Your Guru
+## Integrate Your Guru
 
 ### 1. Widget
 
@@ -100,15 +101,21 @@ Like hundreds of GitHub repositories, add a badge to your README to guide your u
 
 ### 3. Slack Bot
 
-Gurubase also offers a Slack bot that allows you to ask questions in your Slack channels. Learn more about it [here](https://docs.gurubase.ai/integrations/slack-bot).
+Gurubase offers a Slack bot that allows you to ask questions in your Slack channels. Learn more about it [here](https://docs.gurubase.ai/integrations/slack-bot).
 
 <img src="imgs/slack-bot-showcase.png" alt="Gurubase Slack Bot Demo" width="500"/><br/>
 
 ### 4. Discord Bot
 
-Gurubase also offers a Discord bot that allows you to ask questions in your Discord channels. Learn more about it [here](https://docs.gurubase.ai/integrations/discord-bot).
+Gurubase offers a Discord bot that allows you to ask questions in your Discord channels. Learn more about it [here](https://docs.gurubase.ai/integrations/discord-bot).
 
 <img src="imgs/discord-bot-showcase.png" alt="Gurubase Discord Bot Demo" width="500"/><br/>
+
+### 5. GitHub Bot
+
+Gurubase offers a GitHub bot that allows you to ask questions on GitHub issues. Learn more about it [here](https://docs.gurubase.ai/integrations/github-bot).
+
+<img src="imgs/github-bot-showcase.png" alt="Gurubase GitHub Bot Demo" width="500"/><br/>
 
 ## How to Update Datasources
 
@@ -416,7 +423,8 @@ See [INSTALL.md](INSTALL.md#system-requirements) for detailed requirements.
 3. You can add a [Gurubase badge](#2-badge) to your GitHub repository README.
 4. You can add a [Slack bot](#3-slack-bot) to your Slack workspace to ask questions in your channels.
 5. You can add a [Discord bot](#4-discord-bot) to your Discord server to ask questions in your channels.
-6. You can use it over [API](https://docs.gurubase.ai/api-reference/introduction) to integrate with your own applications.
+6. You can add a [GitHub bot](#5-github-bot) to your GitHub repository to ask questions on issues.
+7. You can use it over [API](https://docs.gurubase.ai/api-reference/introduction) to integrate with your own applications.
 
 
 ### What is Binge?
