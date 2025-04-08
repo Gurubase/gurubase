@@ -53,7 +53,7 @@ Start asking questions directly on Gurubase, or [embed it on your website](https
 - 📚 **Multiple Data Sources**: Add web pages, PDFs, videos, and GitHub repositories as data sources for your Guru.
 - 🔌 **Easy Integration**: 
   - [Website Widget](https://docs.gurubase.ai/integrations/website-widget) for embedding on your site
-  - [GitHub Bot](https://docs.gurubase.ai/integrations/github-bot) for asking questions on GitHub issues.
+  - [GitHub Bot](https://docs.gurubase.ai/integrations/github-bot) for asking questions on GitHub issues
   - [Slack Bot](https://docs.gurubase.ai/integrations/slack-bot) for asking questions in Slack
   - [Discord Bot](https://docs.gurubase.ai/integrations/discord-bot) for asking questions in Discord
 - 🎯 **Custom Gurus**: Create specialized AI assistants for specific topics
