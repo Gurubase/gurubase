@@ -471,30 +471,64 @@ def vector_db_fetch(
         # TODO: This does not have question / user question / enhanced question separation. It only uses the question.
         # Merge fetched doc with its other splits
         merged_text = {}
-        # Fetching all splits once as they are already limited by stackoverflow itself and pymilvus does not support ordering
-        if merge_limit:
-            results = milvus_client.search(
-                collection_name=collection_name, 
-                data=[text_embedding if not code else code_embedding], 
-                limit=merge_limit, 
-                output_fields=['text', 'metadata'], 
-                filter=f'metadata["{link_key}"] == "{link}"'
-            )[0]
-        else:
-            results = milvus_client.search(
-                collection_name=collection_name, 
-                data=[text_embedding if not code else code_embedding], 
-                limit=16384,
-                output_fields=['text', 'metadata'], 
-                filter=f'metadata["{link_key}"] == "{link}"'
-            )[0]
         
-        for backup_num, result in enumerate(results):
-            split_num = result['entity']['metadata']['split_num'] if 'split_num' in result['entity']['metadata'] else backup_num
-            merged_text[split_num] = result['entity']['text']
+        # Get the closest vector's split_num (should be in fetched_doc)
+        closest_split_num = fetched_doc['entity']['metadata'].get('split_num', 1)
+        merged_text[closest_split_num] = fetched_doc['entity']['text']
+        used_indices = {closest_split_num}
 
-        # Merge them in order
-        fetched_doc['entity']['text'] = ' '.join([merged_text[key] for key in sorted(merged_text.keys())])
+        # Determine potential adjacent indices
+        adjacent_indices = [closest_split_num - 2, closest_split_num - 1, closest_split_num + 1, closest_split_num + 2]
+        
+        # Query for adjacent splits
+        if adjacent_indices:
+            adjacent_filter = " || ".join([f'metadata["split_num"] == {idx}' for idx in adjacent_indices if idx >= 0])
+            if adjacent_filter:
+                adjacent_results = milvus_client.search(
+                    collection_name=collection_name,
+                    data=[text_embedding if not code else code_embedding],
+                    limit=4,  # Max number of adjacent splits we're looking for
+                    output_fields=['text', 'metadata'],
+                    filter=f'metadata["{link_key}"] == "{link}" && ({adjacent_filter})'
+                )[0]
+
+                adjacent_results.sort(key=lambda x: x['entity']['metadata'].get('split_num', 1))
+
+                if len(adjacent_results) > 2:
+                    adjacent_results = adjacent_results[1:3] # Get the middle to find the closest adjacents
+
+                for result in adjacent_results:
+                    split_num = result['entity']['metadata'].get('split_num', len(merged_text))
+                    if split_num not in used_indices:
+                        merged_text[split_num] = result['entity']['text']
+                        used_indices.add(split_num)
+
+        # Get additional non-adjacent splits (up to 3 more)
+        exclude_filter = " && ".join([f'metadata["split_num"] != {idx}' for idx in used_indices])
+        additional_results = milvus_client.search(
+            collection_name=collection_name,
+            data=[text_embedding if not code else code_embedding],
+            limit=merge_limit - len(used_indices),
+            output_fields=['text', 'metadata'],
+            filter=f'metadata["{link_key}"] == "{link}" && ({exclude_filter})'
+        )[0]
+
+        for result in additional_results:
+            split_num = result['entity']['metadata'].get('split_num', len(merged_text))
+            if split_num not in used_indices:
+                merged_text[split_num] = result['entity']['text']
+                used_indices.add(split_num)
+
+        # Merge them in order with truncation indicators
+        sorted_indices = sorted(merged_text.keys())
+        merged_parts = []
+        
+        for i, idx in enumerate(sorted_indices):
+            if i > 0 and sorted_indices[i] - sorted_indices[i-1] > 1:
+                merged_parts.append("\n...truncated...\n")
+            merged_parts.append(merged_text[idx])
+
+        fetched_doc['entity']['text'] = '\n'.join(merged_parts)
         return fetched_doc
 
     def fetch_and_merge_answers(question_id):
@@ -782,7 +816,7 @@ def vector_db_fetch(
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in non_stackoverflow_sources]:
-                    merged_doc = merge_splits(batch[index], text_collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, code=False, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], text_collection_name, 'link' if 'link' in batch[index]['entity']['metadata'] else 'url', link, code=False, merge_limit=6)
                     non_stackoverflow_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
@@ -864,7 +898,7 @@ def vector_db_fetch(
             try:
                 link = batch[index]['entity']['metadata'].get('link') or batch[index]['entity']['metadata'].get('url')
                 if link and link not in [doc['entity']['metadata'].get('link') or doc['entity']['metadata'].get('url') for doc in github_repo_sources]:
-                    merged_doc = merge_splits(batch[index], code_collection_name, 'link', link, code=True, merge_limit=5)
+                    merged_doc = merge_splits(batch[index], code_collection_name, 'link', link, code=True, merge_limit=6)
                     github_repo_sources.append(merged_doc)
                     reranked_scores.append({'link': link, 'score': score})
             except Exception as e:
