@@ -3,6 +3,7 @@ import { SolarFileTextBold, SolarVideoLibraryBold } from "@/components/Icons";
 import { Icon } from "@iconify/react";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { Badge } from "@/components/ui/badge";
+import { getColors } from "@/lib/trustScoreColors";
 
 const sourceTypeIcons = {
   pdf: SolarFileTextBold,
@@ -46,6 +47,23 @@ export const tableConfigs = {
             </div>
             <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
           </a>
+        )
+      },
+      {
+        key: "trust_score",
+        header: "Trust Score",
+        width: "w-[100px] flex-shrink-0",
+        render: (item) => (
+          <div className="flex items-center justify-center">
+            <span
+              className={
+                item.trust_score
+                  ? getColors(item.trust_score).text
+                  : "text-gray-400"
+              }>
+              {item.trust_score ? `${item.trust_score}%` : "N/A"}
+            </span>
+          </div>
         )
       }
     ]
@@ -107,7 +125,8 @@ export const tableConfigs = {
         width: "w-[160px] flex-shrink-0",
         hideOnMobile: false,
         render: (item) => {
-          const IconComponent = sourceTypeIcons[item.type?.toLowerCase()];
+          const IconComponent =
+            sourceTypeIcons[item.type ? item.type.toLowerCase() : null];
           return IconComponent ? (
             <div className="flex items-center gap-2">
               <IconComponent className="h-4 w-4" />
@@ -188,6 +207,23 @@ export const tableConfigs = {
             </div>
             <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-100" />
           </a>
+        )
+      },
+      {
+        key: "trust_score",
+        header: "Trust Score",
+        width: "w-[100px] flex-shrink-0",
+        render: (item) => (
+          <div className="flex items-center justify-center">
+            <span
+              className={
+                item.trust_score
+                  ? getColors(item.trust_score).text
+                  : "text-gray-400"
+              }>
+              {item.trust_score ? `${item.trust_score}%` : "N/A"}
+            </span>
+          </div>
         )
       }
     ]

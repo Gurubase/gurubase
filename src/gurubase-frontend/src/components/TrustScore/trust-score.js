@@ -2,6 +2,7 @@ import { InfoIcon } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { getColors } from "@/lib/trustScoreColors";
 import { useAppSelector } from "@/redux/hooks";
 
 import { cn } from "../../lib/utils";
@@ -94,19 +95,6 @@ export default function TrustScore({ score, className, bingeId = null }) {
   );
 
   const filledCells = Math.floor(trustScore / 10);
-
-  const getColors = (score) => {
-    if (score >= 90) return { bg: "bg-emerald-500", text: "text-emerald-500" };
-    if (score >= 80) return { bg: "bg-green-500", text: "text-green-500" };
-    if (score >= 70) return { bg: "bg-lime-500", text: "text-lime-500" };
-    if (score >= 60) return { bg: "bg-yellow-500", text: "text-yellow-500" };
-    if (score >= 50) return { bg: "bg-orange-400", text: "text-orange-400" };
-    if (score >= 40) return { bg: "bg-orange-500", text: "text-orange-500" };
-    if (score >= 30) return { bg: "bg-red-400", text: "text-red-400" };
-    if (score >= 20) return { bg: "bg-red-500", text: "text-red-500" };
-
-    return { bg: "bg-red-600", text: "text-red-600" };
-  };
 
   const { bg, text } = getColors(trustScore);
 
