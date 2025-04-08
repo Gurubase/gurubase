@@ -310,7 +310,10 @@ def process_github_repository(data_source):
         logger.info(f"Default branch name: {default_branch}")
         
         # Get repository structure and contents
-        structure = read_repository(temp_dir)
+        structure = read_repository(
+            temp_dir, 
+            data_source.github_glob_include, 
+            data_source.github_glob_pattern)
 
         save_repository(data_source, structure, default_branch)
         

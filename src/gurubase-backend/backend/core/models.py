@@ -656,6 +656,8 @@ class DataSource(models.Model):
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
     last_successful_index_date = models.DateTimeField(null=True, blank=True)
+    github_glob_include = models.BooleanField(default=True)
+    github_glob_pattern = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         unique_together = ["url", "guru_type"]
