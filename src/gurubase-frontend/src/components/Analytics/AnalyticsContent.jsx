@@ -165,6 +165,12 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
+    // Reset all filters to 'all' when interval changes
+    setMetricFilters({
+      questions: "all",
+      out_of_context: "all",
+      referenced_sources: "all"
+    });
     const params = new URLSearchParams(searchParams);
     params.set("interval", newInterval);
     router.push(`?${params.toString()}`, { scroll: false });
