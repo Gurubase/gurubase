@@ -38,6 +38,8 @@ If the question is not related with {guru_type}, set "valid_question": false. If
 <answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_addition}
 <enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters. 
 
+If the given user question and contexts do not make sense and are not coherent sentences, set "valid_question": false. If user question exists and does not contain a question, set "valid_question": false.
+
 {binge_summary_prompt}
 
 {github_context}
