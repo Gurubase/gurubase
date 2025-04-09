@@ -113,7 +113,7 @@ class IssueEventHandler(GitHubEventHandler):
                 bot_name,
                 event_data['body'],
                 event_data['user'],
-                success=response.status_code == 200
+                status_code=response.status_code
             )
             self.github_handler.respond_to_github_issue_event(
                 event_data['api_url'],
@@ -156,7 +156,7 @@ class IssueCommentEventHandler(GitHubEventHandler):
                 bot_name,
                 event_data['body'],
                 event_data['user'],
-                success=response.status_code == 200
+                status_code=response.status_code
             )
             self.github_handler.respond_to_github_issue_event(
                 event_data['api_url'],
@@ -198,7 +198,7 @@ class DiscussionEventHandler(GitHubEventHandler):
                 bot_name,
                 event_data['body'],
                 event_data['user'],
-                success=response.status_code == 200
+                status_code=response.status_code
             )
             self._create_discussion_comment(event_data, error_message)
         except Exception as e:
@@ -250,7 +250,7 @@ class DiscussionCommentEventHandler(GitHubEventHandler):
                 bot_name,
                 event_data['body'],
                 event_data['user'],
-                success=response.status_code == 200
+                status_code=response.status_code
             )
             self._create_discussion_comment(event_data, error_message)
         except Exception as e:

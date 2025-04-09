@@ -322,7 +322,7 @@ class GithubAppHandler:
             logger.error(f"Error fetching discussion comment: {e}")
             raise GithubCommentError(f"Failed to fetch discussion comment: {str(e)}") from e
 
-    def format_github_answer(self, answer: dict, bot_name: str, body: str = None, user: str = None, success: bool = True) -> str:
+    def format_github_answer(self, answer: dict, bot_name: str, body: str = None, user: str = None, status_code: int = 200) -> str:
         """Format the response with trust score and references for GitHub.
         Using GitHub's markdown formatting:
         **bold**
@@ -352,10 +352,13 @@ class GithubAppHandler:
         if user:
             formatted_msg.append(f"\nHey @{user}\n")
 
-        if success:
+        if status_code == 200:
             formatted_msg.append("Here is my answer:\n")
         else:
-            formatted_msg.append(f"Sorry, I don't have enough contexts to answer your question.\n\n_Tag **@{bot_name}** to ask me a question._")
+            if 'This question is not related to' in answer.get('msg'):
+                formatted_msg.append(f'{answer.get("msg")}\n\n_Tag **@{bot_name}** to ask me a question._')
+            else:
+                formatted_msg.append(f"Sorry, I don't have enough contexts to answer your question.\n\n_Tag **@{bot_name}** to ask me a question._")
             return "\n".join(formatted_msg)
         
         # Calculate the length of the fixed sections first
