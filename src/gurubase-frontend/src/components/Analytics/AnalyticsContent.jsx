@@ -215,7 +215,6 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
       setIsExporting(true);
       await exportAnalytics(guruType, interval, metricFilters, exportType);
     } catch (error) {
-      console.error("Export failed:", error);
     } finally {
       setIsExporting(false);
     }
