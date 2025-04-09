@@ -1,22 +1,17 @@
 import logging
 import traceback
-from django.db.models import Q
 from django.http import HttpResponse
-from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
-import time
 from datetime import datetime
 
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.exceptions import ValidationError
+from core.throttling import ConcurrencyThrottleApiKey
 
 from core.auth import (
+    api_key_auth,
     jwt_auth,
-)
-from core.models import (
-    DataSource,
-    Question,
 )
 from .decorators import guru_type_required
 from .services import AnalyticsService
@@ -292,4 +287,59 @@ def export_analytics(request, guru_type):
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Error in export_analytics: {traceback.format_exc()}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@api_key_auth
+@throttle_classes([ConcurrencyThrottleApiKey])
+@guru_type_required
+def export_analytics_api(request, guru_type):
+    """Export analytics data in specified format through API endpoint."""
+    try:
+        export_type = request.data.get('export_type', 'xlsx')
+        interval = request.data.get('interval', 'today')
+        
+        # Get filters from query params, defaulting to 'all' if not specified
+        filters = {
+            'questions': request.data.get('filters', {}).get('questions', 'all'),
+            'out_of_context': request.data.get('filters', {}).get('out_of_context', 'all'),
+            'referenced_sources': request.data.get('filters', {}).get('referenced_sources', 'all')
+        }
+        
+        # Get the formatted data to export
+        export_data = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
+        
+        if not export_data:
+            return Response({'msg': 'No data found to export'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Set content type and filename based on export type
+        content_types = {
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'csv': 'application/zip',  # Changed to zip for CSV exports
+            'json': 'application/json'
+        }
+        file_extensions = {
+            'xlsx': 'xlsx',
+            'csv': 'zip',  # Changed to zip for CSV exports
+            'json': 'json'
+        }
+        
+        content_type = content_types.get(export_type)
+        file_extension = file_extensions.get(export_type)
+        
+        # Set filename based on export type
+        filename = f'analytics_{guru_type}_{interval}_{int(datetime.now().timestamp())}.{file_extension}'
+            
+        # Create response and set headers
+        response = HttpResponse(export_data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'
+        
+        return response
+        
+    except ValidationError as e:
+        logger.error(f"Error in export_analytics_api: {traceback.format_exc()}", exc_info=True)
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Error in export_analytics_api: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
