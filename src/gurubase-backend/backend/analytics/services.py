@@ -425,7 +425,7 @@ class AnalyticsService:
         # Unable to Answer sheet
         if results['unable_to_answer']:
             ws = wb.create_sheet('Unable to Answer')
-            headers = ['Datetime', 'Question']
+            headers = ['Datetime', 'Source', 'Question']
             
             # Write headers
             for col, header in enumerate(headers, 1):
@@ -436,12 +436,13 @@ class AnalyticsService:
             # Write data
             for row_idx, ooc in enumerate(results['unable_to_answer'], 2):
                 ws.cell(row=row_idx, column=1, value=ooc.date_created.strftime('%Y-%m-%d %H:%M'))
-                ws.cell(row=row_idx, column=2, value=ooc.user_question)
+                ws.cell(row=row_idx, column=2, value=format_filter_name_for_display(ooc.source))
+                ws.cell(row=row_idx, column=3, value=ooc.user_question)
         
         # References sheet
         if results['references']:
             ws = wb.create_sheet('References')
-            headers = ['Last Update Date', 'Data Source Title', 'Referenced Count']
+            headers = ['Last Update Date', 'Data Source Type', 'Data Source Title', 'Referenced Count']
             
             # Write headers
             for col, header in enumerate(headers, 1):
@@ -453,12 +454,14 @@ class AnalyticsService:
             for row_idx, source in enumerate(results['references'], 2):
                 ws.cell(row=row_idx, column=1, value=datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'))
                 
+                ws.cell(row=row_idx, column=2, value=source['type'])
+
                 # Data source title with hyperlink
-                cell = ws.cell(row=row_idx, column=2, value=source['title'])
+                cell = ws.cell(row=row_idx, column=3, value=source['title'])
                 cell.hyperlink = source['url']
                 cell.style = 'Hyperlink'
                 
-                ws.cell(row=row_idx, column=3, value=source['reference_count'])
+                ws.cell(row=row_idx, column=4, value=source['reference_count'])
         
         # Auto-adjust column widths for all sheets
         for ws in wb.worksheets:
@@ -531,13 +534,13 @@ class AnalyticsService:
             if results['references']:
                 output = StringIO()
                 writer = csv.writer(output)
-                writer.writerow(['Last Update Date', 'Data Source Title', 'Type', 'URL', 'Referenced Count'])
+                writer.writerow(['Last Update Date', 'Data Source Type', 'Data Source Title', 'URL', 'Referenced Count'])
                 
                 for source in results['references']:
                     writer.writerow([
                         datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
-                        source['title'],
                         source['type'],
+                        source['title'],
                         source['url'],
                         source['reference_count']
                     ])
@@ -555,7 +558,7 @@ class AnalyticsService:
                 'source': format_filter_name_for_display(question.source),
                 'question': question.user_question,
                 'trust_score': float(f'{question.trust_score:.2f}') if question.trust_score is not None else None,
-                'is_follow_up': question.parent is not None,
+                'follow_up': question.parent is not None,
                 'url': question.frontend_url
             } for question in results['questions']],
             
@@ -567,10 +570,10 @@ class AnalyticsService:
             
             'references': [{
                 'last_update_date': datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
-                'title': source['title'],
-                'type': source['type'],
-                'url': source['url'],
-                'reference_count': source['reference_count']
+                'data_source_type': source['type'],
+                'data_source_title': source['title'],
+                'referenced_count': source['reference_count'],
+                'url': source['url']
             } for source in results['references']]
         }
         
