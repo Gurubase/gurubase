@@ -23,7 +23,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-const ExportButton = ({ isExporting, isOpen, children, isMobile = false }) => {
+const ExportButton = ({
+  isExporting,
+  isOpen,
+  children,
+  isMobile = false,
+  isLoading = false
+}) => {
   return (
     <div
       className={cn(
@@ -36,7 +42,8 @@ const ExportButton = ({ isExporting, isOpen, children, isMobile = false }) => {
           (isOpen
             ? "bg-[#1B242D] text-white"
             : "hover:bg-[#1B242D] hover:text-white"),
-        isExporting && "opacity-50 cursor-not-allowed pointer-events-none"
+        (isExporting || isLoading) &&
+          "opacity-50 cursor-not-allowed pointer-events-none"
       )}>
       <span
         className={cn(
@@ -249,7 +256,7 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   const ExportDropdown = ({ isMobile = false }) => (
     <DropdownMenu
       open={
-        isExporting
+        isExporting || isLoading
           ? false
           : isMobile
             ? isMobileExportOpen
@@ -257,12 +264,19 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
       }
       onOpenChange={isMobile ? setIsMobileExportOpen : setIsDesktopExportOpen}>
       <DropdownMenuTrigger asChild>
-        <button className="focus:outline-none" disabled={isExporting}>
+        <button
+          className="focus:outline-none"
+          disabled={isExporting || isLoading}>
           <ExportButton
             isExporting={isExporting}
             isOpen={isMobile ? isMobileExportOpen : isDesktopExportOpen}
-            isMobile={isMobile}>
-            {isExporting ? "Exporting..." : "Export Files"}
+            isMobile={isMobile}
+            isLoading={isLoading}>
+            {isExporting
+              ? "Exporting..."
+              : isLoading
+                ? "Loading..."
+                : "Export Files"}
           </ExportButton>
         </button>
       </DropdownMenuTrigger>
