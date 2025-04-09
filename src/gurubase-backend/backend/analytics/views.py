@@ -277,16 +277,13 @@ def export_analytics(request, guru_type):
         content_type = content_types.get(export_type)
         file_extension = file_extensions.get(export_type)
         
-        # Create response
-        response = HttpResponse(export_data, content_type=content_type)
-        
         # Set filename based on export type
-        if export_type == 'csv':
-            filename = f'analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}_csv_files.zip'
-        else:
-            filename = f'analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{file_extension}'
+        filename = f'analytics_{guru_type}_{interval}_{int(datetime.now().timestamp())}.{file_extension}'
             
+        # Create response and set headers
+        response = HttpResponse(export_data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Access-Control-Expose-Headers'] = 'Content-Disposition'  # Explicitly expose the header for CORS
         
         return response
         

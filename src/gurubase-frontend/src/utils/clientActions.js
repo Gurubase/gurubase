@@ -454,9 +454,13 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
   a.href = downloadUrl;
 
   // Get filename from Content-Disposition or create a default one
-  let filename =
-    contentDisposition?.split("filename=")[1]?.replace(/"/g, "") ||
-    `analytics_export_${guruType}_${interval}.${defaultExtension}`;
+  let filename = contentDisposition
+    ? contentDisposition
+        .split("filename=")[1]
+        ?.trim()
+        .replace(/^"(.+)"$/, "$1") ||
+      `analytics_${guruType}_${interval}.${defaultExtension}`
+    : `analytics_${guruType}_${interval}.${defaultExtension}`;
 
   a.download = filename;
   document.body.appendChild(a);
