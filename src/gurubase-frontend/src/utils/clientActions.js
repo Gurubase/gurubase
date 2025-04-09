@@ -412,18 +412,24 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  // Get the blob from the response
+  // Get the blob from the response with correct MIME type
   const blob = await response.blob();
+  const contentType = response.headers.get("Content-Type");
+  const contentDisposition = response.headers.get("Content-Disposition");
 
   // Create a download link
-  const downloadUrl = window.URL.createObjectURL(blob);
+  const downloadUrl = window.URL.createObjectURL(
+    new Blob([blob], { type: contentType })
+  );
   const a = document.createElement("a");
   a.href = downloadUrl;
-  a.download =
-    response.headers
-      .get("Content-Disposition")
-      ?.split("filename=")[1]
-      ?.replace(/"/g, "") || `analytics_export_${guruType}_${interval}.csv`;
+
+  // Get filename from Content-Disposition or create a default one
+  let filename =
+    contentDisposition?.split("filename=")[1]?.replace(/"/g, "") ||
+    `analytics_export_${guruType}_${interval}.xlsx`;
+
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   window.URL.revokeObjectURL(downloadUrl);

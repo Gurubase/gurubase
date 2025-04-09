@@ -1,6 +1,7 @@
 import logging
 import traceback
 from django.db.models import Q
+from django.http import HttpResponse
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
 import time
 from datetime import datetime
@@ -243,9 +244,9 @@ def data_source_questions(request, guru_type):
 @jwt_auth
 @guru_type_required
 def export_analytics(request, guru_type):
-    """Export analytics data in CSV format."""
+    """Export analytics data in Excel format with multiple sheets."""
     try:
-        export_type = request.data.get('export_type', 'csv')
+        export_type = request.data.get('export_type', 'xlsx')
         interval = request.data.get('interval', 'today')
         
         # Get filters from query params, defaulting to 'all' if not specified
@@ -255,36 +256,18 @@ def export_analytics(request, guru_type):
             'referenced_sources': request.data.get('filters', {}).get('referenced_sources', 'all')
         }
         
-        # Get the data to export
-        results = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
+        # Get the formatted data to export
+        excel_data = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
         
-        if not results:
+        if not excel_data:
             return Response({'msg': 'No data found to export'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Create CSV response
-        import csv
-        from django.http import HttpResponse
-        from io import StringIO
-        
-        output = StringIO()
-        writer = csv.writer(output)
-        
-        # Write header
-        writer.writerow(['Type', 'Date', 'Source', 'Title', 'URL'])
-        
-        # Write data rows
-        for item in results:
-            writer.writerow([
-                item['type'],
-                item['date'],
-                item.get('source', item.get('source_type', '')),
-                item['title'],
-                item.get('url', '')
-            ])
-        
         # Create response
-        response = HttpResponse(output.getvalue(), content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        response = HttpResponse(
+            excel_data,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
         
         return response
         

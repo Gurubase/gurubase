@@ -6,6 +6,9 @@ import hashlib
 import json
 import time
 from django.core.exceptions import ValidationError
+from datetime import datetime
+from openpyxl import Workbook
+from io import BytesIO
 
 class AnalyticsService:
     CACHE_TTL = 15  # 15 seconds cache
@@ -388,13 +391,107 @@ class AnalyticsService:
         return unique_sources
 
     @staticmethod
-    def export_analytics_data(guru_type, export_type, interval, filters):
-        """Export analytics data in the specified format."""
-        if export_type != 'csv':
-            raise ValidationError('Only CSV export is supported at this time')
+    def _prepare_xlsx_data(results):
+        """Prepare data for Excel export with proper headers and formatting."""
+        wb = Workbook()
+        # Remove default sheet
+        wb.remove(wb.active)
+        
+        # Questions sheet
+        if results['questions']:
+            ws = wb.create_sheet('Questions')
+            headers = ['Datetime', 'Source', 'Question', 'Trust Score', 'Follow-up']
+            
+            # Write headers
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col)
+                cell.value = header
+                cell.font = cell.font.copy(bold=True)
+            
+            # Write data
+            for row_idx, question in enumerate(results['questions'], 2):
+                ws.cell(row=row_idx, column=1, value=question.date_created.strftime('%Y-%m-%d %H:%M'))
+                ws.cell(row=row_idx, column=2, value=format_filter_name_for_display(question.source))
+                
+                # Question with hyperlink
+                cell = ws.cell(row=row_idx, column=3, value=question.user_question)
+                cell.hyperlink = question.frontend_url
+                cell.style = 'Hyperlink'
+                
+                # Trust score
+                ws.cell(row=row_idx, column=4, value=f'{question.trust_score:.2f}' if question.trust_score is not None else '')
+                ws.cell(row=row_idx, column=5, value=question.parent is not None)
+        
+        # Unable to Answer sheet
+        if results['unable_to_answer']:
+            ws = wb.create_sheet('Unable to Answer')
+            headers = ['Datetime', 'Question']
+            
+            # Write headers
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col)
+                cell.value = header
+                cell.font = cell.font.copy(bold=True)
+            
+            # Write data
+            for row_idx, ooc in enumerate(results['unable_to_answer'], 2):
+                ws.cell(row=row_idx, column=1, value=ooc.date_created.strftime('%Y-%m-%d %H:%M'))
+                ws.cell(row=row_idx, column=2, value=ooc.user_question)
+        
+        # References sheet
+        if results['references']:
+            ws = wb.create_sheet('References')
+            headers = ['Last Update Date', 'Data Source Title', 'Referenced Count']
+            
+            # Write headers
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col)
+                cell.value = header
+                cell.font = cell.font.copy(bold=True)
+            
+            # Write data
+            for row_idx, source in enumerate(results['references'], 2):
+                ws.cell(row=row_idx, column=1, value=datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'))
+                
+                # Data source title with hyperlink
+                cell = ws.cell(row=row_idx, column=2, value=source['title'])
+                cell.hyperlink = source['url']
+                cell.style = 'Hyperlink'
+                
+                ws.cell(row=row_idx, column=3, value=source['reference_count'])
+        
+        # Auto-adjust column widths for all sheets
+        for ws in wb.worksheets:
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter
+                
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column].width = min(adjusted_width, 50)  # Cap width at 50
+        
+        # Save to bytes buffer
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        return buffer.getvalue()
 
+    @staticmethod
+    def fetch_export_data(guru_type, interval, filters):
+        """Fetch data for export without any formatting."""
         start_date, end_date = get_date_range(interval)
-        results = []
+        results = {
+            'questions': [],
+            'unable_to_answer': [],
+            'references': []
+        }
 
         # Handle questions export
         if 'questions' in filters:
@@ -402,15 +499,7 @@ class AnalyticsService:
             queryset = AnalyticsService._get_filtered_questions(
                 guru_type, start_date, end_date, questions_filter
             )
-
-            for question in queryset:
-                results.append({
-                    'type': 'question',
-                    'date': question.date_created.isoformat(),
-                    'source': format_filter_name_for_display(question.source),
-                    'title': question.user_question,
-                    'url': question.frontend_url
-                })
+            results['questions'] = list(queryset)
 
         # Handle out of context questions export
         if 'out_of_context' in filters:
@@ -418,32 +507,33 @@ class AnalyticsService:
             queryset = AnalyticsService._get_filtered_out_of_context(
                 guru_type, start_date, end_date, ooc_filter
             )
-
-            for ooc in queryset:
-                results.append({
-                    'type': 'out_of_context',
-                    'date': ooc.date_created.isoformat(),
-                    'source': format_filter_name_for_display(ooc.source),
-                    'title': ooc.user_question
-                })
+            results['unable_to_answer'] = list(queryset)
 
         # Handle referenced sources export
         if 'referenced_sources' in filters:
             sources_filter = filters['referenced_sources']
-            sources = AnalyticsService._get_filtered_referenced_sources(
+            results['references'] = AnalyticsService._get_filtered_referenced_sources(
                 guru_type, start_date, end_date, sources_filter
             )
 
-            for source in sources:
-                results.append({
-                    'type': 'referenced_source',
-                    'date': source['date'],
-                    'source_type': source['type'],
-                    'title': source['title'],
-                    'url': source['url']
-                })
+        # Sort results by date
+        if results['questions']:
+            results['questions'].sort(key=lambda x: x.date_created, reverse=True)
+        if results['unable_to_answer']:
+            results['unable_to_answer'].sort(key=lambda x: x.date_created, reverse=True)
+        if results['references']:
+            results['references'].sort(key=lambda x: x['date'], reverse=True)
 
-        # Sort all results by date
-        results.sort(key=lambda x: x['date'], reverse=True)
+        return results
 
-        return results 
+    @staticmethod
+    def export_analytics_data(guru_type, export_type, interval, filters):
+        """Export analytics data in the specified format."""
+        if export_type != 'xlsx':
+            raise ValidationError('Only Excel export is supported at this time')
+
+        # Fetch the data
+        results = AnalyticsService.fetch_export_data(guru_type, interval, filters)
+        
+        # Format and return Excel data
+        return AnalyticsService._prepare_xlsx_data(results) 
