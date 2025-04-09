@@ -221,10 +221,6 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
     }
   };
 
-  useEffect(() => {
-    console.log(metricFilters);
-  }, [metricFilters]);
-
   const handleFilterChange = (metricType, filterType) => {
     setMetricFilters((prev) => ({
       ...prev,
