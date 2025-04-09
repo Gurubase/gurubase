@@ -415,6 +415,7 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
   // Handle different export types
   let blob;
   let defaultMimeType;
+  let defaultExtension = exportType;
 
   switch (exportType) {
     case "xlsx":
@@ -422,7 +423,8 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       break;
     case "csv":
-      defaultMimeType = "text/csv";
+      defaultMimeType = "application/zip";
+      defaultExtension = "zip";
       break;
     case "json":
       defaultMimeType = "application/json";
@@ -454,7 +456,7 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
   // Get filename from Content-Disposition or create a default one
   let filename =
     contentDisposition?.split("filename=")[1]?.replace(/"/g, "") ||
-    `analytics_export_${guruType}_${interval}.${exportType}`;
+    `analytics_export_${guruType}_${interval}.${defaultExtension}`;
 
   a.download = filename;
   document.body.appendChild(a);

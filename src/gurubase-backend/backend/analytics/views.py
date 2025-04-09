@@ -265,12 +265,12 @@ def export_analytics(request, guru_type):
         # Set content type and filename based on export type
         content_types = {
             'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'csv': 'text/csv',
+            'csv': 'application/zip',  # Changed to zip for CSV exports
             'json': 'application/json'
         }
         file_extensions = {
             'xlsx': 'xlsx',
-            'csv': 'csv',
+            'csv': 'zip',  # Changed to zip for CSV exports
             'json': 'json'
         }
         
@@ -279,7 +279,14 @@ def export_analytics(request, guru_type):
         
         # Create response
         response = HttpResponse(export_data, content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{file_extension}"'
+        
+        # Set filename based on export type
+        if export_type == 'csv':
+            filename = f'analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}_csv_files.zip'
+        else:
+            filename = f'analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{file_extension}'
+            
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         return response
         

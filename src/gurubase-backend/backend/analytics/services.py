@@ -485,53 +485,66 @@ class AnalyticsService:
 
     @staticmethod
     def _prepare_csv_data(results):
-        """Prepare data for CSV export with proper headers and formatting."""
+        """Prepare data for CSV export with proper headers and formatting.
+        Creates separate CSV files for each metric type and returns them as a zip file."""
         import csv
-        from io import StringIO
+        from io import StringIO, BytesIO
+        import zipfile
 
-        output = StringIO()
+        zip_buffer = BytesIO()
         
-        # Questions section
-        if results['questions']:
-            writer = csv.writer(output)
-            writer.writerow(['=== Questions ==='])
-            writer.writerow(['Datetime', 'Source', 'Question', 'Trust Score', 'Follow-up'])
-            
-            for question in results['questions']:
-                writer.writerow([
-                    question.date_created.strftime('%Y-%m-%d %H:%M'),
-                    format_filter_name_for_display(question.source),
-                    question.user_question,
-                    f'{question.trust_score:.2f}' if question.trust_score is not None else '',
-                    'Yes' if question.parent else 'No'
-                ])
-            writer.writerow([])  # Empty row as separator
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Questions section
+            if results['questions']:
+                output = StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Datetime', 'Source', 'Question', 'Trust Score', 'Follow-up', 'URL'])
+                
+                for question in results['questions']:
+                    writer.writerow([
+                        question.date_created.strftime('%Y-%m-%d %H:%M'),
+                        format_filter_name_for_display(question.source),
+                        question.user_question,
+                        f'{question.trust_score:.2f}' if question.trust_score is not None else '',
+                        'Yes' if question.parent else 'No',
+                        question.frontend_url
+                    ])
+                
+                zip_file.writestr('questions.csv', output.getvalue())
 
-        # Unable to Answer section
-        if results['unable_to_answer']:
-            writer.writerow(['=== Unable to Answer ==='])
-            writer.writerow(['Datetime', 'Question'])
-            
-            for ooc in results['unable_to_answer']:
-                writer.writerow([
-                    ooc.date_created.strftime('%Y-%m-%d %H:%M'),
-                    ooc.user_question
-                ])
-            writer.writerow([])  # Empty row as separator
+            # Unable to Answer section
+            if results['unable_to_answer']:
+                output = StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Datetime', 'Source', 'Question'])
+                
+                for ooc in results['unable_to_answer']:
+                    writer.writerow([
+                        ooc.date_created.strftime('%Y-%m-%d %H:%M'),
+                        format_filter_name_for_display(ooc.source),
+                        ooc.user_question
+                    ])
+                
+                zip_file.writestr('unable_to_answer.csv', output.getvalue())
 
-        # References section
-        if results['references']:
-            writer.writerow(['=== References ==='])
-            writer.writerow(['Last Update Date', 'Data Source Title', 'Referenced Count'])
-            
-            for source in results['references']:
-                writer.writerow([
-                    datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
-                    source['title'],
-                    source['reference_count']
-                ])
+            # References section
+            if results['references']:
+                output = StringIO()
+                writer = csv.writer(output)
+                writer.writerow(['Last Update Date', 'Data Source Title', 'Type', 'URL', 'Referenced Count'])
+                
+                for source in results['references']:
+                    writer.writerow([
+                        datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
+                        source['title'],
+                        source['type'],
+                        source['url'],
+                        source['reference_count']
+                    ])
+                
+                zip_file.writestr('references.csv', output.getvalue())
 
-        return output.getvalue().encode('utf-8')
+        return zip_buffer.getvalue()
 
     @staticmethod
     def _prepare_json_data(results):
