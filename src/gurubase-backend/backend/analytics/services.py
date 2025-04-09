@@ -484,6 +484,86 @@ class AnalyticsService:
         return buffer.getvalue()
 
     @staticmethod
+    def _prepare_csv_data(results):
+        """Prepare data for CSV export with proper headers and formatting."""
+        import csv
+        from io import StringIO
+
+        output = StringIO()
+        
+        # Questions section
+        if results['questions']:
+            writer = csv.writer(output)
+            writer.writerow(['=== Questions ==='])
+            writer.writerow(['Datetime', 'Source', 'Question', 'Trust Score', 'Follow-up'])
+            
+            for question in results['questions']:
+                writer.writerow([
+                    question.date_created.strftime('%Y-%m-%d %H:%M'),
+                    format_filter_name_for_display(question.source),
+                    question.user_question,
+                    f'{question.trust_score:.2f}' if question.trust_score is not None else '',
+                    'Yes' if question.parent else 'No'
+                ])
+            writer.writerow([])  # Empty row as separator
+
+        # Unable to Answer section
+        if results['unable_to_answer']:
+            writer.writerow(['=== Unable to Answer ==='])
+            writer.writerow(['Datetime', 'Question'])
+            
+            for ooc in results['unable_to_answer']:
+                writer.writerow([
+                    ooc.date_created.strftime('%Y-%m-%d %H:%M'),
+                    ooc.user_question
+                ])
+            writer.writerow([])  # Empty row as separator
+
+        # References section
+        if results['references']:
+            writer.writerow(['=== References ==='])
+            writer.writerow(['Last Update Date', 'Data Source Title', 'Referenced Count'])
+            
+            for source in results['references']:
+                writer.writerow([
+                    datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
+                    source['title'],
+                    source['reference_count']
+                ])
+
+        return output.getvalue().encode('utf-8')
+
+    @staticmethod
+    def _prepare_json_data(results):
+        """Prepare data for JSON export with proper formatting."""
+        export_data = {
+            'questions': [{
+                'datetime': question.date_created.strftime('%Y-%m-%d %H:%M'),
+                'source': format_filter_name_for_display(question.source),
+                'question': question.user_question,
+                'trust_score': float(f'{question.trust_score:.2f}') if question.trust_score is not None else None,
+                'is_follow_up': question.parent is not None,
+                'url': question.frontend_url
+            } for question in results['questions']],
+            
+            'unable_to_answer': [{
+                'datetime': ooc.date_created.strftime('%Y-%m-%d %H:%M'),
+                'source': format_filter_name_for_display(ooc.source),
+                'question': ooc.user_question
+            } for ooc in results['unable_to_answer']],
+            
+            'references': [{
+                'last_update_date': datetime.fromisoformat(source['date']).strftime('%Y-%m-%d %H:%M'),
+                'title': source['title'],
+                'type': source['type'],
+                'url': source['url'],
+                'reference_count': source['reference_count']
+            } for source in results['references']]
+        }
+        
+        return json.dumps(export_data, indent=2).encode('utf-8')
+
+    @staticmethod
     def fetch_export_data(guru_type, interval, filters):
         """Fetch data for export without any formatting."""
         start_date, end_date = get_date_range(interval)
@@ -529,11 +609,16 @@ class AnalyticsService:
     @staticmethod
     def export_analytics_data(guru_type, export_type, interval, filters):
         """Export analytics data in the specified format."""
-        if export_type != 'xlsx':
-            raise ValidationError('Only Excel export is supported at this time')
+        if export_type not in ['xlsx', 'csv', 'json']:
+            raise ValidationError('Export type must be one of: xlsx, csv, json')
 
         # Fetch the data
         results = AnalyticsService.fetch_export_data(guru_type, interval, filters)
         
-        # Format and return Excel data
-        return AnalyticsService._prepare_xlsx_data(results) 
+        # Format and return data based on export type
+        if export_type == 'xlsx':
+            return AnalyticsService._prepare_xlsx_data(results)
+        elif export_type == 'csv':
+            return AnalyticsService._prepare_csv_data(results)
+        else:  # json
+            return AnalyticsService._prepare_json_data(results) 

@@ -198,7 +198,13 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                  Export as Excel
+                  Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("csv")}>
+                  CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("json")}>
+                  JSON
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

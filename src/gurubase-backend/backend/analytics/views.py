@@ -257,17 +257,29 @@ def export_analytics(request, guru_type):
         }
         
         # Get the formatted data to export
-        excel_data = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
+        export_data = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
         
-        if not excel_data:
+        if not export_data:
             return Response({'msg': 'No data found to export'}, status=status.HTTP_404_NOT_FOUND)
         
+        # Set content type and filename based on export type
+        content_types = {
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'csv': 'text/csv',
+            'json': 'application/json'
+        }
+        file_extensions = {
+            'xlsx': 'xlsx',
+            'csv': 'csv',
+            'json': 'json'
+        }
+        
+        content_type = content_types.get(export_type)
+        file_extension = file_extensions.get(export_type)
+        
         # Create response
-        response = HttpResponse(
-            excel_data,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx"'
+        response = HttpResponse(export_data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{file_extension}"'
         
         return response
         

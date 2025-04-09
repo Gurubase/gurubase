@@ -412,9 +412,36 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  // Get the blob from the response with correct MIME type
-  const blob = await response.blob();
-  const contentType = response.headers.get("Content-Type");
+  // Handle different export types
+  let blob;
+  let defaultMimeType;
+
+  switch (exportType) {
+    case "xlsx":
+      defaultMimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      break;
+    case "csv":
+      defaultMimeType = "text/csv";
+      break;
+    case "json":
+      defaultMimeType = "application/json";
+      break;
+    default:
+      defaultMimeType = "application/octet-stream";
+  }
+
+  // If it's JSON, we need to handle it differently
+  if (exportType === "json") {
+    const jsonData = await response.json();
+    blob = new Blob([JSON.stringify(jsonData, null, 2)], {
+      type: defaultMimeType
+    });
+  } else {
+    blob = await response.blob();
+  }
+
+  const contentType = response.headers.get("Content-Type") || defaultMimeType;
   const contentDisposition = response.headers.get("Content-Disposition");
 
   // Create a download link
@@ -427,7 +454,7 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
   // Get filename from Content-Disposition or create a default one
   let filename =
     contentDisposition?.split("filename=")[1]?.replace(/"/g, "") ||
-    `analytics_export_${guruType}_${interval}.xlsx`;
+    `analytics_export_${guruType}_${interval}.${exportType}`;
 
   a.download = filename;
   document.body.appendChild(a);
