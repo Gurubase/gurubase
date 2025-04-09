@@ -14,6 +14,14 @@ import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
+import { exportAnalytics } from "@/utils/clientActions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 const MetricSection = ({
   title,
@@ -126,6 +134,24 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   const [interval, setInterval] = useState(initialInterval);
   const guruType = guruData?.slug;
   const [searchQuery, setSearchQuery] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (exportType) => {
+    try {
+      setIsExporting(true);
+      const filters = {
+        questions: "all",
+        out_of_context: "all",
+        referenced_sources: "all"
+      };
+
+      await exportAnalytics(guruType, interval, filters, exportType);
+    } catch (error) {
+      console.error("Export failed:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
@@ -148,12 +174,24 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
       <IntegrationDivider />
       <div className="grid grid-cols-4 p-6">
         <div className="col-span-3 guru-md:col-span-4 space-y-6">
-          <div>
+          <div className="flex justify-between items-center">
             <TimeSelectionComponent
               onPeriodChange={handleIntervalChange}
               defaultPeriod={interval}
               loading={isLoading}
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" disabled={isExporting}>
+                  {isExporting ? "Exporting..." : "Export"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExport("csv")}>
+                  Export as CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatsCardComponent

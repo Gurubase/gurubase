@@ -366,3 +366,68 @@ export async function getAnalyticsDataSourceQuestions(
 
   return await response.json();
 }
+
+export async function exportAnalytics(guruType, interval, filters, exportType) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  let response;
+  const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/export`;
+
+  if (isSelfHosted) {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        interval,
+        filters,
+        export_type: exportType
+      })
+    });
+  } else if (authenticated) {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        interval,
+        filters,
+        export_type: exportType
+      }),
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  // Get the blob from the response
+  const blob = await response.blob();
+
+  // Create a download link
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download =
+    response.headers
+      .get("Content-Disposition")
+      ?.split("filename=")[1]
+      ?.replace(/"/g, "") || `analytics_export_${guruType}_${interval}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(downloadUrl);
+  document.body.removeChild(a);
+
+  return { success: true };
+}

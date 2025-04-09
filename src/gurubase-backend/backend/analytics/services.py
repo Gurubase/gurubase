@@ -5,6 +5,8 @@ from .utils import get_date_range, calculate_percentage_change, format_filter_na
 import hashlib
 import json
 import time
+from django.core.exceptions import ValidationError
+
 class AnalyticsService:
     CACHE_TTL = 15  # 15 seconds cache
 
@@ -385,3 +387,63 @@ class AnalyticsService:
 
         return unique_sources
 
+    @staticmethod
+    def export_analytics_data(guru_type, export_type, interval, filters):
+        """Export analytics data in the specified format."""
+        if export_type != 'csv':
+            raise ValidationError('Only CSV export is supported at this time')
+
+        start_date, end_date = get_date_range(interval)
+        results = []
+
+        # Handle questions export
+        if 'questions' in filters:
+            questions_filter = filters['questions']
+            queryset = AnalyticsService._get_filtered_questions(
+                guru_type, start_date, end_date, questions_filter
+            )
+
+            for question in queryset:
+                results.append({
+                    'type': 'question',
+                    'date': question.date_created.isoformat(),
+                    'source': format_filter_name_for_display(question.source),
+                    'title': question.user_question,
+                    'url': question.frontend_url
+                })
+
+        # Handle out of context questions export
+        if 'out_of_context' in filters:
+            ooc_filter = filters['out_of_context']
+            queryset = AnalyticsService._get_filtered_out_of_context(
+                guru_type, start_date, end_date, ooc_filter
+            )
+
+            for ooc in queryset:
+                results.append({
+                    'type': 'out_of_context',
+                    'date': ooc.date_created.isoformat(),
+                    'source': format_filter_name_for_display(ooc.source),
+                    'title': ooc.user_question
+                })
+
+        # Handle referenced sources export
+        if 'referenced_sources' in filters:
+            sources_filter = filters['referenced_sources']
+            sources = AnalyticsService._get_filtered_referenced_sources(
+                guru_type, start_date, end_date, sources_filter
+            )
+
+            for source in sources:
+                results.append({
+                    'type': 'referenced_source',
+                    'date': source['date'],
+                    'source_type': source['type'],
+                    'title': source['title'],
+                    'url': source['url']
+                })
+
+        # Sort all results by date
+        results.sort(key=lambda x: x['date'], reverse=True)
+
+        return results 

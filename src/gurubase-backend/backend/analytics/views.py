@@ -238,3 +238,60 @@ def data_source_questions(request, guru_type):
     except Exception as e:
         logger.error(f"Error in data_source_questions: {traceback.format_exc()}", exc_info=True)
         return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@jwt_auth
+@guru_type_required
+def export_analytics(request, guru_type):
+    """Export analytics data in CSV format."""
+    try:
+        export_type = request.data.get('export_type', 'csv')
+        interval = request.data.get('interval', 'today')
+        
+        # Get filters from query params, defaulting to 'all' if not specified
+        # TODO: These filters are not sent yet
+        filters = {
+            'questions': request.data.get('questions', 'all'),
+            'out_of_context': request.data.get('out_of_context', 'all'),
+            'referenced_sources': request.data.get('referenced_sources', 'all')
+        }
+        
+        # Get the data to export
+        results = AnalyticsService.export_analytics_data(guru_type, export_type, interval, filters)
+        
+        if not results:
+            return Response({'msg': 'No data found to export'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create CSV response
+        import csv
+        from django.http import HttpResponse
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(['Type', 'Date', 'Source', 'Title', 'URL'])
+        
+        # Write data rows
+        for item in results:
+            writer.writerow([
+                item['type'],
+                item['date'],
+                item.get('source', item.get('source_type', '')),
+                item['title'],
+                item.get('url', '')
+            ])
+        
+        # Create response
+        response = HttpResponse(output.getvalue(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="analytics_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        return response
+        
+    except ValidationError as e:
+        logger.error(f"Error in export_analytics: {traceback.format_exc()}", exc_info=True)
+        return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Error in export_analytics: {traceback.format_exc()}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
