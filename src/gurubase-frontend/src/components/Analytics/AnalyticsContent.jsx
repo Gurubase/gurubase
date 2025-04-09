@@ -28,7 +28,8 @@ const MetricSection = ({
   tooltipText,
   metricType,
   interval,
-  guruType
+  guruType,
+  onFilterChange
 }) => {
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
@@ -58,11 +59,10 @@ const MetricSection = ({
     setSelectedTimeRange(newTimeRange);
   };
 
-  // Remove the useEffect for click outside handling
-
   const handleFilterChange = (newFilter) => {
     setFilterType(newFilter);
     setPage(1); // Reset page when filter changes
+    onFilterChange(newFilter);
   };
 
   const handleSearch = (term) => {
@@ -135,22 +135,32 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   const guruType = guruData?.slug;
   const [searchQuery, setSearchQuery] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [metricFilters, setMetricFilters] = useState({
+    questions: "all",
+    out_of_context: "all",
+    referenced_sources: "all"
+  });
 
   const handleExport = async (exportType) => {
     try {
       setIsExporting(true);
-      const filters = {
-        questions: "all",
-        out_of_context: "all",
-        referenced_sources: "all"
-      };
-
-      await exportAnalytics(guruType, interval, filters, exportType);
+      await exportAnalytics(guruType, interval, metricFilters, exportType);
     } catch (error) {
       console.error("Export failed:", error);
     } finally {
       setIsExporting(false);
     }
+  };
+
+  useEffect(() => {
+    console.log(metricFilters);
+  }, [metricFilters]);
+
+  const handleFilterChange = (metricType, filterType) => {
+    setMetricFilters((prev) => ({
+      ...prev,
+      [metricType]: filterType
+    }));
   };
 
   const handleIntervalChange = (newInterval) => {
@@ -227,6 +237,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.QUESTIONS}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("questions", filterType)
+            }
           />
 
           <MetricSection
@@ -235,6 +248,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("out_of_context", filterType)
+            }
           />
 
           <MetricSection
@@ -243,6 +259,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.REFERENCED_SOURCES}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("referenced_sources", filterType)
+            }
           />
         </div>
 

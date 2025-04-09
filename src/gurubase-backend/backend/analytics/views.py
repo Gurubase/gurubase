@@ -249,11 +249,10 @@ def export_analytics(request, guru_type):
         interval = request.data.get('interval', 'today')
         
         # Get filters from query params, defaulting to 'all' if not specified
-        # TODO: These filters are not sent yet
         filters = {
-            'questions': request.data.get('questions', 'all'),
-            'out_of_context': request.data.get('out_of_context', 'all'),
-            'referenced_sources': request.data.get('referenced_sources', 'all')
+            'questions': request.data.get('filters', {}).get('questions', 'all'),
+            'out_of_context': request.data.get('filters', {}).get('out_of_context', 'all'),
+            'referenced_sources': request.data.get('filters', {}).get('referenced_sources', 'all')
         }
         
         # Get the data to export
