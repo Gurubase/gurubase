@@ -21,7 +21,52 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const ExportButton = ({ isExporting, isOpen, children }) => {
+  return (
+    <div
+      className={cn(
+        "flex h-[40px] items-center rounded-[12px] group",
+        "bg-white border border-[#1B242D] text-[#1B242D]",
+        "transition-colors",
+        isOpen
+          ? "bg-[#1B242D] text-white"
+          : "hover:bg-[#1B242D] hover:text-white"
+      )}>
+      <span className="text-sm font-medium px-4 py-[10px]">{children}</span>
+      <div
+        className={cn(
+          "pl-3 pr-3 border-l transition-colors h-full flex items-center",
+          isOpen ? "border-white" : "border-[#1B242D] group-hover:border-white"
+        )}>
+        <svg
+          width="12"
+          height="8"
+          viewBox="0 0 12 8"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M0.692308 0.933333C0.916923 0.671111 1.31077 0.640741 1.57385 0.865556L6 4.67778L10.4262 0.865556C10.6892 0.640741 11.0831 0.671111 11.3077 0.933333C11.5323 1.19556 11.5015 1.59012 11.2385 1.81494L6.40615 5.98161C6.17231 6.18198 5.82769 6.18198 5.59385 5.98161L0.761538 1.81494C0.498462 1.59012 0.467692 1.19556 0.692308 0.933333Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+const ExportMenuItem = ({ onClick, children }) => {
+  return (
+    <DropdownMenuItem
+      onClick={onClick}
+      className="flex px-2 py-2 items-center gap-2 self-stretch rounded-lg text-sm text-[#1B242D] hover:bg-[#F8F9FB] cursor-pointer">
+      {children}
+    </DropdownMenuItem>
+  );
+};
 
 const MetricSection = ({
   title,
@@ -140,6 +185,7 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
     out_of_context: "all",
     referenced_sources: "all"
   });
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const handleExport = async (exportType) => {
     try {
@@ -196,22 +242,27 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
               defaultPeriod={interval}
               loading={isLoading}
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={isExporting}>
-                  {isExporting ? "Exporting..." : "Export"}
-                </Button>
+            <DropdownMenu open={isExportOpen} onOpenChange={setIsExportOpen}>
+              <DropdownMenuTrigger asChild disabled={isExporting}>
+                <button className="focus:outline-none">
+                  <ExportButton isExporting={isExporting} isOpen={isExportOpen}>
+                    {isExporting ? "Exporting..." : "Export Files"}
+                  </ExportButton>
+                </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExport("xlsx")}>
-                  Excel
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("csv")}>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={0}
+                className="flex flex-col min-w-[147px] bg-white border border-[#E2E2E2] rounded-[12px]">
+                <ExportMenuItem onClick={() => handleExport("csv")}>
                   CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("json")}>
-                  JSON
-                </DropdownMenuItem>
+                </ExportMenuItem>
+                <ExportMenuItem onClick={() => handleExport("xlsx")}>
+                  Excel
+                </ExportMenuItem>
+                <ExportMenuItem onClick={() => handleExport("pdf")}>
+                  PDF
+                </ExportMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
