@@ -235,4 +235,153 @@ class AnalyticsService:
         }
         
         cache.set(cache_key, result, AnalyticsService.CACHE_TTL)
-        return result 
+        return result
+
+    @staticmethod
+    def _get_filtered_questions(guru_type, start_date, end_date, filter_type=None, search_query=None, sort_order='desc'):
+        """Get filtered questions based on criteria."""
+        queryset = Question.objects.filter(
+            guru_type=guru_type,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        ).exclude(
+            ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value]),
+            binge_id__isnull=False,
+            parent__isnull=True
+        )
+
+        if filter_type and filter_type != 'all':
+            source_value = map_filter_to_source(filter_type)
+            if source_value:
+                queryset = queryset.filter(source__iexact=source_value)
+
+        if search_query:
+            queryset = queryset.filter(user_question__icontains=search_query)
+
+        order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+        return queryset.order_by(order_by)
+
+    @staticmethod
+    def _get_filtered_out_of_context(guru_type, start_date, end_date, filter_type=None, search_query=None, sort_order='desc'):
+        """Get filtered out of context questions based on criteria."""
+        queryset = OutOfContextQuestion.objects.filter(
+            guru_type=guru_type,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        )
+
+        if filter_type and filter_type != 'all':
+            source_value = map_filter_to_source(filter_type)
+            if source_value:
+                queryset = queryset.filter(source__iexact=source_value)
+
+        if search_query:
+            queryset = queryset.filter(user_question__icontains=search_query)
+
+        order_by = 'date_created' if sort_order == 'asc' else '-date_created'
+        return queryset.order_by(order_by)
+
+    @staticmethod
+    def _get_filtered_referenced_sources(guru_type, start_date, end_date, filter_type=None, search_query=None, sort_order='desc'):
+        """Get filtered referenced sources based on criteria."""
+        # Get questions with references
+        questions = Question.objects.filter(
+            guru_type=guru_type,
+            date_created__gte=start_date,
+            date_created__lte=end_date
+        ).exclude(
+            ~Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value]),
+            binge_id__isnull=False,
+            parent__isnull=True
+        ).values('references')
+
+        # Extract referenced links and count occurrences
+        reference_counts = {}
+        referenced_links = set()
+
+        for question in questions:
+            for ref in question.get('references', []):
+                link = ref.get('link')
+                if link:
+                    referenced_links.add(link)
+                    reference_counts[link] = reference_counts.get(link, 0) + 1
+
+        # Get data sources based on filter
+        if filter_type == 'all' or not filter_type:
+            data_sources = DataSource.objects.filter(
+                guru_type=guru_type,
+                url__in=referenced_links,
+                status=DataSource.Status.SUCCESS
+            )
+            github_files = GithubFile.objects.filter(
+                link__in=referenced_links,
+                data_source__status=DataSource.Status.SUCCESS
+            ).select_related('data_source')
+        elif filter_type == 'github_repo':
+            data_sources = []
+            github_files = GithubFile.objects.filter(
+                link__in=referenced_links,
+                data_source__status=DataSource.Status.SUCCESS
+            ).select_related('data_source')
+        else:
+            data_sources = DataSource.objects.filter(
+                guru_type=guru_type,
+                url__in=referenced_links,
+                type__iexact=filter_type,
+                status=DataSource.Status.SUCCESS
+            )
+            github_files = []
+
+        # Combine and process results
+        combined_sources = []
+
+        for ds in data_sources:
+            if ds.type and ds.title and ds.url:
+                combined_sources.append({
+                    'date': ds.date_created.isoformat(),
+                    'type': format_filter_name_for_display(ds.type),
+                    'title': ds.title,
+                    'url': ds.url,
+                    'reference_count': reference_counts.get(ds.url, 0)
+                })
+
+        for gf in github_files:
+            if gf.data_source and gf.data_source.date_created and gf.title and gf.link:
+                combined_sources.append({
+                    'date': gf.data_source.date_created.isoformat(),
+                    'type': 'Codebase',
+                    'title': gf.title,
+                    'url': gf.link,
+                    'reference_count': reference_counts.get(gf.link, 0)
+                })
+
+        # Filter out duplicate links, keeping the one with highest reference count
+        seen_links = {}
+        unique_sources = []
+        for source in combined_sources:
+            link = source['url']
+            if link not in seen_links:
+                seen_links[link] = source
+                unique_sources.append(source)
+            else:
+                existing = seen_links[link]
+                if source['reference_count'] > existing['reference_count']:
+                    unique_sources.remove(existing)
+                    seen_links[link] = source
+                    unique_sources.append(source)
+
+        # Apply search filter if needed
+        if search_query:
+            unique_sources = [
+                source for source in unique_sources 
+                if search_query.lower() in source['title'].lower()
+            ]
+
+        # Sort results
+        if sort_order == 'asc':
+            unique_sources.sort(key=lambda x: (x['reference_count'], x['date']))
+        else:
+            unique_sources.sort(key=lambda x: (x['reference_count'], x['date']), reverse=True)
+
+        return unique_sources
+
