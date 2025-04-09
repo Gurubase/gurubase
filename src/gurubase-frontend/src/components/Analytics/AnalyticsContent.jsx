@@ -35,13 +35,14 @@ const ExportButton = ({ isExporting, isOpen, children, isMobile = false }) => {
         !isMobile &&
           (isOpen
             ? "bg-[#1B242D] text-white"
-            : "hover:bg-[#1B242D] hover:text-white")
+            : "hover:bg-[#1B242D] hover:text-white"),
+        isExporting && "opacity-50 cursor-not-allowed pointer-events-none"
       )}>
       <span
         className={cn(
           "font-medium",
           !isMobile && "text-sm px-4 py-[10px]",
-          isMobile && "text-md pr-2"
+          isMobile && "text-sm pr-2"
         )}>
         {children}
       </span>
@@ -247,10 +248,16 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
 
   const ExportDropdown = ({ isMobile = false }) => (
     <DropdownMenu
-      open={isMobile ? isMobileExportOpen : isDesktopExportOpen}
+      open={
+        isExporting
+          ? false
+          : isMobile
+            ? isMobileExportOpen
+            : isDesktopExportOpen
+      }
       onOpenChange={isMobile ? setIsMobileExportOpen : setIsDesktopExportOpen}>
-      <DropdownMenuTrigger asChild disabled={isExporting}>
-        <button className="focus:outline-none">
+      <DropdownMenuTrigger asChild>
+        <button className="focus:outline-none" disabled={isExporting}>
           <ExportButton
             isExporting={isExporting}
             isOpen={isMobile ? isMobileExportOpen : isDesktopExportOpen}
