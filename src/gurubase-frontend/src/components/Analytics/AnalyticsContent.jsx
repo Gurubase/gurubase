@@ -23,22 +23,36 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-const ExportButton = ({ isExporting, isOpen, children }) => {
+const ExportButton = ({ isExporting, isOpen, children, isMobile = false }) => {
   return (
     <div
       className={cn(
-        "flex h-[40px] items-center rounded-[12px] group",
-        "bg-white border border-[#1B242D] text-[#1B242D]",
+        "flex h-[40px] items-center group",
+        !isMobile &&
+          "rounded-[12px] bg-white border border-[#1B242D] text-[#1B242D]",
+        isMobile && "text-[#1B242D]",
         "transition-colors",
-        isOpen
-          ? "bg-[#1B242D] text-white"
-          : "hover:bg-[#1B242D] hover:text-white"
+        !isMobile &&
+          (isOpen
+            ? "bg-[#1B242D] text-white"
+            : "hover:bg-[#1B242D] hover:text-white")
       )}>
-      <span className="text-sm font-medium px-4 py-[10px]">{children}</span>
+      <span
+        className={cn(
+          "font-medium",
+          !isMobile && "text-sm px-4 py-[10px]",
+          isMobile && "text-md pr-2"
+        )}>
+        {children}
+      </span>
       <div
         className={cn(
-          "pl-3 pr-3 border-l transition-colors h-full flex items-center",
-          isOpen ? "border-white" : "border-[#1B242D] group-hover:border-white"
+          "flex items-center",
+          !isMobile && "pl-3 pr-3 border-l transition-colors h-full",
+          !isMobile &&
+            (isOpen
+              ? "border-white"
+              : "border-[#1B242D] group-hover:border-white")
         )}>
         <svg
           width="12"
@@ -180,12 +194,13 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   const guruType = guruData?.slug;
   const [searchQuery, setSearchQuery] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [isDesktopExportOpen, setIsDesktopExportOpen] = useState(false);
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
   const [metricFilters, setMetricFilters] = useState({
     questions: "all",
     out_of_context: "all",
     referenced_sources: "all"
   });
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const handleExport = async (exportType) => {
     try {
@@ -230,9 +245,41 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   // Check if any data is loading
   const isLoading = statCardsLoading;
 
+  const ExportDropdown = ({ isMobile = false }) => (
+    <DropdownMenu
+      open={isMobile ? isMobileExportOpen : isDesktopExportOpen}
+      onOpenChange={isMobile ? setIsMobileExportOpen : setIsDesktopExportOpen}>
+      <DropdownMenuTrigger asChild disabled={isExporting}>
+        <button className="focus:outline-none">
+          <ExportButton
+            isExporting={isExporting}
+            isOpen={isMobile ? isMobileExportOpen : isDesktopExportOpen}
+            isMobile={isMobile}>
+            {isExporting ? "Exporting..." : "Export Files"}
+          </ExportButton>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={0}
+        className="flex flex-col min-w-[147px] bg-white border border-[#E2E2E2] rounded-[12px]">
+        <ExportMenuItem onClick={() => handleExport("csv")}>CSV</ExportMenuItem>
+        <ExportMenuItem onClick={() => handleExport("xlsx")}>
+          Excel
+        </ExportMenuItem>
+        <ExportMenuItem onClick={() => handleExport("pdf")}>PDF</ExportMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <>
-      <IntegrationHeader text="Analytics" />
+      <div className="flex items-center justify-between">
+        <IntegrationHeader text="Analytics" />
+        <div className="hidden guru-md:block p-6">
+          <ExportDropdown isMobile={true} />
+        </div>
+      </div>
       <IntegrationDivider />
       <div className="grid grid-cols-4 p-6">
         <div className="col-span-3 guru-md:col-span-4 space-y-6">
@@ -242,29 +289,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
               defaultPeriod={interval}
               loading={isLoading}
             />
-            <DropdownMenu open={isExportOpen} onOpenChange={setIsExportOpen}>
-              <DropdownMenuTrigger asChild disabled={isExporting}>
-                <button className="focus:outline-none">
-                  <ExportButton isExporting={isExporting} isOpen={isExportOpen}>
-                    {isExporting ? "Exporting..." : "Export Files"}
-                  </ExportButton>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={0}
-                className="flex flex-col min-w-[147px] bg-white border border-[#E2E2E2] rounded-[12px]">
-                <ExportMenuItem onClick={() => handleExport("csv")}>
-                  CSV
-                </ExportMenuItem>
-                <ExportMenuItem onClick={() => handleExport("xlsx")}>
-                  Excel
-                </ExportMenuItem>
-                <ExportMenuItem onClick={() => handleExport("pdf")}>
-                  PDF
-                </ExportMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="block guru-md:hidden">
+              <ExportDropdown isMobile={false} />
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatsCardComponent
