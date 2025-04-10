@@ -215,15 +215,10 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
       setIsExporting(true);
       await exportAnalytics(guruType, interval, metricFilters, exportType);
     } catch (error) {
-      console.error("Export failed:", error);
     } finally {
       setIsExporting(false);
     }
   };
-
-  useEffect(() => {
-    console.log(metricFilters);
-  }, [metricFilters]);
 
   const handleFilterChange = (metricType, filterType) => {
     setMetricFilters((prev) => ({
