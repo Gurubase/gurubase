@@ -1363,7 +1363,7 @@ def get_binges(request):
 
     return Response(response, status=status.HTTP_200_OK)
 
-@api_view(['GET','POST', 'DELETE'])
+@api_view(['GET', 'POST', 'DELETE'])
 @jwt_auth
 def api_keys(request):
     if settings.ENV == 'selfhosted':
@@ -1630,10 +1630,6 @@ def api_answer(request, guru_type):
     binge = None
     parent = None
 
-    assert request.integration is not None
-
-    github_handler = GithubAppHandler(request.integration)
-
     # Handle binge if provided
     if binge_id:
         try:
@@ -1649,6 +1645,7 @@ def api_answer(request, guru_type):
 
     github_comments = None
     if github_api_url:
+        github_handler = GithubAppHandler(request.integration)
         github_issue = github_handler.get_issue(github_api_url, request.external_id)
         github_comments = github_handler.get_issue_comments(github_api_url, request.external_id)
         github_comments.append(github_issue) # Add it as last since the helper reverses the comments before processing

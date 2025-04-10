@@ -657,6 +657,8 @@ class DataSource(models.Model):
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
     last_successful_index_date = models.DateTimeField(null=True, blank=True)
+    github_glob_include = models.BooleanField(default=True)
+    github_glob_pattern = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         unique_together = ["url", "guru_type"]
@@ -1166,7 +1168,11 @@ class OutOfContextQuestion(models.Model):
             models.Index(fields=["source"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.user_question:
+            self.user_question = self.question
 
+        super().save(*args, **kwargs)
 class Settings(models.Model):
     class ScrapeType(models.TextChoices):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"
