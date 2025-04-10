@@ -15,13 +15,16 @@ This question is asked on a GitHub issue. Make sure you place importance on the 
 - OWNER: Author is the owner of the repository.
 - YOU: Author is the bot.
 
-Here are the previous comments for the issue:
+Here is the issue history:
 
 <Github contexts>
 {github_comments}
 </Github contexts>
 
 Make sure you consider the github context while generating your answer. Treat this as a conversation history.
+
+**Critical**: Unless user does not explicitly ask about GitHub, do not talk about it in your answer.
+**Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 """
 
 summary_addition = """
@@ -36,7 +39,6 @@ Return a structured summary of the user's question with the following fields:
 
 1. **`<question>`**:
    - A polished version of the user's question (max 60 chars). Fix grammar/clarity but preserve meaning.
-   - If the question is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
    - **Critical**: For follow-ups, explicitly link to the last answer/conversation history.
 
 2. **`<question_slug>`**:
@@ -59,7 +61,7 @@ Return a structured summary of the user's question with the following fields:
 ### Context Handling Rules
 - **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
-- **Validation**: Reject non-questions (e.g., "hello") or incoherent inputs with `"valid_question": false`.
+- **Validation**: Reject non-questions (e.g., "hello"), incoherent and unrelated to {guru_type} inputs with `"valid_question": false`.
 
 {binge_summary_prompt}
 
