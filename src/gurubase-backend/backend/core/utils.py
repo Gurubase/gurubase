@@ -1306,7 +1306,6 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
         github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type)
 
-    binge_summary_prompt = ""
     if parent_question:
         history = get_question_history(parent_question)
         question_history = format_question_history(history)
@@ -1314,6 +1313,9 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
             question_history=question_history,
             answer=parent_question.content
         )
+    else:
+        binge_summary_prompt = ""
+
 
     prompt = summary_template.format(
         **context_variables, 
