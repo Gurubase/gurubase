@@ -366,3 +366,107 @@ export async function getAnalyticsDataSourceQuestions(
 
   return await response.json();
 }
+
+export async function exportAnalytics(guruType, interval, filters, exportType) {
+  "use client";
+  const token = await getAuthTokenForStream();
+  const authenticated = token ? token.trim().length > 0 : false;
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  let response;
+  const url = `${BACKEND_FETCH_URL}/analytics/${guruType}/export`;
+
+  if (isSelfHosted) {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        interval,
+        filters,
+        export_type: exportType
+      })
+    });
+  } else if (authenticated) {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        interval,
+        filters,
+        export_type: exportType
+      }),
+      cache: "no-store"
+    });
+  } else {
+    throw new Error("Authentication required");
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  // Handle different export types
+  let blob;
+  let defaultMimeType;
+  let defaultExtension = exportType;
+
+  switch (exportType) {
+    case "xlsx":
+      defaultMimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      break;
+    case "csv":
+      defaultMimeType = "application/zip";
+      defaultExtension = "zip";
+      break;
+    case "json":
+      defaultMimeType = "application/json";
+      break;
+    default:
+      defaultMimeType = "application/octet-stream";
+  }
+
+  // If it's JSON, we need to handle it differently
+  if (exportType === "json") {
+    const jsonData = await response.json();
+    blob = new Blob([JSON.stringify(jsonData, null, 2)], {
+      type: defaultMimeType
+    });
+  } else {
+    blob = await response.blob();
+  }
+
+  const contentType = response.headers.get("Content-Type") || defaultMimeType;
+  const contentDisposition = response.headers.get("Content-Disposition");
+
+  // Create a download link
+  const downloadUrl = window.URL.createObjectURL(
+    new Blob([blob], { type: contentType })
+  );
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+
+  // Get filename from Content-Disposition or create a default one
+  let filename = contentDisposition
+    ? contentDisposition
+        .split("filename=")[1]
+        ?.trim()
+        .replace(/^"(.+)"$/, "$1") ||
+      `analytics_${guruType}_${interval}.${defaultExtension}`
+    : `analytics_${guruType}_${interval}.${defaultExtension}`;
+
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(downloadUrl);
+  document.body.removeChild(a);
+
+  return { success: true };
+}

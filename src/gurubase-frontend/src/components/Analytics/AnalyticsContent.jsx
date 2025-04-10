@@ -14,13 +14,89 @@ import { useStatCards, useHistogram, useTableData } from "@/hooks/useAnalytics";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { useRouter, useSearchParams } from "next/navigation";
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
+import { exportAnalytics } from "@/utils/clientActions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+const ExportButton = ({
+  isExporting,
+  isOpen,
+  children,
+  isMobile = false,
+  isLoading = false
+}) => {
+  return (
+    <div
+      className={cn(
+        "flex h-[40px] items-center group",
+        !isMobile &&
+          "rounded-[12px] bg-white border border-[#1B242D] text-[#1B242D]",
+        isMobile && "text-[#1B242D]",
+        "transition-colors",
+        !isMobile &&
+          (isOpen
+            ? "bg-[#1B242D] text-white"
+            : "hover:bg-[#1B242D] hover:text-white"),
+        (isExporting || isLoading) &&
+          "opacity-50 cursor-not-allowed pointer-events-none"
+      )}>
+      <span
+        className={cn(
+          "font-medium",
+          !isMobile && "text-sm px-4 py-[10px]",
+          isMobile && "text-sm pr-2"
+        )}>
+        {children}
+      </span>
+      <div
+        className={cn(
+          "flex items-center",
+          !isMobile && "pl-3 pr-3 border-l transition-colors h-full",
+          !isMobile &&
+            (isOpen
+              ? "border-white"
+              : "border-[#1B242D] group-hover:border-white")
+        )}>
+        <svg
+          width="12"
+          height="8"
+          viewBox="0 0 12 8"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M0.692308 0.933333C0.916923 0.671111 1.31077 0.640741 1.57385 0.865556L6 4.67778L10.4262 0.865556C10.6892 0.640741 11.0831 0.671111 11.3077 0.933333C11.5323 1.19556 11.5015 1.59012 11.2385 1.81494L6.40615 5.98161C6.17231 6.18198 5.82769 6.18198 5.59385 5.98161L0.761538 1.81494C0.498462 1.59012 0.467692 1.19556 0.692308 0.933333Z"
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+};
+
+const ExportMenuItem = ({ onClick, children }) => {
+  return (
+    <DropdownMenuItem
+      onClick={onClick}
+      className="flex px-2 py-2 items-center gap-2 self-stretch rounded-lg text-sm text-[#1B242D] hover:bg-[#F8F9FB] cursor-pointer">
+      {children}
+    </DropdownMenuItem>
+  );
+};
 
 const MetricSection = ({
   title,
   tooltipText,
   metricType,
   interval,
-  guruType
+  guruType,
+  onFilterChange
 }) => {
   const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
@@ -50,11 +126,10 @@ const MetricSection = ({
     setSelectedTimeRange(newTimeRange);
   };
 
-  // Remove the useEffect for click outside handling
-
   const handleFilterChange = (newFilter) => {
     setFilterType(newFilter);
     setPage(1); // Reset page when filter changes
+    onFilterChange(newFilter);
   };
 
   const handleSearch = (term) => {
@@ -126,9 +201,40 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   const [interval, setInterval] = useState(initialInterval);
   const guruType = guruData?.slug;
   const [searchQuery, setSearchQuery] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDesktopExportOpen, setIsDesktopExportOpen] = useState(false);
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
+  const [metricFilters, setMetricFilters] = useState({
+    questions: "all",
+    out_of_context: "all",
+    referenced_sources: "all"
+  });
+
+  const handleExport = async (exportType) => {
+    try {
+      setIsExporting(true);
+      await exportAnalytics(guruType, interval, metricFilters, exportType);
+    } catch (error) {
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleFilterChange = (metricType, filterType) => {
+    setMetricFilters((prev) => ({
+      ...prev,
+      [metricType]: filterType
+    }));
+  };
 
   const handleIntervalChange = (newInterval) => {
     setInterval(newInterval);
+    // Reset all filters to 'all' when interval changes
+    setMetricFilters({
+      questions: "all",
+      out_of_context: "all",
+      referenced_sources: "all"
+    });
     const params = new URLSearchParams(searchParams);
     params.set("interval", newInterval);
     router.push(`?${params.toString()}`, { scroll: false });
@@ -142,18 +248,68 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
   // Check if any data is loading
   const isLoading = statCardsLoading;
 
+  const ExportDropdown = ({ isMobile = false }) => (
+    <DropdownMenu
+      open={
+        isExporting || isLoading
+          ? false
+          : isMobile
+            ? isMobileExportOpen
+            : isDesktopExportOpen
+      }
+      onOpenChange={isMobile ? setIsMobileExportOpen : setIsDesktopExportOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="focus:outline-none"
+          disabled={isExporting || isLoading}>
+          <ExportButton
+            isExporting={isExporting}
+            isOpen={isMobile ? isMobileExportOpen : isDesktopExportOpen}
+            isMobile={isMobile}
+            isLoading={isLoading}>
+            {isExporting
+              ? "Exporting..."
+              : isLoading
+                ? "Loading..."
+                : "Export Files"}
+          </ExportButton>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        sideOffset={0}
+        className="flex flex-col min-w-[147px] bg-white border border-[#E2E2E2] rounded-[12px]">
+        <ExportMenuItem onClick={() => handleExport("csv")}>CSV</ExportMenuItem>
+        <ExportMenuItem onClick={() => handleExport("xlsx")}>
+          Excel
+        </ExportMenuItem>
+        <ExportMenuItem onClick={() => handleExport("json")}>
+          JSON
+        </ExportMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <>
-      <IntegrationHeader text="Analytics" />
+      <div className="flex items-center justify-between">
+        <IntegrationHeader text="Analytics" />
+        <div className="hidden guru-md:block p-6">
+          <ExportDropdown isMobile={true} />
+        </div>
+      </div>
       <IntegrationDivider />
       <div className="grid grid-cols-4 p-6">
         <div className="col-span-3 guru-md:col-span-4 space-y-6">
-          <div>
+          <div className="flex justify-between items-center">
             <TimeSelectionComponent
               onPeriodChange={handleIntervalChange}
               defaultPeriod={interval}
               loading={isLoading}
             />
+            <div className="block guru-md:hidden">
+              <ExportDropdown isMobile={false} />
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatsCardComponent
@@ -189,6 +345,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.QUESTIONS}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("questions", filterType)
+            }
           />
 
           <MetricSection
@@ -197,6 +356,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("out_of_context", filterType)
+            }
           />
 
           <MetricSection
@@ -205,6 +367,9 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
             metricType={METRIC_TYPES.REFERENCED_SOURCES}
             interval={interval}
             guruType={guruType}
+            onFilterChange={(filterType) =>
+              handleFilterChange("referenced_sources", filterType)
+            }
           />
         </div>
 

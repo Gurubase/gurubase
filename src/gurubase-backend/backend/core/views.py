@@ -1363,7 +1363,7 @@ def get_binges(request):
 
     return Response(response, status=status.HTTP_200_OK)
 
-@api_view(['GET','POST', 'DELETE'])
+@api_view(['GET', 'POST', 'DELETE'])
 @jwt_auth
 def api_keys(request):
     if settings.ENV == 'selfhosted':

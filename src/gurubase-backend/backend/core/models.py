@@ -1168,7 +1168,11 @@ class OutOfContextQuestion(models.Model):
             models.Index(fields=["source"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.user_question:
+            self.user_question = self.question
 
+        super().save(*args, **kwargs)
 class Settings(models.Model):
     class ScrapeType(models.TextChoices):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"

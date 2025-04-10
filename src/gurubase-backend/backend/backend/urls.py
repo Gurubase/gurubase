@@ -4,6 +4,7 @@ from django.contrib import admin
 from core import views as core_views
 from django.contrib.sitemaps import views
 from django.conf.urls import include
+from analytics import views as analytics_views
 
 from django.conf.urls.static import static
 
@@ -67,6 +68,7 @@ urlpatterns += [
     path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_api, name='get_crawl_status_api'),
     path('api/v1/youtube/playlist/', core_views.fetch_youtube_playlist_api, name='fetch_youtube_playlist_api'),
     path('api/v1/youtube/channel/', core_views.fetch_youtube_channel_api, name='fetch_youtube_channel_api'),
+    path('api/v1/<str:guru_type>/analytics/export/', analytics_views.export_analytics_api, name='export_analytics_api'),
 
     path('slack/events/', core_views.slack_events, name='slack_events'),
     path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
