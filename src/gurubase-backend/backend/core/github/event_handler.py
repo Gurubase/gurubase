@@ -94,7 +94,7 @@ class IssueEventHandler(GitHubEventHandler):
 
             return {
                 'discussion_id': None,
-                'body': issue_data.get('body', ''),
+                'body': f'{issue_data.get("title", "")}\n\n{issue_data.get("body", "")}',
                 'user': issue_data.get('user', {}).get('login', ''),
                 'api_url': issue_data.get('url'),
                 'reply_to_id': None,
