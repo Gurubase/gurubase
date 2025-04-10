@@ -1311,6 +1311,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         question_history = format_question_history(history)
         binge_summary_prompt = binge_summary_prompt.format(
             question_history=question_history,
+            answer=parent_question.content
         )
     else:
         binge_summary_prompt = ""

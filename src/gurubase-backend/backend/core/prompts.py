@@ -28,17 +28,38 @@ summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
 """
 
-summary_template = """You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}.
-Return a summary of the question given.
-<question> is the prettier version the question provided by the user. Fix grammar errors, make it more readable if needed. Maximum length is 60 characters but don't sacrifice clarity or meaning for brevity.
-If the question is not related with {guru_type}, set "valid_question": false. If the question contains {guru_type} and is related, set "valid_question": true.
-<question_slug> should be a unique slug for the question and should be SEO-friendly, up to 50 characters, lowercase and separated by hyphens without any special characters.
-<description> should be 100 to 150 characters long meta description.
-<user_intent> should be a short summary of the user's intent. It will be used to determine the question answer length. It can be short answer, explanation, how to, why, etc.
-<answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_addition}
-<enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters. 
+summary_template = """
+You are a {guru_type} Guru. {guru_type} specializes in {domain_knowledge}.
 
-If the given user question and contexts do not make sense and are not coherent sentences, set "valid_question": false. If user question exists and does not contain a question, set "valid_question": false.
+### Task
+Return a structured summary of the user's question with the following fields:
+
+1. **`<question>`**:
+   - A polished version of the user's question (max 60 chars). Fix grammar/clarity but preserve meaning.
+   - If the question is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+   - **Critical**: For follow-ups, explicitly link to the last answer/conversation history.
+
+2. **`<question_slug>`**:
+   - A unique, SEO-friendly slug (max 50 chars, lowercase, hyphens, no special characters).
+
+3. **`<description>`**:
+   - A meta description (100-150 chars) summarizing the question's focus.
+
+4. **`<user_intent>`**:
+   - Classify intent: `short answer`, `explanation`, `how to`, `why`, `comparison`, etc.
+
+5. **`<answer_length>`**:
+   - Should be a number that indicates the answer word count depending on the user's intent.
+   - {summary_addition}
+
+6. **`<enhanced_question>`**:
+   - A technical, keyword-rich rephrasing (max 300 chars) for vector search.
+   - **Critical**: For follow-ups, explicitly link to the last answer/conversation history.
+
+### Context Handling Rules
+- **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
+- **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
+- **Validation**: Reject non-questions (e.g., "hello") or incoherent inputs with `"valid_question": false`.
 
 {binge_summary_prompt}
 
@@ -52,9 +73,14 @@ The user has started a conversation with you. The previously asked questions are
 
 {question_history}
 
-Now, the user asked another question. Make sure you base the question and enhanced question on this conversation history.
-"""
+And the answer to the last question is:
 
+<last_answer>
+{answer}
+</last_answer>
+
+Now, the user asked another question. Make sure you relate the question and enhanced question to the conversation history and the last answer.
+"""
 
 binge_answer_prompt = """
 The user has started a conversation with you. The previously asked questions are:
