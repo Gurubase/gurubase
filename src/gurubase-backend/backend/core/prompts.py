@@ -66,6 +66,10 @@ Return a structured summary of the user's question with the following fields:
 {github_context}
 
 For any questions related to date, remember today's date is {date}. Here is the user's question:
+
+<user_question>
+{user_question}
+</user_question>
 """
 
 binge_summary_prompt = """

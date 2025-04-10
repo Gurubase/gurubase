@@ -1320,7 +1320,8 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         **context_variables, 
         summary_addition=summary_addition,
         github_context=github_context,
-        binge_summary_prompt=binge_summary_prompt
+        binge_summary_prompt=binge_summary_prompt,
+        user_question=question
     )
 
     # if guru_type.lower() not in question.lower():
@@ -1338,10 +1339,6 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
                 {
                     'role': 'system',
                     'content': prompt
-                },
-                {
-                    'role': 'user',
-                    'content': question
                 }
             ],
             response_format=GptSummary
