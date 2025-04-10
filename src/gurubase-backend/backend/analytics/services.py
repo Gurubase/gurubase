@@ -620,7 +620,7 @@ class AnalyticsService:
         if results['unable_to_answer']:
             results['unable_to_answer'].sort(key=lambda x: x.date_created, reverse=True)
         if results['references']:
-            results['references'].sort(key=lambda x: x['date'], reverse=True)
+            results['references'].sort(key=lambda x: x['reference_count'], reverse=True)
 
         return results
 
