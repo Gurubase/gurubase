@@ -92,9 +92,19 @@ class IssueEventHandler(GitHubEventHandler):
             if not issue_data.get('url'):
                 raise GithubEventDataError("Issue URL is missing")
 
+            title = issue_data.get("title", "")
+            body = issue_data.get("body", "")
+
+            if title is None:
+                title = ''
+            if body is None:
+                body = ''
+
+            text = f'{title}\n\n{body}'
+
             return {
                 'discussion_id': None,
-                'body': f'{issue_data.get("title", "")}\n\n{issue_data.get("body", "")}',
+                'body': text,
                 'user': issue_data.get('user', {}).get('login', ''),
                 'api_url': issue_data.get('url'),
                 'reply_to_id': None,
