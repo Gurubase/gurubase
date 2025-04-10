@@ -21,7 +21,7 @@ Here are the previous comments for the issue:
 {github_comments}
 </Github contexts>
 
-Make sure you consider the github context while generating your answer. There can be some important information in the github context that can help you answer the question. Also make sure you extend the enhanced question with the github context.
+Make sure you consider the github context while generating your answer. Treat this as a conversation history.
 """
 
 summary_addition = """
