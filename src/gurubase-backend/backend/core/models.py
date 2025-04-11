@@ -110,6 +110,10 @@ class Question(models.Model):
         return f"{self.id} - {self.slug}"
 
     def save(self, *args, **kwargs):
+        # Validate source
+        if not self.source or self.source not in [tag.value for tag in self.Source]:
+            self.source = self.Source.USER.value
+
         if not self.binge:
             # Check uniqueness for non-binge questions
             existing_by_slug = Question.objects.filter(
