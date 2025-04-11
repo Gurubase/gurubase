@@ -150,6 +150,9 @@ class Question(models.Model):
         if not self.user_question:
             self.user_question = self.question
 
+        if self.llm_eval and self.binge:
+            raise ValidationError("LLM eval is not allowed for binge questions")
+
         super().save(*args, **kwargs)
 
     class Meta:

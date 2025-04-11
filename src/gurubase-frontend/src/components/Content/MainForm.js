@@ -87,7 +87,8 @@ export const handleSubmitQuestion = async ({
       jwt,
       times,
       enhanced_question: enhancedQuestion
-    } = await getAnswerFromMyBackend(inputValue, guruType, null);
+      // This is called when a question is asked initially (root questions)
+    } = await getAnswerFromMyBackend(inputValue, guruType, null, null);
 
     if (signal?.aborted) {
       dispatch(setResetMainForm());

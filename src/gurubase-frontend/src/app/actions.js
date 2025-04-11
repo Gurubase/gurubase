@@ -164,7 +164,8 @@ export const makePublicRequest = async (url, options = {}, decode = false) => {
 export async function getAnswerFromMyBackend(
   question,
   guruType,
-  bingeId = null
+  bingeId = null,
+  currentQuestionSlug = null
 ) {
   try {
     const session = await getUserSession();
@@ -172,6 +173,10 @@ export async function getAnswerFromMyBackend(
 
     if (bingeId) {
       payload.binge_id = bingeId;
+    }
+
+    if (currentQuestionSlug) {
+      payload.parent_question_slug = currentQuestionSlug;
     }
 
     if (session?.user) {
