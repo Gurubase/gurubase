@@ -765,9 +765,17 @@ const Settings = () => {
                   </form>
 
                   {/* Success CTA Section */}
-                  {hasExistingKey &&
-                    isKeyValid &&
-                    !isInitialLoading &&
+                  {!isInitialLoading &&
+                    ((aiModelProvider === "OPENAI" &&
+                      hasExistingKey &&
+                      isKeyValid) ||
+                      (aiModelProvider === "OLLAMA" &&
+                        ollamaUrl &&
+                        isOllamaUrlValid &&
+                        ollamaEmbeddingModel &&
+                        ollamaBaseModel &&
+                        isEmbeddingModelValid &&
+                        isBaseModelValid)) &&
                     (scraperType === "CRAWL4AI" ||
                       (scraperType === "FIRECRAWL" && isFirecrawlKeyValid)) && (
                       <div className="mt-8 p-4 rounded-lg border-[0.5px] border-[#16A34A] bg-[#F8FCFA]">
