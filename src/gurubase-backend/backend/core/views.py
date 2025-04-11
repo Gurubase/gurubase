@@ -2631,6 +2631,8 @@ def manage_settings(request):
     settings_obj = get_default_settings()
 
     if request.method == 'GET':
+        settings_obj.save() # Save to trigger validation
+        settings_obj.refresh_from_db()
         serializer = SettingsSerializer(settings_obj)
         return Response(serializer.data)
 
