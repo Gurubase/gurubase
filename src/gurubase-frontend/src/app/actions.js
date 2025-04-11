@@ -1091,6 +1091,10 @@ export async function updateSettings(formData) {
     const firecrawl_api_key = formData.get("firecrawl_api_key");
     const scrape_type = formData.get("scrape_type");
     const youtube_api_key = formData.get("youtube_api_key");
+    const ollama_url = formData.get("ollama_url");
+    const ollama_embedding_model = formData.get("ollama_embedding_model");
+    const ollama_base_model = formData.get("ollama_base_model");
+    const ai_model_provider = formData.get("ai_model_provider");
 
     const openai_api_key_written =
       formData.get("openai_api_key_written") === "true";
@@ -1111,7 +1115,11 @@ export async function updateSettings(formData) {
           youtube_api_key,
           openai_api_key_written,
           firecrawl_api_key_written,
-          youtube_api_key_written
+          youtube_api_key_written,
+          ollama_url,
+          ollama_embedding_model,
+          ollama_base_model,
+          ai_model_provider
         })
       }
     );
@@ -1302,6 +1310,27 @@ export async function fetchYoutubeChannel(url) {
   } catch (error) {
     return handleRequestError(error, {
       context: "fetchYoutubeChannel",
+      url
+    });
+  }
+}
+
+export async function validateOllamaUrlRequest(url) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/validate/ollama/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "validateOllamaUrl",
       url
     });
   }

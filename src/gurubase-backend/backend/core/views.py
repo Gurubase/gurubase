@@ -19,7 +19,7 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.github.exceptions import GithubAppHandlerError
-from core.requester import GeminiRequester, OpenAIRequester
+from core.requester import GeminiRequester, OpenAIRequester, OllamaRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
@@ -2643,8 +2643,15 @@ def manage_settings(request):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
             if not request.data.get('youtube_api_key_written'):
                 serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
-            serializer.save()
-            return Response(serializer.data)
+            
+            try:
+                serializer.save()
+                return Response(serializer.data)
+            except ValidationError as e:
+                return Response(
+                    {'errors': e.message_dict if hasattr(e, 'message_dict') else {'error': str(e)}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -3046,3 +3053,27 @@ def github_webhook(request):
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@jwt_auth
+def validate_ollama_url(request):
+    """
+    Validate if an Ollama URL is accessible and return available models
+    """
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=400)
+    
+    requester = OllamaRequester(url)
+    is_healthy, models, error = requester.check_ollama_health()
+    
+    if not is_healthy:
+        return Response({
+            'is_valid': False,
+            'error': error
+        }, status=400)
+    
+    return Response({
+        'is_valid': True,
+        'models': models
+    })

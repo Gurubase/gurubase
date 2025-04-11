@@ -6,8 +6,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import Skeleton from "react-loading-skeleton";
 
-import { getSettings, updateSettings } from "@/app/actions";
+import {
+  getSettings,
+  updateSettings,
+  validateOllamaUrlRequest
+} from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
+import { CheckCircleIcon, CloseCircleIcon } from "@/components/Icons";
 import SecretInput from "@/components/SecretInput";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +36,20 @@ const Settings = () => {
   const [isYoutubeEditing, setIsYoutubeEditing] = useState(false);
   const [maskedYoutubeKey, setMaskedYoutubeKey] = useState("");
 
+  // New state variables for AI Model Provider
+  const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
+  const [ollamaUrl, setOllamaUrl] = useState("");
+  const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
+  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] =
+    useState("nomic-embed-text");
+  const [ollamaBaseModel, setOllamaBaseModel] = useState("llama2");
+  const [isValidatingOllama, setIsValidatingOllama] = useState(false);
+  const [ollamaUrlError, setOllamaUrlError] = useState("");
+
+  useState("");
+  const [isEmbeddingModelValid, setIsEmbeddingModelValid] = useState(false);
+  const [isBaseModelValid, setIsBaseModelValid] = useState(false);
+
   const fetchSettings = async (isInitial = false) => {
     if (isInitial) {
       setIsInitialLoading(true);
@@ -42,6 +61,23 @@ const Settings = () => {
       setIsKeyValid(settings.is_openai_key_valid);
       setHasExistingKey(!!settings.openai_api_key);
       setMaskedOpenAIKey(settings.openai_api_key || "");
+
+      // Set AI Model Provider settings
+      if (settings.ai_model_provider) {
+        setAiModelProvider(settings.ai_model_provider);
+      }
+      if (settings.ollama_url) {
+        setOllamaUrl(settings.ollama_url);
+        setIsOllamaUrlValid(settings.is_ollama_url_valid);
+      }
+      if (settings.ollama_embedding_model) {
+        setOllamaEmbeddingModel(settings.ollama_embedding_model);
+        setIsEmbeddingModelValid(settings.is_ollama_embedding_model_valid);
+      }
+      if (settings.ollama_base_model) {
+        setOllamaBaseModel(settings.ollama_base_model);
+        setIsBaseModelValid(settings.is_ollama_base_model_valid);
+      }
 
       // Set scraper settings
       if (settings.scrape_type) {
@@ -92,9 +128,62 @@ const Settings = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    // Clear previous errors
+    setOllamaUrlError("");
 
     try {
+      // Validate Ollama settings if Ollama is selected
+      if (aiModelProvider === "OLLAMA") {
+        if (!ollamaUrl.trim()) {
+          CustomToast({
+            message: "Ollama URL is required",
+            variant: "error"
+          });
+          setIsLoading(false);
+
+          return;
+        }
+
+        if (!isOllamaUrlValid) {
+          CustomToast({
+            message: "Please validate the Ollama URL first",
+            variant: "error"
+          });
+          setIsLoading(false);
+
+          return;
+        }
+
+        if (!ollamaEmbeddingModel.trim()) {
+          CustomToast({
+            message: "Embedding model is required",
+            variant: "error"
+          });
+          setIsLoading(false);
+
+          return;
+        }
+
+        if (!ollamaBaseModel.trim()) {
+          CustomToast({
+            message: "Base model is required",
+            variant: "error"
+          });
+          setIsLoading(false);
+
+          return;
+        }
+      }
+
       const formData = new FormData();
+
+      // Add AI Model Provider settings
+      formData.append("ai_model_provider", aiModelProvider);
+      if (aiModelProvider === "OLLAMA") {
+        formData.append("ollama_url", ollamaUrl.trim());
+        formData.append("ollama_embedding_model", ollamaEmbeddingModel.trim());
+        formData.append("ollama_base_model", ollamaBaseModel.trim());
+      }
 
       if (isEditing) {
         formData.append("openai_api_key", openAIKey.trim());
@@ -128,47 +217,97 @@ const Settings = () => {
       if (isYoutubeEditing) setIsYoutubeEditing(false);
 
       if (result) {
-        if (result.is_openai_key_valid === false && result.openai_api_key) {
+        let error = false;
+
+        if (aiModelProvider === "OLLAMA") {
+          if (result.is_ollama_url_valid === false && result.ollama_url) {
+            error = true;
+            CustomToast({
+              message: "Invalid Ollama URL",
+              variant: "error"
+            });
+          }
+
+          if (
+            result.is_ollama_embedding_model_valid === false &&
+            result.ollama_embedding_model
+          ) {
+            error = true;
+            CustomToast({
+              message: "Invalid Ollama embedding model",
+              variant: "error"
+            });
+          }
+
+          if (
+            result.is_ollama_base_model_valid === false &&
+            result.ollama_base_model
+          ) {
+            error = true;
+            CustomToast({
+              message: "Invalid Ollama base model",
+              variant: "error"
+            });
+          }
+        }
+
+        if (
+          result.is_openai_key_valid === false &&
+          result.openai_api_key &&
+          aiModelProvider === "OPENAI"
+        ) {
+          error = true;
           CustomToast({
             message: "Invalid OpenAI API key",
             variant: "error"
           });
-
-          return;
         }
-
-        setOpenAIKey(result.openai_api_key);
 
         if (
           scraperType === "FIRECRAWL" &&
           result.is_firecrawl_key_valid === false &&
           result.firecrawl_api_key
         ) {
+          error = true;
           CustomToast({
             message: "Invalid Firecrawl API key",
             variant: "error"
           });
-
-          return;
         }
 
         setFirecrawlKey(result.firecrawl_api_key);
 
         if (result.is_youtube_key_valid === false && result.youtube_api_key) {
+          error = true;
           CustomToast({
             message: "Invalid YouTube API key",
             variant: "error"
           });
-
-          return;
         }
 
         setYoutubeApiKey(result.youtube_api_key);
 
-        CustomToast({
-          message: "Settings saved successfully",
-          variant: "success"
-        });
+        // Update Ollama settings
+        if (result.ollama_url) {
+          setOllamaUrl(result.ollama_url);
+          setIsOllamaUrlValid(result.is_ollama_url_valid);
+        }
+        if (result.ollama_embedding_model) {
+          setOllamaEmbeddingModel(result.ollama_embedding_model);
+        }
+        if (result.ollama_base_model) {
+          setOllamaBaseModel(result.ollama_base_model);
+        }
+        if (result.ai_model_provider) {
+          setAiModelProvider(result.ai_model_provider);
+        }
+
+        if (!error) {
+          CustomToast({
+            message: "Settings saved successfully",
+            variant: "success"
+          });
+        }
       }
     } catch (error) {
       CustomToast({
@@ -187,6 +326,35 @@ const Settings = () => {
 
   const handleYoutubeChange = (e) => {
     setYoutubeApiKey(e.target.value);
+  };
+
+  const validateOllamaUrl = async () => {
+    if (!ollamaUrl.trim()) {
+      setIsOllamaUrlValid(false);
+      setOllamaUrlError("Ollama URL is required");
+
+      return;
+    }
+
+    setIsValidatingOllama(true);
+    setOllamaUrlError("");
+
+    try {
+      const result = await validateOllamaUrlRequest(ollamaUrl.trim());
+
+      if (result.error) {
+        setIsOllamaUrlValid(false);
+        setOllamaUrlError("Invalid Ollama URL or server not responding");
+      } else {
+        setIsOllamaUrlValid(true);
+        setOllamaUrlError("");
+      }
+    } catch (error) {
+      setIsOllamaUrlValid(false);
+      setOllamaUrlError("Failed to connect to Ollama server");
+    } finally {
+      setIsValidatingOllama(false);
+    }
   };
 
   return (
@@ -208,37 +376,230 @@ const Settings = () => {
                 <div className="max-w-[500px]">
                   <form autoComplete="off" onSubmit={handleSubmit}>
                     <div className="space-y-8">
-                      {/* OpenAI API Key Section */}
-                      <div className="space-y-8">
+                      {/* AI Model Provider Section */}
+                      <div className="space-y-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <label
-                              className="text-[14px] font-medium text-[#191919] font-inter"
-                              htmlFor="openai-key">
-                              OpenAI API Key
+                            <label className="text-[14px] font-medium text-[#191919] font-inter">
+                              AI Model Provider
                             </label>
                           </div>
                           <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
-                            Used for text generation (GPT-4o, GPT-4o-mini) and
-                            text embeddings.
+                            Configure your Gurubase Self-hosted instance
+                            settings.
                           </p>
                           {isInitialLoading ? (
                             <Skeleton className="h-12" />
                           ) : (
-                            <SecretInput
-                              hasExisting={hasExistingKey}
-                              invalidMessage="OpenAI API key is invalid"
-                              isEditing={isEditing}
-                              isValid={isKeyValid}
-                              maskedValue={maskedOpenAIKey}
-                              placeholder="sk-..."
-                              validMessage="OpenAI API key is valid"
-                              value={openAIKey}
-                              onChange={handleChange}
-                              onStartEditing={startEditing}
-                            />
+                            <div className="space-y-2">
+                              <label
+                                className="flex items-center gap-3 cursor-pointer"
+                                onClick={() => setAiModelProvider("OPENAI")}>
+                                <div
+                                  className={`w-6 h-6 rounded-[50px] border border-[#E2E2E2] bg-white flex items-center justify-center p-0.5`}>
+                                  {aiModelProvider === "OPENAI" && (
+                                    <div className="w-4 h-4 rounded-full bg-[#191919]" />
+                                  )}
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="text-sm text-[#191919]">
+                                    OpenAI
+                                  </span>
+                                </div>
+                              </label>
+
+                              <label
+                                className="flex items-center gap-3 cursor-pointer"
+                                onClick={() => setAiModelProvider("OLLAMA")}>
+                                <div
+                                  className={`w-6 h-6 rounded-[50px] border border-[#E2E2E2] bg-white flex items-center justify-center p-0.5`}>
+                                  {aiModelProvider === "OLLAMA" && (
+                                    <div className="w-4 h-4 rounded-full bg-[#191919]" />
+                                  )}
+                                </div>
+                                <span className="text-sm text-[#191919]">
+                                  Ollama
+                                </span>
+                              </label>
+                            </div>
                           )}
                         </div>
+
+                        {/* OpenAI API Key Section */}
+                        {!isInitialLoading && aiModelProvider === "OPENAI" && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <label
+                                className="text-[14px] font-medium text-[#191919] font-inter"
+                                htmlFor="openai-key">
+                                OpenAI API Key
+                              </label>
+                            </div>
+                            <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                              Used for text generation (GPT-4o, GPT-4o-mini) and
+                              text embeddings.
+                            </p>
+                            {isInitialLoading ? (
+                              <Skeleton className="h-12" />
+                            ) : (
+                              <SecretInput
+                                hasExisting={hasExistingKey}
+                                invalidMessage="OpenAI API key is invalid"
+                                isEditing={isEditing}
+                                isValid={isKeyValid}
+                                maskedValue={maskedOpenAIKey}
+                                placeholder="sk-..."
+                                validMessage="OpenAI API key is valid"
+                                value={openAIKey}
+                                onChange={handleChange}
+                                onStartEditing={startEditing}
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Ollama Settings Section */}
+                        {aiModelProvider === "OLLAMA" && (
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <label
+                                  className="text-[14px] font-medium text-[#191919] font-inter"
+                                  htmlFor="ollama-url">
+                                  Ollama URL
+                                </label>
+                              </div>
+                              <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                                Configure your Gurubase Self-hosted instance
+                                settings.
+                              </p>
+                              {isInitialLoading ? (
+                                <Skeleton className="h-12" />
+                              ) : (
+                                <div className="relative">
+                                  <input
+                                    className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                    id="ollama-url"
+                                    placeholder="http://localhost:11434"
+                                    type="text"
+                                    value={ollamaUrl}
+                                    onBlur={validateOllamaUrl}
+                                    onChange={(e) =>
+                                      setOllamaUrl(e.target.value)
+                                    }
+                                  />
+                                  {isValidatingOllama && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900" />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {ollamaUrlError && (
+                                <div className="flex items-center gap-1 mt-2">
+                                  <CloseCircleIcon className="text-[#DC2626]" />
+                                  <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                    {ollamaUrlError}
+                                  </span>
+                                </div>
+                              )}
+                              {isOllamaUrlValid && !ollamaUrlError && (
+                                <div className="flex items-center gap-1 mt-2">
+                                  <CheckCircleIcon />
+                                  <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                    Ollama URL is accessible
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {isOllamaUrlValid && (
+                              <div className="space-y-4">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="text-[16px] font-semibold text-[#191919] font-inter">
+                                      Model Selection
+                                    </h3>
+                                  </div>
+                                  <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-4">
+                                    Configure your Gurubase Self-hosted instance
+                                    settings.
+                                  </p>
+                                </div>
+
+                                <div>
+                                  {isInitialLoading ? (
+                                    <Skeleton className="h-12" />
+                                  ) : (
+                                    <input
+                                      className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                      id="ollama-embedding-model"
+                                      placeholder="Embedding Model"
+                                      type="text"
+                                      value={ollamaEmbeddingModel}
+                                      onChange={(e) =>
+                                        setOllamaEmbeddingModel(e.target.value)
+                                      }
+                                    />
+                                  )}
+                                  {!isEmbeddingModelValid && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <CloseCircleIcon className="text-[#DC2626]" />
+                                      <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                        Either the model name is incorrect, or
+                                        the model does not exist on the
+                                        specified Ollama server.
+                                      </span>
+                                    </div>
+                                  )}
+                                  {isEmbeddingModelValid && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <CheckCircleIcon />
+                                      <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                        Embedding model is valid
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div>
+                                  {isInitialLoading ? (
+                                    <Skeleton className="h-12" />
+                                  ) : (
+                                    <input
+                                      className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                      id="ollama-base-model"
+                                      placeholder="Base Model"
+                                      type="text"
+                                      value={ollamaBaseModel}
+                                      onChange={(e) =>
+                                        setOllamaBaseModel(e.target.value)
+                                      }
+                                    />
+                                  )}
+                                  {!isBaseModelValid && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <CloseCircleIcon className="text-[#DC2626]" />
+                                      <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                        Either the model name is incorrect, or
+                                        the model does not exist on the
+                                        specified Ollama server.
+                                      </span>
+                                    </div>
+                                  )}
+                                  {isBaseModelValid && (
+                                    <div className="flex items-center gap-1 mt-2">
+                                      <CheckCircleIcon />
+                                      <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                        Base model is valid
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Web Scraper Section */}

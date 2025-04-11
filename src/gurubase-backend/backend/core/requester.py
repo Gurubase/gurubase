@@ -1115,3 +1115,59 @@ class YouTubeRequester():
         except ValueError as e:
             raise ValueError(f"Failed to fetch channel videos: {str(e)}")
         
+
+class OllamaRequester():
+    def __init__(self, base_url=None):
+        self.base_url = base_url or settings.OLLAMA_URL
+        self.headers = {
+            'Content-Type': 'application/json'
+        }
+
+    def check_ollama_health(self):
+        """
+        Check if Ollama server is healthy and return available models
+        Returns:
+            tuple: (is_healthy: bool, models: list, error: str)
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", headers=self.headers, timeout=10)
+            if response.status_code != 200:
+                return False, [], f"Ollama API returned status code {response.status_code}"
+            
+            data = response.json()
+            models = [model['name'] for model in data.get('models', [])]
+            return True, models, None
+            
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Failed to connect to Ollama server: {str(e)}"
+        except Exception as e:
+            return False, [], f"Unexpected error checking Ollama health: {str(e)}"
+
+    def validate_models(self, embedding_model, base_model):
+        """
+        Validate if the specified models exist in Ollama
+        Args:
+            embedding_model (str): Name of the embedding model to validate
+            base_model (str): Name of the base model to validate
+        Returns:
+            tuple: (is_embedding_valid: bool, is_base_valid: bool, error: str)
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", headers=self.headers, timeout=10)
+            if response.status_code != 200:
+                return False, False, f"Ollama API returned status code {response.status_code}"
+            
+            data = response.json()
+            available_models = [model['name'] for model in data.get('models', [])]
+            
+            is_embedding_valid = embedding_model in available_models
+            is_base_valid = base_model in available_models
+            
+            return is_embedding_valid, is_base_valid, None
+            
+        except requests.exceptions.RequestException as e:
+            return False, False, f"Failed to connect to Ollama server: {str(e)}"
+        except Exception as e:
+            return False, False, f"Unexpected error validating models: {str(e)}"
+
+

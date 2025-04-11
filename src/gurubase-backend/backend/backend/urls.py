@@ -105,6 +105,7 @@ if settings.STREAM_ENABLED:
             path('api/slack/events/', core_views.slack_events, name='slack_events_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
             path('api/github/', core_views.github_webhook, name='github_webhook'),
+            path('validate/ollama/', core_views.validate_ollama_url, name='validate_ollama_url'),  # New Ollama validation endpoint
         ]
 
 if settings.ENV != 'selfhosted':
