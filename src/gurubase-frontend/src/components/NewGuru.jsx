@@ -2247,9 +2247,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-900">
-                  {aiModelProvider === "OPENAI"
-                    ? "Configure a valid OpenAI API Key to create a Guru."
-                    : "Configure valid Ollama settings (URL and models) to create a Guru."}
+                  No AI Model Provider selected. Please choose one to proceed.
                 </p>
               </div>
               <Link
