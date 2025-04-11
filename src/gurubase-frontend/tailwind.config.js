@@ -8,6 +8,27 @@ export default {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}"
   ],
+  safelist: [
+    // Trust score colors
+    "bg-emerald-500",
+    "text-emerald-500",
+    "bg-green-500",
+    "text-green-500",
+    "bg-lime-500",
+    "text-lime-500",
+    "bg-yellow-500",
+    "text-yellow-500",
+    "bg-orange-400",
+    "text-orange-400",
+    "bg-orange-500",
+    "text-orange-500",
+    "bg-red-400",
+    "text-red-400",
+    "bg-red-500",
+    "text-red-500",
+    "bg-red-600",
+    "text-red-600"
+  ],
   theme: {
     extend: {
       colors: {
