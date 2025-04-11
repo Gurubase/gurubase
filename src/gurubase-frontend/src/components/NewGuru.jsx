@@ -202,6 +202,11 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
   const [isYoutubeKeyValid, setIsYoutubeKeyValid] = useState(true);
 
+  const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
+  const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
+  const [isEmbeddingModelValid, setIsEmbeddingModelValid] = useState(false);
+  const [isBaseModelValid, setIsBaseModelValid] = useState(false);
+
   // Add function to fetch guru data
   const fetchGuruData = useCallback(async (guruSlug) => {
     try {
@@ -251,6 +256,18 @@ export default function NewGuru({ guruData, isProcessing }) {
         const settings = await getSettings();
         setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
         setIsYoutubeKeyValid(settings?.is_youtube_key_valid ?? false);
+
+        // Set Ollama-related states
+        if (settings?.ai_model_provider === "OLLAMA") {
+          setAiModelProvider("OLLAMA");
+          setIsOllamaUrlValid(settings?.is_ollama_url_valid ?? false);
+          setIsEmbeddingModelValid(
+            settings?.is_ollama_embedding_model_valid ?? false
+          );
+          setIsBaseModelValid(settings?.is_ollama_base_model_valid ?? false);
+        } else {
+          setAiModelProvider("OPENAI");
+        }
       } catch (error) {
         setIsApiKeyValid(false);
       } finally {
@@ -260,6 +277,10 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     checkApiKey();
   }, [isSelfHosted]);
+
+  // Add helper function to check if Ollama config is valid
+  const isOllamaConfigValid =
+    isOllamaUrlValid && isEmbeddingModelValid && isBaseModelValid;
 
   // Add helper function here at the top level
 
@@ -2217,24 +2238,28 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Modify the form component
   return (
     <>
-      {" "}
-      {isSelfHosted && !isCheckingApiKey && !isApiKeyValid && (
-        <div className="w-full border-b border-red-200 bg-red-50">
-          <div className="flex items-center gap-3 px-6 py-3">
-            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-900">
-                Configure a valid OpenAI API Key to create a Guru.
-              </p>
+      {isSelfHosted &&
+        !isCheckingApiKey &&
+        ((aiModelProvider === "OPENAI" && !isApiKeyValid) ||
+          (aiModelProvider === "OLLAMA" && !isOllamaConfigValid)) && (
+          <div className="w-full border-b border-red-200 bg-red-50">
+            <div className="flex items-center gap-3 px-6 py-3">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-900">
+                  {aiModelProvider === "OPENAI"
+                    ? "Configure a valid OpenAI API Key to create a Guru."
+                    : "Configure valid Ollama settings (URL and models) to create a Guru."}
+                </p>
+              </div>
+              <Link
+                href="/settings"
+                className="flex-shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
+                Configure Settings →
+              </Link>
             </div>
-            <Link
-              href="/settings"
-              className="flex-shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
-              Configure API Key →
-            </Link>
           </div>
-        </div>
-      )}
+        )}
       <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
         <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
@@ -2245,7 +2270,10 @@ export default function NewGuru({ guruData, isProcessing }) {
           <form
             className={cn(
               "space-y-8",
-              isSelfHosted && !isApiKeyValid && "opacity-50 pointer-events-none"
+              isSelfHosted &&
+                ((aiModelProvider === "OPENAI" && !isApiKeyValid) ||
+                  (aiModelProvider === "OLLAMA" && !isOllamaConfigValid)) &&
+                "opacity-50 pointer-events-none"
             )}
             onSubmit={(e) => {
               e.preventDefault();
