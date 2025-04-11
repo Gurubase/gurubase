@@ -140,7 +140,8 @@ def analytics_table(request, guru_type):
                 'type': format_filter_name_for_display(item.source),
                 'title': item.user_question,
                 'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
-                'link': item.frontend_url
+                'link': item.frontend_url,
+                'trust_score': int(item.trust_score * 100)
             } for item in paginated_data['items']]
             
         elif metric_type == 'out_of_context':
@@ -153,7 +154,7 @@ def analytics_table(request, guru_type):
                 'date': item.date_created.isoformat(),
                 'type': format_filter_name_for_display(item.source),
                 'title': item.user_question,
-                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question
+                'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
             } for item in paginated_data['items']]
             
         else:  # referenced_sources

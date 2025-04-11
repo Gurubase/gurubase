@@ -228,7 +228,8 @@ class AnalyticsService:
             'title': item.user_question,
             'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
             'link': item.frontend_url,
-            'source': format_filter_name_for_display(item.source)
+            'source': format_filter_name_for_display(item.source),
+            'trust_score': int(item.trust_score * 100)
         } for item in paginated_data['items']]
         
         result = {
