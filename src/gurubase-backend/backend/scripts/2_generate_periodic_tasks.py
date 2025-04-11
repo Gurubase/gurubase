@@ -26,7 +26,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.task_raw_questions_to_questions',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -34,7 +34,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.set_similarities',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -42,7 +42,7 @@ periodic_tasks = {
         'every': 20,
         'period': MINUTES,
         'task': 'core.tasks.rewrite_content_for_wrong_markdown_content',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -50,7 +50,7 @@ periodic_tasks = {
         'every': 30,
         'period': MINUTES,
         'task': 'core.tasks.update_question_as_the_question_content_h1',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -66,7 +66,7 @@ periodic_tasks = {
         'every': 35,
         'period': MINUTES,
         'task': 'core.tasks.find_duplicate_question_titles',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -156,7 +156,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.process_sitemap',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -220,7 +220,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.update_guru_type_sitemap_status',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
