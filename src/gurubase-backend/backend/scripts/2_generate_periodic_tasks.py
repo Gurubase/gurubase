@@ -124,13 +124,13 @@ periodic_tasks = {
         'every': 10,
         'period': MINUTES,
         'task': 'core.tasks.get_content_links',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
     'task_check_link_validity': {
         'every': 10,
-        'period': MINUTES,
+        'period': False,
         'task': 'core.tasks.check_link_validity',
         'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
@@ -140,7 +140,7 @@ periodic_tasks = {
         'every': 1,
         'period': DAYS,
         'task': 'core.tasks.check_favicon_validity',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -148,7 +148,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.move_questions_to_milvus',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
