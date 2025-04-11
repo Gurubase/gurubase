@@ -1373,10 +1373,10 @@ class Settings(models.Model):
         if not self.default_embedding_model:
             self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
 
-        if ':' not in self.ollama_base_model:
+        if self.ollama_base_model and ':' not in self.ollama_base_model:
             self.ollama_base_model = f'{self.ollama_base_model}:latest'
 
-        if ':' not in self.ollama_embedding_model:
+        if self.ollama_embedding_model and ':' not in self.ollama_embedding_model:
             self.ollama_embedding_model = f'{self.ollama_embedding_model}:latest'
 
         # Validate Ollama settings if provider is Ollama
