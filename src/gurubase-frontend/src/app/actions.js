@@ -133,7 +133,13 @@ export const makePublicRequest = async (url, options = {}, decode = false) => {
   }
 
   if (response.status === 490) {
-    throw new HttpError("OpenAI API Key is not valid!", response.status);
+    const errorData = await response.json();
+    throw new HttpError(
+      errorData.msg || "Invalid AI model provider settings",
+      response.status,
+      errorData.type || "openai",
+      errorData.reason || "openai_key_invalid"
+    );
   }
 
   if (!response.ok) {
@@ -204,7 +210,14 @@ export async function getAnswerFromMyBackend(
       return await response.json();
     }
   } catch (error) {
-    return { error: true, message: error.message, status: error.status };
+    console.log("Caught error: \n", error.type, error.reason);
+    return {
+      error: true,
+      message: error.message,
+      status: error.status,
+      type: error.type || "openai", // Default to 'openai' if not specified
+      reason: error.reason || "openai_key_invalid" // Default to 'openai_key_invalid' if not specified
+    };
   }
 }
 

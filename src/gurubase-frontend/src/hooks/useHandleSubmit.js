@@ -104,6 +104,8 @@ export const useHandleSubmit = (
         valid_question: answerValid,
         jwt,
         times,
+        type,
+        reason,
         enhanced_question: enhancedQuestion
       } = await getAnswerFromMyBackend(inputValue, guruType, bingeId);
 
@@ -128,9 +130,21 @@ export const useHandleSubmit = (
 
         return;
       } else if (error && status === 490 && isSelfHosted) {
+        let errorMessage = "";
+        if (type === "openai") {
+          errorMessage = "Configure a valid OpenAI API Key to ask questions.";
+        } else if (type === "ollama") {
+          if (reason === "ollama_url_invalid") {
+            errorMessage =
+              "Ollama server is inaccessible. Please verify the server status.";
+          } else if (reason === "ollama_model_invalid") {
+            errorMessage =
+              "Cannot access the required Ollama models. Check their status on the Settings page.";
+          }
+        }
         setError(
           <span>
-            Invalid OpenAI API Key.{" "}
+            {errorMessage}{" "}
             <a
               href="/settings"
               className="text-blue-500 hover:text-blue-700 underline"
@@ -138,9 +152,8 @@ export const useHandleSubmit = (
                 e.preventDefault();
                 navigation.push("/settings");
               }}>
-              Configure a valid API key
-            </a>{" "}
-            to use the Guru.
+              Go to Settings
+            </a>
           </span>
         );
         dispatch(setIsLoading(false));
