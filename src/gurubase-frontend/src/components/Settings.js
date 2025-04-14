@@ -603,9 +603,10 @@ const Settings = () => {
                                     <div className="flex items-center gap-1 mt-2">
                                       <CloseCircleIcon className="text-[#DC2626]" />
                                       <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                        Either the model name is incorrect, or
-                                        the model does not exist on the
-                                        specified Ollama server.
+                                        Either the model name is incorrect, the
+                                        model does not exist on the specified
+                                        Ollama server, or it does not support
+                                        embedding.
                                       </span>
                                     </div>
                                   )}
