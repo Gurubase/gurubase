@@ -1220,6 +1220,7 @@ class Settings(models.Model):
     ollama_url = models.URLField(max_length=2000, null=True, blank=True)
     is_ollama_url_valid = models.BooleanField(default=False)
     ollama_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    ollama_embedding_model_dimension = models.IntegerField(default=0)
     is_ollama_embedding_model_valid = models.BooleanField(default=False)
     ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
     is_ollama_base_model_valid = models.BooleanField(default=False)
@@ -1293,7 +1294,14 @@ class Settings(models.Model):
             elif self.ollama_base_model:
                 self.is_ollama_base_model_valid = True
             
-            return True
+            # Determine embedding dimension
+
+            if self.ollama_embedding_model:
+                is_valid, response = requester.embed_text('test', self.ollama_embedding_model)
+                if is_valid:
+                    self.ollama_embedding_model_dimension = len(response['embedding'])
+                else:
+                    self.is_ollama_embedding_model_valid = False
             
         except Exception as e:
             self.is_ollama_url_valid = False
