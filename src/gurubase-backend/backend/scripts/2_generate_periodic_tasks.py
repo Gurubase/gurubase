@@ -140,7 +140,7 @@ periodic_tasks = {
         'every': 1,
         'period': DAYS,
         'task': 'core.tasks.check_favicon_validity',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
