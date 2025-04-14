@@ -50,7 +50,8 @@ const Settings = () => {
   const [isEmbeddingModelValid, setIsEmbeddingModelValid] = useState(false);
   const [isBaseModelValid, setIsBaseModelValid] = useState(false);
 
-  const fetchSettings = async (isInitial = false) => {
+  const fetchSettings = async (isInitial = false, keepFields = false) => {
+    // keepFields only works for non-api key inputs as they are masked.
     if (isInitial) {
       setIsInitialLoading(true);
     }
@@ -63,19 +64,25 @@ const Settings = () => {
       setMaskedOpenAIKey(settings.openai_api_key || "");
 
       // Set AI Model Provider settings
-      if (settings.ai_model_provider) {
+      if (!keepFields && settings.ai_model_provider) {
         setAiModelProvider(settings.ai_model_provider);
       }
       if (settings.ollama_url) {
-        setOllamaUrl(settings.ollama_url);
+        if (!keepFields) {
+          setOllamaUrl(settings.ollama_url);
+        }
         setIsOllamaUrlValid(settings.is_ollama_url_valid);
       }
       if (settings.ollama_embedding_model) {
-        setOllamaEmbeddingModel(settings.ollama_embedding_model);
+        if (!keepFields) {
+          setOllamaEmbeddingModel(settings.ollama_embedding_model);
+        }
         setIsEmbeddingModelValid(settings.is_ollama_embedding_model_valid);
       }
       if (settings.ollama_base_model) {
-        setOllamaBaseModel(settings.ollama_base_model);
+        if (!keepFields) {
+          setOllamaBaseModel(settings.ollama_base_model);
+        }
         setIsBaseModelValid(settings.is_ollama_base_model_valid);
       }
 
@@ -101,7 +108,7 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    fetchSettings(true);
+    fetchSettings(true, false);
   }, []);
 
   const handleChange = (e) => {
@@ -132,6 +139,7 @@ const Settings = () => {
     setOllamaUrlError("");
 
     let error = false;
+    let requestSent = false;
 
     try {
       // Validate Ollama settings if Ollama is selected
@@ -154,6 +162,8 @@ const Settings = () => {
             variant: "error"
           });
           setIsLoading(false);
+
+          return;
         }
 
         if (!ollamaEmbeddingModel.trim()) {
@@ -217,6 +227,8 @@ const Settings = () => {
       }
 
       const result = await updateSettings(formData);
+
+      requestSent = true;
 
       if (isEditing) setIsEditing(false);
       if (isFirecrawlEditing) setIsFirecrawlEditing(false);
@@ -322,7 +334,9 @@ const Settings = () => {
       });
     } finally {
       setIsLoading(false);
-      await fetchSettings(false);
+      if (requestSent) {
+        await fetchSettings(false, error);
+      }
     }
   };
 
@@ -508,11 +522,12 @@ const Settings = () => {
                                   )}
                                 </div>
                               )}
-                              {ollamaUrlError && (
+                              {(ollamaUrlError || !isOllamaUrlValid) && (
                                 <div className="flex items-center gap-1 mt-2">
                                   <CloseCircleIcon className="text-[#DC2626]" />
                                   <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                    {ollamaUrlError}
+                                    Unable to access the Ollama server at this
+                                    address.
                                   </span>
                                 </div>
                               )}
@@ -520,8 +535,7 @@ const Settings = () => {
                                 <div className="flex items-center gap-1 mt-2">
                                   <CheckCircleIcon />
                                   <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                    Unable to access the Ollama server at this
-                                    address.
+                                    Ollama is accessible.
                                   </span>
                                 </div>
                               )}
