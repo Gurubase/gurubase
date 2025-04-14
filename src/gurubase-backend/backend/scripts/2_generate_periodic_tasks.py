@@ -130,9 +130,9 @@ periodic_tasks = {
     },
     'task_check_link_validity': {
         'every': 10,
-        'period': False,
+        'period': MINUTES,
         'task': 'core.tasks.check_link_validity',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
