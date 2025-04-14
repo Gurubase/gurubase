@@ -170,6 +170,14 @@ def summary(request, guru_type):
                 reason = 'ollama_model_invalid'
         if not valid:
             return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
+
+    if settings.ENV == 'selfhosted':
+        user = None
+    else:
+        if request.user.is_anonymous:
+            user = None
+        else:
+            user = request.user
     
     endpoint_start = time.time()
     validate_guru_type(guru_type)
@@ -179,6 +187,7 @@ def summary(request, guru_type):
         data = request.data
         question = data.get('question')
         binge_id = data.get('binge_id')
+        parent_question_slug = data.get('parent_question_slug')
     except Exception as e:
         logger.error(f'Error parsing request data: {e}', exc_info=True)
         question = None
@@ -195,6 +204,21 @@ def summary(request, guru_type):
             return Response({'msg': 'Binge not found'}, status=status.HTTP_404_NOT_FOUND)
     else:
         binge = None
+        
+    if parent_question_slug:
+        guru_type_object = get_guru_type_object(guru_type)
+        parent_question = search_question(
+            user, 
+            guru_type_object,
+            binge,
+            parent_question_slug,
+            question
+        )
+        if not parent_question:
+            return Response({'msg': "Parent question not found"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        parent_question = None
+        
     times['payload_processing'] = time.time() - payload_start
 
     existence_start = time.time()
@@ -237,7 +261,8 @@ def summary(request, guru_type):
         question, 
         guru_type, 
         binge, 
-        short_answer=False
+        short_answer=False,
+        parent_question=parent_question
     )
 
     times['get_question_summary'] = get_question_summary_times
