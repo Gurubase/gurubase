@@ -3435,7 +3435,7 @@ def get_embedder_and_model(model_choice):
     Returns a tuple of (embedder_instance, model_name) based on the model choice.
     
     Args:
-        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        model_choice: The embedding model choice from GuruType.EmbeddingModel. Used only in cloud.
         
     Returns:
         tuple: (embedder_instance, model_name)
@@ -3446,6 +3446,7 @@ def get_embedder_and_model(model_choice):
         assert settings_obj, "Settings object not found"
         if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
             from core.requester import OllamaRequester
+            # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
             return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
         else:
             from core.requester import OpenAIRequester
@@ -3482,6 +3483,7 @@ def get_embedding_model_config(model_choice):
         settings_obj = Settings.objects.first()
         assert settings_obj, "Settings object not found"
         
+        # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedding_model_config. Then use it to fetch from settings_obj and return. Nothing else is needed
         if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
             # For Ollama, we use a single collection for all embeddings
             return "github_repo_code", settings_obj.ollama_embedding_model_dimension
