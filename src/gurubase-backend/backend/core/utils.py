@@ -3430,7 +3430,7 @@ def custom_exception_handler_throttled(exc, context):
         
     return response
 
-def get_embedder_and_model(model_choice):
+def get_embedder_and_model(model_choice, sync = True):
     """
     Returns a tuple of (embedder_instance, model_name) based on the model choice.
     
@@ -3440,16 +3440,22 @@ def get_embedder_and_model(model_choice):
     Returns:
         tuple: (embedder_instance, model_name)
     """
+    from core.requester import OpenAIRequester
     if settings.ENV == 'selfhosted':
         from core.models import Settings
         settings_obj = Settings.objects.first()
+        if not sync:
+            if model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
+                return (OpenAIRequester(), "text-embedding-3-small")
+            else:
+                return (OllamaRequester(settings_obj.ollama_url), model_choice)
+
         assert settings_obj, "Settings object not found"
         if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
             from core.requester import OllamaRequester
             # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
             return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
         else:
-            from core.requester import OpenAIRequester
             return (OpenAIRequester(), "text-embedding-3-small")
     
     # Cloud version logic
@@ -3464,7 +3470,7 @@ def get_embedder_and_model(model_choice):
     # Default to in-house if model_choice is not found
     return model_map.get(model_choice, (None, "in-house"))
 
-def get_embedding_model_config(model_choice):
+def get_embedding_model_config(model_choice, sync = True):
     """
     Returns a tuple of (collection_name, dimension) based on the GuruType.EmbeddingModel choice.
     
@@ -3482,11 +3488,19 @@ def get_embedding_model_config(model_choice):
         from core.models import Settings
         settings_obj = Settings.objects.first()
         assert settings_obj, "Settings object not found"
+
+        if not sync:
+            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"]:
+                return "github_repo_code", 1536
+            else:
+                model_choice = model_choice.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
         
         # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedding_model_config. Then use it to fetch from settings_obj and return. Nothing else is needed
         if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
             # For Ollama, we use a single collection for all embeddings
-            return "github_repo_code", settings_obj.ollama_embedding_model_dimension
+            model_choice = settings_obj.ollama_embedding_model.replace(':', '_').replace('.', '_').replace('-', '_')
+            return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
         else:
             # For OpenAI in selfhosted
             return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension

@@ -936,7 +936,7 @@ class DataSource(models.Model):
 
         ids = self.doc_ids
         if self.type == DataSource.Type.GITHUB_REPO:
-            collection_name, dimension = get_embedding_model_config(model)
+            collection_name, dimension = get_embedding_model_config(model, sync=False)
         else:
             collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
@@ -1221,6 +1221,8 @@ class Settings(models.Model):
     is_ollama_url_valid = models.BooleanField(default=False)
     ollama_embedding_model = models.CharField(max_length=100, null=True, blank=True)
     ollama_embedding_model_dimension = models.IntegerField(default=0)
+    last_valid_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    last_valid_embedding_model_dimension = models.IntegerField(default=0)
     is_ollama_embedding_model_valid = models.BooleanField(default=False)
     ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
     is_ollama_base_model_valid = models.BooleanField(default=False)
@@ -1300,6 +1302,8 @@ class Settings(models.Model):
                 is_valid, response = requester.embed_text('test', self.ollama_embedding_model)
                 if is_valid:
                     self.ollama_embedding_model_dimension = len(response['embedding'])
+                    self.last_valid_embedding_model = self.ollama_embedding_model
+                    self.last_valid_embedding_model_dimension = self.ollama_embedding_model_dimension
                 else:
                     self.is_ollama_embedding_model_valid = False
             
@@ -1324,6 +1328,8 @@ class Settings(models.Model):
             client = OpenAI(api_key=self.openai_api_key, timeout=10)
             client.models.list()
             self.is_openai_key_valid = True
+            self.last_valid_embedding_model = Settings.DefaultEmbeddingModel.SELFHOSTED.value
+            self.last_valid_embedding_model_dimension = 1536
             return True
         except Exception as e:
             self.is_openai_key_valid = False
