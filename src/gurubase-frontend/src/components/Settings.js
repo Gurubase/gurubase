@@ -15,6 +15,7 @@ import { CustomToast } from "@/components/CustomToast";
 import { CheckCircleIcon, CloseCircleIcon } from "@/components/Icons";
 import SecretInput from "@/components/SecretInput";
 import { Button } from "@/components/ui/button";
+import { HeaderTooltip } from "@/components/ui/header-tooltip";
 
 const Settings = () => {
   const [openAIKey, setOpenAIKey] = useState("");
@@ -403,6 +404,11 @@ const Settings = () => {
                             <label className="text-[14px] font-medium text-[#191919] font-inter">
                               AI Model Provider
                             </label>
+                            <HeaderTooltip
+                              text={
+                                "Choose between OpenAI's cloud services or self-hosted Ollama for AI capabilities"
+                              }
+                            />
                           </div>
                           <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
                             Configure your Gurubase Self-hosted instance
@@ -450,7 +456,7 @@ const Settings = () => {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <label
-                                className="text-[14px] font-medium text-[#191919] font-inter"
+                                className="text-[14px] font-medium text-[#6D6D6D] font-inter"
                                 htmlFor="openai-key">
                                 OpenAI API Key
                               </label>
@@ -484,10 +490,13 @@ const Settings = () => {
                             <div>
                               <div className="flex items-center gap-2 mb-1">
                                 <label
-                                  className="text-[14px] font-medium text-[#191919] font-inter"
+                                  className="text-[14px] font-medium text-[#6D6D6D] font-inter"
                                   htmlFor="ollama-url">
                                   Ollama URL
                                 </label>
+                                <HeaderTooltip
+                                  text={"Add your Ollama server endpoint."}
+                                />
                               </div>
                               <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
                                 Add your Ollama server endpoint. Learn more
@@ -545,9 +554,14 @@ const Settings = () => {
                               <div className="space-y-4">
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="text-[16px] font-semibold text-[#191919] font-inter">
+                                    <label className="text-[16px] font-semibold text-[#6D6D6D] font-inter">
                                       Model Selection
-                                    </h3>
+                                    </label>
+                                    <HeaderTooltip
+                                      text={
+                                        "Configure the embedding and language models for your Ollama setup"
+                                      }
+                                    />
                                   </div>
                                   <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-4">
                                     Configure your Gurubase Self-hosted instance
@@ -562,7 +576,7 @@ const Settings = () => {
                                     <>
                                       <div className="flex items-center gap-2 mb-1">
                                         <label
-                                          className="text-[14px] font-medium text-[#191919] font-inter"
+                                          className="text-[14px] font-medium text-[#6D6D6D] font-inter"
                                           htmlFor="ollama-embedding-model">
                                           Embedding Model
                                         </label>
@@ -612,7 +626,7 @@ const Settings = () => {
                                     <>
                                       <div className="flex items-center gap-2 mb-1">
                                         <label
-                                          className="text-[14px] font-medium text-[#191919] font-inter"
+                                          className="text-[14px] font-medium text-[#6D6D6D] font-inter"
                                           htmlFor="ollama-base-model">
                                           Language Model
                                         </label>
