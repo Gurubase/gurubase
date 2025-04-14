@@ -3,7 +3,7 @@
 import { auth0 } from "@/config/auth0";
 import { redirect } from "next/navigation";
 
-import HttpError from "@/utils/HttpError";
+import { HttpError, SummaryError } from "@/utils/HttpError";
 
 const shouldUsePublicRequest = () => {
   return process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -134,7 +134,7 @@ export const makePublicRequest = async (url, options = {}, decode = false) => {
 
   if (response.status === 490) {
     const errorData = await response.json();
-    throw new HttpError(
+    throw new SummaryError(
       errorData.msg || "Invalid AI model provider settings",
       response.status,
       errorData.type || "openai",
