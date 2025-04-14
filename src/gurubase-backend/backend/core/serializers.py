@@ -180,6 +180,9 @@ class SettingsSerializer(serializers.ModelSerializer):
             repr['is_ollama_url_valid'] = instance.is_ollama_url_valid
             repr['is_ollama_embedding_model_valid'] = instance.is_ollama_embedding_model_valid
             repr['is_ollama_base_model_valid'] = instance.is_ollama_base_model_valid
+
+        if settings.ENV == 'selfhosted':
+            repr['data_sources_exist'] = DataSource.objects.all().exists()
             
         return repr
 

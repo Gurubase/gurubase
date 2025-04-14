@@ -16,6 +16,13 @@ import { CheckCircleIcon, CloseCircleIcon } from "@/components/Icons";
 import SecretInput from "@/components/SecretInput";
 import { Button } from "@/components/ui/button";
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/modal-dialog";
 
 const Settings = () => {
   const [openAIKey, setOpenAIKey] = useState("");
@@ -47,9 +54,13 @@ const Settings = () => {
   const [isValidatingOllama, setIsValidatingOllama] = useState(false);
   const [ollamaUrlError, setOllamaUrlError] = useState("");
 
-  useState("");
   const [isEmbeddingModelValid, setIsEmbeddingModelValid] = useState(false);
   const [isBaseModelValid, setIsBaseModelValid] = useState(false);
+  const [dataSourcesExist, setDataSourcesExist] = useState(false);
+  const [showEmbeddingChangeModal, setShowEmbeddingChangeModal] =
+    useState(false);
+  const [hasEmbeddingChanged, setHasEmbeddingChanged] = useState(false);
+  const [oldAiModelProvider, setOldAiModelProvider] = useState("");
 
   const fetchSettings = async (isInitial = false, keepFields = false) => {
     // keepFields only works for non-api key inputs as they are masked.
@@ -63,10 +74,12 @@ const Settings = () => {
       setIsKeyValid(settings.is_openai_key_valid);
       setHasExistingKey(!!settings.openai_api_key);
       setMaskedOpenAIKey(settings.openai_api_key || "");
+      setDataSourcesExist(settings.data_sources_exist);
 
       // Set AI Model Provider settings
       if (!keepFields && settings.ai_model_provider) {
         setAiModelProvider(settings.ai_model_provider);
+        setOldAiModelProvider(settings.ai_model_provider);
       }
       if (settings.ollama_url) {
         if (!keepFields) {
@@ -107,6 +120,12 @@ const Settings = () => {
       setIsInitialLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (aiModelProvider !== oldAiModelProvider) {
+      setHasEmbeddingChanged(true);
+    }
+  }, [aiModelProvider]);
 
   useEffect(() => {
     fetchSettings(true, false);
@@ -227,6 +246,14 @@ const Settings = () => {
         formData.append("youtube_api_key_written", false);
       }
 
+      // Show confirmation modal if embedding has changed and data sources exist
+      if (hasEmbeddingChanged && dataSourcesExist) {
+        setShowEmbeddingChangeModal(true);
+        setIsLoading(false);
+
+        return;
+      }
+
       const result = await updateSettings(formData);
 
       requestSent = true;
@@ -319,6 +346,7 @@ const Settings = () => {
         }
         if (result.ai_model_provider) {
           setAiModelProvider(result.ai_model_provider);
+          setOldAiModelProvider(result.ai_model_provider);
         }
 
         if (!error) {
@@ -375,6 +403,60 @@ const Settings = () => {
       setOllamaUrlError("Failed to connect to Ollama server");
     } finally {
       setIsValidatingOllama(false);
+    }
+  };
+
+  const handleConfirmEmbeddingChange = async () => {
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+
+      formData.append("ai_model_provider", aiModelProvider);
+      if (aiModelProvider === "OLLAMA") {
+        formData.append("ollama_url", ollamaUrl.trim());
+        formData.append("ollama_embedding_model", ollamaEmbeddingModel.trim());
+        formData.append("ollama_base_model", ollamaBaseModel.trim());
+      }
+      if (isEditing) {
+        formData.append("openai_api_key", openAIKey.trim());
+        formData.append("openai_api_key_written", true);
+      } else {
+        formData.append("openai_api_key_written", false);
+      }
+      formData.append("scrape_type", scraperType);
+      if (scraperType === "FIRECRAWL") {
+        if (isFirecrawlEditing) {
+          formData.append("firecrawl_api_key", firecrawlKey.trim());
+          formData.append("firecrawl_api_key_written", true);
+        } else {
+          formData.append("firecrawl_api_key_written", false);
+        }
+      }
+      if (isYoutubeEditing) {
+        formData.append("youtube_api_key", youtubeApiKey.trim());
+        formData.append("youtube_api_key_written", true);
+      } else {
+        formData.append("youtube_api_key_written", false);
+      }
+
+      const result = await updateSettings(formData);
+
+      if (result) {
+        CustomToast({
+          message: "Settings saved successfully",
+          variant: "success"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message: "Failed to save settings",
+        variant: "error"
+      });
+    } finally {
+      setIsLoading(false);
+      setShowEmbeddingChangeModal(false);
+      setHasEmbeddingChanged(false);
+      await fetchSettings(false, false);
     }
   };
 
@@ -520,9 +602,10 @@ const Settings = () => {
                                     type="text"
                                     value={ollamaUrl}
                                     onBlur={validateOllamaUrl}
-                                    onChange={(e) =>
-                                      setOllamaUrl(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                      setOllamaUrl(e.target.value);
+                                      setHasEmbeddingChanged(true);
+                                    }}
                                   />
                                   {isValidatingOllama && (
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -591,11 +674,12 @@ const Settings = () => {
                                         placeholder="Embedding Model"
                                         type="text"
                                         value={ollamaEmbeddingModel}
-                                        onChange={(e) =>
+                                        onChange={(e) => {
                                           setOllamaEmbeddingModel(
                                             e.target.value
-                                          )
-                                        }
+                                          );
+                                          setHasEmbeddingChanged(true);
+                                        }}
                                       />
                                     </>
                                   )}
@@ -830,6 +914,41 @@ const Settings = () => {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={showEmbeddingChangeModal}
+        onOpenChange={setShowEmbeddingChangeModal}>
+        <DialogContent className="max-w-[400px] p-6 z-[200]">
+          <div className="p-6 text-center">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold text-center text-[#191919] font-inter">
+                Change Embedding Model
+              </DialogTitle>
+              <DialogDescription className="text-[14px] text-[#6D6D6D] text-center font-inter font-normal">
+                You are about to change the embedding model, which will require
+                reprocessing all data sources with the new model. You can track
+                the processing status of the data sources on the Guru Edit
+                pages.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 flex flex-col gap-2">
+              <Button
+                className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
+                disabled={isLoading}
+                onClick={handleConfirmEmbeddingChange}>
+                {isLoading ? "Saving..." : "Continue"}
+              </Button>
+              <Button
+                className="h-12 px-4 justify-center items-center rounded-lg border border-[#1B242D] bg-white"
+                disabled={isLoading}
+                variant="outline"
+                onClick={() => setShowEmbeddingChangeModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
