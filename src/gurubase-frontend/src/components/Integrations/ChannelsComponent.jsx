@@ -94,7 +94,7 @@ const ChannelsComponent = ({
           Select the channels you want, click <strong>Save</strong>, then test
           the connection for each channel using{" "}
           <strong>Send test message</strong>, and call the bot with{" "}
-          <strong>@gurubase</strong>.
+          <strong>@Gurubase.io</strong>.
         </p>
         {type === "slack" && (
           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">

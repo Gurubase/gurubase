@@ -424,6 +424,13 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 data_source.user_error = str(e)
                 data_source.save()
                 continue
+            except (GithubRepoFileCountLimitError, GithubRepoSizeLimitError) as e:
+                logger.warning(f"Error while fetching GitHub data source: {e}")
+                data_source.status = DataSource.Status.FAIL
+                data_source.error = str(e)
+                data_source.user_error = str(e)
+                data_source.save()
+                continue
             except Exception as e:
                 logger.error(f"Error while fetching data source: {traceback.format_exc()}")
                 data_source.status = DataSource.Status.FAIL
@@ -735,8 +742,7 @@ def check_link_validity():
 @shared_task
 def check_favicon_validity():
     logger.info("Checking favicon validity")
-    favicons = Favicon.objects.all()
-    for favicon in favicons.iterator(chunk_size=100):
+    for favicon in Favicon.objects.iterator(chunk_size=100):
         try:
             response = requests.get(favicon.favicon_url, timeout=30)
             if response.content:

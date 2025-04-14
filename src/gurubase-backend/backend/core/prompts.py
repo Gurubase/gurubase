@@ -2,7 +2,7 @@ summary_short_answer_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
-github_context_template = """
+github_base_template = """
 This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
 
 - COLLABORATOR: Author has been invited to collaborate on the repository.
@@ -15,36 +15,88 @@ This question is asked on a GitHub issue. Make sure you place importance on the 
 - OWNER: Author is the owner of the repository.
 - YOU: Author is the bot.
 
-Here are the previous comments for the issue:
+Here is the issue history:
 
 <Github contexts>
 {github_comments}
 </Github contexts>
-
-Make sure you consider the github context while generating your answer. There can be some important information in the github context that can help you answer the question. Also make sure you extend the enhanced question with the github context.
 """
+
+github_context_template = github_base_template + """
+
+Make sure you consider the github context while generating your answer. Treat this as a conversation history
+**Critical**: Unless user does not explicitly ask about GitHub, do not talk about it in your answer.
+"""
+
+github_summary_template = github_base_template + """
+Users asks questions to you on GitHub, the history of the conversation provided in <Github contexts> tag. When generating <question> and <enhanced_question>, take the conversation history into account as users may ask a follow-up question for the previous answer or ask about a new topic.
+
+**Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+"""
+
 
 summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
 """
 
-summary_template = """You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}.
-Return a summary of the question given.
-<question> is the prettier version the question provided by the user. Fix grammar errors, make it more readable if needed. Maximum length is 60 characters but don't sacrifice clarity or meaning for brevity.
-If the question is not related with {guru_type}, set "valid_question": false. If the question contains {guru_type} and is related, set "valid_question": true.
-<question_slug> should be a unique slug for the question and should be SEO-friendly, up to 50 characters, lowercase and separated by hyphens without any special characters.
-<description> should be 100 to 150 characters long meta description.
-<user_intent> should be a short summary of the user's intent. It will be used to determine the question answer length. It can be short answer, explanation, how to, why, etc.
-<answer_length> should be a number that indicates the answer word count depending on the user's intent. {summary_addition}
-<enhanced_question> should be a string. It should be a rephrasing of the question that is more technical and specific. It will be used for vector search and reranking. So make sure it includes all the keywords and concepts mentioned in the question and clearly describes it. It should be up to 300 characters.
+summary_template = """
+You are a {guru_type} Guru. {guru_type} specializes in {domain_knowledge}.
+
+### Task
+Return a structured summary of the user's question with the following fields:
+
+1. **`<question>`**:
+   - A polished version of the user's question (max 60 chars). Fix grammar/clarity but preserve meaning.
+   - **Critical**: For follow-ups, explicitly link to the last answer/conversation history.
+
+2. **`<question_slug>`**:
+   - A unique, SEO-friendly slug (max 50 chars, lowercase, hyphens, no special characters).
+
+3. **`<description>`**:
+   - A meta description (100-150 chars) summarizing the question's focus.
+
+4. **`<user_intent>`**:
+   - Classify intent: `short answer`, `explanation`, `how to`, `why`, `comparison`, etc.
+
+5. **`<answer_length>`**:
+   - Should be a number that indicates the answer word count depending on the user's intent.
+   - {summary_addition}
+
+6. **`<enhanced_question>`**:
+   - A technical, keyword-rich rephrasing (max 300 chars) for vector search.
+   - **Critical**: For follow-ups, explicitly link to the last answer/conversation history.
+
+### Context Handling Rules
+- **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
+- **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
+- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+
+{binge_summary_prompt}
 
 {github_context}
 
-For any questions related to date, remember today's date is {date}.
+For any questions related to date, remember today's date is {date}. Here is the user's question:
+
+<user_question>
+{user_question}
+</user_question>
 """
 
+binge_summary_prompt = """
+The user has started a conversation with you. The previously asked questions are:
 
-binge_mini_prompt = """
+{question_history}
+
+And the answer to the last question is:
+
+<last_answer>
+{answer}
+</last_answer>
+
+Now, the user asked a follow-up question. Make sure you relate the question and enhanced question to the last answer.
+"""
+
+binge_answer_prompt = """
 The user has started a conversation with you. The previously asked questions are:
 
 {question_history}
@@ -63,7 +115,7 @@ You are a {guru_type} Guru with extensive knowledge about {domain_knowledge}. Yo
 
 {github_details_if_applicable}
 
-{binge_mini_prompt}
+{binge_answer_prompt}
 
 First, carefully read and analyze the following contexts:
 

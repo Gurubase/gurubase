@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from core.exceptions import ValidationError
 from core.models import (APIKey,
                          Binge, CrawlState, Integration, 
                          LLMEval, 
@@ -120,6 +121,9 @@ class QuestionAdmin(admin.ModelAdmin):
         queryset.update(default_question=True)
         
     def set_llm_eval_question(self, request, queryset):
+        for question in queryset:
+            if question.binge:
+                raise ValidationError("LLM eval is not allowed for binge questions")
         queryset.update(llm_eval=True)
 
     def unset_llm_eval_question(self, request, queryset):
@@ -421,7 +425,7 @@ class WidgetIdAdmin(admin.ModelAdmin):
 @admin.register(GithubFile)
 class GitHubFileAdmin(admin.ModelAdmin):
     list_display = ['id', 'repository_link', 'link_to_file', 'size', 'in_milvus', 'doc_ids']
-    list_filter = ('in_milvus', RepositoryFilter)
+    list_filter = ('in_milvus', RepositoryFilter, 'data_source__guru_type__slug')
     search_fields = ['id', 'path']
     ordering = ('-id',)
 

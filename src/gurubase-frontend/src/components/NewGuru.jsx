@@ -2196,7 +2196,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                       isProcessing ||
                       form.formState.isSubmitting
                     }
-                    className={`w-full ${
+                    className={`${
                       isSourcesProcessing ||
                       isProcessing ||
                       form.formState.isSubmitting
@@ -2416,7 +2416,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                   </FormItem>
                 )}
               />
+            </div>
 
+            <div className="max-w-3xl">
               <div className="flex items-center space-x-4">
                 {renderCodebaseIndexing()}
               </div>

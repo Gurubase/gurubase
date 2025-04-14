@@ -7,6 +7,7 @@ class UserAdmin(admin.ModelAdmin):
     list_display = ['id', 'is_admin', 'user_picture', 'email', 'name', 'auth_provider', 'is_email_confirmed', 'date_created']
     ordering = ['-date_created']
     list_filter = ['auth_provider', 'is_admin']
+    search_fields = ['id', 'email', 'name']
 
     def user_picture(self, obj):
         if obj.picture:

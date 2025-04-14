@@ -228,7 +228,8 @@ class AnalyticsService:
             'title': item.user_question,
             'truncated_title': item.user_question[:75] + '...' if len(item.user_question) > 75 else item.user_question,
             'link': item.frontend_url,
-            'source': format_filter_name_for_display(item.source)
+            'source': format_filter_name_for_display(item.source),
+            'trust_score': int(item.trust_score * 100)
         } for item in paginated_data['items']]
         
         result = {
@@ -414,7 +415,7 @@ class AnalyticsService:
                 ws.cell(row=row_idx, column=2, value=format_filter_name_for_display(question.source))
                 
                 # Question with hyperlink
-                cell = ws.cell(row=row_idx, column=3, value=question.user_question[:75] + '...' if len(question.user_question) > 75 else question.user_question)
+                cell = ws.cell(row=row_idx, column=3, value=question.user_question)
                 cell.hyperlink = question.frontend_url
                 cell.style = 'Hyperlink'
                 
@@ -437,7 +438,7 @@ class AnalyticsService:
             for row_idx, ooc in enumerate(results['unable_to_answer'], 2):
                 ws.cell(row=row_idx, column=1, value=ooc.date_created.strftime('%Y-%m-%d %H:%M'))
                 ws.cell(row=row_idx, column=2, value=format_filter_name_for_display(ooc.source))
-                ws.cell(row=row_idx, column=3, value=ooc.user_question[:75] + '...' if len(ooc.user_question) > 75 else ooc.user_question)
+                ws.cell(row=row_idx, column=3, value=ooc.user_question)
         
         # References sheet
         if results['references']:
@@ -509,7 +510,7 @@ class AnalyticsService:
                     writer.writerow([
                         question.date_created.strftime('%Y-%m-%d %H:%M'),
                         format_filter_name_for_display(question.source),
-                        question.user_question[:75] + '...' if len(question.user_question) > 75 else question.user_question,
+                        question.user_question,
                         f'{question.trust_score:.2f}' if question.trust_score is not None else '',
                         'Yes' if question.parent else 'No',
                         question.frontend_url
@@ -527,7 +528,7 @@ class AnalyticsService:
                     writer.writerow([
                         ooc.date_created.strftime('%Y-%m-%d %H:%M'),
                         format_filter_name_for_display(ooc.source),
-                        ooc.user_question[:75] + '...' if len(ooc.user_question) > 75 else ooc.user_question
+                        ooc.user_question
                     ])
                 
                 zip_file.writestr('unable_to_answer.csv', output.getvalue())
@@ -558,7 +559,7 @@ class AnalyticsService:
             'questions': [{
                 'datetime': question.date_created.strftime('%Y-%m-%d %H:%M'),
                 'source': format_filter_name_for_display(question.source),
-                'question': question.user_question[:75] + '...' if len(question.user_question) > 75 else question.user_question,
+                'question': question.user_question,
                 'trust_score': float(f'{question.trust_score:.2f}') if question.trust_score is not None else None,
                 'follow_up': question.parent is not None,
                 'url': question.frontend_url
@@ -567,7 +568,7 @@ class AnalyticsService:
             'unable_to_answer': [{
                 'datetime': ooc.date_created.strftime('%Y-%m-%d %H:%M'),
                 'source': format_filter_name_for_display(ooc.source),
-                'question': ooc.user_question[:75] + '...' if len(ooc.user_question) > 75 else ooc.user_question
+                'question': ooc.user_question
             } for ooc in results['unable_to_answer']],
             
             'references': [{
