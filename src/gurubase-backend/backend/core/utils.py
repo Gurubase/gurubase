@@ -1290,7 +1290,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_context_template, binge_summary_prompt
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_summary_template, binge_summary_prompt
     from core.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
@@ -1304,7 +1304,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     github_context = ""
     if github_comments:
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type)
+        github_context = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
 
     if parent_question:
         history = get_question_history(parent_question)
@@ -1324,6 +1324,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         binge_summary_prompt=binge_summary_prompt,
         user_question=question
     )
+
 
     # if guru_type.lower() not in question.lower():
     #     guru_type_obj = get_guru_type_object(guru_type)
