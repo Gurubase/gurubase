@@ -425,7 +425,7 @@ class WidgetIdAdmin(admin.ModelAdmin):
 @admin.register(GithubFile)
 class GitHubFileAdmin(admin.ModelAdmin):
     list_display = ['id', 'repository_link', 'link_to_file', 'size', 'in_milvus', 'doc_ids']
-    list_filter = ('in_milvus', RepositoryFilter)
+    list_filter = ('in_milvus', RepositoryFilter, 'data_source__guru_type__slug')
     search_fields = ['id', 'path']
     ordering = ('-id',)
 
