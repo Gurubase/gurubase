@@ -56,13 +56,16 @@ const ConfigurationCheck = () => {
         );
         setIsBaseModelValid(settings?.is_ollama_base_model_valid ?? false);
 
-        if (
-          !settings?.is_ollama_url_valid ||
+        if (!settings?.is_ollama_url_valid) {
+          showConfigToast(
+            "Ollama server is inaccessible. Please verify the server status."
+          );
+        } else if (
           !settings?.is_ollama_embedding_model_valid ||
           !settings?.is_ollama_base_model_valid
         ) {
           showConfigToast(
-            "No AI Model Provider selected. Please choose one to proceed"
+            "Cannot access the required Ollama models. Check their status on the Settings page."
           );
         }
       } else {
@@ -70,9 +73,7 @@ const ConfigurationCheck = () => {
         setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
 
         if (!settings?.is_openai_key_valid) {
-          showConfigToast(
-            "No AI Model Provider selected. Please choose one to proceed"
-          );
+          showConfigToast("Configure a valid OpenAI API Key to create a Guru.");
         }
       }
     } catch (error) {
