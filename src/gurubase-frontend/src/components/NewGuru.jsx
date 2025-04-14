@@ -2238,26 +2238,6 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Modify the form component
   return (
     <>
-      {isSelfHosted &&
-        !isCheckingApiKey &&
-        ((aiModelProvider === "OPENAI" && !isApiKeyValid) ||
-          (aiModelProvider === "OLLAMA" && !isOllamaConfigValid)) && (
-          <div className="w-full border-b border-red-200 bg-red-50">
-            <div className="flex items-center gap-3 px-6 py-3">
-              <AlertTriangle className="h-5 w-5 flex-shrink-0 text-red-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-red-900">
-                  No AI Model Provider selected. Please choose one to proceed.
-                </p>
-              </div>
-              <Link
-                href="/settings"
-                className="flex-shrink-0 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2">
-                Configure Settings →
-              </Link>
-            </div>
-          </div>
-        )}
       <section className="flex flex-col w-full p-6 border-b border-[#E5E7EB]">
         <h1 className="text-h5 font-semibold text-black-600">
           {isEditMode ? "Edit Guru" : "New Guru"}
