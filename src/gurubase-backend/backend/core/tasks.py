@@ -753,8 +753,7 @@ def check_link_validity():
 @shared_task
 def check_favicon_validity():
     logger.info("Checking favicon validity")
-    favicons = Favicon.objects.all()
-    for favicon in favicons.iterator(chunk_size=100):
+    for favicon in Favicon.objects.iterator(chunk_size=100):
         try:
             response = requests.get(favicon.favicon_url, timeout=30)
             if response.content:
