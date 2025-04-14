@@ -1243,7 +1243,7 @@ def update_guru_type_details():
     for guru_type in guru_types:
         # Update GitHub details if missing
         if not guru_type.github_details:
-            github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
+            github_repos = guru_type.github_repos
             if github_repos:
                 try:
                     # Only fetch details for the first GitHub repo
