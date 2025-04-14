@@ -26,7 +26,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.task_raw_questions_to_questions',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -34,7 +34,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.set_similarities',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -42,7 +42,7 @@ periodic_tasks = {
         'every': 20,
         'period': MINUTES,
         'task': 'core.tasks.rewrite_content_for_wrong_markdown_content',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -50,7 +50,7 @@ periodic_tasks = {
         'every': 30,
         'period': MINUTES,
         'task': 'core.tasks.update_question_as_the_question_content_h1',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -66,7 +66,7 @@ periodic_tasks = {
         'every': 35,
         'period': MINUTES,
         'task': 'core.tasks.find_duplicate_question_titles',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -130,9 +130,9 @@ periodic_tasks = {
     },
     'task_check_link_validity': {
         'every': 10,
-        'period': False,
+        'period': MINUTES,
         'task': 'core.tasks.check_link_validity',
-        'enabled': True,
+        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -148,7 +148,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.move_questions_to_milvus',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -156,7 +156,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.process_sitemap',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -220,7 +220,7 @@ periodic_tasks = {
         'every': 1,
         'period': HOURS,
         'task': 'core.tasks.update_guru_type_sitemap_status',
-        'enabled': False,
+        'enabled': True,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
