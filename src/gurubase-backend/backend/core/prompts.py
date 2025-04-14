@@ -2,7 +2,7 @@ summary_short_answer_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
-github_context_template = """
+github_base_template = """
 This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
 
 - COLLABORATOR: Author has been invited to collaborate on the repository.
@@ -20,12 +20,20 @@ Here is the issue history:
 <Github contexts>
 {github_comments}
 </Github contexts>
+"""
 
-Make sure you consider the github context while generating your answer. Treat this as a conversation history.
+github_context_template = github_base_template + """
 
+Make sure you consider the github context while generating your answer. Treat this as a conversation history
 **Critical**: Unless user does not explicitly ask about GitHub, do not talk about it in your answer.
+"""
+
+github_summary_template = github_base_template + """
+Users asks questions to you on GitHub, the history of the conversation provided in <Github contexts> tag. When generating <question> and <enhanced_question>, take the conversation history into account as users may ask a follow-up question for the previous answer or ask about a new topic.
+
 **Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 """
+
 
 summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
@@ -61,7 +69,7 @@ Return a structured summary of the user's question with the following fields:
 ### Context Handling Rules
 - **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
-- **Validation**: Reject non-questions (e.g., "hello"), incoherent and unrelated to {guru_type} inputs with `"valid_question": false`.
+- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 
 {binge_summary_prompt}
 
@@ -85,7 +93,7 @@ And the answer to the last question is:
 {answer}
 </last_answer>
 
-Now, the user asked another question. Make sure you relate the question and enhanced question to the conversation history and the last answer.
+Now, the user asked a follow-up question. Make sure you relate the question and enhanced question to the last answer.
 """
 
 binge_answer_prompt = """
