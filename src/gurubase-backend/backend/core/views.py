@@ -24,7 +24,7 @@ from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
-from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
+from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, Settings, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -156,9 +156,20 @@ def summary(request, guru_type):
 
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
-        api_key_valid = default_settings.is_openai_key_valid
-        if not api_key_valid:
-            return Response({'msg': 'OpenAI API key is invalid'}, status=490)
+        valid = False
+        if default_settings.ai_model_provider == Settings.AIProvider.OPENAI:
+            valid = default_settings.is_openai_key_valid
+            error_type = 'openai'
+            reason = 'openai_key_invalid'
+        elif default_settings.ai_model_provider == Settings.AIProvider.OLLAMA:
+            valid = default_settings.is_ollama_url_valid and default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid
+            error_type = 'ollama'
+            if not default_settings.is_ollama_url_valid:
+                reason = 'ollama_url_invalid'
+            elif not (default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid):
+                reason = 'ollama_model_invalid'
+        if not valid:
+            return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
     
     endpoint_start = time.time()
     validate_guru_type(guru_type)
