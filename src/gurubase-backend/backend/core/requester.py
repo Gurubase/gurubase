@@ -1170,4 +1170,20 @@ class OllamaRequester():
         except Exception as e:
             return False, False, f"Unexpected error validating models: {str(e)}"
 
+    def embed_text(self, text, model_name):
+        url = f"{self.base_url}/api/embeddings"
+        data = json.dumps({"model": model_name, "prompt": text})
+        response = requests.post(url, headers=self.headers, data=data, timeout=10)
+        if response.status_code != 200:
+            logger.error(f"Ollama API text embedding failed. Text: {text}. Model: {model_name}. Status code: {response.status_code}. {response.text}")
+            return False, f"Ollama API returned status code {response.status_code}"
+        return True, response.json()
 
+    def embed_texts(self, texts, model_name):
+        results = []
+        for text in texts:
+            is_valid, result = self.embed_text(text, model_name)
+            if not is_valid:
+                return False, f"Ollama API failed to embed text: {text}"
+            results.append(result)
+        return True, results

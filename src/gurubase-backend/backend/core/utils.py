@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
+from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key, OllamaRequester
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -3440,6 +3440,18 @@ def get_embedder_and_model(model_choice):
     Returns:
         tuple: (embedder_instance, model_name)
     """
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        assert settings_obj, "Settings object not found"
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            from core.requester import OllamaRequester
+            return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
+        else:
+            from core.requester import OpenAIRequester
+            return (OpenAIRequester(), "text-embedding-3-small")
+    
+    # Cloud version logic
     model_map = {
         GuruType.EmbeddingModel.IN_HOUSE: (None, "in-house"),  # No embedder instance needed for in-house
         GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: (GeminiEmbedder(), "embedding-001"),
@@ -3465,6 +3477,18 @@ def get_embedding_model_config(model_choice):
         >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
         ('github_repo_code_openai_ada_002', 1536)
     """
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        assert settings_obj, "Settings object not found"
+        
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            # For Ollama, we use a single collection for all embeddings
+            return "github_repo_code", settings_obj.ollama_embedding_model_dimension
+        else:
+            # For OpenAI in selfhosted
+            return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
+
     # Get default settings
     try:
         settings_obj = get_default_settings()
@@ -3544,6 +3568,12 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
         else:
             if isinstance(embedder, OpenAIRequester):
                 embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
+            elif isinstance(embedder, OllamaRequester):
+                is_valid, response = embedder.embed_texts(batch, model_name=model_name)
+                if is_valid:
+                    embeddings.extend([r['embedding'] for r in response])
+                else:
+                    raise Exception(f'Error while embedding with Ollama: {response}')
             else:  # GeminiEmbedder
                 embeddings.extend(embedder.embed_texts(batch))
     
@@ -3587,6 +3617,12 @@ def embed_text_with_model(text, model_choice):
     else:
         if isinstance(embedder, OpenAIRequester):
             embedding = embedder.embed_text(text, model_name=model_name)
+        elif isinstance(embedder, OllamaRequester):
+            is_valid, response = embedder.embed_text(text, model_name=model_name)
+            if is_valid:
+                embedding = response['embedding']
+            else:
+                raise Exception(f'Error while embedding with Ollama: {response}')
         else:  # GeminiEmbedder
             embedding = embedder.embed_texts(text)[0]
 
