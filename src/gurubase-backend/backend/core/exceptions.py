@@ -57,3 +57,7 @@ class NotFoundError(Exception):
 class ThrottlingException(Exception):
     """Exception raised for throttling errors."""
     pass
+
+class ValidationError(Exception):
+    """Exception raised for validation errors."""
+    pass

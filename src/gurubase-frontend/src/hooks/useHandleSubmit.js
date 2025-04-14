@@ -105,7 +105,12 @@ export const useHandleSubmit = (
         jwt,
         times,
         enhanced_question: enhancedQuestion
-      } = await getAnswerFromMyBackend(inputValue, guruType, bingeId);
+      } = await getAnswerFromMyBackend(
+        inputValue,
+        guruType,
+        bingeId,
+        currentQuestionSlug
+      );
 
       if (signal && signal.aborted) {
         dispatch(setResetMainForm());

@@ -1215,23 +1215,23 @@ def format_question_history(history):
     return history_text.strip()
 
 def prepare_chat_messages(user_question, question, guru_variables, context_vals, history=None):
-    from core.prompts import prompt_template, binge_mini_prompt
+    from core.prompts import prompt_template, binge_answer_prompt
     """Prepare messages for the chat completion API."""
     user_message = f"User Question: {user_question}\nQuestion: {question}"
     
     if history:
         question_history = format_question_history(history)
         last_answer = history[-1]['answer']
-        binge_mini_prompt = binge_mini_prompt.format(
+        binge_answer_prompt = binge_answer_prompt.format(
             question_history=question_history,
             answer=last_answer
         )
     else:
-        binge_mini_prompt = ""
+        binge_answer_prompt = ""
     
-    # Insert binge_mini_prompt into the main prompt
+    # Insert binge_answer_prompt into the main prompt
     final_prompt = prompt_template.format(
-        binge_mini_prompt=binge_mini_prompt if history else "",
+        binge_answer_prompt=binge_answer_prompt if history else "",
         **guru_variables,
         **context_vals
     )
@@ -1278,7 +1278,7 @@ def ask_question_with_stream(
     github_context = ""
     if github_comments:
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_context_template.format(github_comments=comment_contexts)
+        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1331,7 +1331,7 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None):
+def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None, parent_question: Question | None = None):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1339,7 +1339,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_context_template
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_summary_template, binge_summary_prompt
     from core.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
@@ -1353,17 +1353,31 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     github_context = ""
     if github_comments:
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_context_template.format(github_comments=comment_contexts)
+        github_context = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
+
+    if parent_question:
+        history = get_question_history(parent_question)
+        question_history = format_question_history(history)
+        binge_summary_prompt = binge_summary_prompt.format(
+            question_history=question_history,
+            answer=parent_question.content
+        )
+    else:
+        binge_summary_prompt = ""
+
 
     prompt = summary_template.format(
         **context_variables, 
         summary_addition=summary_addition,
-        github_context=github_context
+        github_context=github_context,
+        binge_summary_prompt=binge_summary_prompt,
+        user_question=question
     )
 
-    if guru_type.lower() not in question.lower():
-        guru_type_obj = get_guru_type_object(guru_type)
-        question = f"{guru_type_obj.name} - {question}"
+
+    # if guru_type.lower() not in question.lower():
+    #     guru_type_obj = get_guru_type_object(guru_type)
+    #     question = f"{guru_type_obj.name} - {question}"
 
     times['prompt_prep'] = time.perf_counter() - start_prompt_prep
 
@@ -1376,10 +1390,6 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
                 {
                     'role': 'system',
                     'content': prompt
-                },
-                {
-                    'role': 'user',
-                    'content': question
                 }
             ],
             response_format=GptSummary
@@ -1394,13 +1404,13 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None, parent_question: Question | None = None):
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments)
+    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments, parent_question)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -2266,6 +2276,7 @@ def get_default_settings():
 def simulate_summary_and_answer(question, guru_type, check_existence, save, source):
     """
     Simulate the summary and answer endpoints to get the answer and the usages of the tokens.
+    Assumed that it is used for root questions.
     
     Args:
         question (str): The question to simulate the summary and answer for.
@@ -2302,7 +2313,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
             logger.warning(f"Question {question} already exists for guru type {guru_type.slug}")
             return existing_question.content, None, usages, None
 
-    summary_data, _ = get_question_summary(question, guru_type.slug, None, short_answer=False)
+    summary_data, _ = get_question_summary(question, guru_type.slug, None, short_answer=False, parent_question=None)
     # Then with slug
     if check_existence:
         existing_question = search_question(
@@ -3129,7 +3140,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
