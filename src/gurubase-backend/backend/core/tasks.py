@@ -1718,6 +1718,8 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         non_github_data_sources = DataSource.objects.filter(
             guru_type=guru_type
         ).exclude(type=DataSource.Type.GITHUB_REPO)
+
+        non_github_data_sources.update(status=DataSource.Status.NOT_PROCESSED)
         
         if old_dimension is None:
             _, old_dimension = get_embedding_model_config(old_model, sync=False)
@@ -1738,11 +1740,16 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         # Then write to new collection
         for ds in non_github_data_sources:
             ds.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
+
+        non_github_data_sources.update(status=DataSource.Status.SUCCESS)
             
         logger.info(f"Completed text embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during text embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        if non_github_data_sources.exists():
+            non_github_data_sources.update(status=DataSource.Status.FAIL)
         raise
+
 
 @shared_task
 def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: str):
@@ -1763,6 +1770,8 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
             guru_type=guru_type,
             type=DataSource.Type.GITHUB_REPO
         )
+
+        github_repos.update(status=DataSource.Status.NOT_PROCESSED)
         
         # First delete from old collection
         for repo in github_repos:
@@ -1771,10 +1780,14 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         # Then write to new collection
         for repo in github_repos:
             repo.write_to_milvus(overridden_model=new_model)  # This will use the new model's collection
-            
+
+        github_repos.update(status=DataSource.Status.SUCCESS)
+
         logger.info(f"Completed code embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
+        if github_repos.exists():
+            github_repos.update(status=DataSource.Status.FAIL)
         raise
 
 
