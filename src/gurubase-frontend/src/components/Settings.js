@@ -594,6 +594,7 @@ const Settings = () => {
                                 Add your Ollama server endpoint. Learn more
                                 about{" "}
                                 <a
+                                  className="text-blue-600 underline hover:text-blue-800"
                                   href="https://github.com/ollama/ollama/"
                                   rel="noopener noreferrer"
                                   target="_blank">
