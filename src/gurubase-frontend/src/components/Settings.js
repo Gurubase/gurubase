@@ -156,8 +156,10 @@ const Settings = () => {
     setYoutubeApiKey("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, forceSubmit = false) => {
+    if (e) {
+      e.preventDefault();
+    }
     setIsLoading(true);
     // Clear previous errors
     setOllamaUrlError("");
@@ -251,7 +253,7 @@ const Settings = () => {
       }
 
       // Show confirmation modal if embedding has changed and data sources exist
-      if (hasEmbeddingChanged && dataSourcesExist) {
+      if (!forceSubmit && hasEmbeddingChanged && dataSourcesExist) {
         setShowEmbeddingChangeModal(true);
         setIsLoading(false);
 
@@ -409,60 +411,6 @@ const Settings = () => {
       setOllamaUrlError("Failed to connect to Ollama server");
     } finally {
       setIsValidatingOllama(false);
-    }
-  };
-
-  const handleConfirmEmbeddingChange = async () => {
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-
-      formData.append("ai_model_provider", aiModelProvider);
-      if (aiModelProvider === "OLLAMA") {
-        formData.append("ollama_url", ollamaUrl.trim());
-        formData.append("ollama_embedding_model", ollamaEmbeddingModel.trim());
-        formData.append("ollama_base_model", ollamaBaseModel.trim());
-      }
-      if (isEditing) {
-        formData.append("openai_api_key", openAIKey.trim());
-        formData.append("openai_api_key_written", true);
-      } else {
-        formData.append("openai_api_key_written", false);
-      }
-      formData.append("scrape_type", scraperType);
-      if (scraperType === "FIRECRAWL") {
-        if (isFirecrawlEditing) {
-          formData.append("firecrawl_api_key", firecrawlKey.trim());
-          formData.append("firecrawl_api_key_written", true);
-        } else {
-          formData.append("firecrawl_api_key_written", false);
-        }
-      }
-      if (isYoutubeEditing) {
-        formData.append("youtube_api_key", youtubeApiKey.trim());
-        formData.append("youtube_api_key_written", true);
-      } else {
-        formData.append("youtube_api_key_written", false);
-      }
-
-      const result = await updateSettings(formData);
-
-      if (result) {
-        CustomToast({
-          message: "Settings saved successfully",
-          variant: "success"
-        });
-      }
-    } catch (error) {
-      CustomToast({
-        message: "Failed to save settings",
-        variant: "error"
-      });
-    } finally {
-      setIsLoading(false);
-      setShowEmbeddingChangeModal(false);
-      setHasEmbeddingChanged(false);
-      await fetchSettings(false, false);
     }
   };
 
@@ -947,7 +895,11 @@ const Settings = () => {
               <Button
                 className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
                 disabled={isLoading}
-                onClick={handleConfirmEmbeddingChange}>
+                onClick={async () => {
+                  await handleSubmit(null, true);
+                  setShowEmbeddingChangeModal(false);
+                  setHasEmbeddingChanged(false);
+                }}>
                 {isLoading ? "Saving..." : "Continue"}
               </Button>
               <Button
