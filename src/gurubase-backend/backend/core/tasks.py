@@ -1233,7 +1233,7 @@ def update_guru_type_details():
     """
     logger.info("Updating guru type details")
     
-    from core.utils import get_root_summarization_of_guru_type, get_github_url_from_data_source
+    from core.utils import get_root_summarization_of_guru_type
     from core.requester import GitHubRequester
     
     github_requester = GitHubRequester()
