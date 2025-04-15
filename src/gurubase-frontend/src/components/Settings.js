@@ -598,7 +598,7 @@ const Settings = () => {
                                   <input
                                     className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                     id="ollama-url"
-                                    placeholder="http://localhost:11434"
+                                    placeholder="http://host.docker.internal:11434"
                                     type="text"
                                     value={ollamaUrl}
                                     onBlur={validateOllamaUrl}
