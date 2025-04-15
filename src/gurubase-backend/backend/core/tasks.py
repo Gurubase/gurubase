@@ -1233,7 +1233,7 @@ def update_guru_type_details():
     """
     logger.info("Updating guru type details")
     
-    from core.utils import get_root_summarization_of_guru_type, get_github_url_from_data_source
+    from core.utils import get_root_summarization_of_guru_type
     from core.requester import GitHubRequester
     
     github_requester = GitHubRequester()
@@ -1243,7 +1243,7 @@ def update_guru_type_details():
     for guru_type in guru_types:
         # Update GitHub details if missing
         if not guru_type.github_details:
-            github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
+            github_repos = guru_type.github_repos
             if github_repos:
                 try:
                     # Only fetch details for the first GitHub repo
