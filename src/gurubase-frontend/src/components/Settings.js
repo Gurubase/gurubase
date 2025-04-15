@@ -128,6 +128,10 @@ const Settings = () => {
   }, [aiModelProvider]);
 
   useEffect(() => {
+    console.log("hasEmbeddingChanged", hasEmbeddingChanged);
+  }, [hasEmbeddingChanged]);
+
+  useEffect(() => {
     fetchSettings(true, false);
   }, []);
 
@@ -614,23 +618,26 @@ const Settings = () => {
                                   )}
                                 </div>
                               )}
-                              {(ollamaUrlError || !isOllamaUrlValid) && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <CloseCircleIcon className="text-[#DC2626]" />
-                                  <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                    Unable to access the Ollama server at this
-                                    address.
-                                  </span>
-                                </div>
-                              )}
-                              {isOllamaUrlValid && !ollamaUrlError && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <CheckCircleIcon />
-                                  <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                    Ollama is accessible.
-                                  </span>
-                                </div>
-                              )}
+                              {ollamaUrl &&
+                                (ollamaUrlError || !isOllamaUrlValid) && (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <CloseCircleIcon className="text-[#DC2626]" />
+                                    <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                      Unable to access the Ollama server at this
+                                      address.
+                                    </span>
+                                  </div>
+                                )}
+                              {ollamaUrl &&
+                                isOllamaUrlValid &&
+                                !ollamaUrlError && (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <CheckCircleIcon />
+                                    <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                      Ollama is accessible.
+                                    </span>
+                                  </div>
+                                )}
                             </div>
 
                             {isOllamaUrlValid && (
@@ -683,25 +690,27 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {!isEmbeddingModelValid && (
-                                    <div className="flex items-center gap-1 mt-2">
-                                      <CloseCircleIcon className="text-[#DC2626]" />
-                                      <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                        Either the model name is incorrect, the
-                                        model does not exist on the specified
-                                        Ollama server, or it does not support
-                                        embedding.
-                                      </span>
-                                    </div>
-                                  )}
-                                  {isEmbeddingModelValid && (
-                                    <div className="flex items-center gap-1 mt-2">
-                                      <CheckCircleIcon />
-                                      <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                        Embedding model is valid
-                                      </span>
-                                    </div>
-                                  )}
+                                  {ollamaEmbeddingModel &&
+                                    !isEmbeddingModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CloseCircleIcon className="text-[#DC2626]" />
+                                        <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                          Either the model name is incorrect,
+                                          the model does not exist on the
+                                          specified Ollama server, or it does
+                                          not support embedding.
+                                        </span>
+                                      </div>
+                                    )}
+                                  {ollamaEmbeddingModel &&
+                                    isEmbeddingModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CheckCircleIcon />
+                                        <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                          Embedding model is valid
+                                        </span>
+                                      </div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -732,7 +741,7 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {!isBaseModelValid && (
+                                  {ollamaBaseModel && !isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CloseCircleIcon className="text-[#DC2626]" />
                                       <span className="text-[12px] font-inter font-normal text-[#DC2626]">
@@ -742,7 +751,7 @@ const Settings = () => {
                                       </span>
                                     </div>
                                   )}
-                                  {isBaseModelValid && (
+                                  {ollamaBaseModel && isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CheckCircleIcon />
                                       <span className="text-[12px] font-normal text-[#16A34A] font-inter">
