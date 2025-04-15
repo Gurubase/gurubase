@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { getSettings } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 import { useRouter, usePathname } from "next/navigation";
+import { toast } from "sonner";
 
 const ConfigurationCheck = () => {
   const [isCheckingConfig, setIsCheckingConfig] = useState(true);
@@ -39,7 +40,13 @@ const ConfigurationCheck = () => {
     });
   };
 
+  const clearToast = () => {
+    activeToastRef.current = false;
+    toast.dismiss();
+  };
+
   const checkConfiguration = async () => {
+    console.log("Checking configuration");
     if (!isSelfHosted) {
       setIsCheckingConfig(false);
       return;
@@ -47,33 +54,45 @@ const ConfigurationCheck = () => {
 
     try {
       const settings = await getSettings();
+      let isConfigValid = false;
 
       if (settings?.ai_model_provider === "OLLAMA") {
         setAiModelProvider("OLLAMA");
-        setIsOllamaUrlValid(settings?.is_ollama_url_valid ?? false);
-        setIsEmbeddingModelValid(
-          settings?.is_ollama_embedding_model_valid ?? false
-        );
-        setIsBaseModelValid(settings?.is_ollama_base_model_valid ?? false);
+        const isUrlValid = settings?.is_ollama_url_valid ?? false;
+        const isEmbeddingValid =
+          settings?.is_ollama_embedding_model_valid ?? false;
+        const isBaseValid = settings?.is_ollama_base_model_valid ?? false;
 
-        if (!settings?.is_ollama_url_valid) {
+        setIsOllamaUrlValid(isUrlValid);
+        setIsEmbeddingModelValid(isEmbeddingValid);
+        setIsBaseModelValid(isBaseValid);
+
+        console.log("ollama url valid", isUrlValid);
+        console.log("ollama embedding valid", isEmbeddingValid);
+        console.log("ollama base valid", isBaseValid);
+        if (!isUrlValid) {
           showConfigToast(
             "Ollama server is inaccessible. Please verify the server status."
           );
-        } else if (
-          !settings?.is_ollama_embedding_model_valid ||
-          !settings?.is_ollama_base_model_valid
-        ) {
+        } else if (!isEmbeddingValid || !isBaseValid) {
           showConfigToast(
             "Cannot access the required Ollama models. Check their status on the Settings page."
           );
+        } else {
+          isConfigValid = true;
+          clearToast();
         }
       } else {
         setAiModelProvider("OPENAI");
-        setIsApiKeyValid(settings?.is_openai_key_valid ?? false);
+        const isKeyValid = settings?.is_openai_key_valid ?? false;
+        setIsApiKeyValid(isKeyValid);
 
-        if (!settings?.is_openai_key_valid) {
+        console.log("openai key valid", isKeyValid);
+        if (!isKeyValid) {
           showConfigToast("Configure a valid OpenAI API Key to create a Guru.");
+        } else {
+          isConfigValid = true;
+          clearToast();
         }
       }
     } catch (error) {
@@ -92,9 +111,7 @@ const ConfigurationCheck = () => {
     }
   };
 
-  // Run check on initial load and pathname changes
   useEffect(() => {
-    // Skip check if we're already on the settings page
     if (pathname === "/settings") {
       activeToastRef.current = false;
       return;
@@ -103,7 +120,6 @@ const ConfigurationCheck = () => {
     checkConfiguration();
   }, [pathname, isSelfHosted, router]);
 
-  // This component doesn't render anything visible
   return null;
 };
 
