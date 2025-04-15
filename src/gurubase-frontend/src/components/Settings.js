@@ -48,8 +48,9 @@ const Settings = () => {
   const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
   const [ollamaUrl, setOllamaUrl] = useState("");
   const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
-  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState("");
-  const [ollamaBaseModel, setOllamaBaseModel] = useState("");
+  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] =
+    useState("nomic-embed-text");
+  const [ollamaBaseModel, setOllamaBaseModel] = useState("gemma3:27b");
   const [isValidatingOllama, setIsValidatingOllama] = useState(false);
   const [ollamaUrlError, setOllamaUrlError] = useState("");
 
@@ -60,6 +61,8 @@ const Settings = () => {
     useState(false);
   const [hasEmbeddingChanged, setHasEmbeddingChanged] = useState(false);
   const [oldAiModelProvider, setOldAiModelProvider] = useState("");
+  const [embeddingModelExists, setEmbeddingModelExists] = useState(false);
+  const [baseModelExists, setBaseModelExists] = useState(false);
 
   const fetchSettings = async (isInitial = false, keepFields = false) => {
     // keepFields only works for non-api key inputs as they are masked.
@@ -89,12 +92,14 @@ const Settings = () => {
       if (settings.ollama_embedding_model) {
         if (!keepFields) {
           setOllamaEmbeddingModel(settings.ollama_embedding_model);
+          setEmbeddingModelExists(true);
         }
         setIsEmbeddingModelValid(settings.is_ollama_embedding_model_valid);
       }
       if (settings.ollama_base_model) {
         if (!keepFields) {
           setOllamaBaseModel(settings.ollama_base_model);
+          setBaseModelExists(true);
         }
         setIsBaseModelValid(settings.is_ollama_base_model_valid);
       }
@@ -343,9 +348,11 @@ const Settings = () => {
         }
         if (result.ollama_embedding_model) {
           setOllamaEmbeddingModel(result.ollama_embedding_model);
+          setEmbeddingModelExists(true);
         }
         if (result.ollama_base_model) {
           setOllamaBaseModel(result.ollama_base_model);
+          setBaseModelExists(true);
         }
         if (result.ai_model_provider) {
           setAiModelProvider(result.ai_model_provider);
@@ -689,7 +696,7 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {ollamaEmbeddingModel &&
+                                  {embeddingModelExists &&
                                     !isEmbeddingModelValid && (
                                       <div className="flex items-center gap-1 mt-2">
                                         <CloseCircleIcon className="text-[#DC2626]" />
@@ -701,7 +708,7 @@ const Settings = () => {
                                         </span>
                                       </div>
                                     )}
-                                  {ollamaEmbeddingModel &&
+                                  {embeddingModelExists &&
                                     isEmbeddingModelValid && (
                                       <div className="flex items-center gap-1 mt-2">
                                         <CheckCircleIcon />
@@ -740,7 +747,7 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {ollamaBaseModel && !isBaseModelValid && (
+                                  {baseModelExists && !isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CloseCircleIcon className="text-[#DC2626]" />
                                       <span className="text-[12px] font-inter font-normal text-[#DC2626]">
@@ -750,7 +757,7 @@ const Settings = () => {
                                       </span>
                                     </div>
                                   )}
-                                  {ollamaBaseModel && isBaseModelValid && (
+                                  {baseModelExists && isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CheckCircleIcon />
                                       <span className="text-[12px] font-normal text-[#16A34A] font-inter">
