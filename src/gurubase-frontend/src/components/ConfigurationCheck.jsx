@@ -46,7 +46,6 @@ const ConfigurationCheck = () => {
   };
 
   const checkConfiguration = async () => {
-    console.log("Checking configuration");
     if (!isSelfHosted) {
       setIsCheckingConfig(false);
       return;
@@ -67,9 +66,6 @@ const ConfigurationCheck = () => {
         setIsEmbeddingModelValid(isEmbeddingValid);
         setIsBaseModelValid(isBaseValid);
 
-        console.log("ollama url valid", isUrlValid);
-        console.log("ollama embedding valid", isEmbeddingValid);
-        console.log("ollama base valid", isBaseValid);
         if (!isUrlValid) {
           showConfigToast(
             "Ollama server is inaccessible. Please verify the server status."
@@ -87,7 +83,6 @@ const ConfigurationCheck = () => {
         const isKeyValid = settings?.is_openai_key_valid ?? false;
         setIsApiKeyValid(isKeyValid);
 
-        console.log("openai key valid", isKeyValid);
         if (!isKeyValid) {
           showConfigToast("Configure a valid OpenAI API Key to create a Guru.");
         } else {
