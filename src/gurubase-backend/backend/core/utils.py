@@ -2677,23 +2677,6 @@ def get_root_summarization_of_guru_type(guru_type_slug):
 def get_all_root_summarizations():
     return Summarization.objects.filter(is_data_source_summarization=False, is_root=True)
 
-# Add this function after get_root_summarization_of_guru_type
-def get_github_url_from_data_source(guru_type_slug):
-    """
-    Get the first GitHub URL from a guru type's data sources.
-    
-    Args:
-        guru_type_slug: The slug of the guru type to search data sources for.
-        
-    Returns:
-        str: The GitHub URL if found, None otherwise.
-    """
-    data_sources = DataSource.objects.filter(guru_type__slug=guru_type_slug, url__contains='github.com')
-    if not data_sources.exists():
-        logger.info(f'No github data source found for {guru_type_slug}')
-        return None
-    return data_sources[0].url
-
 def check_binge_auth(binge, user):
     if not binge:
         return True
