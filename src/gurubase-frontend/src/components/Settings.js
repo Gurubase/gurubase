@@ -132,10 +132,6 @@ const Settings = () => {
   }, [aiModelProvider]);
 
   useEffect(() => {
-    console.log("hasEmbeddingChanged", hasEmbeddingChanged);
-  }, [hasEmbeddingChanged]);
-
-  useEffect(() => {
     fetchSettings(true, false);
   }, []);
 
