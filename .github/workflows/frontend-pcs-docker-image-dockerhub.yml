@@ -6,7 +6,7 @@ on:
       - 'pcs_release'
     paths:
       - 'src/gurubase-frontend/**'
-      - .github/workflows/frontend--pcs-docker-image-dockerhub.yml
+      - .github/workflows/frontend-pcs-docker-image-dockerhub.yml
   workflow_dispatch:
 
 jobs:
