@@ -86,7 +86,7 @@ Although you can't create a Guru on [Gurubase.io](https://gurubase.io/), you can
 
 Add an "Ask AI" widget to your website by importing a [small JS script](https://github.com/gurubase/gurubase-widget). For an example, check the [Anteon docs](https://getanteon.com/docs/).
 
-<img src="imgs/widget_demo.gif" alt="Gurubase Widget Demo"/><br/>
+<img src="imgs/gurubase-ask-ai-widget.gif" alt="Gurubase Widget Demo"/><br/>
 
 ### 2. Badge
 
