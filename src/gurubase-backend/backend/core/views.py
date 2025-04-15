@@ -171,6 +171,7 @@ def summary(request, guru_type):
         if not valid:
             return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
 
+
     if settings.ENV == 'selfhosted':
         user = None
     else:
