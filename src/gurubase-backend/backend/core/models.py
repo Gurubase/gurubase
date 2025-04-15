@@ -943,7 +943,7 @@ class DataSource(models.Model):
 
         ids = self.doc_ids
         if self.type == DataSource.Type.GITHUB_REPO:
-            collection_name, dimension = get_embedding_model_config(model)
+            collection_name, dimension = get_embedding_model_config(model, sync=False)
         else:
             collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
@@ -1180,6 +1180,7 @@ class OutOfContextQuestion(models.Model):
             self.user_question = self.question
 
         super().save(*args, **kwargs)
+
 class Settings(models.Model):
     class ScrapeType(models.TextChoices):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"
@@ -1188,6 +1189,10 @@ class Settings(models.Model):
     class DefaultEmbeddingModel(models.TextChoices):
         CLOUD = "IN_HOUSE", "In-house embedding model"
         SELFHOSTED = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+
+    class AIProvider(models.TextChoices):
+        OPENAI = "OPENAI", "OpenAI"
+        OLLAMA = "OLLAMA", "Ollama"
 
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
@@ -1214,6 +1219,21 @@ class Settings(models.Model):
         blank=True
     )
 
+    ai_model_provider = models.CharField(
+        max_length=100,
+        choices=AIProvider.choices,
+        default=AIProvider.OPENAI,
+    )
+    ollama_url = models.URLField(max_length=2000, null=True, blank=True)
+    is_ollama_url_valid = models.BooleanField(default=False)
+    ollama_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    ollama_embedding_model_dimension = models.IntegerField(default=0)
+    last_valid_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    last_valid_embedding_model_dimension = models.IntegerField(default=0)
+    is_ollama_embedding_model_valid = models.BooleanField(default=False)
+    ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
+    is_ollama_base_model_valid = models.BooleanField(default=False)
+
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
 
@@ -1234,45 +1254,163 @@ class Settings(models.Model):
         # Fallback to environment-based default if no settings object exists
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
+    def validate_ollama_settings(self):
+        """
+        Validates Ollama settings and updates validation status fields.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if self.ai_model_provider != self.AIProvider.OLLAMA:
+            return True
+
+        # Validate required fields
+        if not self.ollama_url:
+            self.is_ollama_url_valid = False
+            self.is_ollama_embedding_model_valid = False
+            self.is_ollama_base_model_valid = False
+            return False
+        
+        if not self.ollama_embedding_model:
+            self.is_ollama_embedding_model_valid = False
+            return False
+        
+        if not self.ollama_base_model:
+            self.is_ollama_base_model_valid = False
+            return False
+        
+        # Check server health
+        try:
+            from core.requester import OllamaRequester
+            requester = OllamaRequester(self.ollama_url)
+            is_healthy, models, error = requester.check_ollama_health()
+            
+            if not is_healthy:
+                self.is_ollama_url_valid = False
+                self.is_ollama_embedding_model_valid = False
+                self.is_ollama_base_model_valid = False
+                return False
+            
+            self.is_ollama_url_valid = True
+            
+            # Validate models exist
+            if self.ollama_embedding_model and self.ollama_embedding_model not in models:
+                self.is_ollama_embedding_model_valid = False
+            elif self.ollama_embedding_model:
+                self.is_ollama_embedding_model_valid = True
+            
+            if self.ollama_base_model and self.ollama_base_model not in models:
+                self.is_ollama_base_model_valid = False
+            elif self.ollama_base_model:
+                self.is_ollama_base_model_valid = True
+            
+            # Determine embedding dimension
+
+            if self.ollama_embedding_model:
+                is_valid, response = requester.embed_text('test', self.ollama_embedding_model)
+                if is_valid:
+                    self.ollama_embedding_model_dimension = len(response['embedding'])
+                    self.last_valid_embedding_model = self.ollama_embedding_model
+                    self.last_valid_embedding_model_dimension = self.ollama_embedding_model_dimension
+                else:
+                    self.is_ollama_embedding_model_valid = False
+            
+        except Exception as e:
+            self.is_ollama_url_valid = False
+            self.is_ollama_embedding_model_valid = False
+            self.is_ollama_base_model_valid = False
+            return False
+
+    def validate_openai_settings(self):
+        """
+        Validates OpenAI API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.openai_api_key:
+            self.is_openai_key_valid = False
+            return True
+            
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.openai_api_key, timeout=10)
+            client.models.list()
+            self.is_openai_key_valid = True
+            self.last_valid_embedding_model = Settings.DefaultEmbeddingModel.SELFHOSTED.value
+            self.last_valid_embedding_model_dimension = 1536
+            return True
+        except Exception as e:
+            self.is_openai_key_valid = False
+            return False
+
+    def validate_firecrawl_settings(self):
+        """
+        Validates Firecrawl API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.firecrawl_api_key:
+            self.is_firecrawl_key_valid = False
+            return True
+            
+        if self.scrape_type != self.ScrapeType.FIRECRAWL:
+            self.is_firecrawl_key_valid = False
+            return True
+            
+        try:
+            import requests
+            url = "https://api.firecrawl.dev/v1/team/credit-usage"
+            headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
+            response = requests.get(url, headers=headers, timeout=10)
+            self.is_firecrawl_key_valid = response.status_code == 200
+            if not self.is_firecrawl_key_valid:
+                return False
+        except Exception as e:
+            self.is_firecrawl_key_valid = False
+            return False
+
+    def validate_youtube_settings(self):
+        """
+        Validates YouTube API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.youtube_api_key:
+            self.is_youtube_key_valid = False
+            return True
+            
+        try:
+            from core.requester import YouTubeRequester
+            requester = YouTubeRequester(self.youtube_api_key)
+            requester.get_most_popular_video()
+            self.is_youtube_key_valid = True
+            return True
+        except Exception as e:
+            logger.error(f'Error validating YouTube API key: {e}')
+            self.is_youtube_key_valid = False
+            return False
+
     def save(self, *args, **kwargs):
         # Set default embedding model based on environment if not set
         if not self.default_embedding_model:
             self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
 
-        # Check OpenAI API key validity before saving
-        if self.openai_api_key:
-            try:
-                from openai import OpenAI
-                client = OpenAI(api_key=self.openai_api_key, timeout=10)
-                client.models.list()
-                self.is_openai_key_valid = True
-            except Exception:
-                self.is_openai_key_valid = False
-        else:
-            self.is_openai_key_valid = False
+        if self.ollama_base_model and ':' not in self.ollama_base_model:
+            self.ollama_base_model = f'{self.ollama_base_model}:latest'
 
-        if self.firecrawl_api_key:
-            try:
-                if self.scrape_type == Settings.ScrapeType.FIRECRAWL:
-                    import requests
-                    url = "https://api.firecrawl.dev/v1/team/credit-usage"
-                    headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
-                    response = requests.get(url, headers=headers, timeout=10)
-                    self.is_firecrawl_key_valid = response.status_code == 200
-            except Exception:
-                self.is_firecrawl_key_valid = False
-        else:
-            self.is_firecrawl_key_valid = False
+        if self.ollama_embedding_model and ':' not in self.ollama_embedding_model:
+            self.ollama_embedding_model = f'{self.ollama_embedding_model}:latest'
 
-        if self.youtube_api_key:
-            try:
-                from core.requester import YouTubeRequester
-                requester = YouTubeRequester(self.youtube_api_key)
-                requester.get_most_popular_video()
-                self.is_youtube_key_valid = True
-            except Exception as e:
-                logger.error(f'Error validating YouTube API key: {e}')
-                self.is_youtube_key_valid = False
+        # Validate Ollama settings if provider is Ollama
+        if self.ai_model_provider == self.AIProvider.OLLAMA:
+            self.validate_ollama_settings()
+        else:
+            # Only validate OpenAI if not using Ollama
+            self.validate_openai_settings()
+        
+        # Validate other API keys
+        self.validate_firecrawl_settings()
+        self.validate_youtube_settings()
+        
 
         super().save(*args, **kwargs)
 
@@ -1867,4 +2005,3 @@ class GuruCreationForm(models.Model):
 
     class Meta:
         ordering = ['-date_created']
-

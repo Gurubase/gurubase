@@ -19,12 +19,12 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.github.exceptions import GithubAppHandlerError
-from core.requester import GeminiRequester, OpenAIRequester
+from core.requester import GeminiRequester, OpenAIRequester, OllamaRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
-from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
+from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, Settings, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -156,9 +156,21 @@ def summary(request, guru_type):
 
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
-        api_key_valid = default_settings.is_openai_key_valid
-        if not api_key_valid:
-            return Response({'msg': 'OpenAI API key is invalid'}, status=490)
+        valid = False
+        if default_settings.ai_model_provider == Settings.AIProvider.OPENAI:
+            valid = default_settings.is_openai_key_valid
+            error_type = 'openai'
+            reason = 'openai_key_invalid'
+        elif default_settings.ai_model_provider == Settings.AIProvider.OLLAMA:
+            valid = default_settings.is_ollama_url_valid and default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid
+            error_type = 'ollama'
+            if not default_settings.is_ollama_url_valid:
+                reason = 'ollama_url_invalid'
+            elif not (default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid):
+                reason = 'ollama_model_invalid'
+        if not valid:
+            return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
+
 
     if settings.ENV == 'selfhosted':
         user = None
@@ -2656,6 +2668,8 @@ def manage_settings(request):
     settings_obj = get_default_settings()
 
     if request.method == 'GET':
+        settings_obj.save() # Save to trigger validation
+        settings_obj.refresh_from_db()
         serializer = SettingsSerializer(settings_obj)
         return Response(serializer.data)
 
@@ -2668,8 +2682,15 @@ def manage_settings(request):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
             if not request.data.get('youtube_api_key_written'):
                 serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
-            serializer.save()
-            return Response(serializer.data)
+            
+            try:
+                serializer.save()
+                return Response(serializer.data)
+            except ValidationError as e:
+                return Response(
+                    {'errors': e.message_dict if hasattr(e, 'message_dict') else {'error': str(e)}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -3071,3 +3092,27 @@ def github_webhook(request):
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@jwt_auth
+def validate_ollama_url(request):
+    """
+    Validate if an Ollama URL is accessible and return available models
+    """
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=400)
+    
+    requester = OllamaRequester(url)
+    is_healthy, models, error = requester.check_ollama_health()
+    
+    if not is_healthy:
+        return Response({
+            'is_valid': False,
+            'error': error
+        }, status=400)
+    
+    return Response({
+        'is_valid': True,
+        'models': models
+    })
