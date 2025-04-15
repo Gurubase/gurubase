@@ -122,7 +122,7 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    if (aiModelProvider !== oldAiModelProvider) {
+    if (oldAiModelProvider && aiModelProvider !== oldAiModelProvider) {
       setHasEmbeddingChanged(true);
     }
   }, [aiModelProvider]);
