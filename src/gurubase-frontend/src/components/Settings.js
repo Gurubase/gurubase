@@ -48,9 +48,8 @@ const Settings = () => {
   const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
   const [ollamaUrl, setOllamaUrl] = useState("");
   const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
-  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] =
-    useState("nomic-embed-text");
-  const [ollamaBaseModel, setOllamaBaseModel] = useState("llama2");
+  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState("");
+  const [ollamaBaseModel, setOllamaBaseModel] = useState("");
   const [isValidatingOllama, setIsValidatingOllama] = useState(false);
   const [ollamaUrlError, setOllamaUrlError] = useState("");
 
@@ -678,7 +677,7 @@ const Settings = () => {
                                       <input
                                         className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                         id="ollama-embedding-model"
-                                        placeholder="Embedding Model"
+                                        placeholder="nomic-embed-text"
                                         type="text"
                                         value={ollamaEmbeddingModel}
                                         onChange={(e) => {
@@ -732,7 +731,7 @@ const Settings = () => {
                                       <input
                                         className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                         id="ollama-base-model"
-                                        placeholder="Language Model"
+                                        placeholder="gemma3:27b"
                                         type="text"
                                         value={ollamaBaseModel}
                                         onChange={(e) =>
