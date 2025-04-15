@@ -41,6 +41,7 @@ import hashlib
 import pickle
 from rest_framework.views import exception_handler
 from rest_framework.exceptions import Throttled
+from core.requester import GptSummary
 
 logger = logging.getLogger(__name__)
 
@@ -1154,16 +1155,6 @@ def create_custom_guru_type_slug(name):
 
     return slug
 
-class GptSummary(BaseModel):
-    question: str
-    user_question: str
-    question_slug: str
-    description: str
-    valid_question: bool
-    user_intent: str
-    answer_length: int
-    enhanced_question: str
-
 
 def get_github_details_if_applicable(guru_type):
     guru_type_obj = get_guru_type_object(guru_type)
@@ -1316,13 +1307,7 @@ def ask_question_with_stream(
     used_prompt = messages[0]['content']
 
     start_chatgpt = time.perf_counter()
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL,
-        temperature=0,
-        messages=messages,
-        stream=True,
-        stream_options={"include_usage": True},
-    )
+    response = get_openai_requester().ask_question_with_stream(messages)
     times['chatgpt_completion'] = time.perf_counter() - start_chatgpt
     times['total'] = time.perf_counter() - start_total
 
@@ -1369,21 +1354,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
 
     start_response_await = time.perf_counter()
     try:
-        response = get_openai_client().beta.chat.completions.parse(
-            model=settings.GPT_MODEL,
-            temperature=0,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': prompt
-                },
-                {
-                    'role': 'user',
-                    'content': question
-                }
-            ],
-            response_format=GptSummary
-        )
+        response = get_openai_requester().get_summary(prompt, question)
         times['response_await'] = time.perf_counter() - start_response_await
     except Exception as e:
         logger.error(f'Error while getting summary: {question}. Exception: {e}', exc_info=True)
@@ -1413,39 +1384,6 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
 
     return parsed_response, times
 
-
-def ask_if_english(question):
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL_MINI,
-        temperature=0,
-        messages=[
-            {
-                'role': 'system',
-                'content': "Is this question in English?. Return this json: {'question': 'question', 'is_english': True/False}"
-            },
-            {
-                'role': 'user',
-                'content': question
-            }
-        ],
-        response_format={'type': 'json_object'}
-    )
-
-    try:
-        answer = response.choices[0].message.content
-        answer = json.loads(answer)
-    except Exception as e:
-        logger.error(f'Error while getting the answer from the response: {e}. Response: {response.choices[0].message.content}', exc_info=True)
-        answer = {
-            'question': question,
-            'is_english': False
-        }
-
-    if "is_english" not in answer:
-        answer["is_english"] = False
-
-    return answer['is_english'], get_llm_usage_from_response(response, settings.GPT_MODEL_MINI)
-            
 
 def stream_question_answer(
         question, 
@@ -2580,7 +2518,7 @@ def get_tokens_from_openai_response(response):
         return 0, 0, 0
     
     try:
-        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens
+        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens if response.usage.prompt_tokens_details else 0
     except Exception as e:
         log_error_with_stack(f'Error while getting the tokens from the response {e}.')
         return 0, 0, 0

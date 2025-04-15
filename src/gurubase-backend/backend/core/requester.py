@@ -38,7 +38,7 @@ def get_openai_api_key():
             return settings.OPENAI_API_KEY
     else:
         return settings.OPENAI_API_KEY
-    
+
 def get_firecrawl_api_key():
     from core.utils import get_default_settings
     if settings.ENV == 'selfhosted':
@@ -67,6 +67,16 @@ def get_youtube_api_key():
 GURU_ENDPOINTS = {
     'processed_raw_questions': 'processed_raw_questions'
 }
+
+class GptSummary(BaseModel):
+    question: str
+    user_question: str
+    question_slug: str
+    description: str
+    valid_question: bool
+    user_intent: str
+    answer_length: int
+    enhanced_question: str
 
 class FollowUpQuestions(BaseModel):
     questions: List[str] = Field(..., description="List of follow up questions")
@@ -352,11 +362,28 @@ class GuruRequester():
 
 class OpenAIRequester():
     def __init__(self):
-        openai_api_key = get_openai_api_key()
-        if not openai_api_key:
-            self.client = None
+        from core.models import Settings
+        from core.utils import get_default_settings
+        if settings.ENV == 'selfhosted':
+            default_settings = get_default_settings()
+            if default_settings.ai_model_provider == Settings.AIProvider.OLLAMA:
+                self.client = OpenAI(base_url=f'{default_settings.ollama_url}/v1', api_key='ollama')
+                self._is_ollama = True
+            else:
+                self.client = OpenAI(api_key=default_settings.openai_api_key)
+                self._is_ollama = False
         else:
-            self.client = OpenAI(api_key=openai_api_key)
+            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            self._is_ollama = False
+
+    def _get_model_name(self, model_name):
+        """Get the appropriate model name based on whether we're using Ollama"""
+        from core.utils import get_default_settings
+        default_settings = get_default_settings()
+        if self._is_ollama:
+            return default_settings.ollama_base_model
+        else:
+            return model_name
 
     def get_context_relevance(self, question_text, user_question, enhanced_question, guru_type_slug, contexts, model_name=settings.GPT_MODEL, cot=True):
         from core.utils import get_tokens_from_openai_response, prepare_contexts_for_context_relevance, prepare_prompt_for_context_relevance
@@ -368,6 +395,7 @@ class OpenAIRequester():
         single_text_contexts = ''.join(formatted_contexts)
         user_prompt = f"QUESTION: {question_text}\n\nUSER QUESTION: {user_question}\n\nENHANCED QUESTION: {enhanced_question}\n\nCONTEXTS\n{single_text_contexts}"
 
+        model_name = self._get_model_name(model_name)
         response = self.client.beta.chat.completions.parse(
             model=model_name,
             messages=[
@@ -399,6 +427,7 @@ class OpenAIRequester():
         prompt = prompt.format(scraped_content=scraped_content, page_title=page_title, url=base_url)
         
         logger.info(f"Prompt sending to openai for the url: {url}")
+        model_name = self._get_model_name(model_name)
         response = self.client.beta.chat.completions.parse(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
@@ -426,6 +455,7 @@ class OpenAIRequester():
         prompt = groundedness_prompt
         guru_variables = get_guru_type_prompt_map(question.guru_type.slug)
         prompt = prompt.format(**guru_variables)
+        model_name = self._get_model_name(model_name)
         response = self.client.beta.chat.completions.parse(
             model=model_name,
             messages=[
@@ -453,6 +483,7 @@ class OpenAIRequester():
         prompt = answer_relevance_prompt
         guru_variables = get_guru_type_prompt_map(question.guru_type.slug)
         prompt = prompt.format(**guru_variables)
+        model_name = self._get_model_name(model_name)
         response = self.client.beta.chat.completions.parse(
             model=model_name,
             messages=[
@@ -477,6 +508,7 @@ class OpenAIRequester():
     def embed_texts(self, texts, model_name=settings.OPENAI_TEXT_EMBEDDING_MODEL):
         while '' in texts:
             texts.remove('')
+        model_name = self._get_model_name(model_name)
         response = self.client.embeddings.create(input=texts, model=model_name)
         embeddings = []
         for embedding in response.data:
@@ -484,6 +516,7 @@ class OpenAIRequester():
         return embeddings
 
     def embed_text(self, text, model_name=settings.OPENAI_TEXT_EMBEDDING_MODEL):
+        model_name = self._get_model_name(model_name)
         response = self.client.embeddings.create(input=[text], model=model_name)
         return response.data[0].embedding
 
@@ -493,6 +526,7 @@ class OpenAIRequester():
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
         prompt = summarize_data_sources_prompt.format(**prompt_map, content=text)
         try:
+            model_name = self._get_model_name(model_name)
             response = self.client.beta.chat.completions.parse(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -509,6 +543,7 @@ class OpenAIRequester():
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
         prompt = summarize_data_sources_prompt.format(**prompt_map, content=summarizations)
         try:
+            model_name = self._get_model_name(model_name)
             response = self.client.beta.chat.completions.parse(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -525,6 +560,7 @@ class OpenAIRequester():
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
         prompt = generate_questions_from_summary_prompt.format(**prompt_map, summary=summary)
         try:
+            model_name = self._get_model_name(model_name)
             response = self.client.beta.chat.completions.parse(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -568,6 +604,7 @@ class OpenAIRequester():
         )
         
         try:
+            model_name = self._get_model_name(model_name)
             response = self.client.beta.chat.completions.parse(
                 model=model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -581,6 +618,55 @@ class OpenAIRequester():
         except Exception as e:
             logger.error(f"Error generating follow-up questions: {str(e)}")
             return []
+
+    def ask_question_with_stream(self, messages, model_name=settings.GPT_MODEL):
+        """
+        Ask a question with streaming response from OpenAI.
+        
+        Args:
+            messages (list): List of message dictionaries with role and content
+            model_name (str): The model to use for generation
+        
+        Returns:
+            Generator: Stream of response chunks
+        """
+        model_name = self._get_model_name(model_name)
+        return self.client.chat.completions.create(
+            model=model_name,
+            temperature=0,
+            messages=messages,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+
+    def get_summary(self, prompt, question, model_name=settings.GPT_MODEL):
+        """
+        Get a summary response from OpenAI.
+        
+        Args:
+            prompt (str): The system prompt
+            question (str): The user question
+            model_name (str): The model to use for generation
+        
+        Returns:
+            dict: The parsed response from OpenAI
+        """
+        model_name = self._get_model_name(model_name)
+        return self.client.beta.chat.completions.parse(
+            model=model_name,
+            temperature=0,
+            messages=[
+                {
+                    'role': 'system',
+                    'content': prompt
+                },
+                {
+                    'role': 'user',
+                    'content': question
+                }
+            ],
+            response_format=GptSummary
+        )
 
 class GeminiEmbedder():
     def __init__(self):
