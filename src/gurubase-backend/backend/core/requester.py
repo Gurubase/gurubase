@@ -362,8 +362,18 @@ class GuruRequester():
 
 class OpenAIRequester():
     def __init__(self):
+        self.client = None
+        self._is_ollama = None
+
+    def _ensure_client_initialized(self):
+        if self.client is not None:
+            return
+        
         from core.models import Settings
         from core.utils import get_default_settings
+        from django.conf import settings
+        from openai import OpenAI
+
         if settings.ENV == 'selfhosted':
             default_settings = get_default_settings()
             if default_settings.ai_model_provider == Settings.AIProvider.OLLAMA:
@@ -378,6 +388,7 @@ class OpenAIRequester():
 
     def _get_model_name(self, model_name):
         """Get the appropriate model name based on whether we're using Ollama"""
+        self._ensure_client_initialized()
         from core.utils import get_default_settings
         default_settings = get_default_settings()
         if self._is_ollama:
