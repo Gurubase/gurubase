@@ -812,7 +812,86 @@ class GitHubRequester():
         if response.json().get('status') == '403':
             raise ValueError(f"GitHub API rate limit exceeded for {github_url}")
         return response.json()
-        
+
+class JiraRequester():
+    def __init__(self, integration):
+        """
+        Initialize JiraRequester with integration credentials
+        Args:
+            integration (Integration): Integration model instance containing Jira credentials
+        """
+        from jira import JIRA
+        self.url = f"https://{integration.jira_domain}"
+        self.jira = JIRA(
+            server=self.url,
+            basic_auth=(integration.jira_user_email, integration.jira_api_key)
+        )
+
+
+    def list_issues(self, jql):
+        """
+        List Jira issues based on JQL query
+        Args:
+            jql (str): JQL query string
+        Returns:
+            list: List of Jira issues
+        Raises:
+            ValueError: If API request fails
+        """
+        assert jql, "JQL query is required"
+
+        try:
+            issues = self.jira.search_issues(jql)
+            return [self._format_issue(issue) for issue in issues]
+        except Exception as e:
+            raise ValueError(f"Failed to list Jira issues: {str(e)}")
+
+    def get_issue(self, issue_key, expand="renderedFields,comments"):
+        """
+        Get details of a specific Jira issue
+        Args:
+            issue_key (str): Jira issue key (e.g. "PROJ-123")
+            expand (str): Comma-separated list of fields to expand
+        Returns:
+            dict: Issue details
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            issue = self.jira.issue(issue_key, expand=expand)
+            return self._format_issue(issue)
+        except Exception as e:
+            raise ValueError(f"Failed to get Jira issue: {str(e)}")
+
+    def _format_issue(self, issue):
+        """
+        Format a Jira issue into a dictionary
+        Args:
+            issue: Jira issue object
+        Returns:
+            dict: Formatted issue data
+        """
+        return {
+            'key': issue.key,
+            'link': f"{self.url}/browse/{issue.key}",
+            'summary': issue.fields.summary,
+            'description': issue.fields.description,
+            'status': issue.fields.status.name,
+            'assignee': issue.fields.assignee.displayName if issue.fields.assignee else None,
+            'reporter': issue.fields.reporter.displayName if issue.fields.reporter else None,
+            'created': issue.fields.created,
+            'updated': issue.fields.updated,
+            'priority': issue.fields.priority.name if issue.fields.priority else None,
+            'labels': issue.fields.labels,
+            'comments': [{
+                'author': comment.author.displayName,
+                'body': comment.body,
+                'created': comment.created
+            } for comment in issue.fields.comment.comments] if hasattr(issue.fields, 'comment') else [],
+            'renderedFields': {
+                'description': issue.renderedFields.description if hasattr(issue, 'renderedFields') else None
+            }
+        }
 
 class CloudflareRequester():
     def __init__(self):

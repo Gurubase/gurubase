@@ -1758,6 +1758,7 @@ class Integration(models.Model):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
         GITHUB = "GITHUB"
+        JIRA = "JIRA"
 
     type = models.CharField(
         max_length=50,
@@ -1778,6 +1779,11 @@ class Integration(models.Model):
     github_secret = models.TextField(null=True, blank=True)
     github_bot_name = models.TextField(null=True, blank=True)
     github_html_url = models.TextField(null=True, blank=True)
+
+    jira_api_key = models.TextField(null=True, blank=True)
+    jira_user_email = models.TextField(null=True, blank=True)
+    jira_domain = models.TextField(null=True, blank=True)
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1810,6 +1816,13 @@ class Integration(models.Model):
             else:
                 return None
         return None
+
+    @property
+    def masked_jira_api_key(self):
+        if self.jira_api_key:
+            return self.jira_api_key[:3] + ('*' * len(self.jira_api_key[3:-3])) + self.jira_api_key[-3:]
+        else:
+            return None
 
     class Meta:
         unique_together = ['type', 'guru_type']

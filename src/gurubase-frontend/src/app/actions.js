@@ -1033,7 +1033,7 @@ export async function createSelfhostedIntegration(
   data
 ) {
   try {
-    const response = await makePublicRequest(
+    const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
       {
         method: "POST",
@@ -1045,7 +1045,10 @@ export async function createSelfhostedIntegration(
           client_id: data.clientId,
           installation_id: data.installationId,
           private_key: data.privateKey,
-          github_secret: data.secret
+          github_secret: data.secret,
+          jira_domain: data.jira_domain,
+          jira_user_email: data.jira_user_email,
+          jira_api_key: data.jira_api_key
         })
       }
     );
