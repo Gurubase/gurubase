@@ -2390,7 +2390,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                   }}
                   onAddJiraClick={() => {
                     setClickedSource([]);
-                    setShowJiraIntegrationModal(true);
+                    setIsJiraSidebarOpen(true);
                   }}
                   onAddWebsiteClick={() => {
                     setClickedSource([]);
