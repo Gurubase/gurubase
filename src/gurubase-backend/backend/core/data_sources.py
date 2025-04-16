@@ -429,7 +429,7 @@ class JiraStrategy(DataSourceStrategy):
                 url=jira_url,
             )
             return {
-                'type': 'JIRA',
+                'type': 'Jira',
                 'url': jira_url,
                 'status': 'success',
                 'id': data_source.id,
@@ -437,7 +437,7 @@ class JiraStrategy(DataSourceStrategy):
             }
         except DataSourceExists as e:
             return {
-                'type': 'JIRA',
+                'type': 'Jira',
                 'url': jira_url,
                 'status': 'exists',
                 'id': e.args[0]['id'],
@@ -446,7 +446,7 @@ class JiraStrategy(DataSourceStrategy):
         except Exception as e:
             logger.error(f'Error processing Jira URL {jira_url}: {traceback.format_exc()}')
             return {
-                'type': 'JIRA',
+                'type': 'Jira',
                 'url': jira_url,
                 'status': 'error',
                 'message': str(e)
