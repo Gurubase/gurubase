@@ -178,20 +178,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       iconSize: "w-5 h-5",
       icon: JiraIcon,
       showChannels: false,
-      selfhostedDescription: (
-        <>
-          To connect Jira, you need your Jira domain (e.g.,
-          yourcompany.atlassian.net), your Jira user email, and an API key.
-          Learn how to create an API key in our{" "}
-          <Link
-            href="https://docs.gurubase.io/integrations/jira#creating-a-jira-api-key"
-            className="text-blue-500 hover:text-blue-600"
-            target="_blank">
-            documentation
-          </Link>
-          .
-        </>
-      )
+      selfhostedDescription: <></>
     }
   };
   const config = integrationConfig[type];
