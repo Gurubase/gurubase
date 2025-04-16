@@ -38,6 +38,11 @@ class PDFContentExtractionError(ContentExtractionError):
     pass
 
 
+class JiraContentExtractionError(ContentExtractionError):
+    """Exception raised for errors in Jira content extraction."""
+    pass
+
+
 class WebsiteContentExtractionError(ContentExtractionError):
     """Exception raised for errors in Website content extraction."""
     pass 

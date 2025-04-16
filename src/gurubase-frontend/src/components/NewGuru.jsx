@@ -142,7 +142,8 @@ const formSchema = z.object({
     )
     .optional(),
   youtubeLinks: z.array(z.string()).optional(),
-  websiteUrls: z.array(z.string()).optional()
+  websiteUrls: z.array(z.string()).optional(),
+  jiraIssues: z.array(z.string()).optional()
 });
 
 export default function NewGuru({ guruData, isProcessing }) {
@@ -318,6 +319,14 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
   const [githubRepoErrors, setGithubRepoErrors] = useState({});
 
+  useEffect(() => {
+    console.table(sources);
+  }, [sources]);
+
+  useEffect(() => {
+    console.table(dirtyChanges);
+  }, [dirtyChanges]);
+
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
       return false;
@@ -341,7 +350,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       githubRepos: customGuruData?.github_repos || [],
       uploadedFiles: [],
       youtubeLinks: [],
-      websiteUrls: []
+      websiteUrls: [],
+      jiraIssues: []
     }
   });
 
@@ -375,6 +385,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       setYoutubeEditorContent(notProcessedSources);
     } else if (type === "website") {
       setUrlEditorContent(notProcessedSources);
+    } else if (type === "jira") {
+      setJiraEditorContent(notProcessedSources);
     }
   }, []);
 
@@ -507,7 +519,9 @@ export default function NewGuru({ guruData, isProcessing }) {
             ? "Video"
             : source.type === "PDF"
               ? "File"
-              : "Website",
+              : source.type === "JIRA"
+                ? "Jira"
+                : "Website",
         name: source.title,
         type: source.type.toLowerCase(),
         size: source.type === "PDF" ? source.size : "N/A",
@@ -555,6 +569,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       form.setValue(
         "websiteUrls",
         newSources.filter((s) => s.type === "website").map((s) => s.url)
+      );
+      form.setValue(
+        "jiraIssues",
+        newSources.filter((s) => s.type === "jira").map((s) => s.url)
       );
       form.setValue(
         "uploadedFiles",
@@ -762,7 +780,12 @@ export default function NewGuru({ guruData, isProcessing }) {
   const handleEditSource = (source, tabValue) => {
     const sourceType = source.type.toLowerCase();
 
-    if (sourceType !== "website" && sourceType !== "youtube") return;
+    if (
+      sourceType !== "website" &&
+      sourceType !== "youtube" &&
+      sourceType !== "jira"
+    )
+      return;
 
     const domains = source.domains?.map((d) => ({
       ...d,
@@ -784,7 +807,11 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     // Set the appropriate sidebar state
     const setSidebar =
-      sourceType === "youtube" ? setIsYoutubeSidebarOpen : setIsUrlSidebarOpen;
+      sourceType === "youtube"
+        ? setIsYoutubeSidebarOpen
+        : sourceType === "jira"
+          ? setIsJiraSidebarOpen
+          : setIsUrlSidebarOpen;
 
     setSidebar(true);
   };
@@ -856,7 +883,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                   ? "Video"
                   : source.type === "PDF"
                     ? "File"
-                    : "Website",
+                    : source.type === "JIRA"
+                      ? "Jira"
+                      : "Website",
               name: source.title,
               type: source.type.toLowerCase(),
               size: source.type === "PDF" ? source.size : "N/A",
@@ -882,6 +911,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                 .map((s) => s.url),
               websiteUrls: updatedSources
                 .filter((s) => s.type === "website")
+                .map((s) => s.url),
+              jiraIssues: updatedSources
+                .filter((s) => s.type === "jira")
                 .map((s) => s.url),
               uploadedFiles: updatedSources
                 .filter((s) => s.type === "pdf")
@@ -952,6 +984,7 @@ export default function NewGuru({ guruData, isProcessing }) {
     const websiteCount = sources.filter(
       (s) => s.type.toLowerCase() === "website" && !s.deleted
     ).length;
+    // TODO:
 
     // Calculate PDF size
     let currentPdfSize = sources
@@ -1051,9 +1084,10 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       // Find the hasResources check and update it like this:
       const hasResources =
-        (data.uploadedFiles && data.uploadedFiles.length > 0) ||
-        (data.youtubeLinks && data.youtubeLinks.length > 0) ||
-        (data.websiteUrls && data.websiteUrls.length > 0);
+        data.uploadedFiles?.length > 0 ||
+        data.youtubeLinks?.length > 0 ||
+        data.websiteUrls?.length > 0 ||
+        data.jiraIssues?.length > 0;
 
       // Add check for GitHub repo changes
       const hasGithubChanges = isEditMode
@@ -1227,7 +1261,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         );
       }
 
-      // Add YouTube and website URLs
+      // Add YouTube URLs
       const youtubeSources = dirtyChanges.sources
         .filter(
           (source) =>
@@ -1245,6 +1279,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         hasNewSources = true;
       }
 
+      // Add Website URLs
       const websiteSources = dirtyChanges.sources
         .filter(
           (source) =>
@@ -1259,6 +1294,19 @@ export default function NewGuru({ guruData, isProcessing }) {
           "website_urls",
           JSON.stringify(websiteSources)
         );
+        hasNewSources = true;
+      }
+
+      // Add Jira issues
+      const jiraSources = dirtyChanges.sources
+        .filter(
+          (source) =>
+            source.type === "jira" && source.newAddedSource && !source.deleted
+        )
+        .map((source) => source.url);
+
+      if (jiraSources.length > 0) {
+        newSourcesFormData.append("jira_urls", JSON.stringify(jiraSources));
         hasNewSources = true;
       }
 
@@ -1348,7 +1396,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         guruLogo: guruResponse.icon_url || data.guruLogo,
         uploadedFiles: data.uploadedFiles || [],
         youtubeLinks: data.youtubeLinks || [],
-        websiteUrls: data.websiteUrls || []
+        websiteUrls: data.websiteUrls || [],
+        jiraIssues: data.jiraIssues || []
       });
 
       fetchDataSources(guruSlug);
@@ -1562,11 +1611,95 @@ export default function NewGuru({ guruData, isProcessing }) {
   }, []);
 
   // Placeholder - Needs actual implementation for adding Jira links
-  const handleAddJiraUrls = useCallback((links) => {
-    console.log("Adding Jira links:", links);
-    // TODO: Implement logic similar to handleAddUrls but for Jira
-    // This will involve updating 'sources', 'dirtyChanges', and potentially form values
-  }, []);
+  const handleAddJiraUrls = useCallback(
+    (links) => {
+      setSources((prevSources) => {
+        // Get the current Jira issues from editor content
+        const currentIssues = jiraEditorContent.split("\n").filter(Boolean);
+
+        // Keep existing sources that are already processed (excluding unprocessed Jira issues)
+        const existingProcessedSources = prevSources.filter(
+          (source) =>
+            source.type.toLowerCase() !== "jira" ||
+            source.status === "SUCCESS" ||
+            source.status === "FAIL"
+        );
+
+        // Create new source objects for each Jira issue in the editor
+        const newSources = currentIssues.map((issue) => ({
+          id: issue,
+          type: "jira",
+          sources: "Jira",
+          url: issue,
+          status: "NOT_PROCESSED",
+          error: null,
+          newAddedSource: true,
+          issueKey: issue.split("/").pop() // Extract issue key from URL
+        }));
+
+        // Remove duplicates from newSources and check for duplicates with existing processed sources
+        const newSourcesWithoutDuplicates = newSources.filter(
+          (source, index, self) =>
+            index === self.findIndex((t) => t.url === source.url) &&
+            !existingProcessedSources.some((s) => s.url === source.url)
+        );
+
+        // Combine existing processed sources with new sources
+        const updatedSources = [
+          ...existingProcessedSources,
+          ...newSourcesWithoutDuplicates
+        ];
+
+        // Update the form's Jira fields to match editor content
+        const formField = "jiraIssues";
+
+        // Get all Jira issues, including both processed and new ones
+        const allJiraIssues = updatedSources
+          .filter((source) => source.type.toLowerCase() === "jira")
+          .map((source) => source.url);
+
+        form.setValue(formField, allJiraIssues);
+
+        return updatedSources;
+      });
+
+      // Update dirtyChanges to reflect only the new Jira issues
+      setDirtyChanges((prev) => {
+        const currentIssues = jiraEditorContent.split("\n").filter(Boolean);
+
+        // Keep existing deleted sources and sources of other types
+        const filteredSources = prev.sources.filter(
+          (source) => source.type !== "jira" || source.deleted
+        );
+
+        // Add only new entries from editor content that aren't already in sources
+        const newEntries = currentIssues
+          .filter((issue) => {
+            // Check if this issue is new (not in existing sources)
+            const isNewIssue = !sources.some(
+              (source) =>
+                source.url === issue && source.status !== "NOT_PROCESSED"
+            );
+
+            return isNewIssue;
+          })
+          .map((issue) => ({
+            id: issue,
+            type: "jira",
+            url: issue,
+            name: issue,
+            error: null,
+            newAddedSource: true
+          }));
+
+        return {
+          ...prev,
+          sources: [...filteredSources, ...newEntries]
+        };
+      });
+    },
+    [form, jiraEditorContent, sources]
+  );
 
   // Add this near the top of the component where other useEffects are
   // Leave site? Changes you made may not be saved.
@@ -1905,6 +2038,9 @@ export default function NewGuru({ guruData, isProcessing }) {
     }, {});
 
     const handleBadgeClick = (e, status, source) => {
+      console.log("e", e);
+      console.log("status", status);
+      console.log("source", source);
       if (isSourcesProcessing) return;
       e.preventDefault();
       e.stopPropagation();
@@ -1920,6 +2056,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       setInitialActiveTab(tabValue);
 
       // Small delay to ensure state is updated before opening dialog
+      console.log("tabValue", tabValue);
       setTimeout(() => {
         handleEditSource(source, tabValue);
       }, 0);
@@ -2028,6 +2165,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     const uniqueYoutubeUrls = [...new Set(youtubeUrls)];
     const uniqueWebsiteUrls = [...new Set(websiteUrls)];
+    // TODO:
 
     if (uniqueYoutubeUrls.length > 0) {
       const newYoutubeUrls = uniqueYoutubeUrls.map((url) => ({
@@ -2469,6 +2607,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                       <SelectItem value="website">Website</SelectItem>
                       <SelectItem value="youtube">Video</SelectItem>
                       <SelectItem value="pdf">Files</SelectItem>
+                      <SelectItem value="jira">Jira</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -2576,7 +2715,8 @@ export default function NewGuru({ guruData, isProcessing }) {
                       const urlSources = filteredSources.filter(
                         (source) =>
                           source.type.toLowerCase() === "youtube" ||
-                          source.type.toLowerCase() === "website"
+                          source.type.toLowerCase() === "website" ||
+                          source.type.toLowerCase() === "jira"
                       );
                       const fileSources = filteredSources.filter(
                         (source) => source.type.toLowerCase() === "pdf"
@@ -2614,6 +2754,7 @@ export default function NewGuru({ guruData, isProcessing }) {
                         ...fileSources
                       ];
 
+                      console.log("Display sources: ", displaySources);
                       return displaySources.map((source) => (
                         <TableRow key={source.id}>
                           <TableCell className="font-medium">
@@ -2626,6 +2767,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                               )}
                               {source.type?.toLowerCase() === "pdf" && (
                                 <SolarFileTextBold className="mr-2 h-4 w-4" />
+                              )}
+                              {source.type?.toLowerCase() === "jira" && (
+                                <JiraIcon className="mr-2 h-4 w-4" />
                               )}
                               <span>{source.sources}</span>
                             </div>
@@ -2686,8 +2830,8 @@ export default function NewGuru({ guruData, isProcessing }) {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     {(source.type.toLowerCase() === "website" ||
-                                      source.type.toLowerCase() ===
-                                        "youtube") && (
+                                      source.type.toLowerCase() === "youtube" ||
+                                      source.type.toLowerCase() === "jira") && (
                                       <DropdownMenuItem
                                         disabled={isSourcesProcessing}
                                         onClick={() =>

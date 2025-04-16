@@ -836,17 +836,19 @@ def create_data_sources(request, guru_type):
     website_urls = request.data.get('website_urls', '[]')
     github_urls = request.data.get('github_urls', '[]')
     pdf_privacies = request.data.get('pdf_privacies', '[]')
-    
+    jira_urls = request.data.get('jira_urls', '[]')
+
     try:
         youtube_urls = json.loads(youtube_urls)
         website_urls = json.loads(website_urls)
         github_urls = json.loads(github_urls)
         pdf_privacies = json.loads(pdf_privacies)
+        jira_urls = json.loads(jira_urls)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls:
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -856,13 +858,14 @@ def create_data_sources(request, guru_type):
         service.validate_pdf_files(pdf_files, pdf_privacies)
         service.validate_url_limits(youtube_urls, 'youtube')
         service.validate_url_limits(website_urls, 'website')
-        
+        service.validate_url_limits(jira_urls, 'jira')
         # Create data sources
         results = service.create_data_sources(
             pdf_files=pdf_files,
             pdf_privacies=pdf_privacies,
             youtube_urls=youtube_urls,
-            website_urls=website_urls
+            website_urls=website_urls,
+            jira_urls=jira_urls
         )
         
         return Response({
@@ -1000,6 +1003,13 @@ def data_sources_frontend(request, guru_type):
         github_urls = json.loads(request.data.get('github_urls', '[]'))
         if github_urls:
             is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, github_urls_count=len(github_urls))
+            if not is_allowed:
+                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check Jira issue limits
+        jira_urls = json.loads(request.data.get('jira_urls', '[]'))
+        if jira_urls:
+            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, jira_urls_count=len(jira_urls))
             if not is_allowed:
                 return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
         

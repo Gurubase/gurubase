@@ -871,26 +871,31 @@ class JiraRequester():
         Returns:
             dict: Formatted issue data
         """
+
+        content = f'<Jira Issue>\n\nTitle: {issue.fields.summary}\n\nDescription: {issue.fields.description}\n\n</Jira Issue>'
+        for comment in issue.fields.comment.comments:
+            content += f'\n\n<Jira Comment>\n\n{comment.body}\n\n</Jira Comment>'
         return {
             'key': issue.key,
             'link': f"{self.url}/browse/{issue.key}",
-            'summary': issue.fields.summary,
-            'description': issue.fields.description,
-            'status': issue.fields.status.name,
-            'assignee': issue.fields.assignee.displayName if issue.fields.assignee else None,
-            'reporter': issue.fields.reporter.displayName if issue.fields.reporter else None,
-            'created': issue.fields.created,
-            'updated': issue.fields.updated,
-            'priority': issue.fields.priority.name if issue.fields.priority else None,
-            'labels': issue.fields.labels,
-            'comments': [{
-                'author': comment.author.displayName,
-                'body': comment.body,
-                'created': comment.created
-            } for comment in issue.fields.comment.comments] if hasattr(issue.fields, 'comment') else [],
-            'renderedFields': {
-                'description': issue.renderedFields.description if hasattr(issue, 'renderedFields') else None
-            }
+            'title': issue.fields.summary,
+            # 'description': issue.fields.description,
+            # 'status': issue.fields.status.name,
+            # 'assignee': issue.fields.assignee.displayName if issue.fields.assignee else None,
+            # 'reporter': issue.fields.reporter.displayName if issue.fields.reporter else None,
+            # 'created': issue.fields.created,
+            # 'updated': issue.fields.updated,
+            # 'priority': issue.fields.priority.name if issue.fields.priority else None,
+            # 'labels': issue.fields.labels,
+            # 'comments': [{
+            #     'author': comment.author.displayName,
+            #     'body': comment.body,
+            #     'created': comment.created
+            # } for comment in issue.fields.comment.comments] if hasattr(issue.fields, 'comment') else [],
+            # 'renderedFields': {
+            #     'description': issue.renderedFields.description if hasattr(issue, 'renderedFields') else None
+            # },
+            'content': content
         }
 
 class CloudflareRequester():
