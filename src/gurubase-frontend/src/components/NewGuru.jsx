@@ -326,13 +326,8 @@ export default function NewGuru({ guruData, isProcessing }) {
     useState(false); // <-- State for integration prompt modal
 
   useEffect(() => {
-    console.log(jiraIntegration);
-  }, [jiraIntegration]);
-
-  useEffect(() => {
     const fetchIntegration = async () => {
       const integration = await getIntegrationDetails(customGuru, "JIRA");
-      console.log(integration);
       if (integration.status === 202) {
         setJiraIntegration(null);
       } else {
