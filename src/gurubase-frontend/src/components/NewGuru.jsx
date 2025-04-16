@@ -112,6 +112,7 @@ import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirma
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
 import { JiraIntegrationModal } from "@/components/NewEditGuru/JiraIntegrationModal";
 import { PendingChangesIndicator } from "@/components/NewEditGuru/PendingChangesIndicator";
+import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSection";
 
 const formSchema = z.object({
   guruName: z
@@ -1815,56 +1816,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     });
   };
 
-  const renderGithubBadge = (source) => {
-    return (
-      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-        {(() => {
-          let badgeProps = {
-            className:
-              "flex items-center rounded-full gap-1 px-2 text-body4 font-medium pointer-events-none",
-            icon: Clock,
-            iconColor: "text-gray-500",
-            text: "Not Indexed"
-          };
-
-          switch (source.status) {
-            case "SUCCESS":
-              badgeProps.icon = Check;
-              badgeProps.iconColor = "text-green-700";
-              badgeProps.text = "Indexed";
-              badgeProps.className += " bg-green-50 text-green-700";
-              break;
-            case "FAIL":
-              badgeProps.icon = AlertTriangle;
-              badgeProps.iconColor = "text-red-700";
-              badgeProps.text = "Failed";
-              badgeProps.className += " bg-red-50 text-red-700";
-              break;
-            case "NOT_PROCESSED":
-              badgeProps.icon = Clock;
-              badgeProps.iconColor = "text-yellow-700";
-              badgeProps.text = "Processing";
-              badgeProps.className += " bg-yellow-50 text-yellow-700";
-              break;
-            default:
-              return null;
-              badgeProps.className += " bg-gray-50 text-gray-700";
-              break;
-          }
-
-          return (
-            <Badge {...badgeProps}>
-              <badgeProps.icon
-                className={cn("h-3 w-3", badgeProps.iconColor)}
-              />
-              {badgeProps.text}
-            </Badge>
-          );
-        })()}
-      </div>
-    );
-  };
-
   // Update the renderBadges function to include the click handler
   const renderBadges = (source) => {
     // For PDF files (existing code)
@@ -2175,148 +2126,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     );
   }
 
-  // Only show GitHub-related UI and logic if index_repo is true
-  const renderCodebaseIndexing = () => {
-    if (!index_repo && isEditMode) return null;
-
-    // Find GitHub repository sources and their errors if they exist
-    const githubSources =
-      dataSources?.results?.filter(
-        (source) => source.url && source.url.startsWith("https://github.com")
-      ) || [];
-
-    // Get the repo limit from customGuruData
-    const repoLimit =
-      process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted"
-        ? Infinity
-        : customGuruData?.github_repo_limit || 1;
-
-    // Always get the current githubRepos values directly from the form
-    const currentGithubRepos = form.getValues("githubRepos") || [];
-
-    return (
-      <FormField
-        control={form.control}
-        name="githubRepos"
-        render={({ field }) => {
-          // Ensure we're always using the latest values from the form
-          const repos = field.value;
-
-          return (
-            <FormItem className="flex-1">
-              <div className="flex items-center space-x-2">
-                <FormLabel>Codebase Indexing</FormLabel>
-                <HeaderTooltip
-                  text={
-                    "Provide links to GitHub repositories to index their codebases. The Guru can then use these codebases to generate answers based on them."
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                {repos.map((repo, index) => (
-                  <div key={index} className="flex flex-col gap-2">
-                    <div className="relative flex gap-2">
-                      <FormControl>
-                        <Input
-                          placeholder="https://github.com/username/repository"
-                          value={repo}
-                          className={cn(
-                            "w-full pr-[110px]",
-                            githubRepoStatuses[repo] === "NOT_PROCESSED" &&
-                              "bg-gray-100 cursor-not-allowed",
-                            form.formState.errors.githubRepos?.[index] &&
-                              "border-red-500"
-                          )}
-                          type="url"
-                          disabled={
-                            isSourcesProcessing ||
-                            isProcessing ||
-                            form.formState.isSubmitting ||
-                            githubRepoStatuses[repo] === "NOT_PROCESSED"
-                          }
-                          onChange={(e) => {
-                            const newValue = [...repos];
-                            newValue[index] = e.target.value;
-                            field.onChange(newValue);
-                            form.trigger("githubRepos");
-                          }}
-                        />
-                      </FormControl>
-
-                      {repo && (
-                        <div className="absolute right-8 top-1/2 -translate-y-1/2">
-                          {renderGithubBadge({
-                            url: repo,
-                            status: githubRepoStatuses[repo]
-                          })}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        {
-                          <button
-                            type="button"
-                            disabled={
-                              isSourcesProcessing || form.formState.isSubmitting
-                            }
-                            className={`${isSourcesProcessing || form.formState.isSubmitting ? "opacity-50 text-gray-300 pointer-events-none cursor-not-allowed" : "text-[#BABFC8] hover:text-[#DC2626]"} transition-colors group flex-shrink-0`}
-                            onClick={() => {
-                              const newValue = repos.filter(
-                                (_, i) => i !== index
-                              );
-                              field.onChange(newValue);
-                            }}>
-                            <SolarTrashBinTrashBold
-                              className={`h-6 w-6 ${isSourcesProcessing || form.formState.isSubmitting ? "text-gray-300 opacity-50" : "text-[#BABFC8] group-hover:text-[#DC2626]"} transition-colors`}
-                            />
-                          </button>
-                        }
-                      </div>
-                    </div>
-                    {/* Show form validation error first, then indexing error */}
-                    {form.formState.errors.githubRepos?.[index] && (
-                      <div className="text-sm text-red-600 pl-1">
-                        {form.formState.errors.githubRepos[index].message}
-                      </div>
-                    )}
-                    {repo &&
-                      githubRepoErrors[repo] &&
-                      !form.formState.errors.githubRepos?.[index] && (
-                        <div className="text-sm text-red-600 pl-1">
-                          {githubRepoErrors[repo]}
-                        </div>
-                      )}
-                  </div>
-                ))}
-                {repos.length < repoLimit && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      field.onChange([...repos, ""]);
-                    }}
-                    disabled={
-                      isSourcesProcessing ||
-                      isProcessing ||
-                      form.formState.isSubmitting
-                    }
-                    className={`${
-                      isSourcesProcessing ||
-                      isProcessing ||
-                      form.formState.isSubmitting
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}>
-                    Add Repository
-                  </Button>
-                )}
-              </div>
-            </FormItem>
-          );
-        }}
-      />
-    );
-  };
-
   // Modify the form component
   return (
     <>
@@ -2523,7 +2332,15 @@ export default function NewGuru({ guruData, isProcessing }) {
 
             <div className="max-w-3xl">
               <div className="flex items-center space-x-4">
-                {renderCodebaseIndexing()}
+                <GithubSourceSection
+                  index_repo={index_repo}
+                  isEditMode={isEditMode}
+                  githubRepoStatuses={githubRepoStatuses}
+                  githubRepoErrors={githubRepoErrors}
+                  isSourcesProcessing={isSourcesProcessing}
+                  isProcessing={isProcessing}
+                  customGuruData={customGuruData}
+                />
               </div>
             </div>
 
