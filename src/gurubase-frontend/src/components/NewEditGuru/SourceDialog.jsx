@@ -62,7 +62,8 @@ const SourceDialog = React.memo(
     setShowCrawlInput,
     crawlUrl,
     setCrawlUrl,
-    isYoutubeKeyValid
+    isYoutubeKeyValid,
+    integrationId
   }) => {
     const [showStopConfirmation, setShowStopConfirmation] =
       React.useState(false);
@@ -255,6 +256,7 @@ const SourceDialog = React.memo(
                       )
                     }
                     isYoutubeKeyValid={isYoutubeKeyValid}
+                    integrationId={integrationId}
                   />
                 ) : (
                   <div className="h-full">

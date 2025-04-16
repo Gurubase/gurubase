@@ -1848,6 +1848,8 @@ export default function NewGuru({ guruData, isProcessing }) {
     );
   }
 
+  console.log("jiraIntegration", jiraIntegration);
+
   // Modify the form component
   return (
     <>
@@ -2100,6 +2102,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         onEditorChange={handleJiraEditorChange} // Use Jira handler
         onOpenChange={setIsJiraSidebarOpen}
         isYoutubeKeyValid={isYoutubeKeyValid} // Pass this prop, although likely not relevant for Jira
+        integrationId={jiraIntegration?.id}
         // Add any other Jira specific props if SourceDialog is extended
       />
       <DeleteConfirmationModal

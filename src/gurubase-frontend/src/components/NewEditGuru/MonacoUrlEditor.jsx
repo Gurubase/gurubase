@@ -86,7 +86,8 @@ const MonacoUrlEditor = ({
   onSitemapLoadingChange,
   onStopSitemapLoading,
   sourceType,
-  isYoutubeKeyValid
+  isYoutubeKeyValid,
+  integrationId
 }) => {
   const editorRef = useRef(null);
   const [sitemapUrl, setSitemapUrl] = useState("");
@@ -290,8 +291,6 @@ const MonacoUrlEditor = ({
   const handleJiraFetch = async () => {
     try {
       onSitemapLoadingChange(true);
-      // TODO: Get integrationId
-      const integrationId = "57";
       const response = await fetchJiraIssues(integrationId, jiraQuery);
 
       if (!isLoadingSitemapRef.current) {
