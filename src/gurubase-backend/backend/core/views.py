@@ -1615,13 +1615,33 @@ def api_data_sources(request, guru_type):
             # Get URLs directly from request body
             youtube_urls = request.data.get('youtube_urls', [])
             website_urls = request.data.get('website_urls', [])
+            jira_urls = request.data.get('jira_urls', [])
+
+            # Check website limits
+            if website_urls:
+                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, website_urls_count=len(website_urls))
+                if not is_allowed:
+                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+                    
+            # Check YouTube limits
+            if youtube_urls:
+                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, youtube_urls_count=len(youtube_urls))
+                if not is_allowed:
+                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check Jira issue limits
+            if jira_urls:
+                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, jira_urls_count=len(jira_urls))
+                if not is_allowed:
+                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)            
 
             # Validate URL limits
             service.validate_url_limits(youtube_urls, 'youtube')
             service.validate_url_limits(website_urls, 'website')
+            service.validate_url_limits(jira_urls, 'jira')
 
             # Create data sources (empty lists for PDF files and privacies)
-            results = service.create_data_sources([], [], youtube_urls, website_urls)
+            results = service.create_data_sources([], [], youtube_urls, website_urls, jira_urls)
             return Response(results, status=status.HTTP_200_OK)
 
         except ValueError as e:
