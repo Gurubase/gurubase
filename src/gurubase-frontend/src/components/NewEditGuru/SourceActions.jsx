@@ -38,9 +38,6 @@ export const SourceActions = ({
         // Optionally log a warning if a handler is missing for a configured type
         if (!onClickHandler && !config.requiresIntegrationCheck) {
           // Don't warn for integration types here, as the check is in the handler
-          console.warn(
-            `SourceActions: Missing handler for key '${handlerKey}' (source type: ${config.id})`
-          );
         }
 
         // Jira (and potentially future integration types) needs a special check within its handler,

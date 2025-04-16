@@ -1848,8 +1848,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     );
   }
 
-  console.log("jiraIntegration", jiraIntegration);
-
   // Modify the form component
   return (
     <>

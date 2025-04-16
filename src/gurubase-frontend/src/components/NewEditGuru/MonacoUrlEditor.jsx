@@ -327,7 +327,6 @@ const MonacoUrlEditor = ({
         });
         setShowJiraInput(false);
       } else {
-        console.log("else");
         CustomToast({
           message: response.message || "No issues found for the query",
           variant: "warning"
@@ -335,7 +334,6 @@ const MonacoUrlEditor = ({
         setShowJiraInput(false);
       }
     } catch (error) {
-      console.log("error", error);
       CustomToast({
         message:
           error.message ||
