@@ -984,7 +984,9 @@ export default function NewGuru({ guruData, isProcessing }) {
     const websiteCount = sources.filter(
       (s) => s.type.toLowerCase() === "website" && !s.deleted
     ).length;
-    // TODO:
+    const jiraCount = sources.filter(
+      (s) => s.type.toLowerCase() === "jira" && !s.deleted
+    ).length;
 
     // Calculate PDF size
     let currentPdfSize = sources
@@ -1009,6 +1011,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       customGuruData.website_limit === undefined
         ? Infinity
         : customGuruData.website_limit;
+    const jiraLimit =
+      customGuruData.jira_limit === undefined
+        ? Infinity
+        : customGuruData.jira_limit;
     const pdfSizeLimitMb =
       customGuruData.pdf_size_limit_mb === undefined
         ? Infinity
@@ -1034,6 +1040,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (pdfSizeMb > pdfSizeLimitMb) {
       CustomToast({
         message: `You have exceeded the PDF size limit (${pdfSizeLimitMb} MB).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (jiraCount > jiraLimit) {
+      CustomToast({
+        message: `You have exceeded the Jira issue limit (${jiraLimit}).`,
         variant: "error"
       });
       return false;
@@ -2153,6 +2167,18 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
     }
 
+    if (
+      jiraEditorContent === "" &&
+      dirtyChanges.sources.some(
+        (source) => source.newAddedSource && source.type === "jira"
+      )
+    ) {
+      setDirtyChanges((prev) => ({
+        ...prev,
+        sources: prev.sources.filter((source) => source.type !== "jira")
+      }));
+    }
+
     const youtubeUrls = youtubeEditorContent
       .split("\n")
       .map((url) => url.trim())
@@ -2163,9 +2189,14 @@ export default function NewGuru({ guruData, isProcessing }) {
       .map((url) => url.trim())
       .filter((url) => url && isValidUrl(url));
 
+    const jiraUrls = jiraEditorContent
+      .split("\n")
+      .map((url) => url.trim())
+      .filter((url) => url && isValidUrl(url));
+
     const uniqueYoutubeUrls = [...new Set(youtubeUrls)];
     const uniqueWebsiteUrls = [...new Set(websiteUrls)];
-    // TODO:
+    const uniqueJiraUrls = [...new Set(jiraUrls)];
 
     if (uniqueYoutubeUrls.length > 0) {
       const newYoutubeUrls = uniqueYoutubeUrls.map((url) => ({
@@ -2189,6 +2220,18 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
 
       handleAddUrls(newWebsiteUrls, "website");
+    }
+
+    if (uniqueJiraUrls.length > 0) {
+      const newJiraUrls = uniqueJiraUrls.map((url) => ({
+        id: url,
+        type: "jira",
+        url: url,
+        status: "NOT_PROCESSED",
+        newAddedSource: true
+      }));
+
+      handleAddJiraUrls(newJiraUrls);
     }
   }, [isUrlSidebarOpen, isYoutubeSidebarOpen, isJiraSidebarOpen]);
 
