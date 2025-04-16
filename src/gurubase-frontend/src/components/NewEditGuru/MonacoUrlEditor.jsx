@@ -16,7 +16,8 @@ import { CustomToast } from "@/components/CustomToast";
 import {
   parseSitemapUrls,
   fetchYoutubePlaylist,
-  fetchYoutubeChannel
+  fetchYoutubeChannel,
+  fetchJiraIssues
 } from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
@@ -93,6 +94,9 @@ const MonacoUrlEditor = ({
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [showYoutubeInput, setShowYoutubeInput] = useState(false);
   const [youtubeType, setYoutubeType] = useState("");
+  const defaultJQL = `status in ("Done", "Closed")`;
+  const [jiraQuery, setJiraQuery] = useState(defaultJQL);
+  const [showJiraInput, setShowJiraInput] = useState(false);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
@@ -283,6 +287,67 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const handleJiraFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      // TODO: Get integrationId
+      const integrationId = "57";
+      const response = await fetchJiraIssues(integrationId, jiraQuery);
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.msg || !response.issues) {
+        CustomToast({
+          message: response.msg || "Failed to fetch Jira issues",
+          variant: "error"
+        });
+
+        return;
+      }
+
+      const { issues, issue_count } = response;
+      if (issues && issues.length > 0) {
+        const fetchedUrls = issues.map((issue) => issue.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        setJiraQuery(defaultJQL);
+
+        CustomToast({
+          message: `Successfully added ${issue_count || issues.length} issues from Jira`,
+          variant: "success"
+        });
+        setShowJiraInput(false);
+      } else {
+        console.log("else");
+        CustomToast({
+          message: response.message || "No issues found for the query",
+          variant: "warning"
+        });
+        setShowJiraInput(false);
+      }
+    } catch (error) {
+      console.log("error", error);
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Jira issues",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+    }
+  };
+
   const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
@@ -382,11 +447,36 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const jiraButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleJiraFetch}
+          variant="outline">
+          Fetch Issues
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+          onClick={() => onStopSitemapLoading()}
+          disabled={!isLoadingSitemapRef.current}
+          variant="outline">
+          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          Stop
+        </Button>
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -487,6 +577,55 @@ const MonacoUrlEditor = ({
                         setCrawlUrl("");
                       }}
                       disabled={isCrawling}>
+                      ✕
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {sourceType === "jira" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {!showJiraInput ? (
+                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                          onClick={() => setShowJiraInput(true)}>
+                          <Icon icon="mdi:jira" className="h-4 w-4" />
+                          <span className="text-sm">Fetch Issues</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Fetch issues using a JQL query</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <Input
+                    className="w-[300px] h-8 guru-sm:w-full"
+                    placeholder="Enter JQL Query"
+                    value={jiraQuery}
+                    onChange={(e) => setJiraQuery(e.target.value)}
+                    disabled={isLoadingSitemapRef.current}
+                  />
+                  <div className="flex items-center gap-2 guru-sm:w-full">
+                    {jiraButtonContent()}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 hover:bg-gray-100"
+                      disabled={isLoadingSitemapRef.current}
+                      onClick={() => {
+                        setShowJiraInput(false);
+                        setJiraQuery(defaultJQL);
+                      }}>
                       ✕
                     </Button>
                   </div>
@@ -618,7 +757,11 @@ const MonacoUrlEditor = ({
                   {isLoadingSitemapRef.current &&
                     (sourceType === "website"
                       ? "Parsing sitemap..."
-                      : `Importing ${youtubeType}...`)}
+                      : sourceType === "youtube"
+                        ? `Importing ${youtubeType}...`
+                        : sourceType === "jira"
+                          ? "Fetching Jira issues..."
+                          : "Loading...")}
                 </span>
               </div>
             </div>

@@ -244,13 +244,17 @@ const SourceDialog = React.memo(
                     setCrawlUrl={setCrawlUrl}
                     isLoadingSitemapRef={isLoadingSitemapRef}
                     onSitemapLoadingChange={updateSitemapLoadingState}
-                    isYoutubeKeyValid={isYoutubeKeyValid}
                     onStopSitemapLoading={() =>
                       handleProcessStop(
                         "stop",
-                        sourceType === "website" ? "sitemap" : "youtube"
+                        sourceType === "website"
+                          ? "sitemap"
+                          : sourceType === "jira"
+                            ? "jira"
+                            : "youtube"
                       )
                     }
+                    isYoutubeKeyValid={isYoutubeKeyValid}
                   />
                 ) : (
                   <div className="h-full">

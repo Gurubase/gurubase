@@ -45,7 +45,8 @@ import {
   SolarGalleryAddBold,
   SolarInfoCircleBold,
   SolarTrashBinTrashBold,
-  SolarVideoLibraryBold
+  SolarVideoLibraryBold,
+  JiraIcon
 } from "@/components/Icons";
 // Import the new component
 import SourceDialog from "@/components/NewEditGuru/SourceDialog";
@@ -310,6 +311,8 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [isYoutubeSidebarOpen, setIsYoutubeSidebarOpen] = useState(false);
   const [youtubeEditorContent, setYoutubeEditorContent] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isJiraSidebarOpen, setIsJiraSidebarOpen] = useState(false); // <-- New state for Jira sidebar
+  const [jiraEditorContent, setJiraEditorContent] = useState(""); // <-- New state for Jira editor
 
   // First, add a state to track the GitHub repository source status
   const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
@@ -1553,6 +1556,18 @@ export default function NewGuru({ guruData, isProcessing }) {
     setYoutubeEditorContent(newValue);
   }, []);
 
+  // Placeholder handlers for Jira
+  const handleJiraEditorChange = useCallback((newValue) => {
+    setJiraEditorContent(newValue);
+  }, []);
+
+  // Placeholder - Needs actual implementation for adding Jira links
+  const handleAddJiraUrls = useCallback((links) => {
+    console.log("Adding Jira links:", links);
+    // TODO: Implement logic similar to handleAddUrls but for Jira
+    // This will involve updating 'sources', 'dirtyChanges', and potentially form values
+  }, []);
+
   // Add this near the top of the component where other useEffects are
   // Leave site? Changes you made may not be saved.
   useEffect(() => {
@@ -1971,7 +1986,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   // Add cleanup when closing dialogs
   useEffect(() => {
-    if (!isUrlSidebarOpen && !isYoutubeSidebarOpen) {
+    if (!isUrlSidebarOpen && !isYoutubeSidebarOpen && !isJiraSidebarOpen) {
       setClickedSource([]);
       setSelectedUrls([]);
     }
@@ -2037,7 +2052,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       handleAddUrls(newWebsiteUrls, "website");
     }
-  }, [isUrlSidebarOpen, isYoutubeSidebarOpen]);
+  }, [isUrlSidebarOpen, isYoutubeSidebarOpen, isJiraSidebarOpen]);
 
   // useEffect(() => {
   //   console.log("dirtyChanges useeffect", dirtyChanges);
@@ -2457,7 +2472,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                     </SelectContent>
                   </Select>
                 )}
-                <div className="flex items-center justify-end space-x-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {" "}
+                  {/* Use flex-wrap and gap */}
                   <Button
                     className="text-black-600"
                     disabled={
@@ -2474,6 +2491,24 @@ export default function NewGuru({ guruData, isProcessing }) {
                     <LogosYoutubeIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
                     <span className="guru-sm:hidden guru-md:block guru-lg:block">
                       Add YouTube
+                    </span>
+                  </Button>
+                  <Button
+                    className="text-black-600"
+                    disabled={
+                      isProcessing ||
+                      form.formState.isSubmitting ||
+                      isSourcesProcessing
+                    }
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setClickedSource([]); // Reset clicked source for new dialog
+                      setIsJiraSidebarOpen(true);
+                    }}>
+                    <JiraIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
+                    <span className="guru-sm:hidden guru-md:block guru-lg:block">
+                      Add Jira Issues
                     </span>
                   </Button>
                   <Button
@@ -2831,6 +2866,27 @@ export default function NewGuru({ guruData, isProcessing }) {
         onEditorChange={handleYoutubeEditorChange}
         onOpenChange={setIsYoutubeSidebarOpen}
         isYoutubeKeyValid={isYoutubeKeyValid}
+      />
+      <SourceDialog
+        clickedSource={clickedSource} // Might need adjustment for Jira specifics later
+        editorContent={jiraEditorContent}
+        form={form} // Pass form if needed for validation/updates
+        handleDeleteUrls={handleDeleteUrls} // Needs adjustment for Jira deletion
+        initialActiveTab={initialActiveTab} // May need adjustment
+        isMobile={isMobile}
+        isOpen={isJiraSidebarOpen}
+        selectedUrls={selectedUrls} // Needs adjustment for Jira selection
+        setClickedSource={setClickedSource}
+        setDirtyChanges={setDirtyChanges}
+        setSelectedUrls={setSelectedUrls} // Needs adjustment for Jira selection
+        setSources={setSources}
+        sourceType="jira" // Set source type
+        title="Jira Issues" // Set title
+        onAddUrls={handleAddJiraUrls} // Use Jira handler
+        onEditorChange={handleJiraEditorChange} // Use Jira handler
+        onOpenChange={setIsJiraSidebarOpen}
+        isYoutubeKeyValid={isYoutubeKeyValid} // Pass this prop, although likely not relevant for Jira
+        // Add any other Jira specific props if SourceDialog is extended
       />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}

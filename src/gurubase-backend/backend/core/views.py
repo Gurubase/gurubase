@@ -3105,7 +3105,7 @@ def list_jira_issues(request, integration_id):
     try:
         jira_requester = JiraRequester(integration)
         issues = jira_requester.list_issues(jql=jql_query)
-        return Response(issues, status=status.HTTP_200_OK)
+        return Response({'issues': issues, 'issue_count': len(issues)}, status=status.HTTP_200_OK)
     except ValueError as e:
         # Handle specific errors from JiraRequester
         error_str = str(e)
