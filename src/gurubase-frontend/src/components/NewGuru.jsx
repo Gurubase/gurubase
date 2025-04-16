@@ -113,6 +113,7 @@ import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndica
 import { JiraIntegrationModal } from "@/components/NewEditGuru/JiraIntegrationModal";
 import { PendingChangesIndicator } from "@/components/NewEditGuru/PendingChangesIndicator";
 import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSection";
+import { SourceActions } from "@/components/NewEditGuru/SourceActions";
 
 const formSchema = z.object({
   guruName: z
@@ -2378,90 +2379,28 @@ export default function NewGuru({ guruData, isProcessing }) {
                     </SelectContent>
                   </Select>
                 )}
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {" "}
-                  {/* Use flex-wrap and gap */}
-                  <Button
-                    className="text-black-600"
-                    disabled={
-                      isProcessing ||
-                      form.formState.isSubmitting ||
-                      isSourcesProcessing
-                    }
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setClickedSource([]);
-                      setIsYoutubeSidebarOpen(true);
-                    }}>
-                    <LogosYoutubeIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
-                    <span className="guru-sm:hidden guru-md:block guru-lg:block">
-                      Add YouTube
-                    </span>
-                  </Button>
-                  <Button
-                    className="text-black-600"
-                    disabled={
-                      isProcessing ||
-                      form.formState.isSubmitting ||
-                      isSourcesProcessing ||
-                      isLoadingIntegration // Disable while checking integration
-                    }
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      // Check if integration exists and is properly configured
-                      if (jiraIntegration) {
-                        setClickedSource([]); // Reset clicked source for new dialog
-                        setIsJiraSidebarOpen(true);
-                      } else {
-                        // Show modal prompting user to integrate
-                        setShowJiraIntegrationModal(true);
-                      }
-                    }}>
-                    {isLoadingIntegration ? (
-                      <LoaderCircle className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <JiraIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
-                    )}
-                    <span className="guru-sm:hidden guru-md:block guru-lg:block">
-                      Add Jira Issues
-                    </span>
-                  </Button>
-                  <Button
-                    className="text-black-600"
-                    disabled={
-                      isProcessing ||
-                      form.formState.isSubmitting ||
-                      isSourcesProcessing
-                    }
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setClickedSource([]);
-                      setIsUrlSidebarOpen(true);
-                    }}>
-                    <LinkIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
-                    <span className="guru-sm:hidden guru-md:block guru-lg:block">
-                      Add Website
-                    </span>
-                  </Button>
-                  <Button
-                    className="text-black-600"
-                    disabled={
-                      isProcessing ||
-                      form.formState.isSubmitting ||
-                      isSourcesProcessing
-                    }
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current.click()}>
-                    <Upload className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
-                    <span className="guru-sm:hidden guru-md:block guru-lg:block">
-                      Upload PDFs
-                    </span>
-                  </Button>
-                </div>
+                <SourceActions
+                  isProcessing={isProcessing}
+                  isSourcesProcessing={isSourcesProcessing}
+                  isLoadingIntegration={isLoadingIntegration}
+                  jiraIntegration={jiraIntegration}
+                  onAddYoutubeClick={() => {
+                    setClickedSource([]);
+                    setIsYoutubeSidebarOpen(true);
+                  }}
+                  onAddJiraClick={() => {
+                    setClickedSource([]);
+                    setShowJiraIntegrationModal(true);
+                  }}
+                  onAddWebsiteClick={() => {
+                    setClickedSource([]);
+                    setIsUrlSidebarOpen(true);
+                  }}
+                  onUploadPdfClick={() => {
+                    fileInputRef.current.click();
+                  }}
+                  setShowJiraIntegrationModal={setShowJiraIntegrationModal}
+                />
               </div>
 
               <Table>
@@ -2651,7 +2590,10 @@ export default function NewGuru({ guruData, isProcessing }) {
             </div>
             <div className="w-full">
               {hasFormChanged && isEditMode && !isUpdating && (
-                <PendingChangesIndicator />
+                <PendingChangesIndicator
+                  dirtyChanges={dirtyChanges}
+                  sources={sources}
+                />
               )}
               {(isUpdating || isPublishing || isSourcesProcessing) && (
                 <LongUpdatesIndicator />
