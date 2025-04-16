@@ -110,6 +110,7 @@ import { HeaderTooltip } from "@/components/ui/header-tooltip";
 import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
+import { JiraIntegrationModal } from "@/components/NewEditGuru/JiraIntegrationModal";
 
 const formSchema = z.object({
   guruName: z
@@ -3093,45 +3094,3 @@ export default function NewGuru({ guruData, isProcessing }) {
     </>
   );
 }
-
-// Modal to prompt user to configure Jira integration
-const JiraIntegrationModal = ({ isOpen, onOpenChange, guruSlug }) => {
-  const navigation = useAppNavigation();
-
-  const goToIntegrations = () => {
-    if (guruSlug) {
-      navigation.push(`/guru/${guruSlug}/integrations`);
-    }
-    onOpenChange(false); // Close modal after navigation
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6">
-        <DialogHeader>
-          <div className="flex justify-center mb-4">
-            <JiraIcon className="h-10 w-10 text-blue-500" />
-          </div>
-          <DialogTitle className="text-center text-lg font-semibold">
-            Jira Integration Required
-          </DialogTitle>
-          <DialogDescription className="text-center text-sm text-gray-500 mt-2">
-            To add Jira issues as a data source, you need to connect your Jira
-            account first.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-6 flex flex-col gap-3">
-          <Button onClick={goToIntegrations} className="w-full">
-            Go to Integrations
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="w-full">
-            Cancel
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
