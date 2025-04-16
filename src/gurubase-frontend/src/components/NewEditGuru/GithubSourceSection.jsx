@@ -129,7 +129,7 @@ export const GithubSourceSection = ({
                     </FormControl>
 
                     {repo && (
-                      <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                      <div className="absolute right-10 top-1/2 -translate-y-1/2">
                         {renderGithubBadge({
                           url: repo,
                           status: githubRepoStatuses[repo]
