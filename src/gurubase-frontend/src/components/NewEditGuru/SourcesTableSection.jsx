@@ -48,6 +48,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getNormalizedDomain } from "@/utils/common";
 import { SourceActions } from "@/components/NewEditGuru/SourceActions";
+import {
+  getSourceFilterItems,
+  getSourceTypeConfigById
+} from "@/config/sourceTypes";
 
 export function SourcesTableSection({
   sources,
@@ -69,6 +73,42 @@ export function SourcesTableSection({
 }) {
   const [filterType, setFilterType] = useState("all");
 
+  const handleAddWebsite = () => {
+    setClickedSource([]);
+    setIsUrlSidebarOpen(true);
+  };
+
+  const handleAddYoutube = () => {
+    setClickedSource([]);
+    setIsYoutubeSidebarOpen(true);
+  };
+
+  const handleAddJira = () => {
+    if (jiraIntegration) {
+      setClickedSource([]);
+      setIsJiraSidebarOpen(true);
+    } else {
+      setShowJiraIntegrationModal(true);
+    }
+  };
+
+  const handleUploadPdf = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const sourceActionHandlers = {
+    website: handleAddWebsite,
+    youtube: handleAddYoutube,
+    jira: handleAddJira,
+    onUploadPdfClick: handleUploadPdf
+  };
+
+  const sourceLoadingStates = {
+    isLoadingIntegration: isLoadingIntegration
+  };
+
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
       return false;
@@ -82,8 +122,10 @@ export function SourcesTableSection({
   };
 
   const renderBadges = (source) => {
-    // For PDF files
-    if (source?.type?.toLowerCase() === "pdf") {
+    const config = getSourceTypeConfigById(source.type);
+    if (!config) return null;
+
+    if (config.hasPrivacyToggle) {
       return (
         <div className="flex items-center gap-1">
           {(() => {
@@ -163,96 +205,88 @@ export function SourcesTableSection({
       );
     }
 
-    // For URL based sources (Website, YouTube, Jira)
-    const statusGroups = source?.domains?.reduce((acc, domain) => {
-      const status =
-        domain.status === "NOT_PROCESSED"
-          ? "NOT_PROCESSED"
-          : domain.status?.toLowerCase() === "fail"
-            ? "FAIL"
-            : "SUCCESS";
+    if (source.domains && config.canEdit) {
+      const statusGroups = source.domains.reduce((acc, domain) => {
+        const status =
+          domain.status === "NOT_PROCESSED"
+            ? "NOT_PROCESSED"
+            : domain.status?.toLowerCase() === "fail"
+              ? "FAIL"
+              : "SUCCESS";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
 
-      acc[status] = (acc[status] || 0) + 1;
+      const handleBadgeClick = (e, status, sourceToEdit) => {
+        if (isSourcesProcessing) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const tabValue =
+          status === "SUCCESS"
+            ? "success"
+            : status === "NOT_PROCESSED"
+              ? "not_processed"
+              : "failed";
+        setTimeout(() => handleEditSource(sourceToEdit, tabValue), 0);
+      };
 
-      return acc;
-    }, {});
+      return (
+        <div className="flex items-center space-x-2">
+          {Object.entries(statusGroups).map(([status, count]) => {
+            if (count === 0) return null;
+            let badgeProps = {
+              className:
+                "flex items-center rounded-full gap-1 px-2 py-1 text-body4 font-medium cursor-pointer",
+              variant: "secondary",
+              text: `${count} URL${count > 1 ? "s" : ""}`
+            };
+            switch (status) {
+              case "SUCCESS":
+                badgeProps = {
+                  ...badgeProps,
+                  icon: LinkIcon,
+                  iconColor: "text-blue-base",
+                  className: `${badgeProps.className} hover:bg-blue-50`
+                };
+                break;
+              case "NOT_PROCESSED":
+                badgeProps = {
+                  ...badgeProps,
+                  icon: AlertTriangle,
+                  iconColor: "text-warning-base",
+                  className: `${badgeProps.className} hover:bg-warning-50`
+                };
+                break;
+              case "FAIL":
+                badgeProps = {
+                  ...badgeProps,
+                  icon: AlertTriangle,
+                  iconColor: "text-error-base",
+                  className: `${badgeProps.className} hover:bg-error-50`
+                };
+                break;
+              default:
+                return null;
+            }
+            return (
+              <div
+                key={status}
+                className={cn(
+                  "cursor-pointer",
+                  isSourcesProcessing && "pointer-events-none opacity-50"
+                )}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => handleBadgeClick(e, status, source)}>
+                <Badge {...badgeProps} />
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
 
-    const handleBadgeClick = (e, status, source) => {
-      if (isSourcesProcessing) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Set the initial tab first
-      const tabValue =
-        status === "SUCCESS"
-          ? "success"
-          : status === "NOT_PROCESSED"
-            ? "not_processed"
-            : "failed";
-
-      // Small delay to ensure state is updated before opening dialog
-      setTimeout(() => {
-        handleEditSource(source, tabValue);
-      }, 0);
-    };
-
-    return (
-      <div className="flex items-center space-x-2">
-        {Object.entries(statusGroups).map(([status, count]) => {
-          if (count === 0) return null;
-
-          let badgeProps = {
-            className:
-              "flex items-center rounded-full gap-1 px-2 py-1 text-body4 font-medium cursor-pointer",
-            variant: "secondary",
-            text: `${count} URL${count > 1 ? "s" : ""}`
-          };
-
-          switch (status) {
-            case "SUCCESS":
-              badgeProps = {
-                ...badgeProps,
-                icon: LinkIcon,
-                iconColor: "text-blue-base",
-                className: `${badgeProps.className} hover:bg-blue-50`
-              };
-              break;
-            case "NOT_PROCESSED":
-              badgeProps = {
-                ...badgeProps,
-                icon: AlertTriangle,
-                iconColor: "text-warning-base",
-                className: `${badgeProps.className} hover:bg-warning-50`
-              };
-              break;
-            case "FAIL":
-              badgeProps = {
-                ...badgeProps,
-                icon: AlertTriangle,
-                iconColor: "text-error-base",
-                className: `${badgeProps.className} hover:bg-error-50`
-              };
-              break;
-            default:
-              return null;
-          }
-
-          return (
-            <div
-              key={status}
-              className={cn(
-                "cursor-pointer",
-                isSourcesProcessing && "pointer-events-none opacity-50"
-              )}
-              role="button"
-              tabIndex={0}
-              onClick={(e) => handleBadgeClick(e, status, source)}>
-              <Badge {...badgeProps} />
-            </div>
-          );
-        })}
-      </div>
-    );
+    return null;
   };
 
   const filteredSources =
@@ -274,11 +308,10 @@ export function SourcesTableSection({
 
   const groupedSources = urlSources.reduce((acc, source) => {
     const domain = getNormalizedDomain(source.url);
-
     if (!domain) return acc;
-
-    const existingSource = acc.find((item) => item.domain === domain);
-
+    const existingSource = acc.find(
+      (item) => item.domain === domain && item.type === source.type
+    );
     if (existingSource) {
       existingSource.count += 1;
       existingSource.domains.push(source);
@@ -290,11 +323,11 @@ export function SourcesTableSection({
         domain: domain
       });
     }
-
     return acc;
   }, []);
 
   const displaySources = [...groupedSources, ...fileSources];
+  const sourceFilterItems = getSourceFilterItems();
 
   return (
     <div className="max-w-full">
@@ -308,45 +341,29 @@ export function SourcesTableSection({
         </div>
       </div>
 
-      {/* Table Header Actions */}
       <div className="flex items-center justify-between space-x-4 mb-3">
         {sources.length > 0 && (
           <Select
             disabled={isSourcesProcessing || isProcessing || isSubmitting}
-            onValueChange={(value) => setFilterType(value)}>
+            onValueChange={(value) => setFilterType(value)}
+            value={filterType}>
             <SelectTrigger className="guru-sm:w-[100px] guru-md:w-[180px] guru-lg:w-[180px]">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="website">Website</SelectItem>
-              <SelectItem value="youtube">Video</SelectItem>
-              <SelectItem value="pdf">Files</SelectItem>
-              <SelectItem value="jira">Jira</SelectItem>
+              {sourceFilterItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         )}
         <SourceActions
           isProcessing={isProcessing}
           isSourcesProcessing={isSourcesProcessing}
-          isLoadingIntegration={isLoadingIntegration}
-          jiraIntegration={jiraIntegration}
-          onAddYoutubeClick={() => {
-            setClickedSource([]);
-            setIsYoutubeSidebarOpen(true);
-          }}
-          onAddJiraClick={() => {
-            setClickedSource([]);
-            setIsJiraSidebarOpen(true);
-          }}
-          onAddWebsiteClick={() => {
-            setClickedSource([]);
-            setIsUrlSidebarOpen(true);
-          }}
-          onUploadPdfClick={() => {
-            fileInputRef.current.click();
-          }}
-          setShowJiraIntegrationModal={setShowJiraIntegrationModal}
+          actionHandlers={sourceActionHandlers}
+          loadingStates={sourceLoadingStates}
         />
       </div>
 
@@ -366,108 +383,82 @@ export function SourcesTableSection({
               </TableCell>
             </TableRow>
           ) : (
-            displaySources.map((source) => (
-              <TableRow key={source.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    {source.type?.toLowerCase() === "website" && (
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                    )}
-                    {source.type?.toLowerCase() === "youtube" && (
-                      <SolarVideoLibraryBold className="mr-2 h-4 w-4" />
-                    )}
-                    {source.type?.toLowerCase() === "pdf" && (
-                      <SolarFileTextBold className="mr-2 h-4 w-4" />
-                    )}
-                    {source.type?.toLowerCase() === "jira" && (
-                      <JiraIcon className="mr-2 h-4 w-4" />
-                    )}
-                    <span>{source.sources}</span>
-                  </div>
-                </TableCell>
+            displaySources.map((source) => {
+              const config = getSourceTypeConfigById(source.type);
+              const IconComponent = config?.icon;
 
-                <TableCell>
-                  {isSourceProcessing(source) && isSourcesProcessing ? (
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <LoaderCircle className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Processing source...</span>
+              return (
+                <TableRow key={source.id}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center">
+                      {IconComponent && (
+                        <IconComponent className="mr-2 h-4 w-4" />
+                      )}
+                      <span>{config?.displaySourceText || source.sources}</span>
                     </div>
-                  ) : source?.domain?.length > 50 ||
-                    source?.name?.length > 50 ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>
-                            {source?.type?.toLowerCase() === "pdf"
-                              ? source?.name?.slice(0, 50)
-                              : source?.domain?.slice(0, 50)}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            {source?.type?.toLowerCase() === "pdf"
-                              ? source?.name
-                              : source?.domain}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    <span>
-                      {source?.type?.toLowerCase() === "pdf"
-                        ? source?.name
-                        : source?.domain}
-                    </span>
-                  )}
-                </TableCell>
+                  </TableCell>
 
-                <TableCell className="">
-                  <div className="flex items-center space-x-2 justify-end">
-                    {renderBadges(source)}
-                    <span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            className="h-8 w-8 p-0"
-                            disabled={isSourcesProcessing}
-                            size="icon"
-                            variant="ghost">
-                            <span className="sr-only">Open menu</span>
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {(source.type.toLowerCase() === "website" ||
-                            source.type.toLowerCase() === "youtube" ||
-                            source.type.toLowerCase() === "jira") && (
+                  <TableCell>
+                    {isSourceProcessing(source) && isSourcesProcessing ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Processing source...</span>
+                      </div>
+                    ) : (
+                      <span>
+                        {source?.type?.toLowerCase() === "pdf"
+                          ? source?.name
+                          : source?.domain}
+                      </span>
+                    )}
+                  </TableCell>
+
+                  <TableCell className="">
+                    <div className="flex items-center space-x-2 justify-end">
+                      {renderBadges(source)}
+                      <span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              className="h-8 w-8 p-0"
+                              disabled={isSourcesProcessing}
+                              size="icon"
+                              variant="ghost">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {config?.canEdit && (
+                              <DropdownMenuItem
+                                disabled={isSourcesProcessing}
+                                onClick={() => handleEditSource(source)}>
+                                <Edit className="mr-2 h-3 w-3" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {config?.canReindex && (
+                              <DropdownMenuItem
+                                disabled={isSourcesProcessing}
+                                onClick={() => handleReindexSource(source)}>
+                                <RotateCw className="mr-2 h-3 w-3" />
+                                Reindex
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               disabled={isSourcesProcessing}
-                              onClick={() => handleEditSource(source)}>
-                              <Edit className="mr-2 h-3 w-3" />
-                              Edit
+                              onClick={() => handleDeleteSource(source)}>
+                              <SolarTrashBinTrashBold className="mr-2 h-3 w-3" />
+                              Delete
                             </DropdownMenuItem>
-                          )}
-                          {source.type.toLowerCase() === "website" && (
-                            <DropdownMenuItem
-                              disabled={isSourcesProcessing}
-                              onClick={() => handleReindexSource(source)}>
-                              <RotateCw className="mr-2 h-3 w-3" />
-                              Reindex
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            disabled={isSourcesProcessing}
-                            onClick={() => handleDeleteSource(source)}>
-                            <SolarTrashBinTrashBold className="mr-2 h-3 w-3" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>

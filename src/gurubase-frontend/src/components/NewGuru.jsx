@@ -866,7 +866,6 @@ export default function NewGuru({ guruData, isProcessing }) {
             setDirtyChanges({ sources: [], guruUpdated: false });
             setUrlEditorContent("");
             setYoutubeEditorContent("");
-            setProcessingSources([]);
 
             setIsSourcesProcessing(false);
             // Reset polling flag before returning
@@ -1300,8 +1299,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           return ids;
         }, []);
 
-        setProcessingSources((prev) => [...prev, ...processingIds]);
-
         const sourcesResponse = await addGuruSources(
           guruSlug,
           newSourcesFormData
@@ -1362,7 +1359,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       setIsUpdating(false);
       setIsPublishing(false);
       setIsSourcesProcessing(false);
-      setProcessingSources([]);
     }
   };
 
