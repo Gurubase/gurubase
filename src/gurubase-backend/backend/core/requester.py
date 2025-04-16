@@ -828,11 +828,12 @@ class JiraRequester():
         )
 
 
-    def list_issues(self, jql):
+    def list_issues(self, jql, batch_size=50):
         """
-        List Jira issues based on JQL query
+        List Jira issues based on JQL query with pagination
         Args:
             jql (str): JQL query string
+            max_results (int): Maximum number of results to fetch per request
         Returns:
             list: List of Jira issues
         Raises:
@@ -840,9 +841,17 @@ class JiraRequester():
         """
         assert jql, "JQL query is required"
 
+        start_at = 0
+        all_issues = []
+
         try:
-            issues = self.jira.search_issues(jql)
-            return [self._format_issue(issue) for issue in issues]
+            while True:
+                issues = self.jira.search_issues(jql, startAt=start_at, maxResults=batch_size)
+                if not issues:
+                    break
+                all_issues.extend([self._format_issue(issue) for issue in issues])
+                start_at += len(issues)
+            return all_issues
         except Exception as e:
             raise ValueError(f"Failed to list Jira issues: {str(e)}")
 
