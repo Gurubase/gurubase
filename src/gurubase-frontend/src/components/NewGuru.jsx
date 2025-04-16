@@ -109,6 +109,7 @@ import {
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
 import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
+import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
 
 const formSchema = z.object({
   guruName: z
@@ -1826,20 +1827,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           <AlertDescription>
             You have pending changes. Click &quot;Update Guru&quot; to save
             them.
-          </AlertDescription>
-        </div>
-      </Alert>
-    );
-  };
-
-  const LongUpdatesIndicator = () => {
-    return (
-      <Alert className="w-full">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <AlertDescription>
-            Updates can take seconds to minutes, depending on the size of the
-            data sources. You can leave and return to check later.
           </AlertDescription>
         </div>
       </Alert>
