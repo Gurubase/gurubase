@@ -35,7 +35,8 @@ import {
   updateGuru,
   updateGuruDataSourcesPrivacy,
   getSettings,
-  getMyGuru
+  getMyGuru,
+  getIntegrationDetails // <-- Import getIntegrationDetails
 } from "@/app/actions";
 import { CustomToast } from "@/components/CustomToast";
 import {
@@ -319,13 +320,28 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
   const [githubRepoErrors, setGithubRepoErrors] = useState({});
 
-  useEffect(() => {
-    console.table(sources);
-  }, [sources]);
+  const [jiraIntegration, setJiraIntegration] = useState(null); // <-- State for Jira integration details
+  const [isLoadingIntegration, setIsLoadingIntegration] = useState(true); // <-- State for loading integration
+  const [showJiraIntegrationModal, setShowJiraIntegrationModal] =
+    useState(false); // <-- State for integration prompt modal
 
   useEffect(() => {
-    console.table(dirtyChanges);
-  }, [dirtyChanges]);
+    console.log(jiraIntegration);
+  }, [jiraIntegration]);
+
+  useEffect(() => {
+    const fetchIntegration = async () => {
+      const integration = await getIntegrationDetails(customGuru, "JIRA");
+      console.log(integration);
+      if (integration.status === 202) {
+        setJiraIntegration(null);
+      } else {
+        setJiraIntegration(integration);
+      }
+      setIsLoadingIntegration(false);
+    };
+    fetchIntegration();
+  }, []);
 
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
@@ -2052,9 +2068,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     }, {});
 
     const handleBadgeClick = (e, status, source) => {
-      console.log("e", e);
-      console.log("status", status);
-      console.log("source", source);
       if (isSourcesProcessing) return;
       e.preventDefault();
       e.stopPropagation();
@@ -2070,7 +2083,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       setInitialActiveTab(tabValue);
 
       // Small delay to ensure state is updated before opening dialog
-      console.log("tabValue", tabValue);
       setTimeout(() => {
         handleEditSource(source, tabValue);
       }, 0);
@@ -2680,15 +2692,26 @@ export default function NewGuru({ guruData, isProcessing }) {
                     disabled={
                       isProcessing ||
                       form.formState.isSubmitting ||
-                      isSourcesProcessing
+                      isSourcesProcessing ||
+                      isLoadingIntegration // Disable while checking integration
                     }
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setClickedSource([]); // Reset clicked source for new dialog
-                      setIsJiraSidebarOpen(true);
+                      // Check if integration exists and is properly configured
+                      if (jiraIntegration) {
+                        setClickedSource([]); // Reset clicked source for new dialog
+                        setIsJiraSidebarOpen(true);
+                      } else {
+                        // Show modal prompting user to integrate
+                        setShowJiraIntegrationModal(true);
+                      }
                     }}>
-                    <JiraIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
+                    {isLoadingIntegration ? (
+                      <LoaderCircle className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <JiraIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
+                    )}
                     <span className="guru-sm:hidden guru-md:block guru-lg:block">
                       Add Jira Issues
                     </span>
@@ -2797,7 +2820,6 @@ export default function NewGuru({ guruData, isProcessing }) {
                         ...fileSources
                       ];
 
-                      console.log("Display sources: ", displaySources);
                       return displaySources.map((source) => (
                         <TableRow key={source.id}>
                           <TableCell className="font-medium">
@@ -3080,6 +3102,11 @@ export default function NewGuru({ guruData, isProcessing }) {
         onDelete={handleDeleteGuru}
         onOpenChange={setShowDeleteModal}
       />
+      <JiraIntegrationModal
+        isOpen={showJiraIntegrationModal}
+        onOpenChange={setShowJiraIntegrationModal}
+        guruSlug={customGuru}
+      />
     </>
   );
 }
@@ -3113,6 +3140,48 @@ const DeleteConfirmationModal = ({ isOpen, onOpenChange, onDelete }) => {
               Close
             </Button>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Modal to prompt user to configure Jira integration
+const JiraIntegrationModal = ({ isOpen, onOpenChange, guruSlug }) => {
+  const navigation = useAppNavigation();
+
+  const goToIntegrations = () => {
+    if (guruSlug) {
+      navigation.push(`/guru/${guruSlug}/integrations`);
+    }
+    onOpenChange(false); // Close modal after navigation
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md p-6">
+        <DialogHeader>
+          <div className="flex justify-center mb-4">
+            <JiraIcon className="h-10 w-10 text-blue-500" />
+          </div>
+          <DialogTitle className="text-center text-lg font-semibold">
+            Jira Integration Required
+          </DialogTitle>
+          <DialogDescription className="text-center text-sm text-gray-500 mt-2">
+            To add Jira issues as a data source, you need to connect your Jira
+            account first.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-6 flex flex-col gap-3">
+          <Button onClick={goToIntegrations} className="w-full">
+            Go to Integrations
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full">
+            Cancel
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
