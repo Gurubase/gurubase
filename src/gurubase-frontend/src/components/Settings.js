@@ -49,7 +49,7 @@ const Settings = () => {
   const [ollamaUrl, setOllamaUrl] = useState("");
   const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
   const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState("bge-m3");
-  const [ollamaBaseModel, setOllamaBaseModel] = useState("gemma3");
+  const [ollamaBaseModel, setOllamaBaseModel] = useState("phi4:latest");
   const [isValidatingOllama, setIsValidatingOllama] = useState(false);
   const [ollamaUrlError, setOllamaUrlError] = useState("");
 
@@ -682,7 +682,7 @@ const Settings = () => {
                                       <input
                                         className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                         id="ollama-base-model"
-                                        placeholder="gemma3"
+                                        placeholder="phi4:latest"
                                         type="text"
                                         value={ollamaBaseModel}
                                         onChange={(e) =>
