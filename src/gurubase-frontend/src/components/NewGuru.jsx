@@ -1835,22 +1835,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     }
   }, [isUrlSidebarOpen, isYoutubeSidebarOpen, isJiraSidebarOpen]);
 
-  // useEffect(() => {
-  //   console.log("dirtyChanges useeffect", dirtyChanges);
-  // }, [dirtyChanges]);
-
-  // useEffect(() => {
-  //   console.log("isProcessing useeffect", isProcessing);
-  // }, [isProcessing]);
-
-  // useEffect(() => {
-  //   console.log("isUpdating useeffect", isUpdating);
-  // }, [isUpdating]);
-
-  // useEffect(() => {
-  //   console.log("sources", sources);
-  // }, [sources]);
-
   // If still loading auth or no user, show loading state
   if (!isSelfHosted && (authLoading || (!user && !authLoading))) {
     return (
