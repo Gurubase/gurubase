@@ -69,7 +69,8 @@ export function SourcesTableSection({
   setIsYoutubeSidebarOpen,
   setIsJiraSidebarOpen,
   setIsUrlSidebarOpen,
-  setShowJiraIntegrationModal
+  setShowJiraIntegrationModal,
+  isEditMode
 }) {
   const [filterType, setFilterType] = useState("all");
 
@@ -364,6 +365,7 @@ export function SourcesTableSection({
           isSourcesProcessing={isSourcesProcessing}
           actionHandlers={sourceActionHandlers}
           loadingStates={sourceLoadingStates}
+          isEditMode={isEditMode}
         />
       </div>
 

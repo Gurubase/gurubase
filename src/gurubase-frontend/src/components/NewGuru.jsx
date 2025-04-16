@@ -254,7 +254,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   useEffect(() => {
     const fetchIntegration = async () => {
       const integration = await getIntegrationDetails(customGuru, "JIRA");
-      if (integration.status === 202) {
+      if (integration.status === 202 || integration.error) {
         setJiraIntegration(null);
       } else {
         setJiraIntegration(integration);
@@ -1935,6 +1935,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               setIsJiraSidebarOpen={setIsJiraSidebarOpen}
               setIsUrlSidebarOpen={setIsUrlSidebarOpen}
               setShowJiraIntegrationModal={setShowJiraIntegrationModal}
+              isEditMode={isEditMode}
               // isSourceProcessing={isSourceProcessing} // Pass isSourceProcessing
             />
 
