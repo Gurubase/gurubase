@@ -2,14 +2,7 @@
 import { useAppNavigation } from "@/lib/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  AlertTriangle,
-  Info,
-  LinkIcon,
-  LoaderCircle,
-  Lock,
-  Unlock
-} from "lucide-react";
+import { AlertTriangle, LoaderCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as React from "react";
@@ -46,12 +39,6 @@ import {
   isValidUrl
 } from "@/utils/common";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "./ui/tooltip";
 import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
@@ -149,7 +136,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     ? { user: true, isLoading: false }
     : useUser();
 
-  const [isWidgetModalVisible, setIsWidgetModalVisible] = useState(false);
   const [dataSources, setDataSources] = useState(null);
   const [customGuruData, setCustomGuruData] = useState(guruData);
 
@@ -216,16 +202,6 @@ export default function NewGuru({ guruData, isProcessing }) {
     checkApiKey();
   }, [isSelfHosted]);
 
-  // Add helper function here at the top level
-
-  const handleAddWidget = () => {
-    setIsWidgetModalVisible(true);
-  };
-
-  const handleWidgetCreate = (response) => {
-    setIsWidgetModalVisible(false);
-  };
-
   // Modify the auth check effect
   useEffect(() => {
     if (!isSelfHosted && !user && !authLoading) {
@@ -248,11 +224,9 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [sources, setSources] = useState([]);
   const fileInputRef = useRef(null);
   const [isSourcesProcessing, setIsSourcesProcessing] = useState(isProcessing);
-  const [filterType, setFilterType] = useState("all");
   const [clickedSource, setClickedSource] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [initialFormValues, setInitialFormValues] = useState(null);
-  const [processingSources, setProcessingSources] = useState([]);
   const [dirtyChanges, setDirtyChanges] = useState({
     sources: [],
     guruUpdated: false
