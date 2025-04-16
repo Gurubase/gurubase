@@ -540,6 +540,7 @@ def my_gurus(request, guru_slug=None):
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
+                'jira_limit': guru.jira_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit
             })
