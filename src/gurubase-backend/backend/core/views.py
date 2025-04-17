@@ -3129,9 +3129,9 @@ def list_jira_issues(request, integration_id):
         return Response({'msg': 'This integration is not a Jira integration.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Get JQL from query params, default if not provided
-    jql_query = request.data.get('jql') 
+    jql_query = request.data.get('jql')
     if not jql_query:
-        return Response({'msg': 'JQL query is required'}, status=status.HTTP_400_BAD_REQUEST)
+        jql_query = 'ORDER BY created DESC'
 
     try:
         jira_requester = JiraRequester(integration)
