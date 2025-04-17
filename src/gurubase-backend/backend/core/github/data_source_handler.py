@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+from django.db import IntegrityError
 from git import Repo
 from pathlib import Path
 from django.conf import settings
@@ -283,6 +284,8 @@ def save_repository(data_source, structure, default_branch):
                 for file in bulk_save:
                     try:
                         file.save()
+                    except IntegrityError as e:
+                        pass
                     except Exception as e:
                         logger.error(f"Error saving GitHub file {file.path}: {e}")
             bulk_save = []
@@ -294,6 +297,8 @@ def save_repository(data_source, structure, default_branch):
             for file in bulk_save:
                 try:
                     file.save()
+                except IntegrityError as e:
+                    pass
                 except Exception as e:
                     logger.error(f"Error saving GitHub file {file.path}: {e}")
 
