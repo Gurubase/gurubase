@@ -606,7 +606,7 @@ const MonacoUrlEditor = ({
               ) : (
                 <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
                   <Input
-                    className="w-[300px] h-8 guru-sm:w-full"
+                    className="w-[600px] h-8 guru-sm:w-full"
                     placeholder="Enter JQL Query"
                     value={jiraQuery}
                     onChange={(e) => setJiraQuery(e.target.value)}
