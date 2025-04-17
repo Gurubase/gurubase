@@ -605,13 +605,18 @@ const MonacoUrlEditor = ({
                 </div>
               ) : (
                 <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
-                  <Input
-                    className="w-[600px] h-8 guru-sm:w-full"
-                    placeholder="Enter JQL Query (Optional)"
-                    value={jiraQuery}
-                    onChange={(e) => setJiraQuery(e.target.value)}
-                    disabled={isLoadingSitemapRef.current}
-                  />
+                  <div className="relative w-full">
+                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                      JQL
+                    </span>
+                    <Input
+                      className="w-[600px] h-10 guru-sm:w-full pt-6"
+                      placeholder="Enter JQL Query (Optional)"
+                      value={jiraQuery}
+                      onChange={(e) => setJiraQuery(e.target.value)}
+                      disabled={isLoadingSitemapRef.current}
+                    />
+                  </div>
                   <div className="flex items-center gap-2 guru-sm:w-full">
                     {jiraButtonContent()}
                     {/* <Button
