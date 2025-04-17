@@ -2296,7 +2296,6 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     chunks = []
     latency_start = time.time()
     if not response:
-        logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
         return None, "No response from the LLM", usages, None
 
     for chunk in response:
@@ -3107,7 +3106,6 @@ def api_ask(question: str,
         )
 
         if not response:
-            logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
             return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
 
         times = {}
