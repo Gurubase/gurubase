@@ -72,7 +72,7 @@ export const SOURCE_TYPES_CONFIG = {
     actionButtonText: "Add Jira Issues",
     sidebarStateSetterName: "setIsJiraSidebarOpen",
     formField: "jiraIssues",
-    canReindex: false,
+    canReindex: true,
     canEdit: true,
     requiresIntegrationCheck: true, // Specific to Jira
     integrationCheckProp: "jiraIntegration", // Prop name in parent for integration status
