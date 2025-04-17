@@ -913,6 +913,228 @@ class JiraRequester():
             'content': content
         }
 
+class ZendeskRequester():
+    def __init__(self, integration):
+        """
+        Initialize ZendeskRequester with integration credentials
+        Args:
+            integration (Integration): Integration model instance containing Zendesk credentials
+        """
+        if not all([integration.zendesk_domain, integration.zendesk_user_email, integration.zendesk_api_token]):
+            raise ValueError("Zendesk credentials (domain, email, api_token) are missing in the integration settings.")
+            
+        self.domain = integration.zendesk_domain
+        self.base_url = f"https://{self.domain}/api/v2"
+        self.auth = (f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
+
+    def list_tickets(self, batch_size=100):
+        """
+        List Zendesk tickets with pagination
+        Args:
+            batch_size (int): Number of tickets to fetch per request
+        Returns:
+            list: List of formatted Zendesk tickets
+        Raises:
+            ValueError: If API request fails
+        """
+        all_tickets = []
+        url = f"{self.base_url}/tickets.json?page[size]={batch_size}"
+
+        try:
+            while url:
+                response = requests.get(url, auth=self.auth, timeout=20)
+                response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+                
+                data = response.json()
+                tickets = data.get('tickets', [])
+                all_tickets.extend([self._format_ticket(ticket) for ticket in tickets])
+                
+                # Check for cursor-based pagination meta data
+                if data.get('meta', {}).get('has_more'):
+                    url = data.get('links', {}).get('next')
+                else:
+                    url = None # Exit loop if no more pages
+
+            return all_tickets
+        except requests.exceptions.RequestException as e:
+            status_code = e.response.status_code if e.response is not None else None
+            error_text = str(e)
+            if status_code == 401:
+                error_text = "Authentication failed. Check Zendesk email and API token."
+            elif status_code == 403:
+                error_text = "Permission denied. Ensure the API token has the required scopes."
+            elif status_code == 404:
+                 error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
+            elif status_code == 429:
+                error_text = "Zendesk API rate limit exceeded."
+                
+            logger.error(f"Zendesk API error listing tickets: {error_text}", exc_info=True)
+            raise ValueError(f"Failed to list Zendesk tickets: {error_text}")
+        except Exception as e:
+            logger.error(f"Unexpected error listing Zendesk tickets: {e}", exc_info=True)
+            raise ValueError(f"An unexpected error occurred: {str(e)}")
+
+    def get_ticket(self, ticket_id):
+        """
+        Get details and comments for a specific Zendesk ticket and format them.
+        Args:
+            ticket_id (int): ID of the Zendesk ticket
+        Returns:
+            dict: Formatted ticket data including comments, similar to Jira's _format_issue
+        Raises:
+            ValueError: If API request fails or ticket not found
+        """
+        try:
+            # 1. Fetch ticket details
+            ticket_url = f"{self.base_url}/tickets/{ticket_id}.json"
+            response = requests.get(ticket_url, auth=self.auth, timeout=15)
+            response.raise_for_status() # Raise HTTPError for bad status codes
+            ticket_data = response.json().get('ticket', {})
+
+            if not ticket_data:
+                raise ValueError(f"Ticket with ID {ticket_id} not found or invalid response.")
+
+            # 2. Extract core ticket info
+            subject = ticket_data.get('subject', 'No Subject')
+            description = ticket_data.get('description', 'No Description')
+            ticket_link = f"https://{self.domain}/agent/tickets/{ticket_id}"
+            
+            # 3. Format initial ticket content
+            content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\n</Zendesk Ticket>"
+
+            # 4. Fetch comments using the existing method
+            # This already returns formatted comment dicts including the 'content' field
+            comments = self.get_ticket_comments(ticket_id)
+
+            # 5. Append comment content
+            for comment_data in comments:
+                # comment_data already contains the formatted <Zendesk Comment> string
+                content += f"\n\n{comment_data['content']}"
+                
+            # 6. Return combined data
+            return {
+                'id': ticket_id,
+                'link': ticket_link,
+                'title': subject,
+                'content': content
+            }
+
+        except requests.exceptions.RequestException as e:
+            status_code = e.response.status_code if e.response is not None else None
+            error_text = str(e)
+            if status_code == 401:
+                error_text = "Authentication failed. Check Zendesk email and API token."
+            elif status_code == 403:
+                 error_text = "Permission denied. Ensure the API token has the required scopes."
+            elif status_code == 404:
+                 error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
+            elif status_code == 429:
+                error_text = "Zendesk API rate limit exceeded."
+            
+            logger.error(f"Zendesk API error getting ticket {ticket_id}: {error_text}", exc_info=True)
+            # Re-raise as ValueError consistent with other methods
+            raise ValueError(f"Failed to get ticket {ticket_id}: {error_text}") 
+        except ValueError as e:
+             # Catch errors from get_ticket_comments and re-raise
+             logger.error(f"Error processing comments for ticket {ticket_id}: {e}", exc_info=True)
+             raise ValueError(f"Failed to get comments for ticket {ticket_id}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error getting ticket {ticket_id}: {e}", exc_info=True)
+            raise ValueError(f"An unexpected error occurred while getting ticket {ticket_id}: {str(e)}")
+
+    def get_ticket_comments(self, ticket_id, batch_size=100):
+        """
+        Get comments for a specific Zendesk ticket with pagination
+        Args:
+            ticket_id (int): ID of the Zendesk ticket
+            batch_size (int): Number of comments to fetch per request
+        Returns:
+            list: List of formatted comments
+        Raises:
+            ValueError: If API request fails
+        """
+        all_comments = []
+        url = f"{self.base_url}/tickets/{ticket_id}/comments.json?page[size]={batch_size}"
+
+        try:
+            while url:
+                response = requests.get(url, auth=self.auth, timeout=20)
+                response.raise_for_status()
+                
+                data = response.json()
+                comments = data.get('comments', [])
+                all_comments.extend([self._format_comment(comment) for comment in comments])
+                
+                # Check for cursor-based pagination meta data
+                if data.get('meta', {}).get('has_more'):
+                     url = data.get('links', {}).get('next')
+                else:
+                    url = None
+
+            return all_comments
+        except requests.exceptions.RequestException as e:
+            status_code = e.response.status_code if e.response is not None else None
+            error_text = str(e)
+            if status_code == 401:
+                error_text = "Authentication failed. Check Zendesk email and API token."
+            elif status_code == 403:
+                error_text = "Permission denied. Ensure the API token has the required scopes."
+            elif status_code == 404:
+                 error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
+            elif status_code == 429:
+                error_text = "Zendesk API rate limit exceeded."
+
+            logger.error(f"Zendesk API error getting comments for ticket {ticket_id}: {error_text}", exc_info=True)
+            raise ValueError(f"Failed to get comments for ticket {ticket_id}: {error_text}")
+        except Exception as e:
+            logger.error(f"Unexpected error getting comments for ticket {ticket_id}: {e}", exc_info=True)
+            raise ValueError(f"An unexpected error occurred while getting comments: {str(e)}")
+
+
+    def _format_ticket(self, ticket):
+        """
+        Format a Zendesk ticket into a dictionary
+        Args:
+            ticket (dict): Ticket data from Zendesk API
+        Returns:
+            dict: Formatted ticket data
+        """
+        subject = ticket.get('subject', 'No Subject')
+        description = ticket.get('description', 'No Description')
+        content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\nDescription: {description}\n\n</Zendesk Ticket>"
+        
+        return {
+            'id': ticket.get('id'),
+            'link': f"https://{self.domain}/agent/tickets/{ticket.get('id')}",
+            'title': subject,
+            'status': ticket.get('status'),
+            'created_at': ticket.get('created_at'),
+            'updated_at': ticket.get('updated_at'),
+            'content': content
+        }
+
+    def _format_comment(self, comment):
+        """
+        Format a Zendesk comment into a dictionary
+        Args:
+            comment (dict): Comment data from Zendesk API
+        Returns:
+            dict: Formatted comment data
+        """
+        body = comment.get('body', '')
+        # Use 'plain_body' if available and preferred, otherwise fallback to 'body' (which might contain HTML)
+        plain_body = comment.get('plain_body', body) 
+        content = f"<Zendesk Comment>\n\n{plain_body}\n\n</Zendesk Comment>"
+        
+        return {
+            'id': comment.get('id'),
+            'body': plain_body, # Store plain text body
+            'author_id': comment.get('author_id'),
+            'created_at': comment.get('created_at'),
+            'public': comment.get('public', True),
+            'content': content
+        }
+
 class CloudflareRequester():
     def __init__(self):
         self.base_url = "https://api.cloudflare.com/client/v4"

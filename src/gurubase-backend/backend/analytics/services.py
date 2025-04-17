@@ -167,6 +167,7 @@ class AnalyticsService:
                 {'value': 'website', 'label': 'Website'},
                 {'value': 'youtube', 'label': 'YouTube'},
                 {'value': 'jira', 'label': 'Jira'},
+                {'value': 'zendesk', 'label': 'Zendesk'},
             ]
         else:
             filters = []

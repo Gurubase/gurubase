@@ -62,7 +62,7 @@ export const makeAuthenticatedRequest = async (
   try {
     const session = await getUserSession();
 
-    if (!session?.user) {
+    if (!session || !session.user) {
       redirect("/api/auth/login", "replace");
     }
 
@@ -249,7 +249,7 @@ export async function getDataForSlugDetails(
       url += `${question ? "&" : "?"}binge_id=${bingeId}`;
     }
 
-    if (session?.user) {
+    if (session && session.user) {
       // Authenticated request
       const response = await makeAuthenticatedRequest(url, {
         next: { revalidate: 10 }
@@ -1048,7 +1048,10 @@ export async function createSelfhostedIntegration(
           github_secret: data.secret,
           jira_domain: data.jira_domain,
           jira_user_email: data.jira_user_email,
-          jira_api_key: data.jira_api_key
+          jira_api_key: data.jira_api_key,
+          zendesk_domain: data.zendesk_domain,
+          zendesk_user_email: data.zendesk_user_email,
+          zendesk_api_token: data.zendesk_api_token
         })
       }
     );
@@ -1191,6 +1194,42 @@ export async function fetchJiraIssues(integrationId, jqlQuery) {
       context: "fetchJiraIssues",
       integrationId,
       jqlQuery
+    });
+  }
+}
+
+export async function fetchZendeskTickets(integrationId) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/tickets/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "GET" // Assuming GET request as no body is needed
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Zendesk tickets",
+        status: response.status
+      };
+    }
+
+    // Assuming response format: { tickets: [{ link: 'url1' }, ...], ticket_count: N }
+    return data;
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchZendeskTickets",
+      integrationId
     });
   }
 }

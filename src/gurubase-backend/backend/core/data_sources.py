@@ -9,12 +9,12 @@ from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
+from core.exceptions import JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github.data_source_handler import process_github_repository, extract_repo_name
-from core.requester import JiraRequester, get_web_scraper, YouTubeRequester
+from core.requester import JiraRequester, ZendeskRequester, get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
@@ -79,6 +79,15 @@ def jira_content_extraction(integration, jira_issue_link):
         logger.error(f"Error extracting content from Jira issue {jira_issue_key}: {traceback.format_exc()}")
         raise JiraContentExtractionError(traceback.format_exc()) from e
 
+def zendesk_content_extraction(integration, ticket_url):
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        ticket_id = ticket_url.split('/')[-1]
+        ticket = zendesk_requester.get_ticket(ticket_id)
+        return ticket['title'], ticket['content']
+    except Exception as e:
+        logger.error(f"Error extracting content from Zendesk ticket {ticket_url}: {traceback.format_exc()}")
+        raise ZendeskContentExtractionError(traceback.format_exc()) from e
 
 def pdf_content_extraction(pdf_path):
     try:
@@ -300,6 +309,11 @@ def fetch_data_source_content(integration, data_source):
         data_source.title = title
         data_source.content = content
         data_source.scrape_tool = 'jira'
+    elif data_source.type == DataSource.Type.ZENDESK:
+        title, content = zendesk_content_extraction(integration, data_source.url)
+        data_source.title = title
+        data_source.content = content
+        data_source.scrape_tool = 'zendesk'
     elif data_source.type == DataSource.Type.GITHUB_REPO:
         default_branch = process_github_repository(data_source)
         # Use the repository name as the title
@@ -448,6 +462,39 @@ class JiraStrategy(DataSourceStrategy):
             return {
                 'type': 'Jira',
                 'url': jira_url,
+                'status': 'error',
+                'message': str(e)
+            }
+
+
+class ZendeskStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, ticket_url):
+        try:
+            data_source = DataSource.objects.create(
+                type=DataSource.Type.ZENDESK,
+                guru_type=guru_type_object,
+                url=ticket_url,
+            )
+            return {
+                'type': 'Zendesk',
+                'url': ticket_url,
+                'status': 'success',
+                'id': data_source.id,
+                'title': data_source.title
+            }
+        except DataSourceExists as e:
+            return {
+                'type': 'Zendesk',
+                'url': ticket_url,
+                'status': 'exists',
+                'id': e.args[0]['id'],
+                'title': e.args[0]['title']
+            }
+        except Exception as e:
+            logger.error(f'Error processing Zendesk URL {ticket_url}: {traceback.format_exc()}')
+            return {
+                'type': 'Zendesk',
+                'url': ticket_url,
                 'status': 'error',
                 'message': str(e)
             }

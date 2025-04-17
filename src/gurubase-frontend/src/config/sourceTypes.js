@@ -10,7 +10,8 @@ import {
   LogosYoutubeIcon,
   SolarFileTextBold,
   // SolarTrashBinTrashBold, // Keep for potential future use if needed directly
-  SolarVideoLibraryBold
+  SolarVideoLibraryBold,
+  ZendeskIcon // Placeholder Icon
 } from "@/components/Icons"; // Assuming Icons barrel file exists or adjust path
 
 // Central configuration for data source types
@@ -79,6 +80,24 @@ export const SOURCE_TYPES_CONFIG = {
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowJiraIntegrationModal", // State setter for the integration modal
     filterValue: "jira"
+  },
+  ZENDESK: {
+    id: "zendesk",
+    apiType: "ZENDESK",
+    displayName: "Zendesk",
+    displaySourceText: "Zendesk",
+    icon: ZendeskIcon, // Placeholder
+    actionButtonIcon: ZendeskIcon, // Placeholder
+    actionButtonText: "Add Zendesk Tickets",
+    sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
+    formField: "zendeskTickets", // Assuming a form field name
+    canReindex: true,
+    canEdit: true,
+    requiresIntegrationCheck: true, // Assuming integration is needed
+    integrationCheckProp: "zendeskIntegration", // Prop name for integration status
+    integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
+    integrationModalSetterName: "setShowZendeskIntegrationModal", // State setter for the integration modal
+    filterValue: "zendesk"
   }
 };
 

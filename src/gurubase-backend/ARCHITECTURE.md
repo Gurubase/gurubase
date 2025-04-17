@@ -140,6 +140,7 @@ Four types of data sources are supported:
 - PDFs
 - Codebases
 - Jira Issues
+- ZenDesk Tickets
 
 #### YouTube videos
 
@@ -154,6 +155,10 @@ The system uses `firecrawl` to extract content from websites. It scrapes the web
 #### Jira Issues
 
 The system uses Jira Python SDK to fetch issues based on the integration configuration.
+
+#### ZenDesk Tickets
+
+The system uses ZenDesk Web API to fetch tickets based on the integration configuration.
 
 #### PDFs
 

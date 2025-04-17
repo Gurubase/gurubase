@@ -407,9 +407,13 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
         # Process other sources (and website sources if not using Firecrawl) individually
         sources_to_process = other_sources + (website_sources if not is_firecrawl else [])
         jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
+        zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
         for data_source in sources_to_process:
             try:
-                data_source = fetch_data_source_content(jira_integration, data_source)
+                if data_source.type == DataSource.Type.JIRA:
+                    data_source = fetch_data_source_content(jira_integration, data_source)
+                elif data_source.type == DataSource.Type.ZENDESK:
+                    data_source = fetch_data_source_content(zendesk_integration, data_source)
                 data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")

@@ -17,7 +17,8 @@ import {
   parseSitemapUrls,
   fetchYoutubePlaylist,
   fetchYoutubeChannel,
-  fetchJiraIssues
+  fetchJiraIssues,
+  fetchZendeskTickets
 } from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
@@ -97,7 +98,8 @@ const MonacoUrlEditor = ({
   const [youtubeType, setYoutubeType] = useState("");
   const defaultJQL = `status in ("Done", "Closed")`;
   const [jiraQuery, setJiraQuery] = useState(defaultJQL);
-  const [showJiraInput, setShowJiraInput] = useState(true);
+  const [showJiraInput, setShowJiraInput] = useState(false);
+  const [showZendeskButton, setShowZendeskButton] = useState(true);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
@@ -345,6 +347,58 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const handleZendeskFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      const response = await fetchZendeskTickets(integrationId);
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.message || !response.tickets) {
+        CustomToast({
+          message: response.message || "Failed to fetch Zendesk tickets",
+          variant: "error"
+        });
+        return;
+      }
+
+      const { tickets, ticket_count } = response;
+      if (tickets && tickets.length > 0) {
+        const fetchedUrls = tickets.map((ticket) => ticket.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        CustomToast({
+          message: `Successfully added ${ticket_count || tickets.length} tickets from Zendesk`,
+          variant: "success"
+        });
+        // setShowZendeskButton(false); // Optionally hide button after fetch
+      } else {
+        CustomToast({
+          message: response.message || "No tickets found in Zendesk",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Zendesk tickets",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+    }
+  };
+
   const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
@@ -469,11 +523,36 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const zendeskButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleZendeskFetch}
+          variant="outline">
+          Fetch Tickets
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+          onClick={() => onStopSitemapLoading()} // Use the same stop mechanism
+          disabled={!isLoadingSitemapRef.current}
+          variant="outline">
+          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          Stop
+        </Button>
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -728,6 +807,33 @@ const MonacoUrlEditor = ({
               )}
             </div>
           )}
+          {sourceType === "zendesk" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {showZendeskButton && (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {zendeskButtonContent()}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Fetch tickets from your connected Zendesk account</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {/* Optionally add a hide button if needed */}
+                  {/* <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 hover:bg-gray-100"
+                    disabled={isLoadingSitemapRef.current}
+                    onClick={() => setShowZendeskButton(false)}>
+                    ✕
+                  </Button> */}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0">
@@ -763,7 +869,9 @@ const MonacoUrlEditor = ({
                         ? `Importing ${youtubeType}...`
                         : sourceType === "jira"
                           ? "Fetching Jira issues..."
-                          : "Loading...")}
+                          : sourceType === "zendesk"
+                            ? "Fetching Zendesk tickets..."
+                            : "Loading...")}
                 </span>
               </div>
             </div>

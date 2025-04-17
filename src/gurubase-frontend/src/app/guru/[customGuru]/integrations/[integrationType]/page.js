@@ -20,6 +20,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
       case "slack":
       case "discord":
       case "jira":
+      case "zendesk":
       case "github":
         return (
           <IntegrationContent

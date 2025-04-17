@@ -7,7 +7,8 @@ import {
   SlackIcon,
   WebWidgetIcon,
   GitHubIcon,
-  JiraIcon
+  JiraIcon,
+  ZendeskIcon
 } from "@/components/Icons";
 import { Link } from "@/components/Link";
 import clsx from "clsx";
@@ -70,6 +71,13 @@ const IntegrationTypesList = ({ guruData }) => {
       description: "Connect your Jira issues to your Guru as data sources.",
       icon: JiraIcon,
       type: "JIRA"
+    },
+    {
+      id: "zendesk",
+      name: "Zendesk",
+      description: "Connect your Zendesk tickets to your Guru as data sources.",
+      icon: ZendeskIcon,
+      type: "ZENDESK"
     }
   ];
 
