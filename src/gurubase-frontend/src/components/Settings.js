@@ -48,9 +48,8 @@ const Settings = () => {
   const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
   const [ollamaUrl, setOllamaUrl] = useState("");
   const [isOllamaUrlValid, setIsOllamaUrlValid] = useState(false);
-  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] =
-    useState("nomic-embed-text");
-  const [ollamaBaseModel, setOllamaBaseModel] = useState("llama2");
+  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState("bge-m3");
+  const [ollamaBaseModel, setOllamaBaseModel] = useState("phi4:latest");
   const [isValidatingOllama, setIsValidatingOllama] = useState(false);
   const [ollamaUrlError, setOllamaUrlError] = useState("");
 
@@ -61,6 +60,8 @@ const Settings = () => {
     useState(false);
   const [hasEmbeddingChanged, setHasEmbeddingChanged] = useState(false);
   const [oldAiModelProvider, setOldAiModelProvider] = useState("");
+  const [embeddingModelExists, setEmbeddingModelExists] = useState(false);
+  const [baseModelExists, setBaseModelExists] = useState(false);
 
   const fetchSettings = async (isInitial = false, keepFields = false) => {
     // keepFields only works for non-api key inputs as they are masked.
@@ -90,12 +91,14 @@ const Settings = () => {
       if (settings.ollama_embedding_model) {
         if (!keepFields) {
           setOllamaEmbeddingModel(settings.ollama_embedding_model);
+          setEmbeddingModelExists(true);
         }
         setIsEmbeddingModelValid(settings.is_ollama_embedding_model_valid);
       }
       if (settings.ollama_base_model) {
         if (!keepFields) {
           setOllamaBaseModel(settings.ollama_base_model);
+          setBaseModelExists(true);
         }
         setIsBaseModelValid(settings.is_ollama_base_model_valid);
       }
@@ -122,7 +125,7 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    if (aiModelProvider !== oldAiModelProvider) {
+    if (oldAiModelProvider && aiModelProvider !== oldAiModelProvider) {
       setHasEmbeddingChanged(true);
     }
   }, [aiModelProvider]);
@@ -152,8 +155,10 @@ const Settings = () => {
     setYoutubeApiKey("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, forceSubmit = false) => {
+    if (e) {
+      e.preventDefault();
+    }
     setIsLoading(true);
     // Clear previous errors
     setOllamaUrlError("");
@@ -247,7 +252,7 @@ const Settings = () => {
       }
 
       // Show confirmation modal if embedding has changed and data sources exist
-      if (hasEmbeddingChanged && dataSourcesExist) {
+      if (!forceSubmit && hasEmbeddingChanged && dataSourcesExist) {
         setShowEmbeddingChangeModal(true);
         setIsLoading(false);
 
@@ -340,9 +345,11 @@ const Settings = () => {
         }
         if (result.ollama_embedding_model) {
           setOllamaEmbeddingModel(result.ollama_embedding_model);
+          setEmbeddingModelExists(true);
         }
         if (result.ollama_base_model) {
           setOllamaBaseModel(result.ollama_base_model);
+          setBaseModelExists(true);
         }
         if (result.ai_model_provider) {
           setAiModelProvider(result.ai_model_provider);
@@ -403,60 +410,6 @@ const Settings = () => {
       setOllamaUrlError("Failed to connect to Ollama server");
     } finally {
       setIsValidatingOllama(false);
-    }
-  };
-
-  const handleConfirmEmbeddingChange = async () => {
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-
-      formData.append("ai_model_provider", aiModelProvider);
-      if (aiModelProvider === "OLLAMA") {
-        formData.append("ollama_url", ollamaUrl.trim());
-        formData.append("ollama_embedding_model", ollamaEmbeddingModel.trim());
-        formData.append("ollama_base_model", ollamaBaseModel.trim());
-      }
-      if (isEditing) {
-        formData.append("openai_api_key", openAIKey.trim());
-        formData.append("openai_api_key_written", true);
-      } else {
-        formData.append("openai_api_key_written", false);
-      }
-      formData.append("scrape_type", scraperType);
-      if (scraperType === "FIRECRAWL") {
-        if (isFirecrawlEditing) {
-          formData.append("firecrawl_api_key", firecrawlKey.trim());
-          formData.append("firecrawl_api_key_written", true);
-        } else {
-          formData.append("firecrawl_api_key_written", false);
-        }
-      }
-      if (isYoutubeEditing) {
-        formData.append("youtube_api_key", youtubeApiKey.trim());
-        formData.append("youtube_api_key_written", true);
-      } else {
-        formData.append("youtube_api_key_written", false);
-      }
-
-      const result = await updateSettings(formData);
-
-      if (result) {
-        CustomToast({
-          message: "Settings saved successfully",
-          variant: "success"
-        });
-      }
-    } catch (error) {
-      CustomToast({
-        message: "Failed to save settings",
-        variant: "error"
-      });
-    } finally {
-      setIsLoading(false);
-      setShowEmbeddingChangeModal(false);
-      setHasEmbeddingChanged(false);
-      await fetchSettings(false, false);
     }
   };
 
@@ -584,6 +537,7 @@ const Settings = () => {
                                 Add your Ollama server endpoint. Learn more
                                 about{" "}
                                 <a
+                                  className="text-blue-600 underline hover:text-blue-800"
                                   href="https://github.com/ollama/ollama/"
                                   rel="noopener noreferrer"
                                   target="_blank">
@@ -598,7 +552,7 @@ const Settings = () => {
                                   <input
                                     className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                     id="ollama-url"
-                                    placeholder="http://localhost:11434"
+                                    placeholder="http://host.docker.internal:11434"
                                     type="text"
                                     value={ollamaUrl}
                                     onBlur={validateOllamaUrl}
@@ -614,23 +568,26 @@ const Settings = () => {
                                   )}
                                 </div>
                               )}
-                              {(ollamaUrlError || !isOllamaUrlValid) && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <CloseCircleIcon className="text-[#DC2626]" />
-                                  <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                    Unable to access the Ollama server at this
-                                    address.
-                                  </span>
-                                </div>
-                              )}
-                              {isOllamaUrlValid && !ollamaUrlError && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <CheckCircleIcon />
-                                  <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                    Ollama is accessible.
-                                  </span>
-                                </div>
-                              )}
+                              {ollamaUrl &&
+                                (ollamaUrlError || !isOllamaUrlValid) && (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <CloseCircleIcon className="text-[#DC2626]" />
+                                    <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                      Unable to access the Ollama server at this
+                                      address.
+                                    </span>
+                                  </div>
+                                )}
+                              {ollamaUrl &&
+                                isOllamaUrlValid &&
+                                !ollamaUrlError && (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <CheckCircleIcon />
+                                    <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                      Ollama is accessible.
+                                    </span>
+                                  </div>
+                                )}
                             </div>
 
                             {isOllamaUrlValid && (
@@ -671,7 +628,7 @@ const Settings = () => {
                                       <input
                                         className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                         id="ollama-embedding-model"
-                                        placeholder="Embedding Model"
+                                        placeholder="bge-m3"
                                         type="text"
                                         value={ollamaEmbeddingModel}
                                         onChange={(e) => {
@@ -683,25 +640,27 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {!isEmbeddingModelValid && (
-                                    <div className="flex items-center gap-1 mt-2">
-                                      <CloseCircleIcon className="text-[#DC2626]" />
-                                      <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                        Either the model name is incorrect, the
-                                        model does not exist on the specified
-                                        Ollama server, or it does not support
-                                        embedding.
-                                      </span>
-                                    </div>
-                                  )}
-                                  {isEmbeddingModelValid && (
-                                    <div className="flex items-center gap-1 mt-2">
-                                      <CheckCircleIcon />
-                                      <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                        Embedding model is valid
-                                      </span>
-                                    </div>
-                                  )}
+                                  {embeddingModelExists &&
+                                    !isEmbeddingModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CloseCircleIcon className="text-[#DC2626]" />
+                                        <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                          Either the model name is incorrect,
+                                          the model does not exist on the
+                                          specified Ollama server, or it does
+                                          not support embedding.
+                                        </span>
+                                      </div>
+                                    )}
+                                  {embeddingModelExists &&
+                                    isEmbeddingModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CheckCircleIcon />
+                                        <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                          Embedding model is valid
+                                        </span>
+                                      </div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -723,7 +682,7 @@ const Settings = () => {
                                       <input
                                         className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
                                         id="ollama-base-model"
-                                        placeholder="Language Model"
+                                        placeholder="phi4:latest"
                                         type="text"
                                         value={ollamaBaseModel}
                                         onChange={(e) =>
@@ -732,7 +691,7 @@ const Settings = () => {
                                       />
                                     </>
                                   )}
-                                  {!isBaseModelValid && (
+                                  {baseModelExists && !isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CloseCircleIcon className="text-[#DC2626]" />
                                       <span className="text-[12px] font-inter font-normal text-[#DC2626]">
@@ -742,7 +701,7 @@ const Settings = () => {
                                       </span>
                                     </div>
                                   )}
-                                  {isBaseModelValid && (
+                                  {baseModelExists && isBaseModelValid && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CheckCircleIcon />
                                       <span className="text-[12px] font-normal text-[#16A34A] font-inter">
@@ -935,7 +894,11 @@ const Settings = () => {
               <Button
                 className="h-12 px-6 justify-center items-center rounded-lg bg-[#DC2626] hover:bg-red-700 text-white"
                 disabled={isLoading}
-                onClick={handleConfirmEmbeddingChange}>
+                onClick={async () => {
+                  await handleSubmit(null, true);
+                  setShowEmbeddingChangeModal(false);
+                  setHasEmbeddingChanged(false);
+                }}>
                 {isLoading ? "Saving..." : "Continue"}
               </Button>
               <Button

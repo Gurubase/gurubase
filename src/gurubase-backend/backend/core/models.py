@@ -748,7 +748,7 @@ class DataSource(models.Model):
 
     def write_to_milvus(self, overridden_model=None):
         # Model override is added to reinsert code context after changing the embedding model
-        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
@@ -768,6 +768,11 @@ class DataSource(models.Model):
         else:
             _, dimension = get_embedding_model_config(model)
             collection_name = self.guru_type.milvus_collection_name
+
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
@@ -792,17 +797,17 @@ class DataSource(models.Model):
                     if language:
                         splitted = split_code(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             language
                         )
                     else:
                         splitted = split_text(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             separators=["\n\n", "\n", ".", "?", "!", " ", ""]
                         )
                     
@@ -875,9 +880,9 @@ class DataSource(models.Model):
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
@@ -1236,6 +1241,11 @@ class Settings(models.Model):
 
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
+
+    # Splitting configuration
+    split_size = models.IntegerField(default=2000)
+    split_overlap = models.IntegerField(default=300)
+    split_min_length = models.IntegerField(default=500)
 
     @classmethod
     def get_default_embedding_model(cls):
@@ -1773,11 +1783,17 @@ class GithubFile(models.Model):
         return f"{self.path}"
 
     def write_to_milvus(self):
-        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
 
         if self.in_milvus:
             return
+
+        # Fetch the global settings object
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         # Split the content into chunks
         extension = self.path.split('/')[-1].split('.')[-1]
@@ -1785,17 +1801,17 @@ class GithubFile(models.Model):
         if language:
             splitted = split_code(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 language
             )
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
