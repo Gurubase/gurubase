@@ -97,7 +97,7 @@ const MonacoUrlEditor = ({
   const [youtubeType, setYoutubeType] = useState("");
   const defaultJQL = `status in ("Done", "Closed")`;
   const [jiraQuery, setJiraQuery] = useState(defaultJQL);
-  const [showJiraInput, setShowJiraInput] = useState(false);
+  const [showJiraInput, setShowJiraInput] = useState(true);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
@@ -319,19 +319,19 @@ const MonacoUrlEditor = ({
         const newContent = allItems.join("\n");
         onChange(newContent);
 
-        setJiraQuery(defaultJQL);
+        // setJiraQuery(defaultJQL);
 
         CustomToast({
           message: `Successfully added ${issue_count || issues.length} issues from Jira`,
           variant: "success"
         });
-        setShowJiraInput(false);
+        // setShowJiraInput(false);
       } else {
         CustomToast({
           message: response.message || "No issues found for the query",
           variant: "warning"
         });
-        setShowJiraInput(false);
+        // setShowJiraInput(false);
       }
     } catch (error) {
       CustomToast({
@@ -614,7 +614,7 @@ const MonacoUrlEditor = ({
                   />
                   <div className="flex items-center gap-2 guru-sm:w-full">
                     {jiraButtonContent()}
-                    <Button
+                    {/* <Button
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2 hover:bg-gray-100"
@@ -624,7 +624,7 @@ const MonacoUrlEditor = ({
                         setJiraQuery(defaultJQL);
                       }}>
                       ✕
-                    </Button>
+                    </Button> */}
                   </div>
                 </div>
               )}
