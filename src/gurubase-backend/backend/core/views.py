@@ -422,7 +422,9 @@ def answer(request, guru_type):
 @api_view(['GET'])
 @combined_auth
 def question_detail(request, guru_type, slug):
+    # This endpoint is only used for UI.
     # validate_guru_type(guru_type)
+
     
     user = request.user
     
@@ -446,7 +448,7 @@ def question_detail(request, guru_type, slug):
         guru_type_object, 
         binge, 
         slug, 
-        question_text,
+        None, # Do not search questions by question text, as we want to ask the same question again. This is not the case for integrations or API, but only for UI.
         allow_maintainer_access=True
     )
     if not question:
