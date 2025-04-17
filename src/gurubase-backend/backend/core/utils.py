@@ -1417,8 +1417,8 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
     parsed_response = parse_summary_response(question, response)
     times['parse_summary_response'] = time.perf_counter() - start_parse_summary_response
 
-    if binge:
-        parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
+    # if binge:
+    parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
     times['total'] = time.perf_counter() - start_total
 
     return parsed_response, times
