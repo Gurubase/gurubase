@@ -9,12 +9,12 @@ from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
+from core.exceptions import JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github.data_source_handler import process_github_repository, extract_repo_name
-from core.requester import get_web_scraper, YouTubeRequester
+from core.requester import JiraRequester, get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
@@ -67,6 +67,17 @@ def youtube_content_extraction(youtube_url):
     document_dict['content'] = document_dict['content'].strip()
 
     return document_dict
+
+
+def jira_content_extraction(integration, jira_issue_link):
+    try:
+        jira_requester = JiraRequester(integration)
+        jira_issue_key = jira_issue_link.split('/')[-1]
+        issue = jira_requester.get_issue(jira_issue_key)
+        return issue['title'], issue['content']
+    except Exception as e:
+        logger.error(f"Error extracting content from Jira issue {jira_issue_key}: {traceback.format_exc()}")
+        raise JiraContentExtractionError(traceback.format_exc()) from e
 
 
 def pdf_content_extraction(pdf_path):
@@ -268,7 +279,7 @@ def sanitize_filename(filename):
     return clean_filename
 
 
-def fetch_data_source_content(data_source):
+def fetch_data_source_content(integration, data_source):
     from core.models import DataSource
 
     if data_source.type == DataSource.Type.PDF:
@@ -284,6 +295,11 @@ def fetch_data_source_content(data_source):
         data_source.title = content['metadata']['title']
         data_source.content = content['content']
         data_source.scrape_tool = 'youtube'
+    elif data_source.type == DataSource.Type.JIRA:
+        title, content = jira_content_extraction(integration, data_source.url)
+        data_source.title = title
+        data_source.content = content
+        data_source.scrape_tool = 'jira'
     elif data_source.type == DataSource.Type.GITHUB_REPO:
         default_branch = process_github_repository(data_source)
         # Use the repository name as the title
@@ -403,6 +419,38 @@ class WebsiteStrategy(DataSourceStrategy):
                 'message': str(e)
             }
 
+
+class JiraStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, jira_url):
+        try:
+            data_source = DataSource.objects.create(
+                type=DataSource.Type.JIRA,
+                guru_type=guru_type_object,
+                url=jira_url,
+            )
+            return {
+                'type': 'Jira',
+                'url': jira_url,
+                'status': 'success',
+                'id': data_source.id,
+                'title': data_source.title
+            }
+        except DataSourceExists as e:
+            return {
+                'type': 'Jira',
+                'url': jira_url,
+                'status': 'exists',
+                'id': e.args[0]['id'],
+                'title': e.args[0]['title']
+            }
+        except Exception as e:
+            logger.error(f'Error processing Jira URL {jira_url}: {traceback.format_exc()}')
+            return {
+                'type': 'Jira',
+                'url': jira_url,
+                'status': 'error',
+                'message': str(e)
+            }
 
 class GitHubRepoStrategy(DataSourceStrategy):
     def create(self, guru_type_object, repo_url):

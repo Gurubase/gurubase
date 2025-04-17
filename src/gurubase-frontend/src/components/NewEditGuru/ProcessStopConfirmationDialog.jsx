@@ -9,43 +9,75 @@ import { Button } from "@/components/ui/button";
 
 // Create a new component for the confirmation dialog
 
+const config = {
+  titles: {
+    close: {
+      crawling: "Close While Crawling?",
+      "jira-fetch-issues": "Close While Fetching Issues?",
+      default: "Close While Importing?"
+    },
+    stop: {
+      crawling: "Stop Crawling?",
+      "jira-fetch-issues": "Stop Fetching Issues?",
+      default: "Stop Import?"
+    }
+  },
+  descriptions: {
+    close: {
+      crawling:
+        "This will stop the crawling process and close the dialog. The URLs discovered so far will still be available.",
+      "jira-fetch-issues":
+        "This will stop the fetching issues process and close the dialog. The issues fetched so far will still be available.",
+      default: "This will stop the import process and close the dialog."
+    },
+    stop: {
+      crawling:
+        "This will stop the crawling process. The URLs discovered so far will still be available.",
+      "jira-fetch-issues":
+        "This will stop the fetching issues process. The issues fetched so far will still be available.",
+      default: "This will stop the import process."
+    }
+  },
+  buttonText: {
+    stopping: "Stopping...",
+    stop: {
+      crawling: "Stop Crawling",
+      "jira-fetch-issues": "Stop Fetching Issues",
+      default: "Stop Import"
+    }
+  },
+  continueText: {
+    crawling: "Continue Crawling",
+    "jira-fetch-issues": "Continue Fetching Issues",
+    default: "Continue Import"
+  }
+};
+
 const ProcessStopConfirmationDialog = ({
   isOpen,
   onOpenChange,
   onConfirm,
   isClosing,
   action,
-  processType = "crawling" // can be "crawling" or "sitemap"
+  processType = "crawling" // can be "crawling", "jira", "sitemap"
 }) => {
   const dialogTitle =
-    action === "close"
-      ? `Close While ${processType === "crawling" ? "Crawling" : "Importing"}?`
-      : processType === "crawling"
-        ? "Stop Crawling?"
-        : "Stop Import?";
-
+    (config.titles[action] && config.titles[action][processType]) ||
+    config.titles[action]?.default ||
+    "Default Title";
   const dialogDescription =
-    action === "close"
-      ? `This will stop the ${processType.charAt(0).toUpperCase() + processType.slice(1)} process and close the dialog. ${
-          processType === "crawling"
-            ? "The URLs discovered so far will still be available."
-            : ""
-        }`
-      : `This will stop the ${
-          processType.charAt(0).toUpperCase() + processType.slice(1)
-        } process. ${
-          processType === "crawling"
-            ? "The URLs discovered so far will still be available."
-            : ""
-        }`;
-
+    (config.descriptions[action] && config.descriptions[action][processType]) ||
+    config.descriptions[action]?.default ||
+    "Default Description";
   const buttonText = isClosing
-    ? "Stopping..."
-    : `Stop ${processType === "crawling" ? "Crawling" : "Import"}`;
-
-  const continueText = `Continue ${
-    processType === "crawling" ? "Crawling" : "Import"
-  }`;
+    ? config.buttonText.stopping
+    : config.buttonText.stop[processType] ||
+      config.buttonText.stop.default ||
+      "Default Button Text";
+  const continueText =
+    config.continueText[processType] ||
+    config.continueText.default ||
+    "Default Continue Text";
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>

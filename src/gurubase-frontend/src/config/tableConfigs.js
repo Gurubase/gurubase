@@ -9,6 +9,7 @@ const sourceTypeIcons = {
   pdf: SolarFileTextBold,
   youtube: SolarVideoLibraryBold,
   website: Link,
+  jira: () => <Icon icon="simple-icons:jira" className="h-4 w-4" />,
   codebase: () => <Icon icon="simple-icons:github" className="h-4 w-4" />
 };
 

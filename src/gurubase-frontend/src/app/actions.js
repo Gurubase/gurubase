@@ -1046,7 +1046,7 @@ export async function createSelfhostedIntegration(
   data
 ) {
   try {
-    const response = await makePublicRequest(
+    const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
       {
         method: "POST",
@@ -1058,7 +1058,10 @@ export async function createSelfhostedIntegration(
           client_id: data.clientId,
           installation_id: data.installationId,
           private_key: data.privateKey,
-          github_secret: data.secret
+          github_secret: data.secret,
+          jira_domain: data.jira_domain,
+          jira_user_email: data.jira_user_email,
+          jira_api_key: data.jira_api_key
         })
       }
     );
@@ -1170,6 +1173,45 @@ export async function parseSitemapUrls(sitemapUrl) {
     return handleRequestError(error, {
       context: "parseSitemapUrls",
       sitemapUrl
+    });
+  }
+}
+
+export async function fetchJiraIssues(integrationId, jqlQuery) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/jira/issues/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Send the JQL query in the request body
+      body: JSON.stringify({ jql: jqlQuery })
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Jira issues",
+        status: response.status
+      };
+    }
+
+    return data; // Return the successful response data (likely includes issues)
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchJiraIssues",
+      integrationId,
+      jqlQuery
     });
   }
 }
