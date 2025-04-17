@@ -141,12 +141,11 @@ class CreateIntegrationCommand(IntegrationCommand):
                 )
             elif self.integration_type == Integration.Type.JIRA:
                  # For Jira, we primarily validate credentials here
-                 return {'workspace_name': self.data['jira_domain'], 'external_id': self.data['jira_domain']}
-                #  return strategy.fetch_workspace_details(
-                #     self.data['jira_domain'],
-                #     self.data['jira_user_email'],
-                #     self.data['jira_api_key']
-                #  )
+                 return strategy.fetch_workspace_details(
+                    self.data['jira_domain'],
+                    self.data['jira_user_email'],
+                    self.data['jira_api_key']
+                 )
             else: # Slack, Discord
                 return strategy.fetch_workspace_details(self.data['access_token'])
         except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:

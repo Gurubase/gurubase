@@ -32,36 +32,39 @@ class JiraStrategy(IntegrationStrategy):
         Returns basic workspace details (domain) upon successful validation.
         Raises IntegrationError if validation fails.
         """
-        raise NotImplementedError("Jira connection validation not implemented.")
-        # try:
-        #     # Create a temporary integration-like object for the requester
-        #     class TempIntegration:
-        #         def __init__(self, domain, email, key):
-        #             self.jira_domain = domain
-        #             self.jira_user_email = email
-        #             self.jira_api_key = key
+        try:
+            # Create a temporary integration-like object for the requester
+            class TempIntegration:
+                def __init__(self, domain, email, key):
+                    self.jira_domain = domain
+                    self.jira_user_email = email
+                    self.jira_api_key = key
             
-        #     temp_integration = TempIntegration(jira_domain, jira_user_email, jira_api_key)
-        #     jira_requester = JiraRequester(temp_integration)
+            temp_integration = TempIntegration(jira_domain, jira_user_email, jira_api_key)
+            try:
+                jira_requester = JiraRequester(temp_integration)
+            except Exception as e:
+                raise IntegrationError(f"Could not connect to Jira instance at {jira_domain}. Please check the domain.")
             
-        #     # Attempt a simple API call to validate credentials, e.g., get server info or current user
-        #     # Using a method that requires authentication but is lightweight
-        #     jira_requester.jira.myself() # Throws exception on auth failure
+            # Attempt a simple API call to validate credentials, e.g., get server info or current user
+            jira_requester.jira.myself() # Throws exception on auth failure
 
-        #     # If successful, return the domain as workspace name and external id
-        #     return {
-        #         'workspace_name': jira_domain,
-        #         'external_id': jira_domain # Using domain as a unique identifier for the workspace
-        #     }
-        # except Exception as e:
-        #     logger.error(f"Jira connection validation failed for domain {jira_domain}: {e}", exc_info=True)
-        #     # Re-raise as IntegrationError for consistent handling in the command
-        #     if "Unauthorized" in str(e) or "401" in str(e):
-        #          raise IntegrationError("Invalid Jira credentials.")
-        #     elif "Forbidden" in str(e) or "403" in str(e):
-        #          raise IntegrationError("Jira API access forbidden. Check user permissions or API key scope.")
-        #     else:
-        #          raise IntegrationError(f"Failed to connect to Jira instance at {jira_domain}. Please check the domain and credentials.")
+            # If successful, return the domain as workspace name and external id
+            return {
+                'workspace_name': jira_domain,
+                'external_id': jira_domain # Using domain as a unique identifier for the workspace
+            }
+        except Exception as e:
+            logger.error(f"Jira connection validation failed for domain {jira_domain}: {e}", exc_info=True)
+            # Re-raise as IntegrationError for consistent handling in the command
+            if "Unauthorized" in str(e) or "401" in str(e):
+                # Jira user email or API key is wrong
+                 raise IntegrationError("Invalid Jira credentials. Either the user email or API key is wrong.")
+            elif "Forbidden" in str(e) or "403" in str(e):
+                 raise IntegrationError("Jira API access forbidden. Check user permissions or API key scope.")
+            else:
+                # Jira domain is wrong
+                 raise IntegrationError(f"Could not connect to Jira instance at {jira_domain}. Please check the domain.")
 
     def send_test_message(self, channel_id: str) -> bool:
         raise NotImplementedError("Sending test messages is not applicable for Jira integration.")
