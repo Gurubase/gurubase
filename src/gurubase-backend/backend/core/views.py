@@ -226,25 +226,25 @@ def summary(request, guru_type):
         existing_question = None
     times['existence_check'] = time.time() - existence_start
 
-    if existing_question:
-        dirtiness_start = time.time()
-        is_dirty = is_question_dirty(existing_question)
-        times['dirtiness_check'] = time.time() - dirtiness_start
+    # if existing_question:
+    #     dirtiness_start = time.time()
+    #     is_dirty = is_question_dirty(existing_question)
+    #     times['dirtiness_check'] = time.time() - dirtiness_start
         
-        if not is_dirty:
-            response = {
-                'question': existing_question.question,
-                'question_slug': existing_question.slug,
-                'description': existing_question.description,
-                'user_question': existing_question.user_question,
-                'valid_question': True,
-                'completion_tokens': 0,
-                'prompt_tokens': 0,
-                'cached_prompt_tokens': 0,
-                "jwt": generate_jwt(),
-            }
-            times['total'] = time.time() - endpoint_start
-            return Response(response, status=status.HTTP_200_OK)
+    #     if not is_dirty:
+    #         response = {
+    #             'question': existing_question.question,
+    #             'question_slug': existing_question.slug,
+    #             'description': existing_question.description,
+    #             'user_question': existing_question.user_question,
+    #             'valid_question': True,
+    #             'completion_tokens': 0,
+    #             'prompt_tokens': 0,
+    #             'cached_prompt_tokens': 0,
+    #             "jwt": generate_jwt(),
+    #         }
+    #         times['total'] = time.time() - endpoint_start
+    #         return Response(response, status=status.HTTP_200_OK)
 
     answer, get_question_summary_times = get_question_summary(
         question, 
@@ -256,8 +256,8 @@ def summary(request, guru_type):
 
     times['get_question_summary'] = get_question_summary_times
 
-    if existing_question:
-        answer['question_slug'] = existing_question.slug
+    # if existing_question:
+    #     answer['question_slug'] = existing_question.slug
 
     times['total'] = time.time() - endpoint_start
     
