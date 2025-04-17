@@ -340,6 +340,7 @@ class GuruType(models.Model):
     website_count_limit = models.IntegerField(default=1500)
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
+    jira_count_limit = models.IntegerField(default=100)
 
     text_embedding_model = models.CharField(
         max_length=100,
@@ -487,7 +488,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
+    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -521,6 +522,11 @@ class GuruType(models.Model):
             type=DataSource.Type.GITHUB_REPO
         ).count()
 
+        jira_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.JIRA
+        ).count()
+
         # Get total PDF size in MB
         pdf_sources = DataSource.objects.filter(
             guru_type=self,
@@ -542,6 +548,10 @@ class GuruType(models.Model):
         # Check GitHub repo limit
         if (github_count + github_urls_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
+
+        # Check Jira issue limit
+        if (jira_count + jira_urls_count) > self.jira_count_limit:
+            return False, f"Jira issue limit ({self.jira_count_limit}) reached"
 
         # Check PDF size limit if file provided
         if file:
@@ -614,6 +624,7 @@ class DataSource(models.Model):
         WEBSITE = "WEBSITE"
         YOUTUBE = "YOUTUBE"
         GITHUB_REPO = "GITHUB_REPO"
+        JIRA = "JIRA"
 
     class Status(models.TextChoices):
         NOT_PROCESSED = "NOT_PROCESSED"
@@ -1758,6 +1769,7 @@ class Integration(models.Model):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
         GITHUB = "GITHUB"
+        JIRA = "JIRA"
 
     type = models.CharField(
         max_length=50,
@@ -1778,6 +1790,11 @@ class Integration(models.Model):
     github_secret = models.TextField(null=True, blank=True)
     github_bot_name = models.TextField(null=True, blank=True)
     github_html_url = models.TextField(null=True, blank=True)
+
+    jira_api_key = models.TextField(null=True, blank=True)
+    jira_user_email = models.TextField(null=True, blank=True)
+    jira_domain = models.TextField(null=True, blank=True)
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1810,6 +1827,13 @@ class Integration(models.Model):
             else:
                 return None
         return None
+
+    @property
+    def masked_jira_api_key(self):
+        if self.jira_api_key:
+            return self.jira_api_key[:3] + ('*' * len(self.jira_api_key[3:-3])) + self.jira_api_key[-3:]
+        else:
+            return None
 
     class Meta:
         unique_together = ['type', 'guru_type']

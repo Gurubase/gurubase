@@ -6,7 +6,8 @@ import {
   DiscordIcon,
   SlackIcon,
   WebWidgetIcon,
-  GitHubIcon
+  GitHubIcon,
+  JiraIcon
 } from "@/components/Icons";
 import { Link } from "@/components/Link";
 import clsx from "clsx";
@@ -62,6 +63,13 @@ const IntegrationTypesList = ({ guruData }) => {
       description: "Connect your GitHub repositories to your Guru.",
       icon: GitHubIcon,
       type: "GITHUB"
+    },
+    {
+      id: "jira",
+      name: "Jira",
+      description: "Connect your Jira issues to your Guru as data sources.",
+      icon: JiraIcon,
+      type: "JIRA"
     }
   ];
 

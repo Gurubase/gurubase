@@ -9,7 +9,8 @@ import {
   SendTestMessageIcon,
   SolarTrashBinTrashBold,
   ConnectedIntegrationIcon,
-  GitHubIcon
+  GitHubIcon,
+  JiraIcon
 } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +52,9 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [privateKey, setPrivateKey] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [secret, setSecret] = useState("");
+  const [jiraDomain, setJiraDomain] = useState("");
+  const [jiraUserEmail, setJiraUserEmail] = useState("");
+  const [jiraApiKey, setJiraApiKey] = useState("");
 
   const integrationConfig = {
     slack: {
@@ -155,17 +159,37 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           .
         </>
       )
+    },
+    jira: {
+      name: "Jira",
+      description: (
+        <>
+          Connect your Jira instance to index issues and enable Q&A. Here is the
+          guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/jira"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            learn more
+          </Link>
+          .
+        </>
+      ),
+      iconSize: "w-5 h-5",
+      icon: JiraIcon,
+      showChannels: false,
+      selfhostedDescription: <></>
     }
   };
   const config = integrationConfig[type];
 
-  const integrationUrl = `${config.url}${type !== "github" ? "&" : "?"}state=${JSON.stringify(
-    {
-      type: type,
-      guru_type: guruData?.slug,
-      encoded_guru_slug: integrationData?.encoded_guru_slug
-    }
-  )}`;
+  const integrationUrl = config.url
+    ? `${config.url}${type !== "github" ? "&" : "?"}state=${JSON.stringify({
+        type: type,
+        guru_type: guruData?.slug,
+        encoded_guru_slug: integrationData?.encoded_guru_slug
+      })}`
+    : null;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -249,7 +273,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               </Button>
             </div>
           </div>
-          {selfhosted ? (
+          {selfhosted || type === "jira" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -330,6 +354,83 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         </div>
                       </div>
                     )}
+                  </>
+                ) : type === "jira" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira Domain</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.jira_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.jira_domain || jiraDomain}
+                          onChange={
+                            !integrationData?.jira_domain
+                              ? (e) => setJiraDomain(e.target.value)
+                              : undefined
+                          }
+                          placeholder="yourcompany.atlassian.net"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira User Email</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.jira_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.jira_user_email || jiraUserEmail
+                          }
+                          onChange={
+                            !integrationData?.jira_user_email
+                              ? (e) => setJiraUserEmail(e.target.value)
+                              : undefined
+                          }
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira API Key</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.jira_api_key}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_api_key
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.jira_api_key || jiraApiKey}
+                          onChange={
+                            !integrationData?.jira_api_key
+                              ? (e) => setJiraApiKey(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter Jira API key..."
+                        />
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div>
@@ -462,7 +563,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       <div
         className={cn(
           "flex p-6 gap-4",
-          selfhosted
+          selfhosted || type === "jira"
             ? "flex-col"
             : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
         )}>
@@ -475,9 +576,9 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
         <div
           className={cn(
             "flex flex-col gap-4 mt-2",
-            selfhosted ? "w-full md:" : "w-full md:w-auto"
+            selfhosted || type === "jira" ? "w-full md:" : "w-full md:w-auto"
           )}>
-          {selfhosted ? (
+          {selfhosted || type === "jira" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -575,6 +676,52 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                     )}
                   </>
+                ) : type === "jira" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira Domain</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
+                          value={jiraDomain}
+                          onChange={(e) => setJiraDomain(e.target.value)}
+                          placeholder="yourcompany.atlassian.net"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira User Email</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
+                          value={jiraUserEmail}
+                          onChange={(e) => setJiraUserEmail(e.target.value)}
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Jira API Key</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          type="password"
+                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
+                          value={jiraApiKey}
+                          onChange={(e) => setJiraApiKey(e.target.value)}
+                          placeholder="Enter Jira API key..."
+                        />
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div>
                     <div className="flex flex-col gap-2">
@@ -619,18 +766,16 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             size="lgRounded"
             className={cn(
               "bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]",
-              selfhosted
+              selfhosted || type === "jira"
                 ? "w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]"
                 : "guru-xs:w-full w-auto"
             )}
             disabled={isConnecting}
             onClick={async () => {
-              if (selfhosted) {
+              if (selfhosted || type === "jira") {
                 setIsConnecting(true);
                 try {
-                  const response = await createSelfhostedIntegration(
-                    guruData?.slug,
-                    type.toUpperCase(),
+                  const credentials =
                     type === "github"
                       ? {
                           clientId,
@@ -638,11 +783,22 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                           privateKey,
                           secret
                         }
-                      : {
-                          workspaceName,
-                          externalId,
-                          accessToken
-                        }
+                      : type === "jira"
+                        ? {
+                            jira_domain: jiraDomain,
+                            jira_user_email: jiraUserEmail,
+                            jira_api_key: jiraApiKey
+                          }
+                        : {
+                            workspaceName,
+                            externalId,
+                            accessToken
+                          };
+
+                  const response = await createSelfhostedIntegration(
+                    guruData?.slug,
+                    type.toUpperCase(),
+                    credentials
                   );
 
                   if (!response?.error) {
@@ -652,7 +808,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                   } else {
                     setInternalError(
                       response.message ||
-                        "Failed to create integration. Please make sure your bot token is correct."
+                        "Failed to create integration. Please make sure your credentials are correct."
                     );
                   }
                 } catch (error) {

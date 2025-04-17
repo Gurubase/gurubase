@@ -812,7 +812,106 @@ class GitHubRequester():
         if response.json().get('status') == '403':
             raise ValueError(f"GitHub API rate limit exceeded for {github_url}")
         return response.json()
-        
+
+class JiraRequester():
+    def __init__(self, integration):
+        """
+        Initialize JiraRequester with integration credentials
+        Args:
+            integration (Integration): Integration model instance containing Jira credentials
+        """
+        from jira import JIRA
+        self.url = f"https://{integration.jira_domain}"
+        self.jira = JIRA(
+            server=self.url,
+            basic_auth=(integration.jira_user_email, integration.jira_api_key)
+        )
+
+
+    def list_issues(self, jql, batch_size=50):
+        """
+        List Jira issues based on JQL query with pagination
+        Args:
+            jql (str): JQL query string
+            max_results (int): Maximum number of results to fetch per request
+        Returns:
+            list: List of Jira issues
+        Raises:
+            ValueError: If API request fails
+        """
+        assert jql, "JQL query is required"
+
+        start_at = 0
+        all_issues = []
+
+        try:
+            while True:
+                issues = self.jira.search_issues(jql, startAt=start_at, maxResults=batch_size)
+                if not issues:
+                    break
+                all_issues.extend([self._format_issue(issue) for issue in issues])
+                start_at += len(issues)
+            return all_issues
+        except Exception as e:
+            text = str(e)
+            if hasattr(e, 'args') and len(e.args) > 0:
+                text = e.args[0]
+            raise ValueError(text)
+
+    def get_issue(self, issue_key, expand="renderedFields,comments"):
+        """
+        Get details of a specific Jira issue
+        Args:
+            issue_key (str): Jira issue key (e.g. "PROJ-123")
+            expand (str): Comma-separated list of fields to expand
+        Returns:
+            dict: Issue details
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            issue = self.jira.issue(issue_key, expand=expand)
+            return self._format_issue(issue)
+        except Exception as e:
+            text = str(e)
+            if hasattr(e, 'args') and len(e.args) > 0:
+                text = e.args[0]
+            raise ValueError(text)
+
+    def _format_issue(self, issue):
+        """
+        Format a Jira issue into a dictionary
+        Args:
+            issue: Jira issue object
+        Returns:
+            dict: Formatted issue data
+        """
+
+        content = f'<Jira Issue>\n\nTitle: {issue.fields.summary}\n\nDescription: {issue.fields.description}\n\n</Jira Issue>'
+        for comment in issue.fields.comment.comments:
+            content += f'\n\n<Jira Comment>\n\n{comment.body}\n\n</Jira Comment>'
+        return {
+            'key': issue.key,
+            'link': f"{self.url}/browse/{issue.key}",
+            'title': issue.fields.summary,
+            # 'description': issue.fields.description,
+            # 'status': issue.fields.status.name,
+            # 'assignee': issue.fields.assignee.displayName if issue.fields.assignee else None,
+            # 'reporter': issue.fields.reporter.displayName if issue.fields.reporter else None,
+            # 'created': issue.fields.created,
+            # 'updated': issue.fields.updated,
+            # 'priority': issue.fields.priority.name if issue.fields.priority else None,
+            # 'labels': issue.fields.labels,
+            # 'comments': [{
+            #     'author': comment.author.displayName,
+            #     'body': comment.body,
+            #     'created': comment.created
+            # } for comment in issue.fields.comment.comments] if hasattr(issue.fields, 'comment') else [],
+            # 'renderedFields': {
+            #     'description': issue.renderedFields.description if hasattr(issue, 'renderedFields') else None
+            # },
+            'content': content
+        }
 
 class CloudflareRequester():
     def __init__(self):

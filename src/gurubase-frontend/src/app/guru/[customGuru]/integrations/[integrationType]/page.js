@@ -19,6 +19,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
         return <WebWidgetIntegrationContent guruData={guruData} />;
       case "slack":
       case "discord":
+      case "jira":
       case "github":
         return (
           <IntegrationContent

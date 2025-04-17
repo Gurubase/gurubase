@@ -21,20 +21,35 @@ class GetIntegrationCommand(IntegrationCommand):
         self.integration = integration
 
     def execute(self) -> Response:
-        return Response({
+        response_data = {
             'id': self.integration.id,
             'type': self.integration.type,
             'workspace_name': self.integration.workspace_name,
             'external_id': self.integration.external_id,
             'channels': self.integration.channels,
-            'github_client_id': self.integration.masked_github_client_id,
-            'github_secret': self.integration.masked_github_secret,
-            'github_bot_name': self.integration.github_bot_name,
-            'github_html_url': self.integration.github_html_url,
             'date_created': self.integration.date_created,
             'date_updated': self.integration.date_updated,
-            'access_token': self.integration.masked_access_token,
-        })
+        }
+        
+        if self.integration.type == Integration.Type.GITHUB:
+            response_data.update({
+                'github_client_id': self.integration.masked_github_client_id,
+                'github_secret': self.integration.masked_github_secret,
+                'github_bot_name': self.integration.github_bot_name,
+                'github_html_url': self.integration.github_html_url,
+            })
+        elif self.integration.type == Integration.Type.JIRA:
+             response_data.update({
+                'jira_domain': self.integration.jira_domain,
+                'jira_user_email': self.integration.jira_user_email,
+                'jira_api_key': self.integration.masked_jira_api_key, # Use the masked key
+            })
+        else: # Slack, Discord
+            response_data.update({
+                 'access_token': self.integration.masked_access_token,
+            })
+
+        return Response(response_data)
 
 class DeleteIntegrationCommand(IntegrationCommand):
     def __init__(self, integration: Integration, guru_type_object: GuruType):
@@ -52,46 +67,48 @@ class CreateIntegrationCommand(IntegrationCommand):
         self.data = data
 
     def execute(self) -> Response:
-        if settings.ENV != 'selfhosted':
-            return Response({'msg': 'Selfhosted only'}, status=status.HTTP_403_FORBIDDEN)
+        # Allow Jira creation in cloud, restrict others to selfhosted
+        if self.integration_type != Integration.Type.JIRA and settings.ENV != 'selfhosted':
+            return Response({'msg': 'This integration type is only available in the self-hosted version.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             # Validate required fields based on integration type
             if self.integration_type == Integration.Type.GITHUB:
                 self._validate_github_fields()
-            else:
+            elif self.integration_type == Integration.Type.JIRA:
+                self._validate_jira_fields()
+            else: # Slack, Discord
                 self._validate_standard_fields()
 
             # Get the appropriate integration strategy
             strategy = IntegrationFactory.get_strategy(self.integration_type)
             
-            # Fetch workspace details
+            # Fetch workspace details (or validate credentials for Jira)
             workspace_details = self._fetch_workspace_details(strategy)
             
             # Create integration
             integration = self._create_integration(strategy, workspace_details)
             
-            return Response({
-                'id': integration.id,
-                'type': integration.type,
-                'workspace_name': integration.workspace_name,
-                'external_id': integration.external_id,
-                'channels': integration.channels,
-                'date_created': integration.date_created,
-                'date_updated': integration.date_updated,
-                'access_token': integration.masked_access_token,
-            }, status=status.HTTP_201_CREATED)
+            # Use GetIntegrationCommand to format the response consistently
+            get_command = GetIntegrationCommand(integration)
+            return Response(get_command.execute().data, status=status.HTTP_201_CREATED)
                 
         except GithubPrivateKeyError as e:
-            return Response({'msg': 'Invalid private key'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid GitHub private key'}, status=status.HTTP_400_BAD_REQUEST)
         except GithubInvalidInstallationError as e:
-            return Response({'msg': 'Invalid installation ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid GitHub installation ID'}, status=status.HTTP_400_BAD_REQUEST)
         except GithubAPIError as e:
-            return Response({'msg': 'Invalid client ID'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'msg': 'Invalid GitHub client ID or API error'}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrationError as e:
+            # Pass specific Jira errors through
+            if "Jira" in str(e):
+                 return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error creating integration: {e}", exc_info=True)
+            # Check if it's a Jira authentication error from the SDK
+            if "Unauthorized" in str(e) or "401" in str(e) and self.integration_type == Integration.Type.JIRA:
+                 return Response({'msg': 'Invalid Jira credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
             return Response({'msg': 'Internal server error.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _validate_github_fields(self):
@@ -106,6 +123,14 @@ class CreateIntegrationCommand(IntegrationCommand):
         if not self.data.get('access_token'):
             raise IntegrationError('Missing access token')
 
+    def _validate_jira_fields(self):
+        if not self.data.get('jira_domain'):
+            raise IntegrationError('Missing Jira domain')
+        if not self.data.get('jira_user_email'):
+            raise IntegrationError('Missing Jira user email')
+        if not self.data.get('jira_api_key'):
+            raise IntegrationError('Missing Jira API key')
+
     def _fetch_workspace_details(self, strategy) -> Dict[str, Any]:
         try:
             if self.integration_type == Integration.Type.GITHUB:
@@ -114,18 +139,32 @@ class CreateIntegrationCommand(IntegrationCommand):
                     self.data['client_id'],
                     self.data['private_key']
                 )
-            else:
+            elif self.integration_type == Integration.Type.JIRA:
+                 # For Jira, we primarily validate credentials here
+                 return strategy.fetch_workspace_details(
+                    self.data['jira_domain'],
+                    self.data['jira_user_email'],
+                    self.data['jira_api_key']
+                 )
+            else: # Slack, Discord
                 return strategy.fetch_workspace_details(self.data['access_token'])
         except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:
             raise e
         except Exception as e:
-            logger.error(f"Error fetching workspace details: {e}", exc_info=True)
-            raise IntegrationError('Failed to fetch workspace details. Please make sure your inputs are valid.')
+            logger.error(f"Error fetching workspace details/validating credentials: {e}", exc_info=True)
+            if self.integration_type == Integration.Type.JIRA:
+                 # Check for specific Jira auth errors
+                 if "Unauthorized" in str(e) or "401" in str(e):
+                      raise IntegrationError('Invalid Jira credentials.')
+                 elif "Forbidden" in str(e) or "403" in str(e):
+                      raise IntegrationError('Jira API access forbidden.')
+                 else:
+                      raise IntegrationError(f"Failed to validate Jira connection: {str(e)}")
+            else:
+                raise IntegrationError('Failed to fetch workspace details. Please make sure your inputs are valid.')
 
     def _create_integration(self, strategy, workspace_details: Dict[str, Any]) -> Integration:
-        """Create integration with CRUD.
-        Used in selfhosted only.
-        """
+        """Create integration with CRUD."""
         if self.integration_type == Integration.Type.GITHUB:
             channels = strategy.list_channels(
                 self.data['installation_id'],
@@ -144,7 +183,19 @@ class CreateIntegrationCommand(IntegrationCommand):
                 github_bot_name=workspace_details['bot_slug'],
                 github_html_url=workspace_details['html_url']
             )
-        else:
+        elif self.integration_type == Integration.Type.JIRA:
+             # workspace_details for Jira contains validated domain/email
+             return Integration.objects.create(
+                 guru_type=self.guru_type_object,
+                 type=self.integration_type,
+                 workspace_name=workspace_details['workspace_name'], # Typically the domain
+                 external_id=workspace_details['external_id'], # Typically the domain
+                 jira_domain=self.data['jira_domain'],
+                 jira_user_email=self.data['jira_user_email'],
+                 jira_api_key=self.data['jira_api_key'],
+                 channels=[] # Jira doesn't have channels in the same way
+             )
+        else: # Slack, Discord
             return Integration.objects.create(
                 guru_type=self.guru_type_object,
                 type=self.integration_type,

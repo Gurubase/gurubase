@@ -166,6 +166,7 @@ class AnalyticsService:
                 {'value': 'pdf', 'label': 'PDF'},
                 {'value': 'website', 'label': 'Website'},
                 {'value': 'youtube', 'label': 'YouTube'},
+                {'value': 'jira', 'label': 'Jira'},
             ]
         else:
             filters = []
