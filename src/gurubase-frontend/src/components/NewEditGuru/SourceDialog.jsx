@@ -94,7 +94,11 @@ const SourceDialog = React.memo(
       if (isLoadingSitemap) {
         handleProcessStop(
           "close",
-          sourceType === "website" ? "sitemap" : "youtube"
+          sourceType === "website"
+            ? "sitemap"
+            : sourceType === "jira"
+              ? "jira-fetch-issues"
+              : "youtube"
         );
         return;
       }
@@ -251,7 +255,7 @@ const SourceDialog = React.memo(
                         sourceType === "website"
                           ? "sitemap"
                           : sourceType === "jira"
-                            ? "jira"
+                            ? "jira-fetch-issues"
                             : "youtube"
                       )
                     }
