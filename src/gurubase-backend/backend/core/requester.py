@@ -1004,7 +1004,7 @@ class ZendeskRequester():
 
             # 4. Fetch comments using the existing method
             # This already returns formatted comment dicts including the 'content' field
-            comments = self.get_ticket_comments(ticket_id)
+            comments = self._get_ticket_comments(ticket_id)
 
             # 5. Append comment content
             for comment_data in comments:
@@ -1042,7 +1042,7 @@ class ZendeskRequester():
             logger.error(f"Unexpected error getting ticket {ticket_id}: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred while getting ticket {ticket_id}: {str(e)}")
 
-    def get_ticket_comments(self, ticket_id, batch_size=100):
+    def _get_ticket_comments(self, ticket_id, batch_size=100):
         """
         Get comments for a specific Zendesk ticket with pagination
         Args:
