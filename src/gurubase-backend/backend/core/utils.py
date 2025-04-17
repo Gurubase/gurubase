@@ -2907,66 +2907,67 @@ def clean_data_source_urls(urls):
     return cleaned_urls
 
 def is_question_dirty(question: Question):
-    """
-    Check if the question is dirty by checking if the guru type is dirty (new data sources added or updated) or if a question reference has been deleted.
+    return False
+    # """
+    # Check if the question is dirty by checking if the guru type is dirty (new data sources added or updated) or if a question reference has been deleted.
 
-    Args:
-        question: Question object
+    # Args:
+    #     question: Question object
         
-    Returns:
-        bool: True if the question is dirty, False otherwise
-    """
+    # Returns:
+    #     bool: True if the question is dirty, False otherwise
+    # """
     
-    def is_guru_dirty(guru_type: GuruType, question: Question):
-        from django.db import models
-        # Either new data sources are added or existing ones are updated AFTER the question is last answered
+    # def is_guru_dirty(guru_type: GuruType, question: Question):
+    #     from django.db import models
+    #     # Either new data sources are added or existing ones are updated AFTER the question is last answered
         
-        # Get all data sources for the guru type
-        data_sources = DataSource.objects.filter(guru_type=guru_type, status=DataSource.Status.SUCCESS)
+    #     # Get all data sources for the guru type
+    #     data_sources = DataSource.objects.filter(guru_type=guru_type, status=DataSource.Status.SUCCESS)
         
-        # If no data sources, guru is not dirty
-        if not data_sources.exists():
-            return False
+    #     # If no data sources, guru is not dirty
+    #     if not data_sources.exists():
+    #         return False
             
-        # Get the latest reindex date from data sources
-        latest_reindex = data_sources.aggregate(latest=models.Max('last_reindex_date'))['latest']
-        latest_created_date = data_sources.aggregate(latest=models.Max('date_created'))['latest']
+    #     # Get the latest reindex date from data sources
+    #     latest_reindex = data_sources.aggregate(latest=models.Max('last_reindex_date'))['latest']
+    #     latest_created_date = data_sources.aggregate(latest=models.Max('date_created'))['latest']
         
-        # If question was answered before the latest reindex or latest created date, it's dirty
-        if (latest_reindex and question.date_updated < latest_reindex) or question.date_updated < latest_created_date:
-            return True
+    #     # If question was answered before the latest reindex or latest created date, it's dirty
+    #     if (latest_reindex and question.date_updated < latest_reindex) or question.date_updated < latest_created_date:
+    #         return True
             
-        return False
+    #     return False
 
-    def is_question_reference_deleted(guru_type: GuruType, question: Question):
-        data_source_references = []
-        for reference in question.references:
-            # Skip stackoverflow questions
-            if reference['link'].startswith('https://stackoverflow.com'):
-                continue
-            data_source_references.append(reference['link'])
+    # def is_question_reference_deleted(guru_type: GuruType, question: Question):
+    #     data_source_references = []
+    #     for reference in question.references:
+    #         # Skip stackoverflow questions
+    #         if reference['link'].startswith('https://stackoverflow.com'):
+    #             continue
+    #         data_source_references.append(reference['link'])
             
-        # Compare reference['link'] with DataSource.url
-        # First check DataSource urls
-        data_sources = DataSource.objects.filter(url__in=data_source_references, guru_type=guru_type)
-        found_urls = set(data_sources.values_list('url', flat=True))
+    #     # Compare reference['link'] with DataSource.url
+    #     # First check DataSource urls
+    #     data_sources = DataSource.objects.filter(url__in=data_source_references, guru_type=guru_type)
+    #     found_urls = set(data_sources.values_list('url', flat=True))
         
-        # Check remaining urls in GithubFile
-        remaining_urls = set(data_source_references) - found_urls
-        if remaining_urls:
-            github_files = GithubFile.objects.filter(link__in=remaining_urls, data_source__guru_type=guru_type)
-            found_urls.update(github_files.values_list('link', flat=True))
+    #     # Check remaining urls in GithubFile
+    #     remaining_urls = set(data_source_references) - found_urls
+    #     if remaining_urls:
+    #         github_files = GithubFile.objects.filter(link__in=remaining_urls, data_source__guru_type=guru_type)
+    #         found_urls.update(github_files.values_list('link', flat=True))
 
-        # If any urls not found in either model, question is dirty
-        if len(data_source_references) != len(found_urls):
-            return True
-        return False
+    #     # If any urls not found in either model, question is dirty
+    #     if len(data_source_references) != len(found_urls):
+    #         return True
+    #     return False
 
-    if question.binge:
-        # Do not re-answer questions in binge
-        return False
+    # if question.binge:
+    #     # Do not re-answer questions in binge
+    #     return False
 
-    return is_guru_dirty(question.guru_type, question) or is_question_reference_deleted(question.guru_type, question)
+    # return is_guru_dirty(question.guru_type, question) or is_question_reference_deleted(question.guru_type, question)
 
 def handle_failed_root_reanswer(question_slug: str, guru_type_slug: str, user_question: str, question: str):
     """
