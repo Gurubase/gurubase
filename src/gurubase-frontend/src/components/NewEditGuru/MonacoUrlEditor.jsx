@@ -297,9 +297,9 @@ const MonacoUrlEditor = ({
         return;
       }
 
-      if (response.error || response.msg || !response.issues) {
+      if (response.error || response.message || !response.issues) {
         CustomToast({
-          message: response.msg || "Failed to fetch Jira issues",
+          message: response.message || "Failed to fetch Jira issues",
           variant: "error"
         });
 

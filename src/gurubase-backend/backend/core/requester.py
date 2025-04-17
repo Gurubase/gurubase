@@ -853,7 +853,10 @@ class JiraRequester():
                 start_at += len(issues)
             return all_issues
         except Exception as e:
-            raise ValueError(f"Failed to list Jira issues: {str(e)}")
+            text = str(e)
+            if hasattr(e, 'args') and len(e.args) > 0:
+                text = e.args[0]
+            raise ValueError(text)
 
     def get_issue(self, issue_key, expand="renderedFields,comments"):
         """
@@ -870,7 +873,10 @@ class JiraRequester():
             issue = self.jira.issue(issue_key, expand=expand)
             return self._format_issue(issue)
         except Exception as e:
-            raise ValueError(f"Failed to get Jira issue: {str(e)}")
+            text = str(e)
+            if hasattr(e, 'args') and len(e.args) > 0:
+                text = e.args[0]
+            raise ValueError(text)
 
     def _format_issue(self, issue):
         """
