@@ -124,17 +124,6 @@ class Question(models.Model):
 
             if existing_by_slug:
                 raise ValidationError("A question with this slug and guru type already exists")
-
-            # This does not include Slack and Discord as all of the questions there belong to binges.
-            if self.source not in [Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]:
-                existing_by_question = Question.objects.exclude(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]).filter(
-                    question=self.question,
-                    guru_type=self.guru_type,
-                    binge__isnull=True,
-                ).exclude(pk=self.pk).exists()
-
-                if existing_by_question:
-                    raise ValidationError("A question with this text and guru type already exists")
         else:
             # Check uniqueness for binge questions
             existing_binge = Question.objects.filter(
