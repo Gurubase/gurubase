@@ -573,6 +573,19 @@ def create_milvus_collection(sender, instance: GuruType, created, **kwargs):
         milvus_utils.create_context_collection(collection_name, dimension=dimension)
 
 
+@receiver(pre_delete, sender=GuruType)
+def delete_milvus_collection_on_guru_delete(sender, instance: GuruType, **kwargs):
+    collection_name = instance.milvus_collection_name
+    if milvus_utils.collection_exists(collection_name=collection_name):
+        try:
+            milvus_utils.drop_collection(collection_name)
+            logger.info(f"Successfully deleted Milvus collection: {collection_name}")
+        except Exception as e:
+            logger.error(f"Error deleting Milvus collection {collection_name}: {e}", exc_info=True)
+    else:
+        logger.warning(f"Milvus collection {collection_name} does not exist, skipping deletion.")
+
+
 @receiver(pre_save, sender=GuruType)
 def rename_milvus_collection(sender, instance: GuruType, **kwargs):
     if instance.id:  # This is an update
