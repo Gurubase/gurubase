@@ -1000,30 +1000,19 @@ class ZendeskRequester():
             if not ticket_data:
                 raise ValueError(f"Ticket with ID {ticket_id} not found or invalid response.")
 
-            # 2. Extract core ticket info
-            subject = ticket_data.get('subject', 'No Subject')
-            description = ticket_data.get('description', 'No Description')
-            ticket_link = f"https://{self.domain}/agent/tickets/{ticket_id}"
+            # 2. Format base ticket data using the helper method
+            formatted_ticket = self._format_ticket(ticket_data)
 
-            # 3. Format initial ticket content
-            content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\n</Zendesk Ticket>"
-
-            # 4. Fetch comments using the existing method
-            # This already returns formatted comment dicts including the 'content' field
+            # 3. Fetch comments using the existing method
             comments = self._get_ticket_comments(ticket_id)
 
-            # 5. Append comment content
+            # 4. Append comment content to the existing formatted content
+            # formatted_ticket already contains the initial <Zendesk Ticket> block
             for comment_data in comments:
-                # comment_data already contains the formatted <Zendesk Comment> string
-                content += f"\n\n{comment_data['content']}"
+                formatted_ticket['content'] += f"\n\n{comment_data['content']}"
 
-            # 6. Return combined data
-            return {
-                'id': ticket_id,
-                'link': ticket_link,
-                'title': subject,
-                'content': content
-            }
+            # 5. Return combined data
+            return formatted_ticket
 
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if e.response is not None else None
@@ -1107,17 +1096,13 @@ class ZendeskRequester():
         """
         ticket_id = ticket.get('id')
         subject = ticket.get('subject', 'No Subject')
-        description = ticket.get('description', 'No Description')
         status = ticket.get('status')
         created_at = ticket.get('created_at')
         updated_at = ticket.get('updated_at')
 
         link = f"https://{self.domain}/agent/tickets/{ticket_id}" if ticket_id else None
 
-        content = f"<Zendesk Ticket>\n\nSubject: {subject}"
-        if description:
-             content += f"\n\nDescription: {description}"
-        content += "\n\n</Zendesk Ticket>"
+        content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\n</Zendesk Ticket>"
 
         return {
             'id': ticket_id,
@@ -1138,12 +1123,11 @@ class ZendeskRequester():
             dict: Formatted comment data
         """
         body = comment.get('body', '')
-        plain_body = comment.get('plain_body', body)
-        content = f"<Zendesk Comment>\n\n{plain_body}\n\n</Zendesk Comment>"
+        content = f"<Zendesk Comment>\n\n{body}\n\n</Zendesk Comment>"
 
         return {
             'id': comment.get('id'),
-            'body': plain_body,
+            'body': body,
             'author_id': comment.get('author_id'),
             'created_at': comment.get('created_at'),
             'public': comment.get('public', True),
