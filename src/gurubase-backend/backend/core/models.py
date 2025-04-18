@@ -1273,6 +1273,12 @@ class Settings(models.Model):
         if self.ai_model_provider != self.AIProvider.OLLAMA:
             return True
 
+        if not settings.ENV == 'selfhosted':
+            raise ValueError('Ollama is not enabled for this environment')
+
+        if not settings.BETA_FEAT_ON:
+            raise ValueError('Ollama is not enabled for this environment')
+
         # Validate required fields
         if not self.ollama_url:
             self.is_ollama_url_valid = False
