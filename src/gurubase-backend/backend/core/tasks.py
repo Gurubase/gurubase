@@ -414,6 +414,8 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                     data_source = fetch_data_source_content(jira_integration, data_source)
                 elif data_source.type == DataSource.Type.ZENDESK:
                     data_source = fetch_data_source_content(zendesk_integration, data_source)
+                else:
+                    data_source = fetch_data_source_content(None, data_source)
                 data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
