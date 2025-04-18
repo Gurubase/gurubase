@@ -804,7 +804,16 @@ const MonacoUrlEditor = ({
                     />
                   </div>
                   <div className="flex items-center gap-2 guru-sm:w-full">
-                    {jiraButtonContent()}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {jiraButtonContent()}
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Fetch issues using a JQL query</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     {/* <Button
                       variant="ghost"
                       size="sm"
@@ -933,7 +942,7 @@ const MonacoUrlEditor = ({
                       <TooltipTrigger asChild>
                         {zendeskArticlesButtonContent()}
                       </TooltipTrigger>
-                      <TooltipContent>
+                      <TooltipContent side="right">
                         <p>
                           Fetch articles from your connected Zendesk account
                         </p>
