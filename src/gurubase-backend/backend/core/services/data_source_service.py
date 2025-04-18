@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
-from core.models import DataSource, GuruType
+from core.models import DataSource, GuruType, Integration
 from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
@@ -61,6 +61,23 @@ class DataSourceService:
             )
             if not is_allowed:
                 raise ValueError(error_msg)
+
+    def validate_integration(self, type: str) -> None:
+        """
+        Validates integration
+        
+        Args:
+            type: Type of integration ('jira' or 'zendesk')
+            
+        """
+        if type == 'jira':
+            jira_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.JIRA).first()
+            if not jira_integration:
+                raise ValueError('Jira integration not found')
+        elif type == 'zendesk':
+            zendesk_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.ZENDESK).first()
+            if not zendesk_integration:
+                raise ValueError('Zendesk integration not found')
 
     def create_data_sources(
         self, 

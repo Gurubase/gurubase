@@ -295,8 +295,7 @@ def answer(request, guru_type):
     
     validate_guru_type(guru_type)
 
-    # jwt_time = time.time() - jwt_start
-    
+    # jwt_time = time.time() - jwt_start    
     payload_start = time.time()
     try:
         data = request.data
@@ -843,15 +842,25 @@ def create_data_sources(request, guru_type):
     jira_urls = request.data.get('jira_urls', '[]')
     zendesk_urls = request.data.get('zendesk_urls', '[]')
     try:
-        youtube_urls = json.loads(youtube_urls)
-        website_urls = json.loads(website_urls)
-        github_urls = json.loads(github_urls)
-        pdf_privacies = json.loads(pdf_privacies)
-        jira_urls = json.loads(jira_urls)
-        zendesk_urls = json.loads(zendesk_urls)
+        if type(youtube_urls) == str:
+            youtube_urls = json.loads(youtube_urls)
+        if type(website_urls) == str:
+            website_urls = json.loads(website_urls)
+        if type(github_urls) == str:
+            github_urls = json.loads(github_urls)
+        if type(pdf_privacies) == str:
+            pdf_privacies = json.loads(pdf_privacies)
+        if type(jira_urls) == str:
+            jira_urls = json.loads(jira_urls)
+        if type(zendesk_urls) == str:
+            zendesk_urls = json.loads(zendesk_urls)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not settings.BETA_FEAT_ON:
+        jira_urls = []
+        zendesk_urls = []
 
     if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
@@ -865,6 +874,12 @@ def create_data_sources(request, guru_type):
         service.validate_url_limits(website_urls, 'website')
         service.validate_url_limits(jira_urls, 'jira')
         service.validate_url_limits(zendesk_urls, 'zendesk')
+
+        if jira_urls:
+            service.validate_integration('jira')
+        if zendesk_urls:
+            service.validate_integration('zendesk')
+
         # Create data sources
         results = service.create_data_sources(
             pdf_files=pdf_files,
@@ -1622,59 +1637,8 @@ def api_data_sources(request, guru_type):
         return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
-        try:
-            service = DataSourceService(guru_type_object, request.user)
-            
-            # Get URLs directly from request body
-            youtube_urls = request.data.get('youtube_urls', [])
-            website_urls = request.data.get('website_urls', [])
-            jira_urls = request.data.get('jira_urls', [])
-            zendesk_urls = request.data.get('zendesk_urls', [])
-
-            # Check website limits
-            if website_urls:
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, website_urls_count=len(website_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                    
-            # Check YouTube limits
-            if youtube_urls:
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, youtube_urls_count=len(youtube_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check Jira issue limits
-            if jira_urls:
-                jira_integration = Integration.objects.filter(guru_type=guru_type_object, type=Integration.Type.JIRA).first()
-                if not jira_integration:
-                    return Response({'msg': 'Jira integration not found'}, status=status.HTTP_400_BAD_REQUEST)
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, jira_urls_count=len(jira_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)            
-
-            # Check Zendesk ticket limits
-            if zendesk_urls:
-                zendesk_integration = Integration.objects.filter(guru_type=guru_type_object, type=Integration.Type.ZENDESK).first()
-                if not zendesk_integration:
-                    return Response({'msg': 'Zendesk integration not found'}, status=status.HTTP_400_BAD_REQUEST)
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, zendesk_urls_count=len(zendesk_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Validate URL limits
-            service.validate_url_limits(youtube_urls, 'youtube')
-            service.validate_url_limits(website_urls, 'website')
-            service.validate_url_limits(jira_urls, 'jira')
-            service.validate_url_limits(zendesk_urls, 'zendesk')
-
-            # Create data sources (empty lists for PDF files and privacies)
-            results = service.create_data_sources([], [], youtube_urls, website_urls, jira_urls, zendesk_urls)
-            return Response(results, status=status.HTTP_200_OK)
-
-        except ValueError as e:
-            return response_handler.handle_error_response(str(e))
-        except Exception as e:
-            return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+        # Simply call the existing create_data_sources function
+        return create_data_sources(request, guru_type)
 
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type) 
