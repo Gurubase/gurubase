@@ -42,11 +42,12 @@ import {
 import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
-import { JiraIntegrationModal } from "@/components/NewEditGuru/JiraIntegrationModal";
 import { PendingChangesIndicator } from "@/components/NewEditGuru/PendingChangesIndicator";
 import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSection";
 import { GuruDetailsSection } from "@/components/NewEditGuru/GuruDetailsSection"; // Import new component
 import { SourcesTableSection } from "@/components/NewEditGuru/SourcesTableSection"; // Import new component
+import { IntegrationRequiredModal } from "@/components/NewEditGuru/IntegrationRequiredModal";
+import { JiraIcon, ZendeskIcon } from "@/components/Icons"; // Import icons
 
 const formSchema = z.object({
   guruName: z
@@ -83,7 +84,8 @@ const formSchema = z.object({
     .optional(),
   youtubeLinks: z.array(z.string()).optional(),
   websiteUrls: z.array(z.string()).optional(),
-  jiraIssues: z.array(z.string()).optional()
+  jiraIssues: z.array(z.string()).optional(),
+  zendeskTickets: z.array(z.string()).optional() // <-- Add Zendesk
 });
 
 export default function NewGuru({ guruData, isProcessing }) {
@@ -263,6 +265,8 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isJiraSidebarOpen, setIsJiraSidebarOpen] = useState(false); // <-- New state for Jira sidebar
   const [jiraEditorContent, setJiraEditorContent] = useState(""); // <-- New state for Jira editor
+  const [isZendeskSidebarOpen, setIsZendeskSidebarOpen] = useState(false); // <-- Add Zendesk sidebar state
+  const [zendeskEditorContent, setZendeskEditorContent] = useState(""); // <-- Add Zendesk editor state
 
   // First, add a state to track the GitHub repository source status
   const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
@@ -272,6 +276,12 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [isLoadingIntegration, setIsLoadingIntegration] = useState(true); // <-- State for loading integration
   const [showJiraIntegrationModal, setShowJiraIntegrationModal] =
     useState(false); // <-- State for integration prompt modal
+
+  const [zendeskIntegration, setZendeskIntegration] = useState(null); // <-- Add Zendesk integration state
+  const [isLoadingZendeskIntegration, setIsLoadingZendeskIntegration] =
+    useState(true); // <-- Add Zendesk loading state
+  const [showZendeskIntegrationModal, setShowZendeskIntegrationModal] =
+    useState(false); // <-- Add Zendesk modal state
 
   useEffect(() => {
     const fetchIntegration = async () => {
@@ -285,6 +295,24 @@ export default function NewGuru({ guruData, isProcessing }) {
     };
     fetchIntegration();
   }, []);
+
+  // <-- Add useEffect for Zendesk integration -->
+  useEffect(() => {
+    const fetchZendeskIntegration = async () => {
+      if (!customGuru) {
+        setIsLoadingZendeskIntegration(false);
+        return;
+      }
+      const integration = await getIntegrationDetails(customGuru, "ZENDESK");
+      if (integration.status === 202 || integration.error) {
+        setZendeskIntegration(null);
+      } else {
+        setZendeskIntegration(integration);
+      }
+      setIsLoadingZendeskIntegration(false);
+    };
+    fetchZendeskIntegration();
+  }, [customGuru]);
 
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
@@ -310,7 +338,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       uploadedFiles: [],
       youtubeLinks: [],
       websiteUrls: [],
-      jiraIssues: []
+      jiraIssues: [],
+      zendeskTickets: [] // <-- Initialize Zendesk tickets
     }
   });
 
@@ -480,7 +509,9 @@ export default function NewGuru({ guruData, isProcessing }) {
               ? "File"
               : source.type === "JIRA"
                 ? "Jira"
-                : "Website",
+                : source.type === "ZENDESK"
+                  ? "Zendesk" // <-- Add Zendesk type display
+                  : "Website",
         name: source.title,
         type: source.type.toLowerCase(),
         size: source.type === "PDF" ? source.size : "N/A",
@@ -532,6 +563,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       form.setValue(
         "jiraIssues",
         newSources.filter((s) => s.type === "jira").map((s) => s.url)
+      );
+      form.setValue(
+        "zendeskTickets",
+        newSources.filter((s) => s.type === "zendesk").map((s) => s.url)
       );
       form.setValue(
         "uploadedFiles",
@@ -742,7 +777,8 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (
       sourceType !== "website" &&
       sourceType !== "youtube" &&
-      sourceType !== "jira"
+      sourceType !== "jira" &&
+      sourceType !== "zendesk"
     )
       return;
 
@@ -770,7 +806,9 @@ export default function NewGuru({ guruData, isProcessing }) {
         ? setIsYoutubeSidebarOpen
         : sourceType === "jira"
           ? setIsJiraSidebarOpen
-          : setIsUrlSidebarOpen;
+          : sourceType === "zendesk"
+            ? setIsZendeskSidebarOpen
+            : setIsUrlSidebarOpen;
 
     setSidebar(true);
   };
@@ -844,7 +882,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                     ? "File"
                     : source.type === "JIRA"
                       ? "Jira"
-                      : "Website",
+                      : source.type === "ZENDESK"
+                        ? "Zendesk"
+                        : "Website",
               name: source.title,
               type: source.type.toLowerCase(),
               size: source.type === "PDF" ? source.size : "N/A",
@@ -873,6 +913,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                 .map((s) => s.url),
               jiraIssues: updatedSources
                 .filter((s) => s.type === "jira")
+                .map((s) => s.url),
+              zendeskTickets: updatedSources
+                .filter((s) => s.type === "zendesk")
                 .map((s) => s.url),
               uploadedFiles: updatedSources
                 .filter((s) => s.type === "pdf")
@@ -945,6 +988,9 @@ export default function NewGuru({ guruData, isProcessing }) {
     const jiraCount = sources.filter(
       (s) => s.type.toLowerCase() === "jira" && !s.deleted
     ).length;
+    const zendeskCount = sources.filter(
+      (s) => s.type.toLowerCase() === "zendesk" && !s.deleted
+    ).length;
 
     // Calculate PDF size
     let currentPdfSize = sources
@@ -973,6 +1019,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       customGuruData.jira_limit === undefined
         ? Infinity
         : customGuruData.jira_limit;
+    const zendeskLimit =
+      customGuruData.zendesk_limit === undefined
+        ? Infinity
+        : customGuruData.zendesk_limit;
     const pdfSizeLimitMb =
       customGuruData.pdf_size_limit_mb === undefined
         ? Infinity
@@ -1006,6 +1056,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (jiraCount > jiraLimit) {
       CustomToast({
         message: `You have exceeded the Jira issue limit (${jiraLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (zendeskCount > zendeskLimit) {
+      CustomToast({
+        message: `You have exceeded the Zendesk ticket limit (${zendeskLimit}).`,
         variant: "error"
       });
       return false;
@@ -1059,7 +1117,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         data.uploadedFiles?.length > 0 ||
         data.youtubeLinks?.length > 0 ||
         data.websiteUrls?.length > 0 ||
-        data.jiraIssues?.length > 0;
+        data.jiraIssues?.length > 0 ||
+        data.zendeskTickets?.length > 0;
 
       // Add check for GitHub repo changes
       const hasGithubChanges = isEditMode
@@ -1282,6 +1341,24 @@ export default function NewGuru({ guruData, isProcessing }) {
         hasNewSources = true;
       }
 
+      // Add Zendesk tickets <-- Add Zendesk sources -->
+      const zendeskSources = dirtyChanges.sources
+        .filter(
+          (source) =>
+            source.type === "zendesk" &&
+            source.newAddedSource &&
+            !source.deleted
+        )
+        .map((source) => source.url);
+
+      if (zendeskSources.length > 0) {
+        newSourcesFormData.append(
+          "zendesk_urls",
+          JSON.stringify(zendeskSources)
+        );
+        hasNewSources = true;
+      }
+
       if (hasNewSources) {
         hasChanges = true;
         setIsSourcesProcessing(true);
@@ -1367,7 +1444,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         uploadedFiles: data.uploadedFiles || [],
         youtubeLinks: data.youtubeLinks || [],
         websiteUrls: data.websiteUrls || [],
-        jiraIssues: data.jiraIssues || []
+        jiraIssues: data.jiraIssues || [],
+        zendeskTickets: data.zendeskTickets || []
       });
 
       fetchDataSources(guruSlug);
@@ -1549,6 +1627,12 @@ export default function NewGuru({ guruData, isProcessing }) {
           .map((s) => s.url),
         websiteUrls: dataSources.results
           .filter((s) => s.type.toLowerCase() === "website")
+          .map((s) => s.url),
+        jiraIssues: dataSources.results
+          .filter((s) => s.type.toLowerCase() === "jira")
+          .map((s) => s.url),
+        zendeskTickets: dataSources.results
+          .filter((s) => s.type.toLowerCase() === "zendesk")
           .map((s) => s.url)
       };
 
@@ -1577,6 +1661,11 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Placeholder handlers for Jira
   const handleJiraEditorChange = useCallback((newValue) => {
     setJiraEditorContent(newValue);
+  }, []);
+
+  // <-- Add handlers for Zendesk -->
+  const handleZendeskEditorChange = useCallback((newValue) => {
+    setZendeskEditorContent(newValue);
   }, []);
 
   // Placeholder - Needs actual implementation for adding Jira links
@@ -1670,6 +1759,75 @@ export default function NewGuru({ guruData, isProcessing }) {
     [form, jiraEditorContent, sources]
   );
 
+  // <-- Add handler for Zendesk URLs -->
+  const handleAddZendeskUrls = useCallback(
+    (links) => {
+      setSources((prevSources) => {
+        const currentTickets = zendeskEditorContent.split("\n").filter(Boolean);
+        const existingProcessedSources = prevSources.filter(
+          (source) =>
+            source.type.toLowerCase() !== "zendesk" ||
+            source.status === "SUCCESS" ||
+            source.status === "FAIL"
+        );
+        const newSources = currentTickets.map((ticketUrl) => ({
+          id: ticketUrl,
+          type: "zendesk",
+          sources: "Zendesk",
+          url: ticketUrl,
+          status: "NOT_PROCESSED",
+          error: null,
+          newAddedSource: true,
+          // Potentially extract ticket ID if needed later
+          ticketId: ticketUrl.match(/\/tickets\/(\d+)/)?.[1]
+        }));
+        const newSourcesWithoutDuplicates = newSources.filter(
+          (source, index, self) =>
+            index === self.findIndex((t) => t.url === source.url) &&
+            !existingProcessedSources.some((s) => s.url === source.url)
+        );
+        const updatedSources = [
+          ...existingProcessedSources,
+          ...newSourcesWithoutDuplicates
+        ];
+        const formField = "zendeskTickets";
+        const allZendeskTickets = updatedSources
+          .filter((source) => source.type.toLowerCase() === "zendesk")
+          .map((source) => source.url);
+        form.setValue(formField, allZendeskTickets);
+        return updatedSources;
+      });
+
+      setDirtyChanges((prev) => {
+        const currentTickets = zendeskEditorContent.split("\n").filter(Boolean);
+        const filteredSources = prev.sources.filter(
+          (source) => source.type !== "zendesk" || source.deleted
+        );
+        const newEntries = currentTickets
+          .filter((ticketUrl) => {
+            const isNewTicket = !sources.some(
+              (source) =>
+                source.url === ticketUrl && source.status !== "NOT_PROCESSED"
+            );
+            return isNewTicket;
+          })
+          .map((ticketUrl) => ({
+            id: ticketUrl,
+            type: "zendesk",
+            url: ticketUrl,
+            name: ticketUrl,
+            error: null,
+            newAddedSource: true
+          }));
+        return {
+          ...prev,
+          sources: [...filteredSources, ...newEntries]
+        };
+      });
+    },
+    [form, zendeskEditorContent, sources]
+  );
+
   // Add this near the top of the component where other useEffects are
   // Leave site? Changes you made may not be saved.
   useEffect(() => {
@@ -1755,7 +1913,12 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   // Add cleanup when closing dialogs
   useEffect(() => {
-    if (!isUrlSidebarOpen && !isYoutubeSidebarOpen && !isJiraSidebarOpen) {
+    if (
+      !isUrlSidebarOpen &&
+      !isYoutubeSidebarOpen &&
+      !isJiraSidebarOpen &&
+      !isZendeskSidebarOpen
+    ) {
       setClickedSource([]);
       setSelectedUrls([]);
     }
@@ -1797,6 +1960,18 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
     }
 
+    if (
+      zendeskEditorContent === "" &&
+      dirtyChanges.sources.some(
+        (source) => source.newAddedSource && source.type === "zendesk"
+      )
+    ) {
+      setDirtyChanges((prev) => ({
+        ...prev,
+        sources: prev.sources.filter((source) => source.type !== "zendesk")
+      }));
+    }
+
     const youtubeUrls = youtubeEditorContent
       .split("\n")
       .map((url) => url.trim())
@@ -1812,9 +1987,15 @@ export default function NewGuru({ guruData, isProcessing }) {
       .map((url) => url.trim())
       .filter((url) => url && isValidUrl(url));
 
+    const zendeskUrls = zendeskEditorContent
+      .split("\n")
+      .map((url) => url.trim())
+      .filter((url) => url && isValidUrl(url));
+
     const uniqueYoutubeUrls = [...new Set(youtubeUrls)];
     const uniqueWebsiteUrls = [...new Set(websiteUrls)];
     const uniqueJiraUrls = [...new Set(jiraUrls)];
+    const uniqueZendeskUrls = [...new Set(zendeskUrls)]; // <-- Get unique Zendesk URLs
 
     if (uniqueYoutubeUrls.length > 0) {
       const newYoutubeUrls = uniqueYoutubeUrls.map((url) => ({
@@ -1851,7 +2032,24 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       handleAddJiraUrls(newJiraUrls);
     }
-  }, [isUrlSidebarOpen, isYoutubeSidebarOpen, isJiraSidebarOpen]);
+
+    // <-- Handle adding Zendesk URLs -->
+    if (uniqueZendeskUrls.length > 0) {
+      const newZendeskUrls = uniqueZendeskUrls.map((url) => ({
+        id: url,
+        type: "zendesk",
+        url: url,
+        status: "NOT_PROCESSED",
+        newAddedSource: true
+      }));
+      handleAddZendeskUrls(newZendeskUrls);
+    }
+  }, [
+    isUrlSidebarOpen,
+    isYoutubeSidebarOpen,
+    isJiraSidebarOpen,
+    isZendeskSidebarOpen
+  ]); // <-- Add isZendeskSidebarOpen dependency
 
   // If still loading auth or no user, show loading state
   if (!isSelfHosted && (authLoading || (!user && !authLoading))) {
@@ -1942,6 +2140,10 @@ export default function NewGuru({ guruData, isProcessing }) {
               setIsJiraSidebarOpen={setIsJiraSidebarOpen}
               setIsUrlSidebarOpen={setIsUrlSidebarOpen}
               setShowJiraIntegrationModal={setShowJiraIntegrationModal}
+              zendeskIntegration={zendeskIntegration}
+              isLoadingZendeskIntegration={isLoadingZendeskIntegration}
+              setIsZendeskSidebarOpen={setIsZendeskSidebarOpen}
+              setShowZendeskIntegrationModal={setShowZendeskIntegrationModal}
               isEditMode={isEditMode}
               // isSourceProcessing={isSourceProcessing} // Pass isSourceProcessing
             />
@@ -2110,15 +2312,47 @@ export default function NewGuru({ guruData, isProcessing }) {
         integrationId={jiraIntegration?.id}
         // Add any other Jira specific props if SourceDialog is extended
       />
+      <SourceDialog
+        clickedSource={clickedSource}
+        editorContent={zendeskEditorContent}
+        form={form}
+        handleDeleteUrls={handleDeleteUrls}
+        initialActiveTab={initialActiveTab}
+        isMobile={isMobile}
+        isOpen={isZendeskSidebarOpen}
+        selectedUrls={selectedUrls}
+        setClickedSource={setClickedSource}
+        setDirtyChanges={setDirtyChanges}
+        setSelectedUrls={setSelectedUrls}
+        setSources={setSources}
+        sourceType="zendesk"
+        title="Zendesk Data"
+        onAddUrls={handleAddZendeskUrls}
+        onEditorChange={handleZendeskEditorChange}
+        onOpenChange={setIsZendeskSidebarOpen}
+        isYoutubeKeyValid={isYoutubeKeyValid}
+        integrationId={zendeskIntegration?.id}
+      />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         onDelete={handleDeleteGuru}
         onOpenChange={setShowDeleteModal}
       />
-      <JiraIntegrationModal
+      <IntegrationRequiredModal
         isOpen={showJiraIntegrationModal}
         onOpenChange={setShowJiraIntegrationModal}
         guruSlug={customGuru}
+        integrationName="Jira"
+        IntegrationIcon={JiraIcon}
+        integrationId="jira"
+      />
+      <IntegrationRequiredModal
+        isOpen={showZendeskIntegrationModal}
+        onOpenChange={setShowZendeskIntegrationModal}
+        guruSlug={customGuru}
+        integrationName="Zendesk"
+        IntegrationIcon={ZendeskIcon}
+        integrationId="zendesk"
       />
     </>
   );

@@ -96,9 +96,13 @@ const SourceDialog = React.memo(
           "close",
           sourceType === "website"
             ? "sitemap"
-            : sourceType === "jira"
-              ? "jira-fetch-issues"
-              : "youtube"
+            : sourceType === "youtube"
+              ? "youtube"
+              : sourceType === "jira"
+                ? "jira-fetch-issues"
+                : sourceType === "zendesk"
+                  ? "zendesk-fetch"
+                  : "unknown"
         );
         return;
       }
@@ -254,9 +258,13 @@ const SourceDialog = React.memo(
                         "stop",
                         sourceType === "website"
                           ? "sitemap"
-                          : sourceType === "jira"
-                            ? "jira-fetch-issues"
-                            : "youtube"
+                          : sourceType === "youtube"
+                            ? "youtube"
+                            : sourceType === "jira"
+                              ? "jira-fetch-issues"
+                              : sourceType === "zendesk"
+                                ? "zendesk-fetch"
+                                : "unknown"
                       )
                     }
                     isYoutubeKeyValid={isYoutubeKeyValid}

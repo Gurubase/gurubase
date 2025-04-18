@@ -10,11 +10,15 @@ import {
   LogosYoutubeIcon,
   SolarFileTextBold,
   // SolarTrashBinTrashBold, // Keep for potential future use if needed directly
-  SolarVideoLibraryBold
+  SolarVideoLibraryBold,
+  ZendeskIcon // Placeholder Icon
 } from "@/components/Icons"; // Assuming Icons barrel file exists or adjust path
 
+// Check if beta features are enabled via environment variable
+const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
 // Central configuration for data source types
-export const SOURCE_TYPES_CONFIG = {
+const baseSourceTypesConfig = {
   WEBSITE: {
     id: "website",
     apiType: "WEBSITE", // Matches backend/API expected type
@@ -61,8 +65,12 @@ export const SOURCE_TYPES_CONFIG = {
     hasPrivacyToggle: true, // Specific to PDF
     actionHandlerName: "onUploadPdfClick", // Specific handler for PDF upload trigger
     filterValue: "pdf"
-  },
-  JIRA: {
+  }
+};
+
+// Conditionally add beta source types
+if (isBetaFeaturesEnabled) {
+  baseSourceTypesConfig.JIRA = {
     id: "jira",
     apiType: "JIRA",
     displayName: "Jira",
@@ -79,8 +87,28 @@ export const SOURCE_TYPES_CONFIG = {
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowJiraIntegrationModal", // State setter for the integration modal
     filterValue: "jira"
-  }
-};
+  };
+  baseSourceTypesConfig.ZENDESK = {
+    id: "zendesk",
+    apiType: "ZENDESK",
+    displayName: "Zendesk",
+    displaySourceText: "Zendesk",
+    icon: ZendeskIcon, // Placeholder
+    actionButtonIcon: ZendeskIcon, // Placeholder
+    actionButtonText: "Add Zendesk Data",
+    sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
+    formField: "zendeskTickets", // Assuming a form field name
+    canReindex: true,
+    canEdit: true,
+    requiresIntegrationCheck: true, // Assuming integration is needed
+    integrationCheckProp: "zendeskIntegration", // Prop name for integration status
+    integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
+    integrationModalSetterName: "setShowZendeskIntegrationModal", // State setter for the integration modal
+    filterValue: "zendesk"
+  };
+}
+
+export const SOURCE_TYPES_CONFIG = baseSourceTypesConfig;
 
 // Helper function to get config by id (case-insensitive)
 export const getSourceTypeConfigById = (typeId) => {

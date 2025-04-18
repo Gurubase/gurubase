@@ -1,8 +1,8 @@
 from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
-from core.models import DataSource, GuruType
-from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy
+from core.models import DataSource, GuruType, Integration
+from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
 
@@ -17,7 +17,8 @@ class DataSourceService:
             'pdf': PDFStrategy(),
             'youtube': YouTubeStrategy(),
             'website': WebsiteStrategy(),
-            'jira': JiraStrategy()
+            'jira': JiraStrategy(),
+            'zendesk': ZendeskStrategy()
         }
 
     def validate_pdf_files(self, pdf_files: List[UploadedFile], pdf_privacies: List[bool]) -> None:
@@ -45,7 +46,7 @@ class DataSourceService:
         
         Args:
             urls: List of URLs to validate
-            url_type: Type of URLs ('website' or 'youtube' or 'jira')
+            url_type: Type of URLs ('website' or 'youtube' or 'jira' or 'zendesk')
             
         Raises:
             ValueError: If validation fails
@@ -55,10 +56,28 @@ class DataSourceService:
                 self.user, 
                 website_urls_count=len(urls) if url_type == 'website' else 0,
                 youtube_urls_count=len(urls) if url_type == 'youtube' else 0,
-                jira_urls_count=len(urls) if url_type == 'jira' else 0
+                jira_urls_count=len(urls) if url_type == 'jira' else 0,
+                zendesk_urls_count=len(urls) if url_type == 'zendesk' else 0
             )
             if not is_allowed:
                 raise ValueError(error_msg)
+
+    def validate_integration(self, type: str) -> None:
+        """
+        Validates integration
+        
+        Args:
+            type: Type of integration ('jira' or 'zendesk')
+            
+        """
+        if type == 'jira':
+            jira_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.JIRA).first()
+            if not jira_integration:
+                raise ValueError('Jira integration not found')
+        elif type == 'zendesk':
+            zendesk_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.ZENDESK).first()
+            if not zendesk_integration:
+                raise ValueError('Zendesk integration not found')
 
     def create_data_sources(
         self, 
@@ -66,7 +85,8 @@ class DataSourceService:
         pdf_privacies: List[bool], 
         youtube_urls: List[str], 
         website_urls: List[str],
-        jira_urls: List[str]
+        jira_urls: List[str],
+        zendesk_urls: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Creates data sources of different types
@@ -77,6 +97,7 @@ class DataSourceService:
             youtube_urls: List of YouTube URLs
             website_urls: List of website URLs
             jira_urls: List of Jira URLs
+            zendesk_urls: List of Zendesk URLs
         Returns:
             List of created data source results
         """
@@ -100,6 +121,11 @@ class DataSourceService:
         clean_jira_urls = clean_data_source_urls(jira_urls)
         for url in clean_jira_urls:
             results.append(self.strategies['jira'].create(self.guru_type_object, url))
+
+        # Process Zendesk URLs
+        clean_zendesk_urls = clean_data_source_urls(zendesk_urls)
+        for url in clean_zendesk_urls:
+            results.append(self.strategies['zendesk'].create(self.guru_type_object, url))
 
         # Trigger background task
         data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)

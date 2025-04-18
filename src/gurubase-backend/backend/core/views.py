@@ -91,7 +91,7 @@ from core.models import (
     WidgetId,
     Integration,
 )
-from core.requester import GeminiRequester, JiraRequester
+from core.requester import GeminiRequester, JiraRequester, ZendeskRequester
 from core.serializers import (
     APIKeySerializer,
     BingeSerializer,
@@ -307,8 +307,7 @@ def answer(request, guru_type):
     
     validate_guru_type(guru_type)
 
-    # jwt_time = time.time() - jwt_start
-    
+    # jwt_time = time.time() - jwt_start    
     payload_start = time.time()
     try:
         data = request.data
@@ -555,6 +554,7 @@ def my_gurus(request, guru_slug=None):
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
                 'jira_limit': guru.jira_count_limit,
+                'zendesk_limit': guru.zendesk_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit
             })
@@ -852,18 +852,29 @@ def create_data_sources(request, guru_type):
     github_urls = request.data.get('github_urls', '[]')
     pdf_privacies = request.data.get('pdf_privacies', '[]')
     jira_urls = request.data.get('jira_urls', '[]')
-
+    zendesk_urls = request.data.get('zendesk_urls', '[]')
     try:
-        youtube_urls = json.loads(youtube_urls)
-        website_urls = json.loads(website_urls)
-        github_urls = json.loads(github_urls)
-        pdf_privacies = json.loads(pdf_privacies)
-        jira_urls = json.loads(jira_urls)
+        if type(youtube_urls) == str:
+            youtube_urls = json.loads(youtube_urls)
+        if type(website_urls) == str:
+            website_urls = json.loads(website_urls)
+        if type(github_urls) == str:
+            github_urls = json.loads(github_urls)
+        if type(pdf_privacies) == str:
+            pdf_privacies = json.loads(pdf_privacies)
+        if type(jira_urls) == str:
+            jira_urls = json.loads(jira_urls)
+        if type(zendesk_urls) == str:
+            zendesk_urls = json.loads(zendesk_urls)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls:
+    if not settings.BETA_FEAT_ON:
+        jira_urls = []
+        zendesk_urls = []
+
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -874,13 +885,21 @@ def create_data_sources(request, guru_type):
         service.validate_url_limits(youtube_urls, 'youtube')
         service.validate_url_limits(website_urls, 'website')
         service.validate_url_limits(jira_urls, 'jira')
+        service.validate_url_limits(zendesk_urls, 'zendesk')
+
+        if jira_urls:
+            service.validate_integration('jira')
+        if zendesk_urls:
+            service.validate_integration('zendesk')
+
         # Create data sources
         results = service.create_data_sources(
             pdf_files=pdf_files,
             pdf_privacies=pdf_privacies,
             youtube_urls=youtube_urls,
             website_urls=website_urls,
-            jira_urls=jira_urls
+            jira_urls=jira_urls,
+            zendesk_urls=zendesk_urls
         )
         
         return Response({
@@ -1028,6 +1047,13 @@ def data_sources_frontend(request, guru_type):
             if not is_allowed:
                 return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check Zendesk ticket limits
+        zendesk_urls = json.loads(request.data.get('zendesk_urls', '[]'))
+        if zendesk_urls:
+            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, zendesk_urls_count=len(zendesk_urls))
+            if not is_allowed:
+                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
         return create_data_sources(request, guru_type)
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type)
@@ -1623,45 +1649,8 @@ def api_data_sources(request, guru_type):
         return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
-        try:
-            service = DataSourceService(guru_type_object, request.user)
-            
-            # Get URLs directly from request body
-            youtube_urls = request.data.get('youtube_urls', [])
-            website_urls = request.data.get('website_urls', [])
-            jira_urls = request.data.get('jira_urls', [])
-
-            # Check website limits
-            if website_urls:
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, website_urls_count=len(website_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                    
-            # Check YouTube limits
-            if youtube_urls:
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, youtube_urls_count=len(youtube_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check Jira issue limits
-            if jira_urls:
-                is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, jira_urls_count=len(jira_urls))
-                if not is_allowed:
-                    return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)            
-
-            # Validate URL limits
-            service.validate_url_limits(youtube_urls, 'youtube')
-            service.validate_url_limits(website_urls, 'website')
-            service.validate_url_limits(jira_urls, 'jira')
-
-            # Create data sources (empty lists for PDF files and privacies)
-            results = service.create_data_sources([], [], youtube_urls, website_urls, jira_urls)
-            return Response(results, status=status.HTTP_200_OK)
-
-        except ValueError as e:
-            return response_handler.handle_error_response(str(e))
-        except Exception as e:
-            return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+        # Simply call the existing create_data_sources function
+        return create_data_sources(request, guru_type)
 
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type) 
@@ -3180,6 +3169,103 @@ def list_jira_issues(request, integration_id):
     except Exception as e:
         logger.error(f"Unexpected error listing Jira issues for integration {integration_id}: {e}", exc_info=True)
         return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def list_zendesk_tickets(request, integration_id):
+    """
+    List Zendesk tickets for a specific integration.
+    Requires integration_id in the path.
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.ZENDESK:
+        return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        tickets = zendesk_requester.list_tickets()
+        return Response({'tickets': tickets, 'ticket_count': len(tickets)}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from ZendeskRequester
+        error_str = str(e)
+        if "Zendesk credentials" in error_str:
+             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Authentication failed" in error_str:
+             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Permission denied" in error_str:
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+        elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
+            return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
+        elif "rate limit exceeded" in error_str:
+            return Response({'msg': 'Zendesk API rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        else:
+             logger.error(f"Error listing Zendesk tickets for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Zendesk tickets: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Zendesk tickets for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def list_zendesk_articles(request, integration_id):
+    """
+    List Zendesk help center articles for a specific integration.
+    Requires integration_id in the path.
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.ZENDESK:
+        return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        articles = zendesk_requester.list_articles()
+        return Response({'articles': articles, 'article_count': len(articles)}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from ZendeskRequester
+        error_str = str(e)
+        if "Zendesk credentials" in error_str:
+             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Authentication failed" in error_str:
+             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Permission denied" in error_str:
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+        elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
+            return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
+        elif "rate limit exceeded" in error_str:
+            return Response({'msg': 'Zendesk API rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        else:
+             logger.error(f"Error listing Zendesk articles for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Zendesk articles: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Zendesk articles for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['POST'])
 @jwt_auth

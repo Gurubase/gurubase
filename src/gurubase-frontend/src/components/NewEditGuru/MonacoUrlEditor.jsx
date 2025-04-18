@@ -17,7 +17,9 @@ import {
   parseSitemapUrls,
   fetchYoutubePlaylist,
   fetchYoutubeChannel,
-  fetchJiraIssues
+  fetchJiraIssues,
+  fetchZendeskTickets,
+  fetchZendeskArticles
 } from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
@@ -98,9 +100,11 @@ const MonacoUrlEditor = ({
   const defaultJQL = `status in ("Done", "Closed")`;
   const [jiraQuery, setJiraQuery] = useState(defaultJQL);
   const [showJiraInput, setShowJiraInput] = useState(true);
+  const [showZendeskButton, setShowZendeskButton] = useState(true);
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
+  const [loadingType, setLoadingType] = useState(null);
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
@@ -345,6 +349,112 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const handleZendeskTicketsFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      setLoadingType("tickets");
+      const response = await fetchZendeskTickets(integrationId);
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.message || !response.tickets) {
+        CustomToast({
+          message: response.message || "Failed to fetch Zendesk tickets",
+          variant: "error"
+        });
+        return;
+      }
+
+      const { tickets, ticket_count } = response;
+      if (tickets && tickets.length > 0) {
+        const fetchedUrls = tickets.map((ticket) => ticket.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        CustomToast({
+          message: `Successfully added ${ticket_count || tickets.length} resolved tickets from Zendesk`,
+          variant: "success"
+        });
+        // setShowZendeskButton(false); // Optionally hide button after fetch
+      } else {
+        CustomToast({
+          message: response.message || "No tickets found in Zendesk",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Zendesk tickets",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+    }
+  };
+
+  const handleZendeskArticlesFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      setLoadingType("articles");
+      const response = await fetchZendeskArticles(integrationId);
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.message || !response.articles) {
+        CustomToast({
+          message: response.message || "Failed to fetch Zendesk articles",
+          variant: "error"
+        });
+        return;
+      }
+
+      const { articles, article_count } = response;
+      if (articles && articles.length > 0) {
+        const fetchedUrls = articles.map((article) => article.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        CustomToast({
+          message: `Successfully added ${article_count || articles.length} published articles from Zendesk`,
+          variant: "success"
+        });
+      } else {
+        CustomToast({
+          message: response.message || "No articles found in Zendesk",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Zendesk articles",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+      setLoadingType(null);
+    }
+  };
+
   const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
@@ -469,11 +579,87 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const zendeskTicketsButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleZendeskTicketsFetch}
+          variant="outline">
+          Fetch Tickets
+        </Button>
+      );
+    } else {
+      // Show Stop button only if this specific fetch is loading
+      if (loadingType === "tickets") {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={() => onStopSitemapLoading()}
+            disabled={!isLoadingSitemapRef.current}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stop
+          </Button>
+        );
+      } else {
+        // Otherwise, show the disabled Fetch button
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1"
+            disabled={true}
+            variant="outline">
+            Fetch Tickets
+          </Button>
+        );
+      }
+    }
+  };
+
+  const zendeskArticlesButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleZendeskArticlesFetch}
+          variant="outline">
+          Fetch Articles
+        </Button>
+      );
+    } else {
+      // Show Stop button only if this specific fetch is loading
+      if (loadingType === "articles") {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={() => onStopSitemapLoading()} // Use the same stop mechanism
+            disabled={!isLoadingSitemapRef.current}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stop
+          </Button>
+        );
+      } else {
+        // Otherwise, show the disabled Fetch button
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1"
+            disabled={true}
+            variant="outline">
+            Fetch Articles
+          </Button>
+        );
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -618,7 +804,16 @@ const MonacoUrlEditor = ({
                     />
                   </div>
                   <div className="flex items-center gap-2 guru-sm:w-full">
-                    {jiraButtonContent()}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {jiraButtonContent()}
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Fetch issues using a JQL query</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     {/* <Button
                       variant="ghost"
                       size="sm"
@@ -728,6 +923,36 @@ const MonacoUrlEditor = ({
               )}
             </div>
           )}
+          {sourceType === "zendesk" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {showZendeskButton && (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {zendeskTicketsButtonContent()}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Fetch tickets from your connected Zendesk account</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {zendeskArticlesButtonContent()}
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>
+                          Fetch articles from your connected Zendesk account
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-h-0">
@@ -763,7 +988,11 @@ const MonacoUrlEditor = ({
                         ? `Importing ${youtubeType}...`
                         : sourceType === "jira"
                           ? "Fetching Jira issues..."
-                          : "Loading...")}
+                          : sourceType === "zendesk"
+                            ? loadingType === "articles"
+                              ? "Fetching Zendesk articles..."
+                              : "Fetching Zendesk tickets..."
+                            : "Loading...")}
                 </span>
               </div>
             </div>
