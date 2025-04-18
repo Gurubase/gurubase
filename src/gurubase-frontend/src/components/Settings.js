@@ -63,6 +63,8 @@ const Settings = () => {
   const [embeddingModelExists, setEmbeddingModelExists] = useState(false);
   const [baseModelExists, setBaseModelExists] = useState(false);
 
+  const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
   const fetchSettings = async (isInitial = false, keepFields = false) => {
     // keepFields only works for non-api key inputs as they are masked.
     if (isInitial) {
@@ -262,6 +264,15 @@ const Settings = () => {
       const result = await updateSettings(formData);
 
       requestSent = true;
+
+      if (result.error) {
+        CustomToast({
+          message: result.message || "Failed to save settings",
+          variant: "error"
+        });
+
+        return;
+      }
 
       if (isEditing) setIsEditing(false);
       if (isFirecrawlEditing) setIsFirecrawlEditing(false);
@@ -469,19 +480,21 @@ const Settings = () => {
                                 </div>
                               </label>
 
-                              <label
-                                className="flex items-center gap-3 cursor-pointer"
-                                onClick={() => setAiModelProvider("OLLAMA")}>
-                                <div
-                                  className={`w-6 h-6 rounded-[50px] border border-[#E2E2E2] bg-white flex items-center justify-center p-0.5`}>
-                                  {aiModelProvider === "OLLAMA" && (
-                                    <div className="w-4 h-4 rounded-full bg-[#191919]" />
-                                  )}
-                                </div>
-                                <span className="text-sm text-[#191919]">
-                                  Ollama
-                                </span>
-                              </label>
+                              {isBetaFeaturesEnabled && (
+                                <label
+                                  className="flex items-center gap-3 cursor-pointer"
+                                  onClick={() => setAiModelProvider("OLLAMA")}>
+                                  <div
+                                    className={`w-6 h-6 rounded-[50px] border border-[#E2E2E2] bg-white flex items-center justify-center p-0.5`}>
+                                    {aiModelProvider === "OLLAMA" && (
+                                      <div className="w-4 h-4 rounded-full bg-[#191919]" />
+                                    )}
+                                  </div>
+                                  <span className="text-sm text-[#191919]">
+                                    Ollama
+                                  </span>
+                                </label>
+                              )}
                             </div>
                           )}
                         </div>
@@ -520,200 +533,201 @@ const Settings = () => {
                         )}
 
                         {/* Ollama Settings Section */}
-                        {aiModelProvider === "OLLAMA" && (
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <label
-                                  className="text-[14px] font-medium text-[#6D6D6D] font-inter"
-                                  htmlFor="ollama-url">
-                                  Ollama URL
-                                </label>
-                                <HeaderTooltip
-                                  text={"Add your Ollama server endpoint."}
-                                />
-                              </div>
-                              <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
-                                Add your Ollama server endpoint. Learn more
-                                about{" "}
-                                <a
-                                  className="text-blue-600 underline hover:text-blue-800"
-                                  href="https://github.com/ollama/ollama/"
-                                  rel="noopener noreferrer"
-                                  target="_blank">
-                                  Ollama
-                                </a>
-                                .
-                              </p>
-                              {isInitialLoading ? (
-                                <Skeleton className="h-12" />
-                              ) : (
-                                <div className="relative">
-                                  <input
-                                    className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
-                                    id="ollama-url"
-                                    placeholder="http://host.docker.internal:11434"
-                                    type="text"
-                                    value={ollamaUrl}
-                                    onBlur={validateOllamaUrl}
-                                    onChange={(e) => {
-                                      setOllamaUrl(e.target.value);
-                                      setHasEmbeddingChanged(true);
-                                    }}
+                        {isBetaFeaturesEnabled &&
+                          aiModelProvider === "OLLAMA" && (
+                            <div className="space-y-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <label
+                                    className="text-[14px] font-medium text-[#6D6D6D] font-inter"
+                                    htmlFor="ollama-url">
+                                    Ollama URL
+                                  </label>
+                                  <HeaderTooltip
+                                    text={"Add your Ollama server endpoint."}
                                   />
-                                  {isValidatingOllama && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900" />
-                                    </div>
-                                  )}
                                 </div>
-                              )}
-                              {ollamaUrl &&
-                                (ollamaUrlError || !isOllamaUrlValid) && (
-                                  <div className="flex items-center gap-1 mt-2">
-                                    <CloseCircleIcon className="text-[#DC2626]" />
-                                    <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                      Unable to access the Ollama server at this
-                                      address.
-                                    </span>
-                                  </div>
-                                )}
-                              {ollamaUrl &&
-                                isOllamaUrlValid &&
-                                !ollamaUrlError && (
-                                  <div className="flex items-center gap-1 mt-2">
-                                    <CheckCircleIcon />
-                                    <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                      Ollama is accessible.
-                                    </span>
-                                  </div>
-                                )}
-                            </div>
-
-                            {isOllamaUrlValid && (
-                              <div className="space-y-4">
-                                <div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <label className="text-[16px] font-semibold text-[#6D6D6D] font-inter">
-                                      Model Selection
-                                    </label>
-                                    <HeaderTooltip
-                                      text={
-                                        "Configure the embedding and language models for your Ollama setup"
-                                      }
+                                <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                                  Add your Ollama server endpoint. Learn more
+                                  about{" "}
+                                  <a
+                                    className="text-blue-600 underline hover:text-blue-800"
+                                    href="https://github.com/ollama/ollama/"
+                                    rel="noopener noreferrer"
+                                    target="_blank">
+                                    Ollama
+                                  </a>
+                                  .
+                                </p>
+                                {isInitialLoading ? (
+                                  <Skeleton className="h-12" />
+                                ) : (
+                                  <div className="relative">
+                                    <input
+                                      className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                      id="ollama-url"
+                                      placeholder="http://host.docker.internal:11434"
+                                      type="text"
+                                      value={ollamaUrl}
+                                      onBlur={validateOllamaUrl}
+                                      onChange={(e) => {
+                                        setOllamaUrl(e.target.value);
+                                        setHasEmbeddingChanged(true);
+                                      }}
                                     />
+                                    {isValidatingOllama && (
+                                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900" />
+                                      </div>
+                                    )}
                                   </div>
-                                  <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-4">
-                                    Configure your Gurubase Self-hosted instance
-                                    settings.
-                                  </p>
-                                </div>
-
-                                <div>
-                                  {isInitialLoading ? (
-                                    <Skeleton className="h-12" />
-                                  ) : (
-                                    <>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <label
-                                          className="text-[14px] font-medium text-[#6D6D6D] font-inter"
-                                          htmlFor="ollama-embedding-model">
-                                          Embedding Model
-                                        </label>
-                                      </div>
-                                      <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
-                                        This model will be used to convert text
-                                        into vector embeddings for search
-                                      </p>
-                                      <input
-                                        className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
-                                        id="ollama-embedding-model"
-                                        placeholder="bge-m3"
-                                        type="text"
-                                        value={ollamaEmbeddingModel}
-                                        onChange={(e) => {
-                                          setOllamaEmbeddingModel(
-                                            e.target.value
-                                          );
-                                          setHasEmbeddingChanged(true);
-                                        }}
-                                      />
-                                    </>
-                                  )}
-                                  {embeddingModelExists &&
-                                    !isEmbeddingModelValid && (
-                                      <div className="flex items-center gap-1 mt-2">
-                                        <CloseCircleIcon className="text-[#DC2626]" />
-                                        <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                          Either the model name is incorrect,
-                                          the model does not exist on the
-                                          specified Ollama server, or it does
-                                          not support embedding.
-                                        </span>
-                                      </div>
-                                    )}
-                                  {embeddingModelExists &&
-                                    isEmbeddingModelValid && (
-                                      <div className="flex items-center gap-1 mt-2">
-                                        <CheckCircleIcon />
-                                        <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                          Embedding model is valid
-                                        </span>
-                                      </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                  {isInitialLoading ? (
-                                    <Skeleton className="h-12" />
-                                  ) : (
-                                    <>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <label
-                                          className="text-[14px] font-medium text-[#6D6D6D] font-inter"
-                                          htmlFor="ollama-base-model">
-                                          Language Model
-                                        </label>
-                                      </div>
-                                      <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
-                                        Model for generating responses (e.g.,
-                                        llama3, gemma3:latest, or gemma3:12b)
-                                      </p>
-                                      <input
-                                        className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
-                                        id="ollama-base-model"
-                                        placeholder="phi4:latest"
-                                        type="text"
-                                        value={ollamaBaseModel}
-                                        onChange={(e) =>
-                                          setOllamaBaseModel(e.target.value)
-                                        }
-                                      />
-                                    </>
-                                  )}
-                                  {baseModelExists && !isBaseModelValid && (
+                                )}
+                                {ollamaUrl &&
+                                  (ollamaUrlError || !isOllamaUrlValid) && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CloseCircleIcon className="text-[#DC2626]" />
                                       <span className="text-[12px] font-inter font-normal text-[#DC2626]">
-                                        Either the model name is incorrect, or
-                                        the model does not exist on the
-                                        specified Ollama server.
+                                        Unable to access the Ollama server at
+                                        this address.
                                       </span>
                                     </div>
                                   )}
-                                  {baseModelExists && isBaseModelValid && (
+                                {ollamaUrl &&
+                                  isOllamaUrlValid &&
+                                  !ollamaUrlError && (
                                     <div className="flex items-center gap-1 mt-2">
                                       <CheckCircleIcon />
                                       <span className="text-[12px] font-normal text-[#16A34A] font-inter">
-                                        Language model is valid
+                                        Ollama is accessible.
                                       </span>
                                     </div>
                                   )}
-                                </div>
                               </div>
-                            )}
-                          </div>
-                        )}
+
+                              {isOllamaUrlValid && (
+                                <div className="space-y-4">
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <label className="text-[16px] font-semibold text-[#6D6D6D] font-inter">
+                                        Model Selection
+                                      </label>
+                                      <HeaderTooltip
+                                        text={
+                                          "Configure the embedding and language models for your Ollama setup"
+                                        }
+                                      />
+                                    </div>
+                                    <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-4">
+                                      Configure your Gurubase Self-hosted
+                                      instance settings.
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    {isInitialLoading ? (
+                                      <Skeleton className="h-12" />
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <label
+                                            className="text-[14px] font-medium text-[#6D6D6D] font-inter"
+                                            htmlFor="ollama-embedding-model">
+                                            Embedding Model
+                                          </label>
+                                        </div>
+                                        <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                                          This model will be used to convert
+                                          text into vector embeddings for search
+                                        </p>
+                                        <input
+                                          className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                          id="ollama-embedding-model"
+                                          placeholder="bge-m3"
+                                          type="text"
+                                          value={ollamaEmbeddingModel}
+                                          onChange={(e) => {
+                                            setOllamaEmbeddingModel(
+                                              e.target.value
+                                            );
+                                            setHasEmbeddingChanged(true);
+                                          }}
+                                        />
+                                      </>
+                                    )}
+                                    {embeddingModelExists &&
+                                      !isEmbeddingModelValid && (
+                                        <div className="flex items-center gap-1 mt-2">
+                                          <CloseCircleIcon className="text-[#DC2626]" />
+                                          <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                            Either the model name is incorrect,
+                                            the model does not exist on the
+                                            specified Ollama server, or it does
+                                            not support embedding.
+                                          </span>
+                                        </div>
+                                      )}
+                                    {embeddingModelExists &&
+                                      isEmbeddingModelValid && (
+                                        <div className="flex items-center gap-1 mt-2">
+                                          <CheckCircleIcon />
+                                          <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                            Embedding model is valid
+                                          </span>
+                                        </div>
+                                      )}
+                                  </div>
+
+                                  <div>
+                                    {isInitialLoading ? (
+                                      <Skeleton className="h-12" />
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <label
+                                            className="text-[14px] font-medium text-[#6D6D6D] font-inter"
+                                            htmlFor="ollama-base-model">
+                                            Language Model
+                                          </label>
+                                        </div>
+                                        <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                                          Model for generating responses (e.g.,
+                                          llama3, gemma3:latest, or gemma3:12b)
+                                        </p>
+                                        <input
+                                          className="w-full h-12 px-4 rounded-lg border border-[#E2E2E2] focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent"
+                                          id="ollama-base-model"
+                                          placeholder="phi4:latest"
+                                          type="text"
+                                          value={ollamaBaseModel}
+                                          onChange={(e) =>
+                                            setOllamaBaseModel(e.target.value)
+                                          }
+                                        />
+                                      </>
+                                    )}
+                                    {baseModelExists && !isBaseModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CloseCircleIcon className="text-[#DC2626]" />
+                                        <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                          Either the model name is incorrect, or
+                                          the model does not exist on the
+                                          specified Ollama server.
+                                        </span>
+                                      </div>
+                                    )}
+                                    {baseModelExists && isBaseModelValid && (
+                                      <div className="flex items-center gap-1 mt-2">
+                                        <CheckCircleIcon />
+                                        <span className="text-[12px] font-normal text-[#16A34A] font-inter">
+                                          Language model is valid
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                       </div>
 
                       {/* Web Scraper Section */}
