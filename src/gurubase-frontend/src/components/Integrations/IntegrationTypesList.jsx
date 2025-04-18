@@ -75,7 +75,7 @@ const IntegrationTypesList = ({ guruData }) => {
     {
       id: "zendesk",
       name: "Zendesk",
-      description: "Connect your Zendesk tickets to your Guru as data sources.",
+      description: "Connect your Zendesk to your Guru as a data source.",
       icon: ZendeskIcon,
       type: "ZENDESK"
     }

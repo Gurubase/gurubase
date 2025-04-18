@@ -18,7 +18,8 @@ import {
   fetchYoutubePlaylist,
   fetchYoutubeChannel,
   fetchJiraIssues,
-  fetchZendeskTickets
+  fetchZendeskTickets,
+  fetchZendeskArticles
 } from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
@@ -103,6 +104,7 @@ const MonacoUrlEditor = ({
   const [startingCrawl, setStartingCrawl] = useState(false);
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
+  const [loadingType, setLoadingType] = useState(null);
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
@@ -347,9 +349,10 @@ const MonacoUrlEditor = ({
     }
   };
 
-  const handleZendeskFetch = async () => {
+  const handleZendeskTicketsFetch = async () => {
     try {
       onSitemapLoadingChange(true);
+      setLoadingType("tickets");
       const response = await fetchZendeskTickets(integrationId);
 
       if (!isLoadingSitemapRef.current) {
@@ -396,6 +399,59 @@ const MonacoUrlEditor = ({
       });
     } finally {
       onSitemapLoadingChange(false);
+    }
+  };
+
+  const handleZendeskArticlesFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      setLoadingType("articles");
+      const response = await fetchZendeskArticles(integrationId);
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.message || !response.articles) {
+        CustomToast({
+          message: response.message || "Failed to fetch Zendesk articles",
+          variant: "error"
+        });
+        return;
+      }
+
+      const { articles, article_count } = response;
+      if (articles && articles.length > 0) {
+        const fetchedUrls = articles.map((article) => article.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        CustomToast({
+          message: `Successfully added ${article_count || articles.length} articles from Zendesk`,
+          variant: "success"
+        });
+      } else {
+        CustomToast({
+          message: response.message || "No articles found in Zendesk",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Zendesk articles",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+      setLoadingType(null);
     }
   };
 
@@ -523,28 +579,79 @@ const MonacoUrlEditor = ({
     }
   };
 
-  const zendeskButtonContent = () => {
+  const zendeskTicketsButtonContent = () => {
     if (!isLoadingSitemapRef.current) {
       return (
         <Button
           className="h-8 guru-sm:flex-1"
           disabled={isLoadingSitemapRef.current}
-          onClick={handleZendeskFetch}
+          onClick={handleZendeskTicketsFetch}
           variant="outline">
           Fetch Tickets
         </Button>
       );
     } else {
+      // Show Stop button only if this specific fetch is loading
+      if (loadingType === "tickets") {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={() => onStopSitemapLoading()}
+            disabled={!isLoadingSitemapRef.current}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stop
+          </Button>
+        );
+      } else {
+        // Otherwise, show the disabled Fetch button
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1"
+            disabled={true}
+            variant="outline">
+            Fetch Tickets
+          </Button>
+        );
+      }
+    }
+  };
+
+  const zendeskArticlesButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
       return (
         <Button
-          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
-          onClick={() => onStopSitemapLoading()} // Use the same stop mechanism
-          disabled={!isLoadingSitemapRef.current}
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleZendeskArticlesFetch}
           variant="outline">
-          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-          Stop
+          Fetch Articles
         </Button>
       );
+    } else {
+      // Show Stop button only if this specific fetch is loading
+      if (loadingType === "articles") {
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+            onClick={() => onStopSitemapLoading()} // Use the same stop mechanism
+            disabled={!isLoadingSitemapRef.current}
+            variant="outline">
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            Stop
+          </Button>
+        );
+      } else {
+        // Otherwise, show the disabled Fetch button
+        return (
+          <Button
+            className="h-8 guru-sm:flex-1"
+            disabled={true}
+            variant="outline">
+            Fetch Articles
+          </Button>
+        );
+      }
     }
   };
 
@@ -814,22 +921,25 @@ const MonacoUrlEditor = ({
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        {zendeskButtonContent()}
+                        {zendeskTicketsButtonContent()}
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Fetch tickets from your connected Zendesk account</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  {/* Optionally add a hide button if needed */}
-                  {/* <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 hover:bg-gray-100"
-                    disabled={isLoadingSitemapRef.current}
-                    onClick={() => setShowZendeskButton(false)}>
-                    ✕
-                  </Button> */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {zendeskArticlesButtonContent()}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Fetch articles from your connected Zendesk account
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               )}
             </div>
@@ -870,7 +980,9 @@ const MonacoUrlEditor = ({
                         : sourceType === "jira"
                           ? "Fetching Jira issues..."
                           : sourceType === "zendesk"
-                            ? "Fetching Zendesk tickets..."
+                            ? loadingType === "articles"
+                              ? "Fetching Zendesk articles..."
+                              : "Fetching Zendesk tickets..."
                             : "Loading...")}
                 </span>
               </div>

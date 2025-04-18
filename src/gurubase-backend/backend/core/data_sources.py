@@ -79,7 +79,24 @@ def jira_content_extraction(integration, jira_issue_link):
         logger.error(f"Error extracting content from Jira issue {jira_issue_key}: {traceback.format_exc()}")
         raise JiraContentExtractionError(traceback.format_exc()) from e
 
-def zendesk_content_extraction(integration, ticket_url):
+def zendesk_content_extraction(integration, url):
+    if 'articles' in url:
+        return zendesk_article_content_extraction(integration, url)
+    else:
+        return zendesk_ticket_content_extraction(integration, url)
+
+def zendesk_article_content_extraction(integration, article_url):
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        article_id = article_url.split('/')[-1].split('-')[0]
+        article = zendesk_requester.get_article(article_id)
+        return article['title'], article['content']
+    except Exception as e:
+        logger.error(f"Error extracting content from Zendesk article {article_url}: {traceback.format_exc()}")
+        raise ZendeskContentExtractionError(traceback.format_exc()) from e
+
+
+def zendesk_ticket_content_extraction(integration, ticket_url):
     try:
         zendesk_requester = ZendeskRequester(integration)
         ticket_id = ticket_url.split('/')[-1]

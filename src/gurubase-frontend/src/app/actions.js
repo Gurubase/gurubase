@@ -1234,6 +1234,42 @@ export async function fetchZendeskTickets(integrationId) {
   }
 }
 
+export async function fetchZendeskArticles(integrationId) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/articles/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "GET" // Assuming GET request as no body is needed
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Zendesk articles",
+        status: response.status
+      };
+    }
+
+    // Assuming response format: { articles: [{ link: 'url1' }, ...], article_count: N }
+    return data;
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchZendeskArticles",
+      integrationId
+    });
+  }
+}
+
 export async function startCrawl(url, guruSlug) {
   try {
     const response = await makeAuthenticatedRequest(
