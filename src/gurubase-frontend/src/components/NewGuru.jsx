@@ -2319,7 +2319,7 @@ export default function NewGuru({ guruData, isProcessing }) {
         setSelectedUrls={setSelectedUrls}
         setSources={setSources}
         sourceType="zendesk"
-        title="Zendesk"
+        title="Zendesk Data"
         onAddUrls={handleAddZendeskUrls}
         onEditorChange={handleZendeskEditorChange}
         onOpenChange={setIsZendeskSidebarOpen}

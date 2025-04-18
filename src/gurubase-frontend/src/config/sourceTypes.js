@@ -88,7 +88,7 @@ export const SOURCE_TYPES_CONFIG = {
     displaySourceText: "Zendesk",
     icon: ZendeskIcon, // Placeholder
     actionButtonIcon: ZendeskIcon, // Placeholder
-    actionButtonText: "Add Zendesk",
+    actionButtonText: "Add Zendesk Data",
     sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
     formField: "zendeskTickets", // Assuming a form field name
     canReindex: true,
