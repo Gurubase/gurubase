@@ -13,7 +13,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
 from django.db import transaction
-from core.models import GuruType, Question, DataSource
+from core.models import GuruType, Question, DataSource, Binge, OutOfContextQuestion, CrawlState
 from core.services.data_source_service import DataSourceService
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,10 @@ def remove_guru(guru_slug: str) -> None:
     Removes a guru and all its associated data in the following order:
     1. Questions
     2. DataSources
-    3. GuruType itself
+    3. Binges
+    4. OutOfContextQuestions
+    5. CrawlStates
+    6. GuruType itself
     """
     try:
         guru_type = GuruType.objects.get(slug=guru_slug)
@@ -60,9 +63,40 @@ def remove_guru(guru_slug: str) -> None:
                     logger.error(f"Error deleting data sources batch: {e}")
                 pbar.update(len(ids))
 
-    # 3. Remove GuruType
+    # 3. Remove Binges
+    binge_count = Binge.objects.filter(guru_type=guru_type).count()
+    if binge_count > 0:
+        logger.info(f"Removing {binge_count} binges for {guru_slug}")
+        with tqdm(total=binge_count, desc="Removing binges") as pbar:
+            while Binge.objects.filter(guru_type=guru_type).exists():
+                binges_to_delete = list(Binge.objects.filter(guru_type=guru_type)[:100].values_list('id', flat=True))
+                deleted_count, _ = Binge.objects.filter(id__in=binges_to_delete).delete()
+                pbar.update(deleted_count)
+
+    # 4. Remove OutOfContextQuestions
+    ooc_question_count = OutOfContextQuestion.objects.filter(guru_type=guru_type).count()
+    if ooc_question_count > 0:
+        logger.info(f"Removing {ooc_question_count} out-of-context questions for {guru_slug}")
+        with tqdm(total=ooc_question_count, desc="Removing OOC questions") as pbar:
+            while OutOfContextQuestion.objects.filter(guru_type=guru_type).exists():
+                ooc_questions_to_delete = list(OutOfContextQuestion.objects.filter(guru_type=guru_type)[:100].values_list('id', flat=True))
+                deleted_count, _ = OutOfContextQuestion.objects.filter(id__in=ooc_questions_to_delete).delete()
+                pbar.update(deleted_count)
+                
+    # 5. Remove CrawlStates
+    crawl_state_count = CrawlState.objects.filter(guru_type=guru_type).count()
+    if crawl_state_count > 0:
+        logger.info(f"Removing {crawl_state_count} crawl states for {guru_slug}")
+        with tqdm(total=crawl_state_count, desc="Removing crawl states") as pbar:
+            while CrawlState.objects.filter(guru_type=guru_type).exists():
+                crawl_states_to_delete = list(CrawlState.objects.filter(guru_type=guru_type)[:100].values_list('id', flat=True))
+                deleted_count, _ = CrawlState.objects.filter(id__in=crawl_states_to_delete).delete()
+                pbar.update(deleted_count)
+
+    # 6. Remove GuruType
     try:
         with transaction.atomic():
+            logger.info(f"Attempting to delete GuruType: {guru_slug}")
             guru_type.delete()
             logger.info(f"Successfully removed guru: {guru_slug}")
     except Exception as e:
