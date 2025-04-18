@@ -10,7 +10,8 @@ import {
   SolarTrashBinTrashBold,
   ConnectedIntegrationIcon,
   GitHubIcon,
-  JiraIcon
+  JiraIcon,
+  ZendeskIcon
 } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +39,9 @@ import Link from "next/link";
 import ChannelsComponent from "./ChannelsComponent";
 import RepositoriesComponent from "./RepositoriesComponent";
 
+// Check if beta features are enabled via environment variable
+const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
 const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [internalError, setInternalError] = useState(null);
@@ -56,7 +60,12 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [jiraUserEmail, setJiraUserEmail] = useState("");
   const [jiraApiKey, setJiraApiKey] = useState("");
 
-  const integrationConfig = {
+  // Zendesk State
+  const [zendeskDomain, setZendeskDomain] = useState("");
+  const [zendeskUserEmail, setZendeskUserEmail] = useState("");
+  const [zendeskApiKey, setZendeskApiKey] = useState("");
+
+  const baseIntegrationConfig = {
     slack: {
       name: "Slack",
       description: (
@@ -159,15 +168,19 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           .
         </>
       )
-    },
-    jira: {
+    }
+  };
+
+  // Conditionally add beta integrations
+  if (isBetaFeaturesEnabled) {
+    baseIntegrationConfig.jira = {
       name: "Jira",
       description: (
         <>
           Connect your Jira instance to index issues and enable Q&A. Here is the
           guide to{" "}
           <Link
-            href="https://docs.gurubase.io/integrations/jira"
+            href="https://docs.gurubase.io/integrations/jira-bot"
             className="text-blue-500 hover:text-blue-600"
             target="_blank">
             learn more
@@ -179,8 +192,30 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       icon: JiraIcon,
       showChannels: false,
       selfhostedDescription: <></>
-    }
-  };
+    };
+    baseIntegrationConfig.zendesk = {
+      name: "Zendesk",
+      description: (
+        <>
+          Connect your Zendesk instance to index tickets/articles and enable
+          Q&A. Here is the guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/zendesk-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            learn more
+          </Link>
+          .
+        </>
+      ),
+      iconSize: "w-5 h-5",
+      icon: ZendeskIcon,
+      showChannels: false,
+      selfhostedDescription: <></>
+    };
+  }
+
+  const integrationConfig = baseIntegrationConfig;
   const config = integrationConfig[type];
 
   const integrationUrl = config.url
@@ -273,7 +308,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               </Button>
             </div>
           </div>
-          {selfhosted || type === "jira" ? (
+          {selfhosted || type === "jira" || type === "zendesk" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -432,6 +467,90 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                     </div>
                   </>
+                ) : type === "zendesk" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Zendesk Domain</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_domain || zendeskDomain
+                          }
+                          onChange={
+                            !integrationData?.zendesk_domain
+                              ? (e) => setZendeskDomain(e.target.value)
+                              : undefined
+                          }
+                          placeholder="yourcompany.zendesk.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Zendesk User Email
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_user_email ||
+                            zendeskUserEmail
+                          }
+                          onChange={
+                            !integrationData?.zendesk_user_email
+                              ? (e) => setZendeskUserEmail(e.target.value)
+                              : undefined
+                          }
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Zendesk API Key</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_api_token}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_api_token
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_api_token || zendeskApiKey
+                          }
+                          onChange={
+                            !integrationData?.zendesk_api_token
+                              ? (e) => setZendeskApiKey(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter Zendesk API key..."
+                        />
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div>
                     <div className="flex flex-col gap-2">
@@ -563,7 +682,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       <div
         className={cn(
           "flex p-6 gap-4",
-          selfhosted || type === "jira"
+          selfhosted || type === "jira" || type === "zendesk"
             ? "flex-col"
             : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
         )}>
@@ -576,9 +695,11 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
         <div
           className={cn(
             "flex flex-col gap-4 mt-2",
-            selfhosted || type === "jira" ? "w-full md:" : "w-full md:w-auto"
+            selfhosted || type === "jira" || type === "zendesk"
+              ? "w-full md:"
+              : "w-full md:w-auto"
           )}>
-          {selfhosted || type === "jira" ? (
+          {selfhosted || type === "jira" || type === "zendesk" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -722,6 +843,90 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                     </div>
                   </>
+                ) : type === "zendesk" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Zendesk Domain</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_domain || zendeskDomain
+                          }
+                          onChange={
+                            !integrationData?.zendesk_domain
+                              ? (e) => setZendeskDomain(e.target.value)
+                              : undefined
+                          }
+                          placeholder="yourcompany.zendesk.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Zendesk User Email
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_user_email ||
+                            zendeskUserEmail
+                          }
+                          onChange={
+                            !integrationData?.zendesk_user_email
+                              ? (e) => setZendeskUserEmail(e.target.value)
+                              : undefined
+                          }
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">Zendesk API Key</h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.zendesk_api_token}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.zendesk_api_token
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.zendesk_api_token || zendeskApiKey
+                          }
+                          onChange={
+                            !integrationData?.zendesk_api_token
+                              ? (e) => setZendeskApiKey(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter Zendesk API key..."
+                        />
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div>
                     <div className="flex flex-col gap-2">
@@ -766,13 +971,13 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             size="lgRounded"
             className={cn(
               "bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]",
-              selfhosted || type === "jira"
+              selfhosted || type === "jira" || type === "zendesk"
                 ? "w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]"
                 : "guru-xs:w-full w-auto"
             )}
             disabled={isConnecting}
             onClick={async () => {
-              if (selfhosted || type === "jira") {
+              if (selfhosted || type === "jira" || type === "zendesk") {
                 setIsConnecting(true);
                 try {
                   const credentials =
@@ -789,11 +994,17 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                             jira_user_email: jiraUserEmail,
                             jira_api_key: jiraApiKey
                           }
-                        : {
-                            workspaceName,
-                            externalId,
-                            accessToken
-                          };
+                        : type === "zendesk"
+                          ? {
+                              zendesk_domain: zendeskDomain,
+                              zendesk_user_email: zendeskUserEmail,
+                              zendesk_api_token: zendeskApiKey
+                            }
+                          : {
+                              workspaceName,
+                              externalId,
+                              accessToken
+                            };
 
                   const response = await createSelfhostedIntegration(
                     guruData?.slug,

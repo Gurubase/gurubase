@@ -70,6 +70,9 @@ export function SourcesTableSection({
   setIsJiraSidebarOpen,
   setIsUrlSidebarOpen,
   setShowJiraIntegrationModal,
+  setIsZendeskSidebarOpen,
+  setShowZendeskIntegrationModal,
+  zendeskIntegration,
   isEditMode
 }) {
   const [filterType, setFilterType] = useState("all");
@@ -93,6 +96,15 @@ export function SourcesTableSection({
     }
   };
 
+  const handleAddZendesk = () => {
+    if (zendeskIntegration) {
+      setClickedSource([]);
+      setIsZendeskSidebarOpen(true);
+    } else {
+      setShowZendeskIntegrationModal(true);
+    }
+  };
+
   const handleUploadPdf = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -103,7 +115,8 @@ export function SourcesTableSection({
     website: handleAddWebsite,
     youtube: handleAddYoutube,
     jira: handleAddJira,
-    onUploadPdfClick: handleUploadPdf
+    onUploadPdfClick: handleUploadPdf,
+    zendesk: handleAddZendesk
   };
 
   const sourceLoadingStates = {
@@ -301,7 +314,8 @@ export function SourcesTableSection({
     (source) =>
       source.type.toLowerCase() === "youtube" ||
       source.type.toLowerCase() === "website" ||
-      source.type.toLowerCase() === "jira"
+      source.type.toLowerCase() === "jira" ||
+      source.type.toLowerCase() === "zendesk"
   );
   const fileSources = filteredSources.filter(
     (source) => source.type.toLowerCase() === "pdf"

@@ -278,7 +278,7 @@ def prepare_contexts(contexts, reranked_scores):
                 'question': reference_key,
                 'link': reference_link
             }
-        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA']:
+        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK']:
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],

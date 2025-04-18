@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 import logging
+from core.exceptions import ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
 from core.models import Integration, GuruType
 from .helpers import IntegrationError
 from .factory import IntegrationFactory
@@ -44,6 +45,12 @@ class GetIntegrationCommand(IntegrationCommand):
                 'jira_user_email': self.integration.jira_user_email,
                 'jira_api_key': self.integration.masked_jira_api_key, # Use the masked key
             })
+        elif self.integration.type == Integration.Type.ZENDESK:
+            response_data.update({
+                'zendesk_domain': self.integration.zendesk_domain,
+                'zendesk_user_email': self.integration.zendesk_user_email,
+                'zendesk_api_token': self.integration.masked_zendesk_api_token,
+            })
         else: # Slack, Discord
             response_data.update({
                  'access_token': self.integration.masked_access_token,
@@ -68,7 +75,7 @@ class CreateIntegrationCommand(IntegrationCommand):
 
     def execute(self) -> Response:
         # Allow Jira creation in cloud, restrict others to selfhosted
-        if self.integration_type != Integration.Type.JIRA and settings.ENV != 'selfhosted':
+        if self.integration_type not in [Integration.Type.JIRA, Integration.Type.ZENDESK] and settings.ENV != 'selfhosted':
             return Response({'msg': 'This integration type is only available in the self-hosted version.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
@@ -77,6 +84,8 @@ class CreateIntegrationCommand(IntegrationCommand):
                 self._validate_github_fields()
             elif self.integration_type == Integration.Type.JIRA:
                 self._validate_jira_fields()
+            elif self.integration_type == Integration.Type.ZENDESK:
+                self._validate_zendesk_fields()
             else: # Slack, Discord
                 self._validate_standard_fields()
 
@@ -99,6 +108,8 @@ class CreateIntegrationCommand(IntegrationCommand):
             return Response({'msg': 'Invalid GitHub installation ID'}, status=status.HTTP_400_BAD_REQUEST)
         except GithubAPIError as e:
             return Response({'msg': 'Invalid GitHub client ID or API error'}, status=status.HTTP_400_BAD_REQUEST)
+        except (ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError) as e:
+            return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrationError as e:
             # Pass specific Jira errors through
             if "Jira" in str(e):
@@ -131,6 +142,14 @@ class CreateIntegrationCommand(IntegrationCommand):
         if not self.data.get('jira_api_key'):
             raise IntegrationError('Missing Jira API key')
 
+    def _validate_zendesk_fields(self):
+        if not self.data.get('zendesk_domain'):
+            raise IntegrationError('Missing Zendesk domain')
+        if not self.data.get('zendesk_user_email'):
+            raise IntegrationError('Missing Zendesk user email')
+        if not self.data.get('zendesk_api_token'):
+            raise IntegrationError('Missing Zendesk API token')
+
     def _fetch_workspace_details(self, strategy) -> Dict[str, Any]:
         try:
             if self.integration_type == Integration.Type.GITHUB:
@@ -138,6 +157,12 @@ class CreateIntegrationCommand(IntegrationCommand):
                     self.data['installation_id'],
                     self.data['client_id'],
                     self.data['private_key']
+                )
+            elif self.integration_type == Integration.Type.ZENDESK:
+                return strategy.fetch_workspace_details(
+                    self.data['zendesk_domain'],
+                    self.data['zendesk_user_email'],
+                    self.data['zendesk_api_token']
                 )
             elif self.integration_type == Integration.Type.JIRA:
                  # For Jira, we primarily validate credentials here
@@ -150,9 +175,12 @@ class CreateIntegrationCommand(IntegrationCommand):
                 return strategy.fetch_workspace_details(self.data['access_token'])
         except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:
             raise e
+        except (ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching workspace details/validating credentials: {e}", exc_info=True)
             if self.integration_type == Integration.Type.JIRA:
+                 # TODO: Make this like github exceptions
                  # Check for specific Jira auth errors
                  if "Unauthorized" in str(e) or "401" in str(e):
                       raise IntegrationError('Invalid Jira credentials.')
@@ -195,6 +223,17 @@ class CreateIntegrationCommand(IntegrationCommand):
                  jira_api_key=self.data['jira_api_key'],
                  channels=[] # Jira doesn't have channels in the same way
              )
+        elif self.integration_type == Integration.Type.ZENDESK:
+            return Integration.objects.create(
+                guru_type=self.guru_type_object,
+                type=self.integration_type,
+                workspace_name=workspace_details['workspace_name'],
+                external_id=workspace_details['external_id'],
+                zendesk_domain=self.data['zendesk_domain'],
+                zendesk_user_email=self.data['zendesk_user_email'],
+                zendesk_api_token=self.data['zendesk_api_token'],
+                channels=[]
+            )
         else: # Slack, Discord
             return Integration.objects.create(
                 guru_type=self.guru_type_object,

@@ -7,11 +7,15 @@ import {
   SlackIcon,
   WebWidgetIcon,
   GitHubIcon,
-  JiraIcon
+  JiraIcon,
+  ZendeskIcon
 } from "@/components/Icons";
 import { Link } from "@/components/Link";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
+
+// Check if beta features are enabled via environment variable
+const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
 
 const IntegrationTypesList = ({ guruData }) => {
   const [connectedIntegrations, setConnectedIntegrations] = useState([]);
@@ -35,7 +39,7 @@ const IntegrationTypesList = ({ guruData }) => {
     fetchIntegrations();
   }, [guruSlug]);
 
-  const integrationTypes = [
+  let integrationTypes = [
     {
       id: "slack",
       name: "Slack Bot",
@@ -63,15 +67,29 @@ const IntegrationTypesList = ({ guruData }) => {
       description: "Connect your GitHub repositories to your Guru.",
       icon: GitHubIcon,
       type: "GITHUB"
-    },
-    {
-      id: "jira",
-      name: "Jira",
-      description: "Connect your Jira issues to your Guru as data sources.",
-      icon: JiraIcon,
-      type: "JIRA"
     }
   ];
+
+  // Conditionally add beta integrations
+  if (isBetaFeaturesEnabled) {
+    integrationTypes = [
+      ...integrationTypes,
+      {
+        id: "jira",
+        name: "Jira",
+        description: "Connect your Jira issues to your Guru as data sources.",
+        icon: JiraIcon,
+        type: "JIRA"
+      },
+      {
+        id: "zendesk",
+        name: "Zendesk",
+        description: "Connect your Zendesk to your Guru as a data source.",
+        icon: ZendeskIcon,
+        type: "ZENDESK"
+      }
+    ];
+  }
 
   const isIntegrationConnected = (type) => {
     return connectedIntegrations.some(
