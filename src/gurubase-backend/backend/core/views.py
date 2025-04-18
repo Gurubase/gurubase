@@ -1645,12 +1645,18 @@ def api_data_sources(request, guru_type):
 
             # Check Jira issue limits
             if jira_urls:
+                jira_integration = Integration.objects.filter(guru_type=guru_type_object, type=Integration.Type.JIRA).first()
+                if not jira_integration:
+                    return Response({'msg': 'Jira integration not found'}, status=status.HTTP_400_BAD_REQUEST)
                 is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, jira_urls_count=len(jira_urls))
                 if not is_allowed:
                     return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)            
 
             # Check Zendesk ticket limits
             if zendesk_urls:
+                zendesk_integration = Integration.objects.filter(guru_type=guru_type_object, type=Integration.Type.ZENDESK).first()
+                if not zendesk_integration:
+                    return Response({'msg': 'Zendesk integration not found'}, status=status.HTTP_400_BAD_REQUEST)
                 is_allowed, error_msg = guru_type_object.check_datasource_limits(request.user, zendesk_urls_count=len(zendesk_urls))
                 if not is_allowed:
                     return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
