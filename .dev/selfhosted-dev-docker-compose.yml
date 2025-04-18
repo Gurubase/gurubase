@@ -54,7 +54,7 @@ services:
 
   attu:
     image: zilliz/attu:latest
-    container_name: local-dev-gurubase-attu
+    container_name: selfhosted-dev-gurubase-attu
     ports:
       - 8001:3000
     restart: always
