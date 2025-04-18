@@ -173,7 +173,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           Connect your Jira instance to index issues and enable Q&A. Here is the
           guide to{" "}
           <Link
-            href="https://docs.gurubase.io/integrations/jira"
+            href="https://docs.gurubase.io/integrations/jira-bot"
             className="text-blue-500 hover:text-blue-600"
             target="_blank">
             learn more
@@ -190,10 +190,10 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       name: "Zendesk",
       description: (
         <>
-          Connect your Zendesk instance to index tickets and enable Q&A. Here is
-          the guide to{" "}
+          Connect your Zendesk instance to index tickets/articles and enable
+          Q&A. Here is the guide to{" "}
           <Link
-            href="https://docs.gurubase.io/integrations/zendesk"
+            href="https://docs.gurubase.io/integrations/zendesk-bot"
             className="text-blue-500 hover:text-blue-600"
             target="_blank">
             learn more
