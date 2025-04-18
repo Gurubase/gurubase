@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models import Q
 from django.core.cache import cache
 from core.models import Question, OutOfContextQuestion, DataSource, GithubFile
@@ -167,6 +168,10 @@ class AnalyticsService:
                 {'value': 'website', 'label': 'Website'},
                 {'value': 'youtube', 'label': 'YouTube'},
             ]
+
+            if settings.BETA_FEAT_ON:
+                filters.append({'value': 'jira', 'label': 'Jira'})
+                filters.append({'value': 'zendesk', 'label': 'Zendesk'})
         else:
             filters = []
             

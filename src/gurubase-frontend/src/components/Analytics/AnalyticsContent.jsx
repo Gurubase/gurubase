@@ -351,7 +351,7 @@ const AnalyticsContent = ({ guruData, initialInterval }) => {
           />
 
           <MetricSection
-            title="Unable to Answers"
+            title="Unable to Answer"
             tooltipText="Questions that cannot be answered. The reason could be that the question is unrelated to the Guru, or the Guru's data source is insufficient to generate an answer."
             metricType={METRIC_TYPES.OUT_OF_CONTEXT}
             interval={interval}

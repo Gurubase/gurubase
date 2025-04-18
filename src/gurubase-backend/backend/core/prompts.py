@@ -172,7 +172,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.
@@ -395,7 +395,7 @@ context_relevance_without_cot_output_format = """
 """
 
 
-# TODO: Add codebase support
+# TODO: Add codebase and jira support
 groundedness_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the generated answer is grounded to the provided contexts.

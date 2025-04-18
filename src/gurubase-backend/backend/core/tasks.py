@@ -14,7 +14,7 @@ from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
 from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_types_dict
-from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
+from core.models import DataSource, Favicon, GuruType, Integration, LLMEval, LinkReference, LinkValidity, Question, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
@@ -406,9 +406,14 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
 
         # Process other sources (and website sources if not using Firecrawl) individually
         sources_to_process = other_sources + (website_sources if not is_firecrawl else [])
+        jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
+        zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
         for data_source in sources_to_process:
             try:
-                data_source = fetch_data_source_content(data_source)
+                if data_source.type == DataSource.Type.JIRA:
+                    data_source = fetch_data_source_content(jira_integration, data_source)
+                elif data_source.type == DataSource.Type.ZENDESK:
+                    data_source = fetch_data_source_content(zendesk_integration, data_source)
                 data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
@@ -1233,7 +1238,7 @@ def update_guru_type_details():
     """
     logger.info("Updating guru type details")
     
-    from core.utils import get_root_summarization_of_guru_type, get_github_url_from_data_source
+    from core.utils import get_root_summarization_of_guru_type
     from core.requester import GitHubRequester
     
     github_requester = GitHubRequester()
@@ -1243,7 +1248,7 @@ def update_guru_type_details():
     for guru_type in guru_types:
         # Update GitHub details if missing
         if not guru_type.github_details:
-            github_repos = guru_type.github_repos or [get_github_url_from_data_source(guru_type.slug)]
+            github_repos = guru_type.github_repos
             if github_repos:
                 try:
                     # Only fetch details for the first GitHub repo

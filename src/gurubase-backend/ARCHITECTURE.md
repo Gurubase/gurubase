@@ -139,6 +139,8 @@ Four types of data sources are supported:
 - Websites
 - PDFs
 - Codebases
+- Jira Issues
+- ZenDesk Tickets/Articles
 
 #### YouTube videos
 
@@ -149,6 +151,14 @@ The system uses the `YoutubeLoader` from `langchain_community.document_loaders` 
 The system uses `firecrawl` to extract content from websites. It scrapes the website, gets the relevant metadata, formats the content, and transfers it to Milvus.
 
 > Setting `FIRECRAWL_API_KEY` is required for this process.
+
+#### Jira Issues
+
+The system uses Jira Python SDK to fetch issues based on the integration configuration.
+
+#### ZenDesk Tickets/Articles
+
+The system uses ZenDesk Web API to fetch tickets and articles based on the integration configuration.
 
 #### PDFs
 
