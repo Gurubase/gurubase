@@ -1060,7 +1060,7 @@ class ZendeskRequester():
             ValueError: If API request fails
         """
         all_comments = []
-        url = f"{self.base_url}/tickets/{ticket_id}/comments.json?page[size]={batch_size}"
+        url = f"{self.base_url}/tickets/{ticket_id}/comments.json?page[size]={batch_size}&sort_by=created_at&sort_order=asc"
 
         try:
             while url:
@@ -1254,7 +1254,7 @@ class ZendeskRequester():
             ValueError: If API request fails
         """
         all_comments = []
-        url = f"{self.base_url}/help_center/articles/{article_id}/comments.json?page[size]={batch_size}"
+        url = f"{self.base_url}/help_center/articles/{article_id}/comments.json?page[size]={batch_size}&sort_by=created_at&sort_order=asc"
 
         try:
             while url:
@@ -1265,6 +1265,7 @@ class ZendeskRequester():
                 all_comments.extend([self._format_article_comment(comment) for comment in comments])
 
                 url = data.get('next_page')
+            all_comments.sort(key=lambda x: x['created_at'])
             return all_comments
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if e.response is not None else None
