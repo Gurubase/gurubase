@@ -39,6 +39,9 @@ import Link from "next/link";
 import ChannelsComponent from "./ChannelsComponent";
 import RepositoriesComponent from "./RepositoriesComponent";
 
+// Check if beta features are enabled via environment variable
+const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
 const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [integrationData, setIntegrationData] = useState(null);
   const [internalError, setInternalError] = useState(null);
@@ -62,7 +65,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [zendeskUserEmail, setZendeskUserEmail] = useState("");
   const [zendeskApiKey, setZendeskApiKey] = useState("");
 
-  const integrationConfig = {
+  const baseIntegrationConfig = {
     slack: {
       name: "Slack",
       description: (
@@ -165,8 +168,12 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           .
         </>
       )
-    },
-    jira: {
+    }
+  };
+
+  // Conditionally add beta integrations
+  if (isBetaFeaturesEnabled) {
+    baseIntegrationConfig.jira = {
       name: "Jira",
       description: (
         <>
@@ -185,8 +192,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       icon: JiraIcon,
       showChannels: false,
       selfhostedDescription: <></>
-    },
-    zendesk: {
+    };
+    baseIntegrationConfig.zendesk = {
       name: "Zendesk",
       description: (
         <>
@@ -205,8 +212,10 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       icon: ZendeskIcon,
       showChannels: false,
       selfhostedDescription: <></>
-    }
-  };
+    };
+  }
+
+  const integrationConfig = baseIntegrationConfig;
   const config = integrationConfig[type];
 
   const integrationUrl = config.url
