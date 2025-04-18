@@ -141,14 +141,14 @@ class APIKeySerializer(serializers.ModelSerializer):
 class SettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Settings
-        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'youtube_api_key', 'is_youtube_key_valid', 'scrape_type']
+        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'youtube_api_key', 'is_youtube_key_valid', 'scrape_type', 'ai_model_provider', 'ollama_url', 'ollama_embedding_model', 'ollama_base_model', 'is_ollama_url_valid', 'is_ollama_embedding_model_valid', 'is_ollama_base_model_valid']
         extra_kwargs = {
             'openai_api_key': {'write_only': True},  # Ensure API key is write-only for security
             'is_openai_key_valid': {'read_only': True},  # This field is computed on save
             'firecrawl_api_key': {'write_only': True},
             'is_firecrawl_key_valid': {'read_only': True},
             'youtube_api_key': {'write_only': True},
-            'is_youtube_key_valid': {'read_only': True}
+            'is_youtube_key_valid': {'read_only': True},
         }
 
     def to_representation(self, instance):
@@ -171,6 +171,18 @@ class SettingsSerializer(serializers.ModelSerializer):
             repr['is_youtube_key_valid'] = True
             repr['is_firecrawl_key_valid'] = True
             repr['is_openai_key_valid'] = True
+
+        if instance.ai_model_provider == Settings.AIProvider.OLLAMA.value:
+            # Only include Ollama settings if the provider is OLLAMA
+            repr['ollama_url'] = instance.ollama_url
+            repr['ollama_embedding_model'] = instance.ollama_embedding_model
+            repr['ollama_base_model'] = instance.ollama_base_model
+            repr['is_ollama_url_valid'] = instance.is_ollama_url_valid
+            repr['is_ollama_embedding_model_valid'] = instance.is_ollama_embedding_model_valid
+            repr['is_ollama_base_model_valid'] = instance.is_ollama_base_model_valid
+
+        if settings.ENV == 'selfhosted':
+            repr['data_sources_exist'] = DataSource.objects.all().exists()
             
         return repr
 
