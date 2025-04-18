@@ -1270,14 +1270,15 @@ class Settings(models.Model):
         Returns:
             tuple: (is_valid: bool, errors: dict)
         """
+        from core.exceptions import IntegrityError
         if self.ai_model_provider != self.AIProvider.OLLAMA:
             return True
 
         if not settings.ENV == 'selfhosted':
-            raise ValueError('Ollama is not enabled for this environment')
+            raise IntegrityError('Ollama is not enabled for this environment')
 
         if not settings.BETA_FEAT_ON:
-            raise ValueError('Ollama is not enabled for this environment')
+            raise IntegrityError('Ollama is not enabled for this environment')
 
         # Validate required fields
         if not self.ollama_url:

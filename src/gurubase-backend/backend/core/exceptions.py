@@ -66,3 +66,7 @@ class ThrottlingException(Exception):
 class ValidationError(Exception):
     """Exception raised for validation errors."""
     pass
+
+class IntegrityError(Exception):
+    """Exception raised for integrity errors."""
+    pass

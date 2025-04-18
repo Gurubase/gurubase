@@ -46,7 +46,7 @@ from core.utils import (
     
 )
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import PermissionError, NotFoundError
+from core.exceptions import IntegrityError, PermissionError, NotFoundError
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -2720,10 +2720,17 @@ def manage_settings(request):
                 serializer.save()
                 return Response(serializer.data)
             except ValidationError as e:
+                logger.error(f"Validation error in manage_settings: {e}", exc_info=True)
                 return Response(
                     {'errors': e.message_dict if hasattr(e, 'message_dict') else {'error': str(e)}},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            except IntegrityError as e:
+                logger.error(f"Integrity error in manage_settings: {e}", exc_info=True)
+                return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error in manage_settings: {e}", exc_info=True)
+                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
