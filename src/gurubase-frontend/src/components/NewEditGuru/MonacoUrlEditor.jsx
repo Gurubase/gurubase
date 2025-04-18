@@ -380,7 +380,7 @@ const MonacoUrlEditor = ({
         onChange(newContent);
 
         CustomToast({
-          message: `Successfully added ${ticket_count || tickets.length} tickets from Zendesk`,
+          message: `Successfully added ${ticket_count || tickets.length} resolved tickets from Zendesk`,
           variant: "success"
         });
         // setShowZendeskButton(false); // Optionally hide button after fetch
@@ -433,7 +433,7 @@ const MonacoUrlEditor = ({
         onChange(newContent);
 
         CustomToast({
-          message: `Successfully added ${article_count || articles.length} articles from Zendesk`,
+          message: `Successfully added ${article_count || articles.length} published articles from Zendesk`,
           variant: "success"
         });
       } else {

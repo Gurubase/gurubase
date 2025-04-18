@@ -923,33 +923,38 @@ class ZendeskRequester():
         """
         if not all([integration.zendesk_domain, integration.zendesk_user_email, integration.zendesk_api_token]):
             raise ValueError("Zendesk credentials (domain, email, api_token) are missing in the integration settings.")
-            
+
         self.domain = integration.zendesk_domain
         self.base_url = f"https://{self.domain}/api/v2"
         self.auth = (f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
 
     def list_tickets(self, batch_size=100):
         """
-        List Zendesk tickets with pagination
+        List solved Zendesk tickets with pagination.
         Args:
             batch_size (int): Number of tickets to fetch per request
         Returns:
-            list: List of formatted Zendesk tickets
+            list: List of formatted solved Zendesk tickets
         Raises:
             ValueError: If API request fails
         """
         all_tickets = []
-        url = f"{self.base_url}/tickets.json?page[size]={batch_size}"
+        # Use the standard tickets endpoint and filter in Python
+        url = f"{self.base_url}/tickets.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
 
         try:
             while url:
                 response = requests.get(url, auth=self.auth, timeout=20)
                 response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
-                
+
                 data = response.json()
-                tickets = data.get('tickets', [])
-                all_tickets.extend([self._format_ticket(ticket) for ticket in tickets])
-                
+                tickets_batch = data.get('tickets', [])
+
+                # Filter for solved tickets and format
+                for ticket in tickets_batch:
+                    if ticket.get('status') == 'solved':
+                        all_tickets.append(self._format_ticket(ticket))
+
                 # Check for cursor-based pagination meta data
                 if data.get('meta', {}).get('has_more'):
                     url = data.get('links', {}).get('next')
@@ -968,7 +973,7 @@ class ZendeskRequester():
                  error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
             elif status_code == 429:
                 error_text = "Zendesk API rate limit exceeded."
-                
+
             logger.error(f"Zendesk API error listing tickets: {error_text}", exc_info=True)
             raise ValueError(f"Failed to list Zendesk tickets: {error_text}")
         except Exception as e:
@@ -999,7 +1004,7 @@ class ZendeskRequester():
             subject = ticket_data.get('subject', 'No Subject')
             description = ticket_data.get('description', 'No Description')
             ticket_link = f"https://{self.domain}/agent/tickets/{ticket_id}"
-            
+
             # 3. Format initial ticket content
             content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\n</Zendesk Ticket>"
 
@@ -1011,7 +1016,7 @@ class ZendeskRequester():
             for comment_data in comments:
                 # comment_data already contains the formatted <Zendesk Comment> string
                 content += f"\n\n{comment_data['content']}"
-                
+
             # 6. Return combined data
             return {
                 'id': ticket_id,
@@ -1031,10 +1036,10 @@ class ZendeskRequester():
                  error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
             elif status_code == 429:
                 error_text = "Zendesk API rate limit exceeded."
-            
+
             logger.error(f"Zendesk API error getting ticket {ticket_id}: {error_text}", exc_info=True)
             # Re-raise as ValueError consistent with other methods
-            raise ValueError(f"Failed to get ticket {ticket_id}: {error_text}") 
+            raise ValueError(f"Failed to get ticket {ticket_id}: {error_text}")
         except ValueError as e:
              # Catch errors from get_ticket_comments and re-raise
              logger.error(f"Error processing comments for ticket {ticket_id}: {e}", exc_info=True)
@@ -1061,11 +1066,11 @@ class ZendeskRequester():
             while url:
                 response = requests.get(url, auth=self.auth, timeout=20)
                 response.raise_for_status()
-                
+
                 data = response.json()
                 comments = data.get('comments', [])
                 all_comments.extend([self._format_comment(comment) for comment in comments])
-                
+
                 # Check for cursor-based pagination meta data
                 if data.get('meta', {}).get('has_more'):
                      url = data.get('links', {}).get('next')
@@ -1081,7 +1086,7 @@ class ZendeskRequester():
             elif status_code == 403:
                 error_text = "Permission denied. Ensure the API token has the required scopes."
             elif status_code == 404:
-                error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
+                 error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
             elif status_code == 429:
                 error_text = "Zendesk API rate limit exceeded."
 
@@ -1094,23 +1099,33 @@ class ZendeskRequester():
 
     def _format_ticket(self, ticket):
         """
-        Format a Zendesk ticket into a dictionary
+        Format a Zendesk ticket into a dictionary.
         Args:
             ticket (dict): Ticket data from Zendesk API
         Returns:
             dict: Formatted ticket data
         """
+        ticket_id = ticket.get('id')
         subject = ticket.get('subject', 'No Subject')
         description = ticket.get('description', 'No Description')
-        content = f"<Zendesk Ticket>\n\nSubject: {subject}\n\nDescription: {description}\n\n</Zendesk Ticket>"
-        
+        status = ticket.get('status')
+        created_at = ticket.get('created_at')
+        updated_at = ticket.get('updated_at')
+
+        link = f"https://{self.domain}/agent/tickets/{ticket_id}" if ticket_id else None
+
+        content = f"<Zendesk Ticket>\n\nSubject: {subject}"
+        if description:
+             content += f"\n\nDescription: {description}"
+        content += "\n\n</Zendesk Ticket>"
+
         return {
-            'id': ticket.get('id'),
-            'link': f"https://{self.domain}/agent/tickets/{ticket.get('id')}",
+            'id': ticket_id,
+            'link': link,
             'title': subject,
-            'status': ticket.get('status'),
-            'created_at': ticket.get('created_at'),
-            'updated_at': ticket.get('updated_at'),
+            'status': status,
+            'created_at': created_at,
+            'updated_at': updated_at,
             'content': content
         }
 
@@ -1123,13 +1138,12 @@ class ZendeskRequester():
             dict: Formatted comment data
         """
         body = comment.get('body', '')
-        # Use 'plain_body' if available and preferred, otherwise fallback to 'body' (which might contain HTML)
-        plain_body = comment.get('plain_body', body) 
+        plain_body = comment.get('plain_body', body)
         content = f"<Zendesk Comment>\n\n{plain_body}\n\n</Zendesk Comment>"
-        
+
         return {
             'id': comment.get('id'),
-            'body': plain_body, # Store plain text body
+            'body': plain_body,
             'author_id': comment.get('author_id'),
             'created_at': comment.get('created_at'),
             'public': comment.get('public', True),
@@ -1138,18 +1152,16 @@ class ZendeskRequester():
 
     def list_articles(self, batch_size=100):
         """
-        List Zendesk help center articles with pagination.
+        List Zendesk help center articles (non-draft) with pagination.
         Args:
             batch_size (int): Number of articles to fetch per request
         Returns:
-            list: List of formatted Zendesk articles
+            list: List of formatted, non-draft Zendesk articles
         Raises:
             ValueError: If API request fails
         """
         all_articles = []
-        # Zendesk help center articles endpoint supports cursor based pagination similar to tickets.
-        # The response includes a `next_page` key. We loop until it is None.
-        url = f"{self.base_url}/help_center/articles.json?page[size]={batch_size}"
+        url = f"{self.base_url}/help_center/articles.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
 
         try:
             while url:
@@ -1157,10 +1169,13 @@ class ZendeskRequester():
                 response.raise_for_status()
 
                 data = response.json()
-                articles = data.get('articles', [])
-                all_articles.extend([self._format_article(article) for article in articles])
+                articles_batch = data.get('articles', [])
 
-                # Handle pagination – `next_page` is the canonical way for Help Center APIs
+                # Filter out draft articles and format
+                for article in articles_batch:
+                    if article.get('draft') is False:
+                        all_articles.append(self._format_article(article))
+
                 url = data.get('next_page')
             return all_articles
         except requests.exceptions.RequestException as e:
@@ -1277,7 +1292,6 @@ class ZendeskRequester():
             dict: Formatted article data
         """
         title = article.get('title', 'No Title')
-        # Article body can be in `body` (HTML) or `body_html`. Prefer `body`.
         body_html = article.get('body', article.get('body_html', ''))
         body_markdown = html2text.html2text(body_html) if body_html else ''
 
@@ -1289,7 +1303,8 @@ class ZendeskRequester():
             'title': title,
             'created_at': article.get('created_at'),
             'updated_at': article.get('updated_at'),
-            'content': content
+            'content': content,
+            'draft': article.get('draft')
         }
 
     def _format_article_comment(self, comment):
@@ -1300,7 +1315,7 @@ class ZendeskRequester():
         Returns:
             dict: Formatted comment data
         """
-        body_html = comment.get('body', '')  # Article comments use HTML body
+        body_html = comment.get('body', '')
         body_markdown = html2text.html2text(body_html)
         content = f"<Zendesk Article Comment>\n\n{body_markdown}\n\n</Zendesk Article Comment>"
 
