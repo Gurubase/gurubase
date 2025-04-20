@@ -7,7 +7,7 @@ from django.db.models.signals import pre_delete, post_delete, post_save, pre_sav
 from django.conf import settings
 from django.dispatch import receiver
 from accounts.models import User
-from core.utils import embed_text, generate_og_image, draw_text, get_default_embedding_dimensions, get_embedding_model_config
+from core.utils import embed_text, generate_og_image, draw_text, get_default_embedding_dimensions, get_embedder_and_model, get_embedding_model_config
 from core import milvus_utils
 from core.models import GithubFile, GuruType, Question, RawQuestion, DataSource
 
@@ -16,7 +16,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
 import secrets
-from .models import Integration, APIKey, GuruCreationForm, OutOfContextQuestion
+from .models import Integration, APIKey, GuruCreationForm, OutOfContextQuestion, Settings
 from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
@@ -1020,6 +1020,7 @@ def handle_embedding_model_change(sender, instance, **kwargs):
     Signal handler that delegates text embedding model reindexing to a celery task when text_embedding_model changes.
     """
     if settings.ENV == 'selfhosted':
+        return
         if instance.text_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
             raise ValidationError({'msg': 'Cannot change text_embedding_model to Gemini models in selfhosted environment'})
 
@@ -1056,3 +1057,48 @@ def handle_embedding_model_change(sender, instance, **kwargs):
                     
         except GuruType.DoesNotExist:
             pass  # This is a new guru type
+
+@receiver(pre_save, sender=Settings)
+def handle_selfhosted_embedding_model_change(sender, instance, **kwargs):
+    """
+    Signal handler that delegates embedding model reindexing to a celery task when ai provider or embedding model changes on selfhosted. 
+    """
+    if settings.ENV != 'selfhosted':
+        return
+
+    # ai_provider_changed = False
+    # ollama_embedding_model_changed = False
+
+    if not instance.id:
+        return
+
+    if instance.ai_model_provider == Settings.AIProvider.OPENAI:
+        if not instance.is_openai_key_valid:
+            return
+    else:
+        if not instance.is_ollama_url_valid:
+            return
+        
+        if not instance.is_ollama_embedding_model_valid:
+            return
+
+    old_instance = Settings.objects.get(id=instance.id)
+    old_model = old_instance.last_valid_embedding_model
+    old_model_dimension = old_instance.last_valid_embedding_model_dimension
+
+    if old_model == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
+        _, old_model = get_embedder_and_model(old_model, sync=False)
+
+    new_model = instance.last_valid_embedding_model
+    new_model_dimension = instance.last_valid_embedding_model_dimension
+    if new_model == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
+        _, new_model = get_embedder_and_model(new_model, sync=False)
+
+    if old_model == new_model:
+        return
+
+    guru_types = GuruType.objects.all()
+    from core.tasks import reindex_code_embedding_model, reindex_text_embedding_model
+    for guru_type in guru_types:
+        reindex_code_embedding_model.delay(guru_type.id, old_model, new_model)
+        reindex_text_embedding_model.delay(guru_type.id, old_model, new_model, old_model_dimension, new_model_dimension)

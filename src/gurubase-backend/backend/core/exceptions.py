@@ -87,3 +87,8 @@ class ZendeskInvalidDomainError(ZendeskError):
 class ZendeskInvalidSubdomainError(ZendeskError):
     """Exception raised for Zendesk invalid subdomain errors."""
     pass
+
+
+class IntegrityError(Exception):
+    """Exception raised for integrity errors."""
+    pass

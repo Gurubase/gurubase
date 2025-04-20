@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
+from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key, OllamaRequester
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -41,6 +41,7 @@ import hashlib
 import pickle
 from rest_framework.views import exception_handler
 from rest_framework.exceptions import Throttled
+from core.requester import GptSummary
 
 logger = logging.getLogger(__name__)
 
@@ -1165,16 +1166,6 @@ def create_custom_guru_type_slug(name):
 
     return slug
 
-class GptSummary(BaseModel):
-    question: str
-    user_question: str
-    question_slug: str
-    description: str
-    valid_question: bool
-    user_intent: str
-    answer_length: int
-    enhanced_question: str
-
 
 def get_github_details_if_applicable(guru_type):
     guru_type_obj = get_guru_type_object(guru_type)
@@ -1327,13 +1318,7 @@ def ask_question_with_stream(
     used_prompt = messages[0]['content']
 
     start_chatgpt = time.perf_counter()
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL,
-        temperature=0,
-        messages=messages,
-        stream=True,
-        stream_options={"include_usage": True},
-    )
+    response = get_openai_requester().ask_question_with_stream(messages)
     times['chatgpt_completion'] = time.perf_counter() - start_chatgpt
     times['total'] = time.perf_counter() - start_total
 
@@ -1394,17 +1379,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
 
     start_response_await = time.perf_counter()
     try:
-        response = get_openai_client().beta.chat.completions.parse(
-            model=settings.GPT_MODEL,
-            temperature=0,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': prompt
-                }
-            ],
-            response_format=GptSummary
-        )
+        response = get_openai_requester().get_summary(prompt, question)
         times['response_await'] = time.perf_counter() - start_response_await
     except Exception as e:
         logger.error(f'Error while getting summary: {question}. Exception: {e}', exc_info=True)
@@ -1434,39 +1409,6 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
 
     return parsed_response, times
 
-
-def ask_if_english(question):
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL_MINI,
-        temperature=0,
-        messages=[
-            {
-                'role': 'system',
-                'content': "Is this question in English?. Return this json: {'question': 'question', 'is_english': True/False}"
-            },
-            {
-                'role': 'user',
-                'content': question
-            }
-        ],
-        response_format={'type': 'json_object'}
-    )
-
-    try:
-        answer = response.choices[0].message.content
-        answer = json.loads(answer)
-    except Exception as e:
-        logger.error(f'Error while getting the answer from the response: {e}. Response: {response.choices[0].message.content}', exc_info=True)
-        answer = {
-            'question': question,
-            'is_english': False
-        }
-
-    if "is_english" not in answer:
-        answer["is_english"] = False
-
-    return answer['is_english'], get_llm_usage_from_response(response, settings.GPT_MODEL_MINI)
-            
 
 def stream_question_answer(
         question, 
@@ -2601,7 +2543,7 @@ def get_tokens_from_openai_response(response):
         return 0, 0, 0
     
     try:
-        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens
+        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens if response.usage.prompt_tokens_details else 0
     except Exception as e:
         log_error_with_stack(f'Error while getting the tokens from the response {e}.')
         return 0, 0, 0
@@ -3434,16 +3376,35 @@ def custom_exception_handler_throttled(exc, context):
         
     return response
 
-def get_embedder_and_model(model_choice):
+def get_embedder_and_model(model_choice, sync = True):
     """
     Returns a tuple of (embedder_instance, model_name) based on the model choice.
     
     Args:
-        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        model_choice: The embedding model choice from GuruType.EmbeddingModel. Used only in cloud.
         
     Returns:
         tuple: (embedder_instance, model_name)
     """
+    from core.requester import OpenAIRequester
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        if not sync:
+            if model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
+                return (OpenAIRequester(), "text-embedding-3-small")
+            else:
+                return (OllamaRequester(settings_obj.ollama_url), model_choice)
+
+        assert settings_obj, "Settings object not found"
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            from core.requester import OllamaRequester
+            # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
+            return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
+        else:
+            return (OpenAIRequester(), "text-embedding-3-small")
+    
+    # Cloud version logic
     model_map = {
         GuruType.EmbeddingModel.IN_HOUSE: (None, "in-house"),  # No embedder instance needed for in-house
         GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: (GeminiEmbedder(), "embedding-001"),
@@ -3455,7 +3416,7 @@ def get_embedder_and_model(model_choice):
     # Default to in-house if model_choice is not found
     return model_map.get(model_choice, (None, "in-house"))
 
-def get_embedding_model_config(model_choice):
+def get_embedding_model_config(model_choice, sync = True):
     """
     Returns a tuple of (collection_name, dimension) based on the GuruType.EmbeddingModel choice.
     
@@ -3469,6 +3430,27 @@ def get_embedding_model_config(model_choice):
         >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
         ('github_repo_code_openai_ada_002', 1536)
     """
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        assert settings_obj, "Settings object not found"
+
+        if not sync:
+            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"]:
+                return "github_repo_code", 1536
+            else:
+                model_choice = model_choice.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
+        
+        # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedding_model_config. Then use it to fetch from settings_obj and return. Nothing else is needed
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            # For Ollama, we use a single collection for all embeddings
+            model_choice = settings_obj.ollama_embedding_model.replace(':', '_').replace('.', '_').replace('-', '_')
+            return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
+        else:
+            # For OpenAI in selfhosted
+            return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
+
     # Get default settings
     try:
         settings_obj = get_default_settings()
@@ -3548,6 +3530,12 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
         else:
             if isinstance(embedder, OpenAIRequester):
                 embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
+            elif isinstance(embedder, OllamaRequester):
+                is_valid, response = embedder.embed_texts(batch, model_name=model_name)
+                if is_valid:
+                    embeddings.extend([r['embedding'] for r in response])
+                else:
+                    raise Exception(f'Error while embedding with Ollama: {response}')
             else:  # GeminiEmbedder
                 embeddings.extend(embedder.embed_texts(batch))
     
@@ -3591,6 +3579,12 @@ def embed_text_with_model(text, model_choice):
     else:
         if isinstance(embedder, OpenAIRequester):
             embedding = embedder.embed_text(text, model_name=model_name)
+        elif isinstance(embedder, OllamaRequester):
+            is_valid, response = embedder.embed_text(text, model_name=model_name)
+            if is_valid:
+                embedding = response['embedding']
+            else:
+                raise Exception(f'Error while embedding with Ollama: {response}')
         else:  # GeminiEmbedder
             embedding = embedder.embed_texts(text)[0]
 

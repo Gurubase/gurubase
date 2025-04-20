@@ -10,6 +10,7 @@ import { PublicEnvScript } from "next-runtime-env";
 
 import StoreProvider from "@/app/StoreProvider";
 import { Toaster } from "@/components/ui/Sonner";
+import ConfigurationCheck from "@/components/ConfigurationCheck";
 
 import { CSPostHogProvider } from "./providers";
 
@@ -76,6 +77,7 @@ export default function RootLayout({ children }) {
       <body className={`${inter.className} overflow-x-hidden`}>
         <div className="flex min-h-screen flex-col">
           <PageTransition />
+          <ConfigurationCheck />
           {children}
           <Toaster />
           {process.env.NEXT_PUBLIC_NODE_ENV === "production" && (
