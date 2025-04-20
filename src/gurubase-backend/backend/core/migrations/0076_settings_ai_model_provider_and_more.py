@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0071_datasource_github_glob_include_and_more'),
+        ('core', '0075_rename_zendesk_subdomain_integration_zendesk_domain'),
     ]
 
     operations = [
