@@ -930,6 +930,7 @@ def vector_db_fetch(
         trust_score = 0
 
         default_settings = get_default_settings()
+        default_threshold = default_settings.trust_score_threshold
 
         processed_ctx_relevances = {
             'removed': [],
@@ -937,12 +938,22 @@ def vector_db_fetch(
         }
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
+
+        # Calculate dynamic threshold
+        final_threshold = default_threshold
+        if context_relevance and 'contexts' in context_relevance and context_relevance['contexts']:
+            scores = [ctx['score'] for ctx in context_relevance['contexts']]
+            if scores:
+                max_score = max(scores)
+                dynamic_threshold = max_score - 0.2
+                final_threshold = max(default_threshold, dynamic_threshold)
         
         # Create a list of tuples containing (context, reranked_score, trust_score) for sorting
         context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
-            if ctx['score'] >= default_settings.trust_score_threshold:
+            # Filter using the final calculated threshold
+            if ctx['score'] >= final_threshold:
                 context_data.append((contexts[i], reranked_scores[i], ctx['score']))
                 processed_ctx_relevances['kept'].append(ctx)
             else:
@@ -1286,7 +1297,7 @@ def ask_question_with_stream(
             guru_type=get_guru_type_object(guru_type), 
             user_question=user_question, 
             rerank_threshold=default_settings.rerank_threshold, 
-            trust_score_threshold=default_settings.trust_score_threshold, 
+            trust_score_threshold=default_settings.trust_score_threshold,  # No need to use the dynamic trust score. Because we haven't found any valid contexts to update the trust score.
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
             enhanced_question=enhanced_question
