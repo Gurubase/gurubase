@@ -195,7 +195,7 @@ class AnalyticsService:
             is_github = False
         except DataSource.DoesNotExist:
             try:
-                data_source = GithubFile.objects.select_related('data_source').get(link=data_source_url)
+                data_source = GithubFile.objects.select_related('data_source').get(link=data_source_url, data_source__guru_type=guru_type)
                 is_github = True
             except GithubFile.DoesNotExist:
                 return None
