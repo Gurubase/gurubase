@@ -472,8 +472,9 @@ export function SourcesTableSection({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[20%]">Type</TableHead>
-            <TableHead className="w-[50%]">Name</TableHead>
-            <TableHead className="w-[30%]">Details</TableHead>
+            <TableHead className="w-[60%]">Name</TableHead>
+            <TableHead className="w-[20%]"></TableHead>
+            <TableHead className="w-[20%]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -520,6 +521,7 @@ export function SourcesTableSection({
                   <TableCell className="">
                     <div className="flex items-center space-x-2 justify-end">
                       {renderBadges(source)}
+
                       <span>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
