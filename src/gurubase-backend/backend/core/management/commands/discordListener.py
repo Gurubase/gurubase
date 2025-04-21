@@ -638,8 +638,8 @@ class Command(BaseCommand):
                 client.run(token, log_handler=handler, log_level=logging.DEBUG)
                 break  # If client.run() completes normally, exit the loop
             except BotTokenValidationException as e:
-                self.stdout.write(self.style.WARNING(f'No valid bot token found: {str(e)}'))
-                self.stdout.write(self.style.WARNING('Retrying in 5 seconds...'))
+                # self.stdout.write(self.style.WARNING(f'No valid bot token found: {str(e)}'))
+                # self.stdout.write(self.style.WARNING('Retrying in 5 seconds...'))
                 time.sleep(5)  # Wait for 5 seconds before retrying
             except KeyboardInterrupt:
                 self.stdout.write(self.style.SUCCESS('Shutting down Discord listener...'))

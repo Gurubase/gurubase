@@ -124,17 +124,6 @@ class Question(models.Model):
 
             if existing_by_slug:
                 raise ValidationError("A question with this slug and guru type already exists")
-
-            # This does not include Slack and Discord as all of the questions there belong to binges.
-            if self.source not in [Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]:
-                existing_by_question = Question.objects.exclude(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]).filter(
-                    question=self.question,
-                    guru_type=self.guru_type,
-                    binge__isnull=True,
-                ).exclude(pk=self.pk).exists()
-
-                if existing_by_question:
-                    raise ValidationError("A question with this text and guru type already exists")
         else:
             # Check uniqueness for binge questions
             existing_binge = Question.objects.filter(
@@ -340,6 +329,8 @@ class GuruType(models.Model):
     website_count_limit = models.IntegerField(default=1500)
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
+    jira_count_limit = models.IntegerField(default=100)
+    zendesk_count_limit = models.IntegerField(default=100)
 
     text_embedding_model = models.CharField(
         max_length=100,
@@ -487,7 +478,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
+    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -521,6 +512,16 @@ class GuruType(models.Model):
             type=DataSource.Type.GITHUB_REPO
         ).count()
 
+        jira_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.JIRA
+        ).count()
+
+        zendesk_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.ZENDESK
+        ).count()
+
         # Get total PDF size in MB
         pdf_sources = DataSource.objects.filter(
             guru_type=self,
@@ -542,6 +543,14 @@ class GuruType(models.Model):
         # Check GitHub repo limit
         if (github_count + github_urls_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
+
+        # Check Jira issue limit
+        if (jira_count + jira_urls_count) > self.jira_count_limit:
+            return False, f"Jira issue limit ({self.jira_count_limit}) reached"
+
+        # Check Zendesk ticket limit
+        if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
+            return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
 
         # Check PDF size limit if file provided
         if file:
@@ -614,6 +623,8 @@ class DataSource(models.Model):
         WEBSITE = "WEBSITE"
         YOUTUBE = "YOUTUBE"
         GITHUB_REPO = "GITHUB_REPO"
+        JIRA = "JIRA"
+        ZENDESK = "ZENDESK"
 
     class Status(models.TextChoices):
         NOT_PROCESSED = "NOT_PROCESSED"
@@ -748,7 +759,7 @@ class DataSource(models.Model):
 
     def write_to_milvus(self, overridden_model=None):
         # Model override is added to reinsert code context after changing the embedding model
-        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
@@ -768,6 +779,11 @@ class DataSource(models.Model):
         else:
             _, dimension = get_embedding_model_config(model)
             collection_name = self.guru_type.milvus_collection_name
+
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
@@ -792,17 +808,17 @@ class DataSource(models.Model):
                     if language:
                         splitted = split_code(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             language
                         )
                     else:
                         splitted = split_text(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             separators=["\n\n", "\n", ".", "?", "!", " ", ""]
                         )
                     
@@ -875,9 +891,9 @@ class DataSource(models.Model):
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
@@ -1237,6 +1253,11 @@ class Settings(models.Model):
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
 
+    # Splitting configuration
+    split_size = models.IntegerField(default=2000)
+    split_overlap = models.IntegerField(default=300)
+    split_min_length = models.IntegerField(default=500)
+
     @classmethod
     def get_default_embedding_model(cls):
         """
@@ -1260,8 +1281,15 @@ class Settings(models.Model):
         Returns:
             tuple: (is_valid: bool, errors: dict)
         """
+        from core.exceptions import IntegrityError
         if self.ai_model_provider != self.AIProvider.OLLAMA:
             return True
+
+        if not settings.ENV == 'selfhosted':
+            raise IntegrityError('Ollama is not enabled for this environment')
+
+        if not settings.BETA_FEAT_ON:
+            raise IntegrityError('Ollama is not enabled for this environment')
 
         # Validate required fields
         if not self.ollama_url:
@@ -1773,11 +1801,17 @@ class GithubFile(models.Model):
         return f"{self.path}"
 
     def write_to_milvus(self):
-        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
 
         if self.in_milvus:
             return
+
+        # Fetch the global settings object
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         # Split the content into chunks
         extension = self.path.split('/')[-1].split('.')[-1]
@@ -1785,17 +1819,17 @@ class GithubFile(models.Model):
         if language:
             splitted = split_code(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 language
             )
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
@@ -1896,6 +1930,8 @@ class Integration(models.Model):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
         GITHUB = "GITHUB"
+        JIRA = "JIRA"
+        ZENDESK = "ZENDESK"
 
     type = models.CharField(
         max_length=50,
@@ -1916,6 +1952,15 @@ class Integration(models.Model):
     github_secret = models.TextField(null=True, blank=True)
     github_bot_name = models.TextField(null=True, blank=True)
     github_html_url = models.TextField(null=True, blank=True)
+
+    jira_api_key = models.TextField(null=True, blank=True)
+    jira_user_email = models.TextField(null=True, blank=True)
+    jira_domain = models.TextField(null=True, blank=True)
+
+    zendesk_domain = models.TextField(null=True, blank=True)
+    zendesk_api_token = models.TextField(null=True, blank=True)
+    zendesk_user_email = models.TextField(null=True, blank=True)
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1948,6 +1993,20 @@ class Integration(models.Model):
             else:
                 return None
         return None
+
+    @property
+    def masked_jira_api_key(self):
+        if self.jira_api_key:
+            return self.jira_api_key[:3] + ('*' * len(self.jira_api_key[3:-3])) + self.jira_api_key[-3:]
+        else:
+            return None
+        
+    @property
+    def masked_zendesk_api_token(self):
+        if self.zendesk_api_token:
+            return self.zendesk_api_token[:3] + ('*' * len(self.zendesk_api_token[3:-3])) + self.zendesk_api_token[-3:]
+        else:
+            return None
 
     class Meta:
         unique_together = ['type', 'guru_type']

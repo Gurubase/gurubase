@@ -84,7 +84,7 @@ const ConfigurationCheck = () => {
         setIsApiKeyValid(isKeyValid);
 
         if (!isKeyValid) {
-          showConfigToast("Configure a valid OpenAI API Key to create a Guru.");
+          showConfigToast("Configure a valid OpenAI API Key to use Gurubase.");
         } else {
           isConfigValid = true;
           clearToast();

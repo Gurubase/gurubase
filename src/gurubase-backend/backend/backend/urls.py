@@ -86,6 +86,9 @@ urlpatterns += [
     path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
 
     path('github/', core_views.github_webhook, name='github_webhook'),
+    path('jira/issues/<int:integration_id>/', core_views.list_jira_issues, name='list_jira_issues'),
+    path('zendesk/tickets/<int:integration_id>/', core_views.list_zendesk_tickets, name='list_zendesk_tickets'),
+    path('zendesk/articles/<int:integration_id>/', core_views.list_zendesk_articles, name='list_zendesk_articles'),
 ]
 
 if settings.STREAM_ENABLED:

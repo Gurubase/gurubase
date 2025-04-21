@@ -38,6 +38,16 @@ class PDFContentExtractionError(ContentExtractionError):
     pass
 
 
+class JiraContentExtractionError(ContentExtractionError):
+    """Exception raised for errors in Jira content extraction."""
+    pass
+
+
+class ZendeskContentExtractionError(ContentExtractionError):
+    """Exception raised for errors in Zendesk content extraction."""
+    pass
+
+
 class WebsiteContentExtractionError(ContentExtractionError):
     """Exception raised for errors in Website content extraction."""
     pass 
@@ -60,4 +70,25 @@ class ThrottlingException(Exception):
 
 class ValidationError(Exception):
     """Exception raised for validation errors."""
+    pass
+
+class ZendeskError(Exception):
+    """Exception raised for Zendesk errors."""
+    pass
+
+class ZendeskAuthenticationError(ZendeskError):
+    """Exception raised for Zendesk authentication errors."""
+    pass
+
+class ZendeskInvalidDomainError(ZendeskError):
+    """Exception raised for Zendesk invalid domain errors."""
+    pass
+
+class ZendeskInvalidSubdomainError(ZendeskError):
+    """Exception raised for Zendesk invalid subdomain errors."""
+    pass
+
+
+class IntegrityError(Exception):
+    """Exception raised for integrity errors."""
     pass
