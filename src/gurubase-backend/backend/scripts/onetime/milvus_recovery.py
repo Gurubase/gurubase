@@ -100,7 +100,7 @@ def main():
     logger.info("Starting reset script")
     try:
         # logger.info("Step 1: Resetting datasources")
-        # reset_datasources()
+        reset_datasources()
         
         logger.info("Step 2: Deleting GitHub files")
         delete_github_files()
