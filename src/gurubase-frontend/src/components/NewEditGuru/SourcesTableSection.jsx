@@ -77,7 +77,11 @@ export function SourcesTableSection({
   setIsZendeskSidebarOpen,
   setShowZendeskIntegrationModal,
   zendeskIntegration,
-  isEditMode
+  isEditMode,
+  setIsGithubSidebarOpen,
+  handleEditGithubGlob,
+  setIsEditingRepo,
+  setEditingRepo
 }) {
   const [filterType, setFilterType] = useState("all");
 
@@ -109,6 +113,17 @@ export function SourcesTableSection({
     }
   };
 
+  const handleAddGithub = () => {
+    setClickedSource([]);
+    if (typeof setIsEditingRepo === "function") {
+      setIsEditingRepo(false);
+    }
+    if (typeof setEditingRepo === "function") {
+      setEditingRepo(null);
+    }
+    setIsGithubSidebarOpen(true);
+  };
+
   const handleUploadPdf = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
@@ -120,7 +135,8 @@ export function SourcesTableSection({
     youtube: handleAddYoutube,
     jira: handleAddJira,
     onUploadPdfClick: handleUploadPdf,
-    zendesk: handleAddZendesk
+    zendesk: handleAddZendesk,
+    github_repo: handleAddGithub
   };
 
   const sourceLoadingStates = {
@@ -556,6 +572,14 @@ export function SourcesTableSection({
                                 onClick={() => handleEditSource(source)}>
                                 <Edit className="mr-2 h-3 w-3" />
                                 Edit
+                              </DropdownMenuItem>
+                            )}
+                            {source.type === "github_repo" && (
+                              <DropdownMenuItem
+                                disabled={isSourcesProcessing}
+                                onClick={() => handleEditGithubGlob(source)}>
+                                <Edit className="mr-2 h-3 w-3" />
+                                Edit Glob
                               </DropdownMenuItem>
                             )}
                             {config?.canReindex && (
