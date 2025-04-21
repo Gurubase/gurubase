@@ -6,12 +6,13 @@ import {
 } from "lucide-react";
 
 import {
+  GitHubIcon,
   JiraIcon,
   LogosYoutubeIcon,
   SolarFileTextBold,
   // SolarTrashBinTrashBold, // Keep for potential future use if needed directly
   SolarVideoLibraryBold,
-  ZendeskIcon // Placeholder Icon
+  ZendeskIcon
 } from "@/components/Icons"; // Assuming Icons barrel file exists or adjust path
 
 // Check if beta features are enabled via environment variable
@@ -26,13 +27,14 @@ const baseSourceTypesConfig = {
     displaySourceText: "Website", // Text shown in the table 'Type' column
     icon: LinkIcon, // Icon for the table row
     actionButtonIcon: LinkIcon, // Icon for the 'Add' button
-    actionButtonText: "Add Website",
+    actionButtonText: "Website",
     sidebarStateSetterName: "setIsUrlSidebarOpen", // Name of the state setter in NewGuru
     formField: "websiteUrls", // Corresponding field in the form schema
     canReindex: true, // Can this source type be reindexed?
     canEdit: true, // Can this source type be edited (open sidebar)?
     requiresIntegrationCheck: false, // Does adding require an integration check?
-    filterValue: "website" // Value used in the filter dropdown
+    filterValue: "website", // Value used in the filter dropdown
+    willGroup: true // Group by domain
   },
   YOUTUBE: {
     id: "youtube",
@@ -41,13 +43,14 @@ const baseSourceTypesConfig = {
     displaySourceText: "Video",
     icon: SolarVideoLibraryBold,
     actionButtonIcon: LogosYoutubeIcon,
-    actionButtonText: "Add YouTube",
+    actionButtonText: "YouTube",
     sidebarStateSetterName: "setIsYoutubeSidebarOpen",
     formField: "youtubeLinks",
     canReindex: false,
     canEdit: true,
     requiresIntegrationCheck: false,
-    filterValue: "youtube"
+    filterValue: "youtube",
+    willGroup: true // Group by domain
   },
   PDF: {
     id: "pdf",
@@ -56,7 +59,7 @@ const baseSourceTypesConfig = {
     displaySourceText: "File",
     icon: SolarFileTextBold,
     actionButtonIcon: Upload,
-    actionButtonText: "Upload PDFs",
+    actionButtonText: "PDFs",
     sidebarStateSetterName: null, // PDFs don't open a sidebar for editing content
     formField: "uploadedFiles",
     canReindex: false,
@@ -64,7 +67,24 @@ const baseSourceTypesConfig = {
     requiresIntegrationCheck: false,
     hasPrivacyToggle: true, // Specific to PDF
     actionHandlerName: "onUploadPdfClick", // Specific handler for PDF upload trigger
+    willGroup: false, // Do not group PDFs
     filterValue: "pdf"
+  },
+  GITHUB: {
+    id: "github_repo",
+    apiType: "GITHUB_REPO",
+    displayName: "GitHub",
+    displaySourceText: "GitHub",
+    icon: GitHubIcon,
+    actionButtonIcon: GitHubIcon,
+    actionButtonText: "GitHub",
+    sidebarStateSetterName: "setIsGithubSidebarOpen",
+    formField: "githubRepos",
+    canReindex: true,
+    canEdit: false,
+    requiresIntegrationCheck: false,
+    filterValue: "github_repo",
+    willGroup: false // Do not group GitHub repos
   }
 };
 
@@ -77,7 +97,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Jira",
     icon: JiraIcon,
     actionButtonIcon: JiraIcon,
-    actionButtonText: "Add Jira Issues",
+    actionButtonText: "Jira Issues",
     sidebarStateSetterName: "setIsJiraSidebarOpen",
     formField: "jiraIssues",
     canReindex: true,
@@ -86,7 +106,8 @@ if (isBetaFeaturesEnabled) {
     integrationCheckProp: "jiraIntegration", // Prop name in parent for integration status
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowJiraIntegrationModal", // State setter for the integration modal
-    filterValue: "jira"
+    filterValue: "jira",
+    willGroup: true // Group Jira issues by domain (project?)
   };
   baseSourceTypesConfig.ZENDESK = {
     id: "zendesk",
@@ -95,7 +116,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Zendesk",
     icon: ZendeskIcon, // Placeholder
     actionButtonIcon: ZendeskIcon, // Placeholder
-    actionButtonText: "Add Zendesk Data",
+    actionButtonText: "Zendesk Data",
     sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
     formField: "zendeskTickets", // Assuming a form field name
     canReindex: true,
@@ -104,7 +125,8 @@ if (isBetaFeaturesEnabled) {
     integrationCheckProp: "zendeskIntegration", // Prop name for integration status
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowZendeskIntegrationModal", // State setter for the integration modal
-    filterValue: "zendesk"
+    filterValue: "zendesk",
+    willGroup: true // Group Zendesk tickets by domain
   };
 }
 

@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/tooltip";
 import {
   AlertTriangle,
+  Check,
+  Clock,
   Edit,
   Info,
   LinkIcon,
@@ -50,8 +52,10 @@ import { getNormalizedDomain } from "@/utils/common";
 import { SourceActions } from "@/components/NewEditGuru/SourceActions";
 import {
   getSourceFilterItems,
-  getSourceTypeConfigById
+  getSourceTypeConfigById,
+  SOURCE_TYPES_CONFIG
 } from "@/config/sourceTypes";
+import { formatFileSize } from "@/utils/common";
 
 export function SourcesTableSection({
   sources,
@@ -137,7 +141,85 @@ export function SourcesTableSection({
 
   const renderBadges = (source) => {
     const config = getSourceTypeConfigById(source.type);
+    const isGithubSource =
+      source.type?.toLowerCase() === SOURCE_TYPES_CONFIG.GITHUB.id;
+    const isPdfSource =
+      source.type?.toLowerCase() === SOURCE_TYPES_CONFIG.PDF.id;
+
     if (!config) return null;
+
+    if (isGithubSource) {
+      let badgeProps = {
+        className:
+          "flex items-center rounded-full gap-1 px-2 py-0.5 text-xs font-medium pointer-events-none",
+        icon: Clock,
+        iconColor: "text-gray-500",
+        text: "Pending"
+      };
+
+      switch (source.status) {
+        case "SUCCESS":
+          badgeProps.icon = Check;
+          badgeProps.iconColor = "text-green-700";
+          badgeProps.text = `Indexed ${source.file_count} files`;
+          badgeProps.className += " bg-green-50 text-green-700";
+          break;
+        case "FAIL":
+          badgeProps.icon = AlertTriangle;
+          badgeProps.iconColor = "text-red-700";
+          badgeProps.text = "Failed";
+          badgeProps.className += " bg-red-50 text-red-700";
+          break;
+        case "NOT_PROCESSED":
+        default:
+          badgeProps.icon = Clock;
+          badgeProps.iconColor = "text-yellow-700";
+          badgeProps.text = "Processing";
+          badgeProps.className += " bg-yellow-50 text-yellow-700";
+          break;
+      }
+
+      const badgeElement = (
+        <Badge {...badgeProps}>
+          <badgeProps.icon className={cn("h-3 w-3", badgeProps.iconColor)} />
+          {badgeProps.text}
+        </Badge>
+      );
+
+      return (
+        <div className="flex items-center gap-2">
+          {source.status === "FAIL" && source.error ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span>{badgeElement}</span>
+                </TooltipTrigger>
+                <TooltipContent
+                  align="center"
+                  className="rounded-lg shadow-lg border p-3 bg-background max-w-xs"
+                  side="top"
+                  sideOffset={8}>
+                  <p className="text-center relative font-inter px-2 text-xs font-medium text-red-600">
+                    {source.error}
+                  </p>
+                  <div
+                    className="absolute w-3 h-3 border-l border-t bg-background"
+                    style={{
+                      bottom: "-6px",
+                      left: "50%",
+                      transform: "translateX(-50%) rotate(225deg)",
+                      borderColor: "inherit"
+                    }}
+                  />
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            badgeElement
+          )}
+        </div>
+      );
+    }
 
     if (config.hasPrivacyToggle) {
       return (
@@ -219,7 +301,7 @@ export function SourcesTableSection({
       );
     }
 
-    if (source.domains && config.canEdit) {
+    if (!isPdfSource && !isGithubSource && config.canEdit) {
       const statusGroups = source.domains.reduce((acc, domain) => {
         const status =
           domain.status === "NOT_PROCESSED"
@@ -310,18 +392,21 @@ export function SourcesTableSection({
           (source) => source.type.toLowerCase() === filterType.toLowerCase()
         );
 
-  const urlSources = filteredSources.filter(
-    (source) =>
-      source.type.toLowerCase() === "youtube" ||
-      source.type.toLowerCase() === "website" ||
-      source.type.toLowerCase() === "jira" ||
-      source.type.toLowerCase() === "zendesk"
-  );
-  const fileSources = filteredSources.filter(
-    (source) => source.type.toLowerCase() === "pdf"
-  );
+  // Separate sources based on the willGroup flag from config
+  const sourcesToGroup = [];
+  const sourcesNotToGroup = [];
 
-  const groupedSources = urlSources.reduce((acc, source) => {
+  filteredSources.forEach((source) => {
+    const config = getSourceTypeConfigById(source.type);
+    if (config?.willGroup) {
+      sourcesToGroup.push(source);
+    } else {
+      sourcesNotToGroup.push(source);
+    }
+  });
+
+  // Group the sources marked for grouping
+  const groupedSources = sourcesToGroup.reduce((acc, source) => {
     const domain = getNormalizedDomain(source.url);
     if (!domain) return acc;
     const existingSource = acc.find(
@@ -341,7 +426,7 @@ export function SourcesTableSection({
     return acc;
   }, []);
 
-  const displaySources = [...groupedSources, ...fileSources];
+  const displaySources = [...groupedSources, ...sourcesNotToGroup];
   const sourceFilterItems = getSourceFilterItems();
 
   return (
@@ -388,7 +473,7 @@ export function SourcesTableSection({
           <TableRow>
             <TableHead className="w-[20%]">Type</TableHead>
             <TableHead className="w-[50%]">Name</TableHead>
-            <TableHead className="w-[30%]"></TableHead>
+            <TableHead className="w-[30%]">Details</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -408,23 +493,27 @@ export function SourcesTableSection({
                   <TableCell className="font-medium">
                     <div className="flex items-center">
                       {IconComponent && (
-                        <IconComponent className="mr-2 h-4 w-4" />
+                        <IconComponent className="mr-2 h-4 w-4 text-gray-600" />
                       )}
                       <span>{config?.displaySourceText || source.sources}</span>
                     </div>
                   </TableCell>
 
                   <TableCell>
-                    {isSourceProcessing(source) && isSourcesProcessing ? (
+                    {source.status === "NOT_PROCESSED" &&
+                    isSourcesProcessing ? (
                       <div className="flex items-center gap-2 text-gray-500">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Processing source...</span>
+                        <span className="text-sm italic">Processing...</span>
                       </div>
                     ) : (
                       <span>
-                        {source?.type?.toLowerCase() === "pdf"
-                          ? source?.name
-                          : source?.domain}
+                        {source.name}
+                        {source.type === "pdf" && source.size && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            ({formatFileSize(source.size)})
+                          </span>
+                        )}
                       </span>
                     )}
                   </TableCell>

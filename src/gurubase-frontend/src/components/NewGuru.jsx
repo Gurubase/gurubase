@@ -43,7 +43,6 @@ import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
 import { PendingChangesIndicator } from "@/components/NewEditGuru/PendingChangesIndicator";
-import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSection";
 import { GuruDetailsSection } from "@/components/NewEditGuru/GuruDetailsSection"; // Import new component
 import { SourcesTableSection } from "@/components/NewEditGuru/SourcesTableSection"; // Import new component
 import { IntegrationRequiredModal } from "@/components/NewEditGuru/IntegrationRequiredModal";
@@ -225,7 +224,6 @@ export default function NewGuru({ guruData, isProcessing }) {
   const isOllamaConfigValid =
     isOllamaUrlValid && isEmbeddingModelValid && isBaseModelValid;
 
-
   // Modify the auth check effect
   useEffect(() => {
     if (!isSelfHosted && !user && !authLoading) {
@@ -267,10 +265,8 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [jiraEditorContent, setJiraEditorContent] = useState(""); // <-- New state for Jira editor
   const [isZendeskSidebarOpen, setIsZendeskSidebarOpen] = useState(false); // <-- Add Zendesk sidebar state
   const [zendeskEditorContent, setZendeskEditorContent] = useState(""); // <-- Add Zendesk editor state
-
-  // First, add a state to track the GitHub repository source status
-  const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
-  const [githubRepoErrors, setGithubRepoErrors] = useState({});
+  const [isGithubSidebarOpen, setIsGithubSidebarOpen] = useState(false); // Add state for potential future Github sidebar
+  const [githubEditorContent, setGithubEditorContent] = useState(""); // Add state for potential future Github editor
 
   const [jiraIntegration, setJiraIntegration] = useState(null); // <-- State for Jira integration details
   const [isLoadingIntegration, setIsLoadingIntegration] = useState(true); // <-- State for loading integration
@@ -500,58 +496,51 @@ export default function NewGuru({ guruData, isProcessing }) {
   // Update the useEffect where we process dataSources to find and set GitHub repo status
   useEffect(() => {
     if (customGuruData && dataSources?.results) {
-      const newSources = dataSources.results.map((source) => ({
-        id: source.id,
-        sources:
-          source.type === "YOUTUBE"
-            ? "Video"
-            : source.type === "PDF"
-              ? "File"
-              : source.type === "JIRA"
-                ? "Jira"
-                : source.type === "ZENDESK"
-                  ? "Zendesk" // <-- Add Zendesk type display
-                  : "Website",
-        name: source.title,
-        type: source.type.toLowerCase(),
-        size: source.type === "PDF" ? source.size : "N/A",
-        url: source.url || "",
-        status: source.status,
-        last_reindex_date: source.last_reindex_date || "",
-        error: source.error || "",
-        private: source.type === "PDF" ? !!source.private : undefined
-      }));
+      const newSources = dataSources.results.map((source) => {
+        const baseSource = {
+          id: source.id,
+          name: source.title, // Use title for PDF, domain/repo name for others
+          type: source.type.toLowerCase(),
+          size: source.type === "PDF" ? source.size : "N/A",
+          url: source.url || "",
+          status: source.status,
+          file_count: source.file_count, // Add file_count
+          last_reindex_date: source.last_reindex_date || "",
+          error: source.error || "",
+          private: source.type === "PDF" ? !!source.private : undefined
+        };
 
-      // Find GitHub repository source status
-      if (customGuruData?.github_repos) {
-        const githubSources = dataSources.results.filter(
-          (source) => source.url && source.url.startsWith("https://github.com")
-        );
+        // Adjust name for non-PDF types
+        if (
+          source.type === "WEBSITE" ||
+          source.type === "YOUTUBE" ||
+          source.type === "JIRA" ||
+          source.type === "ZENDESK"
+        ) {
+          baseSource.name = getNormalizedDomain(source.url);
+        } else if (source.type === "GITHUB") {
+          // Extract repo name from URL for GitHub
+          const urlParts = (source.url || "").split("/");
+          baseSource.name = urlParts.slice(-2).join("/"); // e.g., username/repo
+        }
 
-        if (githubSources.length > 0) {
-          const newStatuses = {};
-          const newErrors = {};
-          let hasUnprocessed = false;
+        return baseSource;
+      });
 
-          githubSources.forEach((source) => {
-            newStatuses[source.url] = source.status;
-            newErrors[source.url] = source.error || null;
-            if (source.status === "NOT_PROCESSED") {
-              hasUnprocessed = true;
-            }
-          });
+      // Check for unprocessed sources (including GitHub)
+      const hasUnprocessedSources = newSources.some(
+        (source) => source.status === "NOT_PROCESSED"
+      );
 
-          setGithubRepoStatuses(newStatuses);
-          setGithubRepoErrors(newErrors);
-
-          if (hasUnprocessed) {
-            setIsSourcesProcessing(true);
-            pollForGuruReadiness(customGuru);
-          }
+      if (hasUnprocessedSources) {
+        setIsSourcesProcessing(true);
+        if (customGuru && !isPollingRef.current) {
+          pollForGuruReadiness(customGuru);
         }
       }
 
       setSources(newSources);
+      // Update form values for all source types, including github
       form.setValue(
         "youtubeLinks",
         newSources.filter((s) => s.type === "youtube").map((s) => s.url)
@@ -875,36 +864,28 @@ export default function NewGuru({ guruData, isProcessing }) {
             // Update sources state while preserving privacy settings
             const updatedSources = latestSources.results.map((source) => ({
               id: source.id,
-              sources:
-                source.type === "YOUTUBE"
-                  ? "Video"
+              name:
+                source.type === "GITHUB"
+                  ? source.url.split("/").slice(-2).join("/")
                   : source.type === "PDF"
-                    ? "File"
-                    : source.type === "JIRA"
-                      ? "Jira"
-                      : source.type === "ZENDESK"
-                        ? "Zendesk"
-                        : "Website",
-              name: source.title,
+                    ? source.title
+                    : getNormalizedDomain(source.url),
               type: source.type.toLowerCase(),
               size: source.type === "PDF" ? source.size : "N/A",
               url: source.url || "",
               status: source.status,
+              file_count: source.file_count,
+              last_reindex_date: source.last_reindex_date || "",
               error: source.error || "",
-              // Preserve existing privacy setting or use the one from backend
-              private:
-                source.type === "PDF"
-                  ? existingPrivacySettings[source.id] !== undefined
-                    ? existingPrivacySettings[source.id]
-                    : !!source.private
-                  : undefined
+              private: source.type === "PDF" ? !!source.private : undefined
             }));
 
             setSources(updatedSources);
 
             // Update form values and reset states
+            const currentFormValues = form.getValues();
             const newFormValues = {
-              ...form.getValues(),
+              ...currentFormValues,
               youtubeLinks: updatedSources
                 .filter((s) => s.type === "youtube")
                 .map((s) => s.url),
@@ -1356,6 +1337,20 @@ export default function NewGuru({ guruData, isProcessing }) {
           "zendesk_urls",
           JSON.stringify(zendeskSources)
         );
+        hasNewSources = true;
+      }
+
+      // Add GitHub Repos from dirtyChanges (newly added via input)
+      const githubSources = dirtyChanges.sources
+        .filter(
+          (source) =>
+            source.type === "github" && source.newAddedSource && !source.deleted
+        )
+        .map((source) => source.url);
+
+      if (githubSources.length > 0) {
+        // Add github_urls to the form data
+        newSourcesFormData.append("github_urls", JSON.stringify(githubSources));
         hasNewSources = true;
       }
 
@@ -2108,20 +2103,6 @@ export default function NewGuru({ guruData, isProcessing }) {
               setDirtyChanges={setDirtyChanges}
             />
 
-            <div className="max-w-3xl">
-              <div className="flex items-center space-x-4">
-                <GithubSourceSection
-                  index_repo={index_repo}
-                  isEditMode={isEditMode}
-                  githubRepoStatuses={githubRepoStatuses}
-                  githubRepoErrors={githubRepoErrors}
-                  isSourcesProcessing={isSourcesProcessing}
-                  isProcessing={isProcessing}
-                  customGuruData={customGuruData}
-                />
-              </div>
-            </div>
-
             {/* Use SourcesTableSection component */}
             <SourcesTableSection
               sources={sources}
@@ -2145,7 +2126,6 @@ export default function NewGuru({ guruData, isProcessing }) {
               setIsZendeskSidebarOpen={setIsZendeskSidebarOpen}
               setShowZendeskIntegrationModal={setShowZendeskIntegrationModal}
               isEditMode={isEditMode}
-              // isSourceProcessing={isSourceProcessing} // Pass isSourceProcessing
             />
 
             <div className="w-full">
