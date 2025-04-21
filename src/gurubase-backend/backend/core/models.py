@@ -304,7 +304,6 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repos = models.JSONField(default=list, blank=True)
     github_details = models.JSONField(default=dict, blank=True, null=False)
     github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
@@ -319,7 +318,6 @@ class GuruType(models.Model):
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
-    index_repo = models.BooleanField(default=True)
     # GitHub repository limits
     github_repo_count_limit = models.IntegerField(default=1)
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
@@ -384,18 +382,11 @@ class GuruType(models.Model):
         if self.slug == '':
             raise ValidationError({'msg': 'Guru type name cannot be empty'})
 
-        unique_github_repos = set(self.github_repos)
-
-        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
-            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
-
         if settings.ENV == 'selfhosted':
             if self.text_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
             if self.code_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
-
-        self.github_repos = list(unique_github_repos)
 
         super().save(*args, **kwargs)
 
@@ -478,7 +469,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0):
+    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, github_repos_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -527,6 +518,12 @@ class GuruType(models.Model):
             guru_type=self,
             type=DataSource.Type.PDF
         )
+
+        github_repo_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.GITHUB_REPO
+        ).count()
+
         total_pdf_mb = 0
         for source in pdf_sources:
             if source.file:
@@ -541,7 +538,7 @@ class GuruType(models.Model):
             return False, f"YouTube video limit ({self.youtube_count_limit}) reached"
 
         # Check GitHub repo limit
-        if (github_count + github_urls_count) > self.github_repo_count_limit:
+        if (github_repo_count + github_repos_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
 
         # Check Jira issue limit

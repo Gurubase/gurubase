@@ -516,38 +516,43 @@ class ZendeskStrategy(DataSourceStrategy):
                 'message': str(e)
             }
 
-class GitHubRepoStrategy(DataSourceStrategy):
-    def create(self, guru_type_object, repo_url):
+class GitHubStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, repo):
+        url = repo['url']
+        glob_pattern = repo['glob_pattern']
+        glob_include = repo['include_glob']
         try:
-            # Create the data source
             data_source = DataSource.objects.create(
                 type=DataSource.Type.GITHUB_REPO,
                 guru_type=guru_type_object,
-                url=repo_url
+                url=url,
+                github_glob_pattern=glob_pattern,
+                github_glob_include=glob_include
             )
-
-            data_source.save()
-
             return {
-                'type': 'GITHUB_REPO',
-                'url': repo_url,
+                'type': 'GitHub',
+                'url': url,
                 'status': 'success',
                 'id': data_source.id,
-                'title': data_source.title
+                'title': data_source.title,
+                'github_glob_pattern': glob_pattern,
+                'github_glob_include': glob_include
             }
         except DataSourceExists as e:
             return {
-                'type': 'GITHUB_REPO',
-                'url': repo_url,
+                'type': 'GitHub',
+                'url': url,
                 'status': 'exists',
                 'id': e.args[0]['id'],
-                'title': e.args[0]['title']
+                'title': e.args[0]['title'],
+                'github_glob_pattern': e.args[0]['github_glob_pattern'],
+                'github_glob_include': e.args[0]['github_glob_include']
             }
         except Exception as e:
-            logger.error(f'Error processing GitHub repository {repo_url}: {traceback.format_exc()}')
+            logger.error(f'Error processing GitHub repository {url}: {traceback.format_exc()}')
             return {
-                'type': 'GITHUB_REPO',
-                'url': repo_url,
+                'type': 'GitHub',
+                'url': url,
                 'status': 'error',
                 'message': str(e)
             }

@@ -1170,12 +1170,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       // Fetch updated guru data after create/update
       await fetchGuruData(guruSlug);
 
-      // If there are GitHub-related changes, mark for polling
-      if (hasGithubChanges) {
-        hasChanges = true;
-        await fetchDataSources(guruSlug);
-      }
-
       // Handle deleted sources
       if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
         const deletedSourceIds = dirtyChanges.sources
@@ -1346,57 +1340,25 @@ export default function NewGuru({ guruData, isProcessing }) {
       }
 
       // Add GitHub Repos from dirtyChanges (newly added via input)
-      const githubSources = dirtyChanges.sources
-        .filter(
-          (source) =>
-            source.type === "github" && source.newAddedSource && !source.deleted
-        )
-        .map((source) => source.url);
+      const githubSources = dirtyChanges.sources.filter(
+        (source) =>
+          source.type === "github_repo" &&
+          (source.newAddedSource || source.updated) &&
+          !source.deleted
+      );
 
       if (githubSources.length > 0) {
         // Add github_urls to the form data
-        newSourcesFormData.append("github_urls", JSON.stringify(githubSources));
+        newSourcesFormData.append(
+          "github_repos",
+          JSON.stringify(githubSources)
+        );
         hasNewSources = true;
       }
 
       if (hasNewSources) {
         hasChanges = true;
         setIsSourcesProcessing(true);
-
-        // Get all source IDs including those from the same domain groups
-        const processingIds = sources.reduce((ids, source) => {
-          if (source.domains) {
-            // For grouped domains (website/youtube), add all domain IDs
-            const domainUrls = source.domains.map((d) => d.url);
-            const matchingNewSources = dirtyChanges.sources.some(
-              (newSource) =>
-                newSource.newAddedSource &&
-                !newSource.deleted &&
-                domainUrls.includes(newSource.url)
-            );
-
-            if (matchingNewSources) {
-              ids.push(source.id); // Add the group ID
-              source.domains.forEach((domain) => ids.push(domain.id)); // Add all domain IDs
-            }
-          } else if (
-            dirtyChanges.sources.some(
-              (newSource) =>
-                newSource.newAddedSource &&
-                !newSource.deleted &&
-                newSource.id === source.id
-            )
-          ) {
-            // For PDFs, use the file name instead of the temporary ID
-            if (source.type?.toLowerCase() === "pdf") {
-              ids.push(source.name);
-            } else {
-              ids.push(source.id);
-            }
-          }
-
-          return ids;
-        }, []);
 
         const sourcesResponse = await addGuruSources(
           guruSlug,
@@ -2106,13 +2068,14 @@ export default function NewGuru({ guruData, isProcessing }) {
         // Mark as dirty changes
         setDirtyChanges((prev) => ({
           ...prev,
-          guruUpdated: true, // Mark form as changed
           sources: [
             ...prev.sources.filter((s) => s.id !== repoId && s.url !== repoUrl),
             {
               id: String(repoId || `github-${Date.now()}`), // Ensure string
               updated: true,
               url: repoUrl,
+              newAddedSource: false,
+              deleted: false,
               type: "github_repo",
               glob_pattern: globPattern || "", // Ensure string
               include_glob: !!includeGlob // Ensure boolean
@@ -2161,7 +2124,9 @@ export default function NewGuru({ guruData, isProcessing }) {
               url: repoUrl,
               type: "github_repo",
               glob_pattern: globPattern || "", // Ensure string
-              include_glob: !!includeGlob // Ensure boolean
+              include_glob: !!includeGlob, // Ensure boolean
+              newAddedSource: true,
+              deleted: false
             }
           ]
         }));

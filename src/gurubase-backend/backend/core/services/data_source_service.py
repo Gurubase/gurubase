@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
 from core.models import DataSource, GuruType, Integration
-from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy
+from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, GitHubStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
 
@@ -18,7 +18,8 @@ class DataSourceService:
             'youtube': YouTubeStrategy(),
             'website': WebsiteStrategy(),
             'jira': JiraStrategy(),
-            'zendesk': ZendeskStrategy()
+            'zendesk': ZendeskStrategy(),
+            'github': GitHubStrategy()
         }
 
     def validate_pdf_files(self, pdf_files: List[UploadedFile], pdf_privacies: List[bool]) -> None:
@@ -46,7 +47,7 @@ class DataSourceService:
         
         Args:
             urls: List of URLs to validate
-            url_type: Type of URLs ('website' or 'youtube' or 'jira' or 'zendesk')
+            url_type: Type of URLs ('website' or 'youtube' or 'jira' or 'zendesk' or 'github')
             
         Raises:
             ValueError: If validation fails
@@ -57,7 +58,8 @@ class DataSourceService:
                 website_urls_count=len(urls) if url_type == 'website' else 0,
                 youtube_urls_count=len(urls) if url_type == 'youtube' else 0,
                 jira_urls_count=len(urls) if url_type == 'jira' else 0,
-                zendesk_urls_count=len(urls) if url_type == 'zendesk' else 0
+                zendesk_urls_count=len(urls) if url_type == 'zendesk' else 0,
+                github_repos_count=len(urls) if url_type == 'github' else 0
             )
             if not is_allowed:
                 raise ValueError(error_msg)
@@ -86,7 +88,8 @@ class DataSourceService:
         youtube_urls: List[str], 
         website_urls: List[str],
         jira_urls: List[str],
-        zendesk_urls: List[str]
+        zendesk_urls: List[str],
+        github_repos: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Creates data sources of different types
@@ -98,6 +101,7 @@ class DataSourceService:
             website_urls: List of website URLs
             jira_urls: List of Jira URLs
             zendesk_urls: List of Zendesk URLs
+            github_repos: List of GitHub repos
         Returns:
             List of created data source results
         """
@@ -126,6 +130,10 @@ class DataSourceService:
         clean_zendesk_urls = clean_data_source_urls(zendesk_urls)
         for url in clean_zendesk_urls:
             results.append(self.strategies['zendesk'].create(self.guru_type_object, url))
+
+        # Process GitHub repos
+        for repo in github_repos:
+            results.append(self.strategies['github'].create(self.guru_type_object, repo))
 
         # Trigger background task
         data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)
