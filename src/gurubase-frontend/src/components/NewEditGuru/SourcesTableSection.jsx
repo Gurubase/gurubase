@@ -500,15 +500,14 @@ export function SourcesTableSection({
                   </TableCell>
 
                   <TableCell>
-                    {source.status === "NOT_PROCESSED" &&
-                    isSourcesProcessing ? (
+                    {isSourceProcessing(source) && isSourcesProcessing ? (
                       <div className="flex items-center gap-2 text-gray-500">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
-                        <span className="text-sm italic">Processing...</span>
+                        <span className="text-sm">Processing source...</span>
                       </div>
                     ) : (
                       <span>
-                        {source.name}
+                        {source.name || source.domain}
                         {source.type === "pdf" && source.size && (
                           <span className="ml-2 text-xs text-gray-400">
                             ({formatFileSize(source.size)})
