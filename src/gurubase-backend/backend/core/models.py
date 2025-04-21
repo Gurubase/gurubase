@@ -124,17 +124,6 @@ class Question(models.Model):
 
             if existing_by_slug:
                 raise ValidationError("A question with this slug and guru type already exists")
-
-            # This does not include Slack and Discord as all of the questions there belong to binges.
-            if self.source not in [Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]:
-                existing_by_question = Question.objects.exclude(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]).filter(
-                    question=self.question,
-                    guru_type=self.guru_type,
-                    binge__isnull=True,
-                ).exclude(pk=self.pk).exists()
-
-                if existing_by_question:
-                    raise ValidationError("A question with this text and guru type already exists")
         else:
             # Check uniqueness for binge questions
             existing_binge = Question.objects.filter(
@@ -340,6 +329,8 @@ class GuruType(models.Model):
     website_count_limit = models.IntegerField(default=1500)
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
+    jira_count_limit = models.IntegerField(default=100)
+    zendesk_count_limit = models.IntegerField(default=100)
 
     text_embedding_model = models.CharField(
         max_length=100,
@@ -487,7 +478,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0):
+    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -521,6 +512,16 @@ class GuruType(models.Model):
             type=DataSource.Type.GITHUB_REPO
         ).count()
 
+        jira_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.JIRA
+        ).count()
+
+        zendesk_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.ZENDESK
+        ).count()
+
         # Get total PDF size in MB
         pdf_sources = DataSource.objects.filter(
             guru_type=self,
@@ -542,6 +543,14 @@ class GuruType(models.Model):
         # Check GitHub repo limit
         if (github_count + github_urls_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
+
+        # Check Jira issue limit
+        if (jira_count + jira_urls_count) > self.jira_count_limit:
+            return False, f"Jira issue limit ({self.jira_count_limit}) reached"
+
+        # Check Zendesk ticket limit
+        if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
+            return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
 
         # Check PDF size limit if file provided
         if file:
@@ -614,6 +623,8 @@ class DataSource(models.Model):
         WEBSITE = "WEBSITE"
         YOUTUBE = "YOUTUBE"
         GITHUB_REPO = "GITHUB_REPO"
+        JIRA = "JIRA"
+        ZENDESK = "ZENDESK"
 
     class Status(models.TextChoices):
         NOT_PROCESSED = "NOT_PROCESSED"
@@ -748,7 +759,7 @@ class DataSource(models.Model):
 
     def write_to_milvus(self, overridden_model=None):
         # Model override is added to reinsert code context after changing the embedding model
-        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
@@ -768,6 +779,11 @@ class DataSource(models.Model):
         else:
             _, dimension = get_embedding_model_config(model)
             collection_name = self.guru_type.milvus_collection_name
+
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         if self.type == DataSource.Type.GITHUB_REPO:
             github_files = GithubFile.objects.filter(data_source=self, in_milvus=False)
@@ -792,17 +808,17 @@ class DataSource(models.Model):
                     if language:
                         splitted = split_code(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             language
                         )
                     else:
                         splitted = split_text(
                             file.content,
-                            settings.SPLIT_SIZE,
-                            settings.SPLIT_MIN_LENGTH,
-                            settings.SPLIT_OVERLAP,
+                            split_size,
+                            split_min_length,
+                            split_overlap,
                             separators=["\n\n", "\n", ".", "?", "!", " ", ""]
                         )
                     
@@ -875,9 +891,9 @@ class DataSource(models.Model):
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
@@ -943,7 +959,7 @@ class DataSource(models.Model):
 
         ids = self.doc_ids
         if self.type == DataSource.Type.GITHUB_REPO:
-            collection_name, dimension = get_embedding_model_config(model)
+            collection_name, dimension = get_embedding_model_config(model, sync=False)
         else:
             collection_name = self.guru_type.milvus_collection_name
         delete_vectors(collection_name, ids)
@@ -1180,6 +1196,7 @@ class OutOfContextQuestion(models.Model):
             self.user_question = self.question
 
         super().save(*args, **kwargs)
+
 class Settings(models.Model):
     class ScrapeType(models.TextChoices):
         CRAWL4AI = "CRAWL4AI", "Crawl4AI"
@@ -1188,6 +1205,10 @@ class Settings(models.Model):
     class DefaultEmbeddingModel(models.TextChoices):
         CLOUD = "IN_HOUSE", "In-house embedding model"
         SELFHOSTED = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
+
+    class AIProvider(models.TextChoices):
+        OPENAI = "OPENAI", "OpenAI"
+        OLLAMA = "OLLAMA", "Ollama"
 
     rerank_threshold = models.FloatField(default=0.01)
     rerank_threshold_llm_eval = models.FloatField(default=0.01)
@@ -1214,8 +1235,28 @@ class Settings(models.Model):
         blank=True
     )
 
+    ai_model_provider = models.CharField(
+        max_length=100,
+        choices=AIProvider.choices,
+        default=AIProvider.OPENAI,
+    )
+    ollama_url = models.URLField(max_length=2000, null=True, blank=True)
+    is_ollama_url_valid = models.BooleanField(default=False)
+    ollama_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    ollama_embedding_model_dimension = models.IntegerField(default=0)
+    last_valid_embedding_model = models.CharField(max_length=100, null=True, blank=True)
+    last_valid_embedding_model_dimension = models.IntegerField(default=0)
+    is_ollama_embedding_model_valid = models.BooleanField(default=False)
+    ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
+    is_ollama_base_model_valid = models.BooleanField(default=False)
+
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
+
+    # Splitting configuration
+    split_size = models.IntegerField(default=2000)
+    split_overlap = models.IntegerField(default=300)
+    split_min_length = models.IntegerField(default=500)
 
     @classmethod
     def get_default_embedding_model(cls):
@@ -1234,45 +1275,170 @@ class Settings(models.Model):
         # Fallback to environment-based default if no settings object exists
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
 
+    def validate_ollama_settings(self):
+        """
+        Validates Ollama settings and updates validation status fields.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        from core.exceptions import IntegrityError
+        if self.ai_model_provider != self.AIProvider.OLLAMA:
+            return True
+
+        if not settings.ENV == 'selfhosted':
+            raise IntegrityError('Ollama is not enabled for this environment')
+
+        if not settings.BETA_FEAT_ON:
+            raise IntegrityError('Ollama is not enabled for this environment')
+
+        # Validate required fields
+        if not self.ollama_url:
+            self.is_ollama_url_valid = False
+            self.is_ollama_embedding_model_valid = False
+            self.is_ollama_base_model_valid = False
+            return False
+        
+        if not self.ollama_embedding_model:
+            self.is_ollama_embedding_model_valid = False
+            return False
+        
+        if not self.ollama_base_model:
+            self.is_ollama_base_model_valid = False
+            return False
+        
+        # Check server health
+        try:
+            from core.requester import OllamaRequester
+            requester = OllamaRequester(self.ollama_url)
+            is_healthy, models, error = requester.check_ollama_health()
+            
+            if not is_healthy:
+                self.is_ollama_url_valid = False
+                self.is_ollama_embedding_model_valid = False
+                self.is_ollama_base_model_valid = False
+                return False
+            
+            self.is_ollama_url_valid = True
+            
+            # Validate models exist
+            if self.ollama_embedding_model and self.ollama_embedding_model not in models:
+                self.is_ollama_embedding_model_valid = False
+            elif self.ollama_embedding_model:
+                self.is_ollama_embedding_model_valid = True
+            
+            if self.ollama_base_model and self.ollama_base_model not in models:
+                self.is_ollama_base_model_valid = False
+            elif self.ollama_base_model:
+                self.is_ollama_base_model_valid = True
+            
+            # Determine embedding dimension
+
+            if self.ollama_embedding_model:
+                is_valid, response = requester.embed_text('test', self.ollama_embedding_model)
+                if is_valid:
+                    self.ollama_embedding_model_dimension = len(response['embedding'])
+                    self.last_valid_embedding_model = self.ollama_embedding_model
+                    self.last_valid_embedding_model_dimension = self.ollama_embedding_model_dimension
+                else:
+                    self.is_ollama_embedding_model_valid = False
+            
+        except Exception as e:
+            self.is_ollama_url_valid = False
+            self.is_ollama_embedding_model_valid = False
+            self.is_ollama_base_model_valid = False
+            return False
+
+    def validate_openai_settings(self):
+        """
+        Validates OpenAI API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.openai_api_key:
+            self.is_openai_key_valid = False
+            return True
+            
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.openai_api_key, timeout=10)
+            client.models.list()
+            self.is_openai_key_valid = True
+            self.last_valid_embedding_model = Settings.DefaultEmbeddingModel.SELFHOSTED.value
+            self.last_valid_embedding_model_dimension = 1536
+            return True
+        except Exception as e:
+            self.is_openai_key_valid = False
+            return False
+
+    def validate_firecrawl_settings(self):
+        """
+        Validates Firecrawl API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.firecrawl_api_key:
+            self.is_firecrawl_key_valid = False
+            return True
+            
+        if self.scrape_type != self.ScrapeType.FIRECRAWL:
+            self.is_firecrawl_key_valid = False
+            return True
+            
+        try:
+            import requests
+            url = "https://api.firecrawl.dev/v1/team/credit-usage"
+            headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
+            response = requests.get(url, headers=headers, timeout=10)
+            self.is_firecrawl_key_valid = response.status_code == 200
+            if not self.is_firecrawl_key_valid:
+                return False
+        except Exception as e:
+            self.is_firecrawl_key_valid = False
+            return False
+
+    def validate_youtube_settings(self):
+        """
+        Validates YouTube API key and updates validation status.
+        Returns:
+            tuple: (is_valid: bool, errors: dict)
+        """
+        if not self.youtube_api_key:
+            self.is_youtube_key_valid = False
+            return True
+            
+        try:
+            from core.requester import YouTubeRequester
+            requester = YouTubeRequester(self.youtube_api_key)
+            requester.get_most_popular_video()
+            self.is_youtube_key_valid = True
+            return True
+        except Exception as e:
+            logger.error(f'Error validating YouTube API key: {e}')
+            self.is_youtube_key_valid = False
+            return False
+
     def save(self, *args, **kwargs):
         # Set default embedding model based on environment if not set
         if not self.default_embedding_model:
             self.default_embedding_model = self.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else self.DefaultEmbeddingModel.SELFHOSTED
 
-        # Check OpenAI API key validity before saving
-        if self.openai_api_key:
-            try:
-                from openai import OpenAI
-                client = OpenAI(api_key=self.openai_api_key, timeout=10)
-                client.models.list()
-                self.is_openai_key_valid = True
-            except Exception:
-                self.is_openai_key_valid = False
-        else:
-            self.is_openai_key_valid = False
+        if self.ollama_base_model and ':' not in self.ollama_base_model:
+            self.ollama_base_model = f'{self.ollama_base_model}:latest'
 
-        if self.firecrawl_api_key:
-            try:
-                if self.scrape_type == Settings.ScrapeType.FIRECRAWL:
-                    import requests
-                    url = "https://api.firecrawl.dev/v1/team/credit-usage"
-                    headers = {"Authorization": f"Bearer {self.firecrawl_api_key}"}
-                    response = requests.get(url, headers=headers, timeout=10)
-                    self.is_firecrawl_key_valid = response.status_code == 200
-            except Exception:
-                self.is_firecrawl_key_valid = False
-        else:
-            self.is_firecrawl_key_valid = False
+        if self.ollama_embedding_model and ':' not in self.ollama_embedding_model:
+            self.ollama_embedding_model = f'{self.ollama_embedding_model}:latest'
 
-        if self.youtube_api_key:
-            try:
-                from core.requester import YouTubeRequester
-                requester = YouTubeRequester(self.youtube_api_key)
-                requester.get_most_popular_video()
-                self.is_youtube_key_valid = True
-            except Exception as e:
-                logger.error(f'Error validating YouTube API key: {e}')
-                self.is_youtube_key_valid = False
+        # Validate Ollama settings if provider is Ollama
+        if self.ai_model_provider == self.AIProvider.OLLAMA:
+            self.validate_ollama_settings()
+        else:
+            # Only validate OpenAI if not using Ollama
+            self.validate_openai_settings()
+        
+        # Validate other API keys
+        self.validate_firecrawl_settings()
+        self.validate_youtube_settings()
+        
 
         super().save(*args, **kwargs)
 
@@ -1635,11 +1801,17 @@ class GithubFile(models.Model):
         return f"{self.path}"
 
     def write_to_milvus(self):
-        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config
+        from core.utils import embed_texts_with_model, split_text, split_code, map_extension_to_language, get_embedding_model_config, get_default_settings
         from core.milvus_utils import insert_vectors
 
         if self.in_milvus:
             return
+
+        # Fetch the global settings object
+        default_settings = get_default_settings()
+        split_size = default_settings.split_size
+        split_min_length = default_settings.split_min_length
+        split_overlap = default_settings.split_overlap
 
         # Split the content into chunks
         extension = self.path.split('/')[-1].split('.')[-1]
@@ -1647,17 +1819,17 @@ class GithubFile(models.Model):
         if language:
             splitted = split_code(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 language
             )
         else:
             splitted = split_text(
                 self.content,
-                settings.SPLIT_SIZE,
-                settings.SPLIT_MIN_LENGTH,
-                settings.SPLIT_OVERLAP,
+                split_size,
+                split_min_length,
+                split_overlap,
                 separators=["\n\n", "\n", ".", "?", "!", " ", ""]
             )
 
@@ -1758,6 +1930,8 @@ class Integration(models.Model):
         DISCORD = "DISCORD"
         SLACK = "SLACK"
         GITHUB = "GITHUB"
+        JIRA = "JIRA"
+        ZENDESK = "ZENDESK"
 
     type = models.CharField(
         max_length=50,
@@ -1778,6 +1952,15 @@ class Integration(models.Model):
     github_secret = models.TextField(null=True, blank=True)
     github_bot_name = models.TextField(null=True, blank=True)
     github_html_url = models.TextField(null=True, blank=True)
+
+    jira_api_key = models.TextField(null=True, blank=True)
+    jira_user_email = models.TextField(null=True, blank=True)
+    jira_domain = models.TextField(null=True, blank=True)
+
+    zendesk_domain = models.TextField(null=True, blank=True)
+    zendesk_api_token = models.TextField(null=True, blank=True)
+    zendesk_user_email = models.TextField(null=True, blank=True)
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
@@ -1810,6 +1993,20 @@ class Integration(models.Model):
             else:
                 return None
         return None
+
+    @property
+    def masked_jira_api_key(self):
+        if self.jira_api_key:
+            return self.jira_api_key[:3] + ('*' * len(self.jira_api_key[3:-3])) + self.jira_api_key[-3:]
+        else:
+            return None
+        
+    @property
+    def masked_zendesk_api_token(self):
+        if self.zendesk_api_token:
+            return self.zendesk_api_token[:3] + ('*' * len(self.zendesk_api_token[3:-3])) + self.zendesk_api_token[-3:]
+        else:
+            return None
 
     class Meta:
         unique_together = ['type', 'guru_type']
@@ -1867,4 +2064,3 @@ class GuruCreationForm(models.Model):
 
     class Meta:
         ordering = ['-date_created']
-

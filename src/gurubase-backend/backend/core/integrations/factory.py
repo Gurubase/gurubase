@@ -2,6 +2,8 @@ from core.integrations.discord_strategy import DiscordStrategy
 from core.integrations.github_strategy import GitHubStrategy
 from core.integrations.slack_strategy import SlackStrategy
 from core.integrations.strategy import IntegrationStrategy
+from core.integrations.jira_strategy import JiraStrategy
+from core.integrations.zendesk_strategy import ZendeskStrategy
 from core.models import Integration
 
 
@@ -15,6 +17,10 @@ class IntegrationFactory:
             return SlackStrategy(integration)
         elif integration_type == 'GITHUB':
             return GitHubStrategy(integration)
+        elif integration_type == 'JIRA':
+            return JiraStrategy(integration)
+        elif integration_type == 'ZENDESK':
+            return ZendeskStrategy(integration)
         else:
             raise ValueError(f'Invalid integration type: {integration_type}')
 

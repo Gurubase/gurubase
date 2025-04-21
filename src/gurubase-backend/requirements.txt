@@ -55,3 +55,5 @@ crawl4ai==0.4.247
 scrapy==2.12.0
 google-genai==1.5.0
 openpyxl==3.1.5
+jira==3.8.0
+html2text==2025.4.15

@@ -19,12 +19,12 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.github.exceptions import GithubAppHandlerError
-from core.requester import GeminiRequester, OpenAIRequester
+from core.requester import GeminiRequester, OpenAIRequester, OllamaRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
 from core.gcp import replace_media_root_with_base_url, replace_media_root_with_nginx_base_url
-from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
+from core.models import CrawlState, FeaturedDataSource, Question, ContentPageStatistics, Settings, WidgetId, Binge, DataSource, GuruType, Integration, Thread, APIKey, GuruCreationForm
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
@@ -46,7 +46,7 @@ from core.utils import (
     
 )
 from core.guru_types import get_guru_type_object, get_guru_types, get_guru_type_object_by_maintainer, get_auth0_user
-from core.exceptions import PermissionError, NotFoundError
+from core.exceptions import IntegrityError, PermissionError, NotFoundError
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -91,7 +91,7 @@ from core.models import (
     WidgetId,
     Integration,
 )
-from core.requester import GeminiRequester
+from core.requester import GeminiRequester, JiraRequester, ZendeskRequester
 from core.serializers import (
     APIKeySerializer,
     BingeSerializer,
@@ -156,9 +156,21 @@ def summary(request, guru_type):
 
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
-        api_key_valid = default_settings.is_openai_key_valid
-        if not api_key_valid:
-            return Response({'msg': 'OpenAI API key is invalid'}, status=490)
+        valid = False
+        if default_settings.ai_model_provider == Settings.AIProvider.OPENAI:
+            valid = default_settings.is_openai_key_valid
+            error_type = 'openai'
+            reason = 'openai_key_invalid'
+        elif default_settings.ai_model_provider == Settings.AIProvider.OLLAMA:
+            valid = default_settings.is_ollama_url_valid and default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid
+            error_type = 'ollama'
+            if not default_settings.is_ollama_url_valid:
+                reason = 'ollama_url_invalid'
+            elif not (default_settings.is_ollama_base_model_valid and default_settings.is_ollama_embedding_model_valid):
+                reason = 'ollama_model_invalid'
+        if not valid:
+            return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
+
 
     if settings.ENV == 'selfhosted':
         user = None
@@ -226,25 +238,25 @@ def summary(request, guru_type):
         existing_question = None
     times['existence_check'] = time.time() - existence_start
 
-    if existing_question:
-        dirtiness_start = time.time()
-        is_dirty = is_question_dirty(existing_question)
-        times['dirtiness_check'] = time.time() - dirtiness_start
+    # if existing_question:
+    #     dirtiness_start = time.time()
+    #     is_dirty = is_question_dirty(existing_question)
+    #     times['dirtiness_check'] = time.time() - dirtiness_start
         
-        if not is_dirty:
-            response = {
-                'question': existing_question.question,
-                'question_slug': existing_question.slug,
-                'description': existing_question.description,
-                'user_question': existing_question.user_question,
-                'valid_question': True,
-                'completion_tokens': 0,
-                'prompt_tokens': 0,
-                'cached_prompt_tokens': 0,
-                "jwt": generate_jwt(),
-            }
-            times['total'] = time.time() - endpoint_start
-            return Response(response, status=status.HTTP_200_OK)
+    #     if not is_dirty:
+    #         response = {
+    #             'question': existing_question.question,
+    #             'question_slug': existing_question.slug,
+    #             'description': existing_question.description,
+    #             'user_question': existing_question.user_question,
+    #             'valid_question': True,
+    #             'completion_tokens': 0,
+    #             'prompt_tokens': 0,
+    #             'cached_prompt_tokens': 0,
+    #             "jwt": generate_jwt(),
+    #         }
+    #         times['total'] = time.time() - endpoint_start
+    #         return Response(response, status=status.HTTP_200_OK)
 
     answer, get_question_summary_times = get_question_summary(
         question, 
@@ -256,8 +268,8 @@ def summary(request, guru_type):
 
     times['get_question_summary'] = get_question_summary_times
 
-    if existing_question:
-        answer['question_slug'] = existing_question.slug
+    # if existing_question:
+    #     answer['question_slug'] = existing_question.slug
 
     times['total'] = time.time() - endpoint_start
     
@@ -295,8 +307,7 @@ def answer(request, guru_type):
     
     validate_guru_type(guru_type)
 
-    # jwt_time = time.time() - jwt_start
-    
+    # jwt_time = time.time() - jwt_start    
     payload_start = time.time()
     try:
         data = request.data
@@ -422,7 +433,9 @@ def answer(request, guru_type):
 @api_view(['GET'])
 @combined_auth
 def question_detail(request, guru_type, slug):
+    # This endpoint is only used for UI.
     # validate_guru_type(guru_type)
+
     
     user = request.user
     
@@ -446,7 +459,7 @@ def question_detail(request, guru_type, slug):
         guru_type_object, 
         binge, 
         slug, 
-        question_text,
+        None, # Do not search questions by question text, as we want to ask the same question again. This is not the case for integrations or API, but only for UI.
         allow_maintainer_access=True
     )
     if not question:
@@ -540,6 +553,8 @@ def my_gurus(request, guru_slug=None):
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
+                'jira_limit': guru.jira_count_limit,
+                'zendesk_limit': guru.zendesk_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit
             })
@@ -836,17 +851,30 @@ def create_data_sources(request, guru_type):
     website_urls = request.data.get('website_urls', '[]')
     github_urls = request.data.get('github_urls', '[]')
     pdf_privacies = request.data.get('pdf_privacies', '[]')
-    
+    jira_urls = request.data.get('jira_urls', '[]')
+    zendesk_urls = request.data.get('zendesk_urls', '[]')
     try:
-        youtube_urls = json.loads(youtube_urls)
-        website_urls = json.loads(website_urls)
-        github_urls = json.loads(github_urls)
-        pdf_privacies = json.loads(pdf_privacies)
+        if type(youtube_urls) == str:
+            youtube_urls = json.loads(youtube_urls)
+        if type(website_urls) == str:
+            website_urls = json.loads(website_urls)
+        if type(github_urls) == str:
+            github_urls = json.loads(github_urls)
+        if type(pdf_privacies) == str:
+            pdf_privacies = json.loads(pdf_privacies)
+        if type(jira_urls) == str:
+            jira_urls = json.loads(jira_urls)
+        if type(zendesk_urls) == str:
+            zendesk_urls = json.loads(zendesk_urls)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls:
+    if not settings.BETA_FEAT_ON:
+        jira_urls = []
+        zendesk_urls = []
+
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -856,13 +884,22 @@ def create_data_sources(request, guru_type):
         service.validate_pdf_files(pdf_files, pdf_privacies)
         service.validate_url_limits(youtube_urls, 'youtube')
         service.validate_url_limits(website_urls, 'website')
-        
+        service.validate_url_limits(jira_urls, 'jira')
+        service.validate_url_limits(zendesk_urls, 'zendesk')
+
+        if jira_urls:
+            service.validate_integration('jira')
+        if zendesk_urls:
+            service.validate_integration('zendesk')
+
         # Create data sources
         results = service.create_data_sources(
             pdf_files=pdf_files,
             pdf_privacies=pdf_privacies,
             youtube_urls=youtube_urls,
-            website_urls=website_urls
+            website_urls=website_urls,
+            jira_urls=jira_urls,
+            zendesk_urls=zendesk_urls
         )
         
         return Response({
@@ -1002,7 +1039,21 @@ def data_sources_frontend(request, guru_type):
             is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, github_urls_count=len(github_urls))
             if not is_allowed:
                 return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check Jira issue limits
+        jira_urls = json.loads(request.data.get('jira_urls', '[]'))
+        if jira_urls:
+            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, jira_urls_count=len(jira_urls))
+            if not is_allowed:
+                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check Zendesk ticket limits
+        zendesk_urls = json.loads(request.data.get('zendesk_urls', '[]'))
+        if zendesk_urls:
+            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, zendesk_urls_count=len(zendesk_urls))
+            if not is_allowed:
+                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
         return create_data_sources(request, guru_type)
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type)
@@ -1598,25 +1649,8 @@ def api_data_sources(request, guru_type):
         return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
-        try:
-            service = DataSourceService(guru_type_object, request.user)
-            
-            # Get URLs directly from request body
-            youtube_urls = request.data.get('youtube_urls', [])
-            website_urls = request.data.get('website_urls', [])
-
-            # Validate URL limits
-            service.validate_url_limits(youtube_urls, 'youtube')
-            service.validate_url_limits(website_urls, 'website')
-
-            # Create data sources (empty lists for PDF files and privacies)
-            results = service.create_data_sources([], [], youtube_urls, website_urls)
-            return Response(results, status=status.HTTP_200_OK)
-
-        except ValueError as e:
-            return response_handler.handle_error_response(str(e))
-        except Exception as e:
-            return response_handler.handle_error_response(f'Unexpected error: {str(e)}')
+        # Simply call the existing create_data_sources function
+        return create_data_sources(request, guru_type)
 
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type) 
@@ -2656,6 +2690,8 @@ def manage_settings(request):
     settings_obj = get_default_settings()
 
     if request.method == 'GET':
+        settings_obj.save() # Save to trigger validation
+        settings_obj.refresh_from_db()
         serializer = SettingsSerializer(settings_obj)
         return Response(serializer.data)
 
@@ -2668,8 +2704,22 @@ def manage_settings(request):
                 serializer.validated_data['firecrawl_api_key'] = settings_obj.firecrawl_api_key
             if not request.data.get('youtube_api_key_written'):
                 serializer.validated_data['youtube_api_key'] = settings_obj.youtube_api_key
-            serializer.save()
-            return Response(serializer.data)
+            
+            try:
+                serializer.save()
+                return Response(serializer.data)
+            except ValidationError as e:
+                logger.error(f"Validation error in manage_settings: {e}", exc_info=True)
+                return Response(
+                    {'errors': e.message_dict if hasattr(e, 'message_dict') else {'error': str(e)}},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except IntegrityError as e:
+                logger.error(f"Integrity error in manage_settings: {e}", exc_info=True)
+                return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error in manage_settings: {e}", exc_info=True)
+                return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -3071,3 +3121,172 @@ def github_webhook(request):
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     return Response({'message': 'Webhook received'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@jwt_auth
+def list_jira_issues(request, integration_id):
+    """
+    List Jira issues for a specific integration using a JQL query.
+    Requires integration_id in the path and accepts 'jql' as a query parameter.
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        # This shouldn't happen if integration exists, but good practice
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.JIRA:
+        return Response({'msg': 'This integration is not a Jira integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Get JQL from query params, default if not provided
+    jql_query = request.data.get('jql')
+    if not jql_query:
+        jql_query = 'ORDER BY created DESC'
+
+    try:
+        jira_requester = JiraRequester(integration)
+        issues = jira_requester.list_issues(jql=jql_query)
+        return Response({'issues': issues, 'issue_count': len(issues)}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from JiraRequester
+        error_str = str(e)
+        if "Invalid Jira credentials" in error_str:
+             return Response({'msg': 'Invalid Jira credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Jira API access forbidden" in error_str:
+             return Response({'msg': 'Jira API access forbidden. Check user permissions or API key scope.'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+             logger.error(f"Error listing Jira issues for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Jira issues: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Jira issues for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def list_zendesk_tickets(request, integration_id):
+    """
+    List Zendesk tickets for a specific integration.
+    Requires integration_id in the path.
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.ZENDESK:
+        return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        tickets = zendesk_requester.list_tickets()
+        return Response({'tickets': tickets, 'ticket_count': len(tickets)}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from ZendeskRequester
+        error_str = str(e)
+        if "Zendesk credentials" in error_str:
+             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Authentication failed" in error_str:
+             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Permission denied" in error_str:
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+        elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
+            return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
+        elif "rate limit exceeded" in error_str:
+            return Response({'msg': 'Zendesk API rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        else:
+             logger.error(f"Error listing Zendesk tickets for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Zendesk tickets: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Zendesk tickets for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@jwt_auth
+def list_zendesk_articles(request, integration_id):
+    """
+    List Zendesk help center articles for a specific integration.
+    Requires integration_id in the path.
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.ZENDESK:
+        return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        zendesk_requester = ZendeskRequester(integration)
+        articles = zendesk_requester.list_articles()
+        return Response({'articles': articles, 'article_count': len(articles)}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from ZendeskRequester
+        error_str = str(e)
+        if "Zendesk credentials" in error_str:
+             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Authentication failed" in error_str:
+             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Permission denied" in error_str:
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+        elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
+            return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
+        elif "rate limit exceeded" in error_str:
+            return Response({'msg': 'Zendesk API rate limit exceeded.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        else:
+             logger.error(f"Error listing Zendesk articles for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Zendesk articles: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Zendesk articles for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@jwt_auth
+def validate_ollama_url(request):
+    """
+    Validate if an Ollama URL is accessible and return available models
+    """
+    url = request.data.get('url')
+    if not url:
+        return Response({'error': 'URL is required'}, status=400)
+    
+    requester = OllamaRequester(url)
+    is_healthy, models, error = requester.check_ollama_health()
+    
+    if not is_healthy:
+        return Response({
+            'is_valid': False,
+            'error': error
+        }, status=400)
+    
+    return Response({
+        'is_valid': True,
+        'models': models
+    })

@@ -29,7 +29,7 @@ import jwt
 from colorthief import ColorThief
 from io import BytesIO
 from slugify import slugify
-from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key
+from core.requester import GeminiEmbedder, GeminiRequester, OpenAIRequester, CloudflareRequester, get_openai_api_key, OllamaRequester
 from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
@@ -41,6 +41,7 @@ import hashlib
 import pickle
 from rest_framework.views import exception_handler
 from rest_framework.exceptions import Throttled
+from core.requester import GptSummary
 
 logger = logging.getLogger(__name__)
 
@@ -278,7 +279,7 @@ def prepare_contexts(contexts, reranked_scores):
                 'question': reference_key,
                 'link': reference_link
             }
-        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE']:
+        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK']:
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],
@@ -930,6 +931,7 @@ def vector_db_fetch(
         trust_score = 0
 
         default_settings = get_default_settings()
+        default_threshold = default_settings.trust_score_threshold
 
         processed_ctx_relevances = {
             'removed': [],
@@ -937,12 +939,22 @@ def vector_db_fetch(
         }
 
         formatted_contexts = prepare_contexts_for_context_relevance(contexts)
+
+        # Calculate dynamic threshold
+        final_threshold = default_threshold
+        if context_relevance and 'contexts' in context_relevance and context_relevance['contexts']:
+            scores = [ctx['score'] for ctx in context_relevance['contexts']]
+            if scores:
+                max_score = max(scores)
+                dynamic_threshold = max_score - 0.2
+                final_threshold = max(default_threshold, dynamic_threshold)
         
         # Create a list of tuples containing (context, reranked_score, trust_score) for sorting
         context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
-            if ctx['score'] >= default_settings.trust_score_threshold:
+            # Filter using the final calculated threshold
+            if ctx['score'] >= final_threshold:
                 context_data.append((contexts[i], reranked_scores[i], ctx['score']))
                 processed_ctx_relevances['kept'].append(ctx)
             else:
@@ -1154,16 +1166,6 @@ def create_custom_guru_type_slug(name):
 
     return slug
 
-class GptSummary(BaseModel):
-    question: str
-    user_question: str
-    question_slug: str
-    description: str
-    valid_question: bool
-    user_intent: str
-    answer_length: int
-    enhanced_question: str
-
 
 def get_github_details_if_applicable(guru_type):
     guru_type_obj = get_guru_type_object(guru_type)
@@ -1286,7 +1288,7 @@ def ask_question_with_stream(
             guru_type=get_guru_type_object(guru_type), 
             user_question=user_question, 
             rerank_threshold=default_settings.rerank_threshold, 
-            trust_score_threshold=default_settings.trust_score_threshold, 
+            trust_score_threshold=default_settings.trust_score_threshold,  # No need to use the dynamic trust score. Because we haven't found any valid contexts to update the trust score.
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
             enhanced_question=enhanced_question
@@ -1316,13 +1318,7 @@ def ask_question_with_stream(
     used_prompt = messages[0]['content']
 
     start_chatgpt = time.perf_counter()
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL,
-        temperature=0,
-        messages=messages,
-        stream=True,
-        stream_options={"include_usage": True},
-    )
+    response = get_openai_requester().ask_question_with_stream(messages)
     times['chatgpt_completion'] = time.perf_counter() - start_chatgpt
     times['total'] = time.perf_counter() - start_total
 
@@ -1383,17 +1379,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
 
     start_response_await = time.perf_counter()
     try:
-        response = get_openai_client().beta.chat.completions.parse(
-            model=settings.GPT_MODEL,
-            temperature=0,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': prompt
-                }
-            ],
-            response_format=GptSummary
-        )
+        response = get_openai_requester().get_summary(prompt, question)
         times['response_await'] = time.perf_counter() - start_response_await
     except Exception as e:
         logger.error(f'Error while getting summary: {question}. Exception: {e}', exc_info=True)
@@ -1417,45 +1403,12 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
     parsed_response = parse_summary_response(question, response)
     times['parse_summary_response'] = time.perf_counter() - start_parse_summary_response
 
-    if binge:
-        parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
+    # if binge:
+    parsed_response['question_slug'] = f'{parsed_response["question_slug"]}-{uuid.uuid4()}'
     times['total'] = time.perf_counter() - start_total
 
     return parsed_response, times
 
-
-def ask_if_english(question):
-    response = get_openai_client().chat.completions.create(
-        model=settings.GPT_MODEL_MINI,
-        temperature=0,
-        messages=[
-            {
-                'role': 'system',
-                'content': "Is this question in English?. Return this json: {'question': 'question', 'is_english': True/False}"
-            },
-            {
-                'role': 'user',
-                'content': question
-            }
-        ],
-        response_format={'type': 'json_object'}
-    )
-
-    try:
-        answer = response.choices[0].message.content
-        answer = json.loads(answer)
-    except Exception as e:
-        logger.error(f'Error while getting the answer from the response: {e}. Response: {response.choices[0].message.content}', exc_info=True)
-        answer = {
-            'question': question,
-            'is_english': False
-        }
-
-    if "is_english" not in answer:
-        answer["is_english"] = False
-
-    return answer['is_english'], get_llm_usage_from_response(response, settings.GPT_MODEL_MINI)
-            
 
 def stream_question_answer(
         question, 
@@ -2354,7 +2307,6 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
     chunks = []
     latency_start = time.time()
     if not response:
-        logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
         return None, "No response from the LLM", usages, None
 
     for chunk in response:
@@ -2591,7 +2543,7 @@ def get_tokens_from_openai_response(response):
         return 0, 0, 0
     
     try:
-        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens
+        return response.usage.prompt_tokens, response.usage.completion_tokens, response.usage.prompt_tokens_details.cached_tokens if response.usage.prompt_tokens_details else 0
     except Exception as e:
         log_error_with_stack(f'Error while getting the tokens from the response {e}.')
         return 0, 0, 0
@@ -2734,23 +2686,6 @@ def get_root_summarization_of_guru_type(guru_type_slug):
 
 def get_all_root_summarizations():
     return Summarization.objects.filter(is_data_source_summarization=False, is_root=True)
-
-# Add this function after get_root_summarization_of_guru_type
-def get_github_url_from_data_source(guru_type_slug):
-    """
-    Get the first GitHub URL from a guru type's data sources.
-    
-    Args:
-        guru_type_slug: The slug of the guru type to search data sources for.
-        
-    Returns:
-        str: The GitHub URL if found, None otherwise.
-    """
-    data_sources = DataSource.objects.filter(guru_type__slug=guru_type_slug, url__contains='github.com')
-    if not data_sources.exists():
-        logger.info(f'No github data source found for {guru_type_slug}')
-        return None
-    return data_sources[0].url
 
 def check_binge_auth(binge, user):
     if not binge:
@@ -2925,66 +2860,67 @@ def clean_data_source_urls(urls):
     return cleaned_urls
 
 def is_question_dirty(question: Question):
-    """
-    Check if the question is dirty by checking if the guru type is dirty (new data sources added or updated) or if a question reference has been deleted.
+    return False
+    # """
+    # Check if the question is dirty by checking if the guru type is dirty (new data sources added or updated) or if a question reference has been deleted.
 
-    Args:
-        question: Question object
+    # Args:
+    #     question: Question object
         
-    Returns:
-        bool: True if the question is dirty, False otherwise
-    """
+    # Returns:
+    #     bool: True if the question is dirty, False otherwise
+    # """
     
-    def is_guru_dirty(guru_type: GuruType, question: Question):
-        from django.db import models
-        # Either new data sources are added or existing ones are updated AFTER the question is last answered
+    # def is_guru_dirty(guru_type: GuruType, question: Question):
+    #     from django.db import models
+    #     # Either new data sources are added or existing ones are updated AFTER the question is last answered
         
-        # Get all data sources for the guru type
-        data_sources = DataSource.objects.filter(guru_type=guru_type, status=DataSource.Status.SUCCESS)
+    #     # Get all data sources for the guru type
+    #     data_sources = DataSource.objects.filter(guru_type=guru_type, status=DataSource.Status.SUCCESS)
         
-        # If no data sources, guru is not dirty
-        if not data_sources.exists():
-            return False
+    #     # If no data sources, guru is not dirty
+    #     if not data_sources.exists():
+    #         return False
             
-        # Get the latest reindex date from data sources
-        latest_reindex = data_sources.aggregate(latest=models.Max('last_reindex_date'))['latest']
-        latest_created_date = data_sources.aggregate(latest=models.Max('date_created'))['latest']
+    #     # Get the latest reindex date from data sources
+    #     latest_reindex = data_sources.aggregate(latest=models.Max('last_reindex_date'))['latest']
+    #     latest_created_date = data_sources.aggregate(latest=models.Max('date_created'))['latest']
         
-        # If question was answered before the latest reindex or latest created date, it's dirty
-        if (latest_reindex and question.date_updated < latest_reindex) or question.date_updated < latest_created_date:
-            return True
+    #     # If question was answered before the latest reindex or latest created date, it's dirty
+    #     if (latest_reindex and question.date_updated < latest_reindex) or question.date_updated < latest_created_date:
+    #         return True
             
-        return False
+    #     return False
 
-    def is_question_reference_deleted(guru_type: GuruType, question: Question):
-        data_source_references = []
-        for reference in question.references:
-            # Skip stackoverflow questions
-            if reference['link'].startswith('https://stackoverflow.com'):
-                continue
-            data_source_references.append(reference['link'])
+    # def is_question_reference_deleted(guru_type: GuruType, question: Question):
+    #     data_source_references = []
+    #     for reference in question.references:
+    #         # Skip stackoverflow questions
+    #         if reference['link'].startswith('https://stackoverflow.com'):
+    #             continue
+    #         data_source_references.append(reference['link'])
             
-        # Compare reference['link'] with DataSource.url
-        # First check DataSource urls
-        data_sources = DataSource.objects.filter(url__in=data_source_references, guru_type=guru_type)
-        found_urls = set(data_sources.values_list('url', flat=True))
+    #     # Compare reference['link'] with DataSource.url
+    #     # First check DataSource urls
+    #     data_sources = DataSource.objects.filter(url__in=data_source_references, guru_type=guru_type)
+    #     found_urls = set(data_sources.values_list('url', flat=True))
         
-        # Check remaining urls in GithubFile
-        remaining_urls = set(data_source_references) - found_urls
-        if remaining_urls:
-            github_files = GithubFile.objects.filter(link__in=remaining_urls, data_source__guru_type=guru_type)
-            found_urls.update(github_files.values_list('link', flat=True))
+    #     # Check remaining urls in GithubFile
+    #     remaining_urls = set(data_source_references) - found_urls
+    #     if remaining_urls:
+    #         github_files = GithubFile.objects.filter(link__in=remaining_urls, data_source__guru_type=guru_type)
+    #         found_urls.update(github_files.values_list('link', flat=True))
 
-        # If any urls not found in either model, question is dirty
-        if len(data_source_references) != len(found_urls):
-            return True
-        return False
+    #     # If any urls not found in either model, question is dirty
+    #     if len(data_source_references) != len(found_urls):
+    #         return True
+    #     return False
 
-    if question.binge:
-        # Do not re-answer questions in binge
-        return False
+    # if question.binge:
+    #     # Do not re-answer questions in binge
+    #     return False
 
-    return is_guru_dirty(question.guru_type, question) or is_question_reference_deleted(question.guru_type, question)
+    # return is_guru_dirty(question.guru_type, question) or is_question_reference_deleted(question.guru_type, question)
 
 def handle_failed_root_reanswer(question_slug: str, guru_type_slug: str, user_question: str, question: str):
     """
@@ -3181,7 +3117,6 @@ def api_ask(question: str,
         )
 
         if not response:
-            logger.error(f"No response from the LLM for question {question} and guru type {guru_type.slug}.")
             return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
 
         times = {}
@@ -3441,16 +3376,35 @@ def custom_exception_handler_throttled(exc, context):
         
     return response
 
-def get_embedder_and_model(model_choice):
+def get_embedder_and_model(model_choice, sync = True):
     """
     Returns a tuple of (embedder_instance, model_name) based on the model choice.
     
     Args:
-        model_choice: The embedding model choice from GuruType.EmbeddingModel
+        model_choice: The embedding model choice from GuruType.EmbeddingModel. Used only in cloud.
         
     Returns:
         tuple: (embedder_instance, model_name)
     """
+    from core.requester import OpenAIRequester
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        if not sync:
+            if model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
+                return (OpenAIRequester(), "text-embedding-3-small")
+            else:
+                return (OllamaRequester(settings_obj.ollama_url), model_choice)
+
+        assert settings_obj, "Settings object not found"
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            from core.requester import OllamaRequester
+            # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
+            return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
+        else:
+            return (OpenAIRequester(), "text-embedding-3-small")
+    
+    # Cloud version logic
     model_map = {
         GuruType.EmbeddingModel.IN_HOUSE: (None, "in-house"),  # No embedder instance needed for in-house
         GuruType.EmbeddingModel.GEMINI_EMBEDDING_001: (GeminiEmbedder(), "embedding-001"),
@@ -3462,7 +3416,7 @@ def get_embedder_and_model(model_choice):
     # Default to in-house if model_choice is not found
     return model_map.get(model_choice, (None, "in-house"))
 
-def get_embedding_model_config(model_choice):
+def get_embedding_model_config(model_choice, sync = True):
     """
     Returns a tuple of (collection_name, dimension) based on the GuruType.EmbeddingModel choice.
     
@@ -3476,6 +3430,27 @@ def get_embedding_model_config(model_choice):
         >>> get_embedding_model_config(GuruType.EmbeddingModel.OPENAI_TEXT_EMBEDDING_ADA_002)
         ('github_repo_code_openai_ada_002', 1536)
     """
+    if settings.ENV == 'selfhosted':
+        from core.models import Settings
+        settings_obj = Settings.objects.first()
+        assert settings_obj, "Settings object not found"
+
+        if not sync:
+            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"]:
+                return "github_repo_code", 1536
+            else:
+                model_choice = model_choice.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
+        
+        # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedding_model_config. Then use it to fetch from settings_obj and return. Nothing else is needed
+        if settings_obj.ai_model_provider == Settings.AIProvider.OLLAMA:
+            # For Ollama, we use a single collection for all embeddings
+            model_choice = settings_obj.ollama_embedding_model.replace(':', '_').replace('.', '_').replace('-', '_')
+            return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
+        else:
+            # For OpenAI in selfhosted
+            return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
+
     # Get default settings
     try:
         settings_obj = get_default_settings()
@@ -3555,6 +3530,12 @@ def embed_texts_with_model(texts, model_choice, batch_size=32):
         else:
             if isinstance(embedder, OpenAIRequester):
                 embeddings.extend(embedder.embed_texts(batch, model_name=model_name))
+            elif isinstance(embedder, OllamaRequester):
+                is_valid, response = embedder.embed_texts(batch, model_name=model_name)
+                if is_valid:
+                    embeddings.extend([r['embedding'] for r in response])
+                else:
+                    raise Exception(f'Error while embedding with Ollama: {response}')
             else:  # GeminiEmbedder
                 embeddings.extend(embedder.embed_texts(batch))
     
@@ -3598,6 +3579,12 @@ def embed_text_with_model(text, model_choice):
     else:
         if isinstance(embedder, OpenAIRequester):
             embedding = embedder.embed_text(text, model_name=model_name)
+        elif isinstance(embedder, OllamaRequester):
+            is_valid, response = embedder.embed_text(text, model_name=model_name)
+            if is_valid:
+                embedding = response['embedding']
+            else:
+                raise Exception(f'Error while embedding with Ollama: {response}')
         else:  # GeminiEmbedder
             embedding = embedder.embed_texts(text)[0]
 

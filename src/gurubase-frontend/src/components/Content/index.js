@@ -497,7 +497,7 @@ const Content = (props) => {
               />
             ) : null}
             {/* if question and content exist render PostContent in the page. Its for /slug page */}
-            {slugPageRendered &&
+            {/* {slugPageRendered &&
               content &&
               !isLoading &&
               !streamingStatus &&
@@ -508,7 +508,7 @@ const Content = (props) => {
                   bingeId={finalBingeId}
                   initialDateUpdated={dateUpdated}
                 />
-              )}
+              )} */}
             {!isLoading &&
               question &&
               content &&

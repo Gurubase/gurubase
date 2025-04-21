@@ -5,6 +5,9 @@ import IntegrationContent from "@/components/Integrations/IntegrationContent";
 import IntegrationPayeLayout from "@/components/Integrations/IntegrationPayeLayout";
 import WebWidgetIntegrationContent from "@/components/Integrations/WebWidgetIntegrationContent";
 
+// Check if beta features are enabled via environment variable
+const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
 export default async function IntegrationsPage({ params, searchParams }) {
   const { customGuru, integrationType } = params;
 
@@ -17,6 +20,14 @@ export default async function IntegrationsPage({ params, searchParams }) {
     switch (integrationType) {
       case "web_widget":
         return <WebWidgetIntegrationContent guruData={guruData} />;
+
+      case "jira":
+      case "zendesk":
+        if (!isBetaFeaturesEnabled) {
+          return null; // If beta features are off, treat as not found
+        }
+      // If beta features are on, fall through to render IntegrationContent
+      /* falls through */
       case "slack":
       case "discord":
       case "github":
@@ -28,6 +39,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
             type={integrationType}
           />
         );
+
       default:
         return null;
     }

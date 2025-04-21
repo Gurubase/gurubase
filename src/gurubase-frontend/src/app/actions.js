@@ -3,7 +3,7 @@
 import { auth0 } from "@/config/auth0";
 import { redirect } from "next/navigation";
 
-import HttpError from "@/utils/HttpError";
+import { HttpError, SummaryError } from "@/utils/HttpError";
 
 const shouldUsePublicRequest = () => {
   return process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
@@ -62,7 +62,7 @@ export const makeAuthenticatedRequest = async (
   try {
     const session = await getUserSession();
 
-    if (!session?.user) {
+    if (!session || !session.user) {
       redirect("/api/auth/login", "replace");
     }
 
@@ -133,7 +133,13 @@ export const makePublicRequest = async (url, options = {}, decode = false) => {
   }
 
   if (response.status === 490) {
-    throw new HttpError("OpenAI API Key is not valid!", response.status);
+    const errorData = await response.json();
+    throw new SummaryError(
+      errorData.msg || "Invalid AI model provider settings",
+      response.status,
+      errorData.type || "openai",
+      errorData.reason || "openai_key_invalid"
+    );
   }
 
   if (!response.ok) {
@@ -209,7 +215,14 @@ export async function getAnswerFromMyBackend(
       return await response.json();
     }
   } catch (error) {
-    return { error: true, message: error.message, status: error.status };
+    console.log("Caught error: \n", error.type, error.reason);
+    return {
+      error: true,
+      message: error.message,
+      status: error.status,
+      type: error.type || "openai", // Default to 'openai' if not specified
+      reason: error.reason || "openai_key_invalid" // Default to 'openai_key_invalid' if not specified
+    };
   }
 }
 
@@ -249,7 +262,7 @@ export async function getDataForSlugDetails(
       url += `${question ? "&" : "?"}binge_id=${bingeId}`;
     }
 
-    if (session?.user) {
+    if (session && session.user) {
       // Authenticated request
       const response = await makeAuthenticatedRequest(url, {
         next: { revalidate: 10 }
@@ -1033,7 +1046,7 @@ export async function createSelfhostedIntegration(
   data
 ) {
   try {
-    const response = await makePublicRequest(
+    const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
       {
         method: "POST",
@@ -1045,7 +1058,13 @@ export async function createSelfhostedIntegration(
           client_id: data.clientId,
           installation_id: data.installationId,
           private_key: data.privateKey,
-          github_secret: data.secret
+          github_secret: data.secret,
+          jira_domain: data.jira_domain,
+          jira_user_email: data.jira_user_email,
+          jira_api_key: data.jira_api_key,
+          zendesk_domain: data.zendesk_domain,
+          zendesk_user_email: data.zendesk_user_email,
+          zendesk_api_token: data.zendesk_api_token
         })
       }
     );
@@ -1096,6 +1115,10 @@ export async function updateSettings(formData) {
     const firecrawl_api_key = formData.get("firecrawl_api_key");
     const scrape_type = formData.get("scrape_type");
     const youtube_api_key = formData.get("youtube_api_key");
+    const ollama_url = formData.get("ollama_url");
+    const ollama_embedding_model = formData.get("ollama_embedding_model");
+    const ollama_base_model = formData.get("ollama_base_model");
+    const ai_model_provider = formData.get("ai_model_provider");
 
     const openai_api_key_written =
       formData.get("openai_api_key_written") === "true";
@@ -1116,7 +1139,11 @@ export async function updateSettings(formData) {
           youtube_api_key,
           openai_api_key_written,
           firecrawl_api_key_written,
-          youtube_api_key_written
+          youtube_api_key_written,
+          ollama_url,
+          ollama_embedding_model,
+          ollama_base_model,
+          ai_model_provider
         })
       }
     );
@@ -1149,6 +1176,117 @@ export async function parseSitemapUrls(sitemapUrl) {
     return handleRequestError(error, {
       context: "parseSitemapUrls",
       sitemapUrl
+    });
+  }
+}
+
+export async function fetchJiraIssues(integrationId, jqlQuery) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/jira/issues/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Send the JQL query in the request body
+      body: JSON.stringify({ jql: jqlQuery })
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Jira issues",
+        status: response.status
+      };
+    }
+
+    return data; // Return the successful response data (likely includes issues)
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchJiraIssues",
+      integrationId,
+      jqlQuery
+    });
+  }
+}
+
+export async function fetchZendeskTickets(integrationId) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/tickets/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "GET" // Assuming GET request as no body is needed
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Zendesk tickets",
+        status: response.status
+      };
+    }
+
+    // Assuming response format: { tickets: [{ link: 'url1' }, ...], ticket_count: N }
+    return data;
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchZendeskTickets",
+      integrationId
+    });
+  }
+}
+
+export async function fetchZendeskArticles(integrationId) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/articles/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "GET" // Assuming GET request as no body is needed
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Zendesk articles",
+        status: response.status
+      };
+    }
+
+    // Assuming response format: { articles: [{ link: 'url1' }, ...], article_count: N }
+    return data;
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchZendeskArticles",
+      integrationId
     });
   }
 }
@@ -1307,6 +1445,27 @@ export async function fetchYoutubeChannel(url) {
   } catch (error) {
     return handleRequestError(error, {
       context: "fetchYoutubeChannel",
+      url
+    });
+  }
+}
+
+export async function validateOllamaUrlRequest(url) {
+  try {
+    const response = await makePublicRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/validate/ollama/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "validateOllamaUrl",
       url
     });
   }

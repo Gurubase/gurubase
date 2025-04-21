@@ -78,14 +78,9 @@ The system does not use authentication in the selfhosted mode.
 
 ### Embedding
 
-The system has two options for embedding:
-- OpenAI
-- Custom Embedding API
+The system supports some predefined embeddings on Cloud. On selfhosted, either OpenAI or Ollama embedding models can be used. These can be set up in the Settings page on selfhosted installation.
 
-This option can be configured using the `USE_OPENAI_TEXT_EMBEDDING` and `EMBED_API_URL` settings in `backend/backend/settings.py`. If the `USE_OPENAI_TEXT_EMBEDDING` is set to `True`, the `EMBED_API_URL` is ignored.
-TODO: Add details on how to set custom embedding API.
-
-> Important: It is recommended not to change these options after the system is set up as the corresponding embedding dimension is used in Milvus. Upon change, Milvus collections need to be recreated with the new dimension.
+Upon changing the embedding model, all of the existing data sources are reindexed to their new Milvus collections.
 
 ### Milvus Details
 
@@ -139,6 +134,8 @@ Four types of data sources are supported:
 - Websites
 - PDFs
 - Codebases
+- Jira Issues
+- ZenDesk Tickets/Articles
 
 #### YouTube videos
 
@@ -149,6 +146,14 @@ The system uses the `YoutubeLoader` from `langchain_community.document_loaders` 
 The system uses `firecrawl` to extract content from websites. It scrapes the website, gets the relevant metadata, formats the content, and transfers it to Milvus.
 
 > Setting `FIRECRAWL_API_KEY` is required for this process.
+
+#### Jira Issues
+
+The system uses Jira Python SDK to fetch issues based on the integration configuration.
+
+#### ZenDesk Tickets/Articles
+
+The system uses ZenDesk Web API to fetch tickets and articles based on the integration configuration.
 
 #### PDFs
 
