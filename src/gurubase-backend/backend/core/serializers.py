@@ -89,7 +89,7 @@ class DataSourceSerializer(serializers.ModelSerializer):
             if instance.error:
                 repr['error'] = format_github_repo_error(instance.error, instance.user_error)
             
-            repr['file_count'] = GithubFile.objects.filter(data_source=instance).count()
+            repr['file_count'] = GithubFile.objects.filter(data_source=instance, in_milvus=True).count()
 
         return repr
 
