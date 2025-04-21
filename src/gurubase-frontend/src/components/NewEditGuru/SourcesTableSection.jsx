@@ -181,7 +181,13 @@ export function SourcesTableSection({
 
       const badgeElement = (
         <Badge {...badgeProps}>
-          <badgeProps.icon className={cn("h-3 w-3", badgeProps.iconColor)} />
+          <badgeProps.icon
+            className={cn(
+              "h-3 w-3",
+              badgeProps.iconColor,
+              isSourcesProcessing && "pointer-events-none opacity-50"
+            )}
+          />
           {badgeProps.text}
         </Badge>
       );
@@ -192,7 +198,12 @@ export function SourcesTableSection({
             <TooltipProvider>
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  <span>{badgeElement}</span>
+                  <span
+                    className={cn(
+                      isSourcesProcessing && "pointer-events-none opacity-50"
+                    )}>
+                    {badgeElement}
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent
                   align="center"
@@ -215,7 +226,12 @@ export function SourcesTableSection({
               </Tooltip>
             </TooltipProvider>
           ) : (
-            badgeElement
+            <span
+              className={cn(
+                isSourcesProcessing && "pointer-events-none opacity-50"
+              )}>
+              {badgeElement}
+            </span>
           )}
         </div>
       );
@@ -473,7 +489,6 @@ export function SourcesTableSection({
           <TableRow>
             <TableHead className="w-[20%]">Type</TableHead>
             <TableHead className="w-[60%]">Name</TableHead>
-            <TableHead className="w-[20%]"></TableHead>
             <TableHead className="w-[20%]"></TableHead>
           </TableRow>
         </TableHeader>
