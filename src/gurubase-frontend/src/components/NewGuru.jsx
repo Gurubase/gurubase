@@ -827,31 +827,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           }
 
           if (latestSources?.results) {
-            // Check GitHub repository status if it exists
-            if (customGuruData?.github_repos) {
-              const githubSources = latestSources.results.filter(
-                (source) =>
-                  source.url && source.url.startsWith("https://github.com")
-              );
-
-              if (githubSources.length > 0) {
-                const newStatuses = {};
-                const newErrors = {};
-                let hasUnprocessed = false;
-
-                githubSources.forEach((source) => {
-                  newStatuses[source.url] = source.status;
-                  newErrors[source.url] = source.error || null;
-                  if (source.status === "NOT_PROCESSED") {
-                    hasUnprocessed = true;
-                  }
-                });
-
-                setGithubRepoStatuses(newStatuses);
-                setGithubRepoErrors(newErrors);
-              }
-            }
-
             // Create a map of existing privacy settings
             const existingPrivacySettings = sources.reduce((acc, source) => {
               if (source.type?.toLowerCase() === "pdf") {
