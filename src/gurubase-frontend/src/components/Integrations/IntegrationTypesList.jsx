@@ -77,7 +77,7 @@ const IntegrationTypesList = ({ guruData }) => {
       {
         id: "jira",
         name: "Jira",
-        description: "Connect your Jira issues to your Guru as data sources.",
+        description: "Connect your Jira to your Guru as a data source.",
         icon: JiraIcon,
         type: "JIRA"
       },

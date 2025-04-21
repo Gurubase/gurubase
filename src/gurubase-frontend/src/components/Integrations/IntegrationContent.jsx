@@ -177,8 +177,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       name: "Jira",
       description: (
         <>
-          Connect your Jira instance to index issues and enable Q&A. Here is the
-          guide to{" "}
+          Connect your Jira to add Jira issues to your Guru as a data source.
+          Here is the guide to{" "}
           <Link
             href="https://docs.gurubase.io/integrations/jira-bot"
             className="text-blue-500 hover:text-blue-600"
@@ -197,8 +197,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       name: "Zendesk",
       description: (
         <>
-          Connect your Zendesk instance to index tickets/articles and enable
-          Q&A. Here is the guide to{" "}
+          Connect your Zendesk account to add tickets and articles to your Guru
+          as a data source. Here is the guide to{" "}
           <Link
             href="https://docs.gurubase.io/integrations/zendesk-bot"
             className="text-blue-500 hover:text-blue-600"
@@ -266,10 +266,11 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const Icon = config.icon;
   const name = config.name;
 
+  const addBotSuffix = !["Jira", "Zendesk"].includes(name) ? " Bot" : "";
   if (loading) {
     return (
       <div className="w-full">
-        <IntegrationHeader text={`${name} Bot`} />
+        <IntegrationHeader text={`${name}${addBotSuffix}`} />
         <IntegrationDivider />
         <div className="p-6 guru-xs:p-2">
           <LoadingSkeleton
@@ -285,7 +286,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   if (integrationData && !integrationData?.encoded_guru_slug) {
     return (
       <div className="w-full">
-        <IntegrationHeader text={`${name} Bot`} />
+        <IntegrationHeader text={`${name}${addBotSuffix}`} />
         <IntegrationDivider />
         {/* Show error if present */}
         {internalError && <IntegrationError message={internalError} />}
