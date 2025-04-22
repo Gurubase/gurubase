@@ -97,8 +97,6 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Confluence",
     icon: ConfluenceIcon,
     actionButtonIcon: ConfluenceIcon,
-    // icon: LinkIcon,
-    // actionButtonIcon: LinkIcon,
     actionButtonText: "Confluence Pages",
     sidebarStateSetterName: "setIsConfluenceSidebarOpen",
     formField: "confluencePages",
