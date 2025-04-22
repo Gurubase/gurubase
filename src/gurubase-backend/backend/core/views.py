@@ -874,18 +874,29 @@ def create_data_sources(request, guru_type):
     
     try:
         # Validate limits
+        
         service.validate_pdf_files(pdf_files, pdf_privacies)
-        service.validate_url_limits(youtube_urls, 'youtube')
-        service.validate_url_limits(website_urls, 'website')
-        service.validate_url_limits(jira_urls, 'jira')
-        service.validate_url_limits(zendesk_urls, 'zendesk')
-        service.validate_url_limits(github_repos, 'github')
+        service.validate_url_limits(
+            youtube_urls=youtube_urls,
+            website_urls=website_urls,
+            jira_urls=jira_urls,
+            zendesk_urls=zendesk_urls
+        )
+        
+        # First identify new GitHub repos without modifying anything
+        new_github_repos = service.identify_new_github_repos(github_repos)
+        
+        # Validate limits for new GitHub repos
+        service.validate_github_repos_limits(new_github_repos)
 
         if jira_urls:
             service.validate_integration('jira')
         if zendesk_urls:
             service.validate_integration('zendesk')
 
+        # Process GitHub repos - this will update existing ones
+        service.update_existing_github_repos(github_repos)
+            
         # Create data sources
         results = service.create_data_sources(
             pdf_files=pdf_files,
@@ -894,7 +905,7 @@ def create_data_sources(request, guru_type):
             website_urls=website_urls,
             jira_urls=jira_urls,
             zendesk_urls=zendesk_urls,
-            github_repos=github_repos
+            github_repos=new_github_repos
         )
         
         return Response({
@@ -1002,52 +1013,6 @@ def data_sources_frontend(request, guru_type):
     validate_guru_type(guru_type, only_active=False)
     
     if request.method == 'POST':
-        if settings.ENV == 'selfhosted':
-            user = None
-        else:
-            user = get_auth0_user(request.auth0_id)
-        
-        # Check PDF file limits
-        pdf_files = request.FILES.getlist('pdf_files', [])
-        for pdf_file in pdf_files:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, file=pdf_file)
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                
-        # Check website limits
-        website_urls = json.loads(request.data.get('website_urls', '[]'))
-        if website_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, website_urls_count=len(website_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                
-        # Check YouTube limits
-        youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
-        if youtube_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, youtube_urls_count=len(youtube_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check Jira issue limits
-        jira_urls = json.loads(request.data.get('jira_urls', '[]'))
-        if jira_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, jira_urls_count=len(jira_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check Zendesk ticket limits
-        zendesk_urls = json.loads(request.data.get('zendesk_urls', '[]'))
-        if zendesk_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, zendesk_urls_count=len(zendesk_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        github_repos = json.loads(request.data.get('github_repos', '[]'))
-        if github_repos:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, github_repos_count=len(github_repos))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
         return create_data_sources(request, guru_type)
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type)

@@ -41,25 +41,31 @@ class DataSourceService:
             if not is_allowed:
                 raise ValueError(error_msg)
 
-    def validate_url_limits(self, urls: List[str], url_type: str) -> None:
+    def validate_url_limits(self, youtube_urls=None, website_urls=None, jira_urls=None, zendesk_urls=None) -> None:
         """
-        Validates URL count limits
+        Validates URL count limits for multiple URL types
         
         Args:
-            urls: List of URLs to validate
-            url_type: Type of URLs ('website' or 'youtube' or 'jira' or 'zendesk' or 'github')
+            youtube_urls: List of YouTube URLs to validate
+            website_urls: List of website URLs to validate
+            jira_urls: List of Jira URLs to validate
+            zendesk_urls: List of Zendesk URLs to validate
             
         Raises:
             ValueError: If validation fails
         """
-        if urls:
+        youtube_urls = youtube_urls or []
+        website_urls = website_urls or []
+        jira_urls = jira_urls or []
+        zendesk_urls = zendesk_urls or []
+        
+        if any([youtube_urls, website_urls, jira_urls, zendesk_urls]):
             is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
                 self.user, 
-                website_urls_count=len(urls) if url_type == 'website' else 0,
-                youtube_urls_count=len(urls) if url_type == 'youtube' else 0,
-                jira_urls_count=len(urls) if url_type == 'jira' else 0,
-                zendesk_urls_count=len(urls) if url_type == 'zendesk' else 0,
-                github_repos_count=len(urls) if url_type == 'github' else 0
+                website_urls_count=len(website_urls),
+                youtube_urls_count=len(youtube_urls),
+                jira_urls_count=len(jira_urls),
+                zendesk_urls_count=len(zendesk_urls)
             )
             if not is_allowed:
                 raise ValueError(error_msg)
@@ -80,6 +86,93 @@ class DataSourceService:
             zendesk_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.ZENDESK).first()
             if not zendesk_integration:
                 raise ValueError('Zendesk integration not found')
+
+    def validate_github_repos_limits(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Validates GitHub repos count limits for new repos only
+        
+        Args:
+            github_repos: List of GitHub repos to validate - should only contain new repos
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        if github_repos:
+            is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
+                self.user,
+                github_repos_count=len(github_repos)
+            )
+            if not is_allowed:
+                raise ValueError(error_msg)
+
+    def identify_new_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Identify GitHub repos that don't exist in the system yet
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries
+            
+        Returns:
+            List of GitHub repos that don't exist and need to be created
+        """
+        new_repos = []
+        
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).exists()
+            
+            if not existing_repo:
+                # Add to list of new repos to create
+                new_repos.append(repo)
+                
+        return new_repos
+        
+    def update_existing_github_repos(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Update glob patterns for existing GitHub repos
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+        """
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).first()
+            
+            if existing_repo:
+                # Update glob patterns
+                existing_repo.github_glob_pattern = repo['glob_pattern']
+                existing_repo.github_glob_include = repo['include_glob']
+                existing_repo.save()
+
+    def process_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process GitHub repos, updating existing ones and returning new ones to be created
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+            
+        Returns:
+            List of GitHub repos that need to be created (didn't exist before)
+        """
+        # Identify new repos
+        new_repos = self.identify_new_github_repos(github_repos)
+        
+        # Update existing repos
+        self.update_existing_github_repos(github_repos)
+                
+        return new_repos
 
     def create_data_sources(
         self, 

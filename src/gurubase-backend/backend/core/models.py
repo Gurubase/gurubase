@@ -498,11 +498,6 @@ class GuruType(models.Model):
             type=DataSource.Type.YOUTUBE
         ).count()
 
-        github_count = DataSource.objects.filter(
-            guru_type=self,
-            type=DataSource.Type.GITHUB_REPO
-        ).count()
-
         jira_count = DataSource.objects.filter(
             guru_type=self,
             type=DataSource.Type.JIRA

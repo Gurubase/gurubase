@@ -66,7 +66,7 @@ const GitHubSourceDialog = React.memo(
     React.useEffect(() => {
       if (isEditingRepo && editingRepo) {
         // If we're in edit mode, set the includeGlobPattern based on the repo settings
-        setIncludeGlobPattern(editingRepo.include_glob || false);
+        setIncludeGlobPattern(!!editingRepo.include_glob);
       }
     }, [isEditingRepo, editingRepo]);
 

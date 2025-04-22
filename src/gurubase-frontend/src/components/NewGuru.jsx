@@ -532,7 +532,7 @@ export default function NewGuru({ guruData, isProcessing }) {
           const urlParts = (source.url || "").split("/");
           baseSource.name = urlParts.slice(-2).join("/"); // e.g., username/repo
           baseSource.glob_pattern = source.github_glob_pattern || "";
-          baseSource.include_glob = source.github_include_glob || false;
+          baseSource.include_glob = source.github_glob_include || false;
         }
 
         return baseSource;
