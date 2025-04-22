@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidUrl } from "@/utils/common";
 import { Checkbox } from "@/components/ui/checkbox";
+import { HeaderTooltip } from "@/components/ui/header-tooltip";
 
 const Dialog = DialogPrimitive.Root;
 const DialogPortal = DialogPrimitive.Portal;
@@ -195,7 +196,10 @@ const GitHubSourceDialog = React.memo(
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="globPattern">Glob Pattern (Optional)</Label>
+                  <div className="flex items-center">
+                    <Label htmlFor="globPattern">Glob Pattern (Optional)</Label>
+                    <HeaderTooltip html="Glob patterns are wildcard patterns for matching file paths. <a href='https://en.wikipedia.org/wiki/Glob_(programming)' target='_blank' rel='noopener noreferrer' class='text-blue-500 underline'>Learn more on Wikipedia</a>." />
+                  </div>
                   <Input
                     id="globPattern"
                     placeholder="e.g., *.md, docs/**/*.js"
