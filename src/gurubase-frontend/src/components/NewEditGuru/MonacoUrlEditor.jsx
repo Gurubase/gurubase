@@ -978,58 +978,6 @@ const MonacoUrlEditor = ({
               )}
             </div>
           )}
-          {/* {sourceType === "confluence" && (
-            <div className={`flex items-center gap-2 guru-sm:w-full`}>
-              {!showConfluenceInput ? (
-                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
-                          onClick={() => setShowConfluenceInput(true)}>
-                          <Icon icon="mdi:confluence" className="h-4 w-4" />
-                          <span className="text-sm">Fetch Pages</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Fetch pages using a search query</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              
-                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
-                  <div className="relative w-full">
-                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                      Query
-                    </span>
-                    <Input
-                      className="w-[600px] h-10 guru-sm:w-full pt-6"
-                      placeholder="Enter Search Query (Optional)"
-                      value={confluenceQuery}
-                      onChange={(e) => setConfluenceQuery(e.target.value)}
-                      disabled={isLoadingSitemapRef.current}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 guru-sm:w-full">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          {confluenceButtonContent()}
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p>Fetch pages using a search query</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </div>
-              )}
-            </div>
-          )} */}
           {sourceType === "youtube" && (
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
               {!showYoutubeInput ? (
