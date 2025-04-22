@@ -667,11 +667,11 @@ class DataSource(models.Model):
 
     private = models.BooleanField(default=False)
 
-    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True) # Set when reindex is manually done
     reindex_count = models.IntegerField(default=0)
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
-    last_successful_index_date = models.DateTimeField(null=True, blank=True)
+    last_successful_index_date = models.DateTimeField(null=True, blank=True) # Set when github repo is indexed/reindexed successfully
     github_glob_include = models.BooleanField(default=True)
     github_glob_pattern = models.CharField(max_length=100, null=True, blank=True)
 
