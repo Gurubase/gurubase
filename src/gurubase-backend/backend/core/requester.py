@@ -964,7 +964,7 @@ class JiraRequester():
             elif "403" in str(e):
                 raise ValueError("Jira API access forbidden")
             else:
-                raise ValueError(f"Error listing Jira issues: {str(e)}")
+                raise ValueError(str(e))
 
     def get_issue(self, issue_key):
         """
