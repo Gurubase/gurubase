@@ -1452,7 +1452,7 @@ def update_guru_type_sitemap_status():
     logger.info("Completed updating GuruType sitemap status")
 
 @shared_task
-def update_github_repositories(successful_repos=True):
+def update_github_repositories(successful_repos=True, guru_type_slug=None, repo_url=None):
     """
     Periodic task to update GitHub repositories:
     1. For each successfully synced GitHub repo data source, clone the repo again
@@ -1460,9 +1460,14 @@ def update_github_repositories(successful_repos=True):
     3. Update modified files in both DB and Milvus
     
     Uses per-guru-type locking to allow parallel processing of different guru types.
+    
+    Args:
+        successful_repos (bool): If True, process repos with SUCCESS status, otherwise process FAILED repos
+        guru_type_slug (str, optional): If provided, process only repos for this guru type
+        repo_url (str, optional): If provided with guru_type_slug, process only this specific repo
     """
 
-    def process_guru_type(guru_type):
+    def process_guru_type(guru_type, specific_repo_url=None):
         from core.github.data_source_handler import clone_repository, read_repository
         from django.db import transaction
         import os
@@ -1471,14 +1476,23 @@ def update_github_repositories(successful_repos=True):
         
         # Get all GitHub repo data sources for this guru type
         status = DataSource.Status.SUCCESS if successful_repos else DataSource.Status.FAIL
-        data_sources = DataSource.objects.filter(
+        data_sources_query = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status=status,
             guru_type=guru_type
         )
         
+        # If specific repo URL is provided, filter to that repo only
+        if specific_repo_url:
+            data_sources_query = data_sources_query.filter(url=specific_repo_url)
+        else:
+            data_sources_query = data_sources_query.filter(status=status)
+            
+        data_sources = data_sources_query
+        
         for data_source in data_sources:
             try:
+                data_source.status = DataSource.Status.NOT_PROCESSED
+                data_source.save()
                 # Clone the repository
                 temp_dir, repo = clone_repository(data_source.url)
                 
@@ -1651,18 +1665,28 @@ def update_github_repositories(successful_repos=True):
 
     logger.info("Starting GitHub repositories update task")
     
-    # Get unique guru types that have GitHub repo data sources
-    guru_types = GuruType.objects.filter(
-        datasource__type=DataSource.Type.GITHUB_REPO,
-        # datasource__status=DataSource.Status.SUCCESS,
-    ).distinct()
-
-    for guru_type in guru_types:
+    # If specific guru type is provided
+    if guru_type_slug:
         try:
-            process_guru_type(guru_type=guru_type)
+            guru_type = GuruType.objects.get(slug=guru_type_slug)
+            process_guru_type(guru_type=guru_type, specific_repo_url=repo_url)
+        except GuruType.DoesNotExist:
+            logger.error(f"Error: Guru type with slug {guru_type_slug} does not exist")
         except Exception as e:
-            logger.error(f"Error processing guru type {guru_type.slug}: {traceback.format_exc()}")
-            continue
+            logger.error(f"Error processing guru type {guru_type_slug}: {traceback.format_exc()}")
+    else:
+        # Get unique guru types that have GitHub repo data sources
+        guru_types = GuruType.objects.filter(
+            datasource__type=DataSource.Type.GITHUB_REPO,
+            # datasource__status=DataSource.Status.SUCCESS,
+        ).distinct()
+
+        for guru_type in guru_types:
+            try:
+                process_guru_type(guru_type=guru_type)
+            except Exception as e:
+                logger.error(f"Error processing guru type {guru_type.slug}: {traceback.format_exc()}")
+                continue
     
     logger.info("Completed GitHub repositories update task")
 

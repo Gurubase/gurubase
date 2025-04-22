@@ -1088,9 +1088,18 @@ class DataSource(models.Model):
 
         if self.type == DataSource.Type.GITHUB_REPO:
             self.content = ''
-
-        self.save()
-        self.delete_from_milvus()
+            self.save()
+            
+            # Import here to avoid circular imports
+            from core.tasks import update_github_repositories
+            # Delay the task to process this specific GitHub repository
+            update_github_repositories.delay(
+                guru_type_slug=self.guru_type.slug,
+                repo_url=self.url
+            )
+        else:
+            self.save()
+            self.delete_from_milvus()
 
 
 class FeaturedDataSource(models.Model):

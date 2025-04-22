@@ -140,6 +140,7 @@ class DataSourceService:
         Args:
             github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
         """
+        updated_repos = []
         for repo in github_repos:
             repo_url = repo.get('url', '')
             
@@ -155,6 +156,9 @@ class DataSourceService:
                 existing_repo.github_glob_pattern = repo['glob_pattern']
                 existing_repo.github_glob_include = repo['include_glob']
                 existing_repo.save()
+                updated_repos.append(existing_repo)
+
+        return updated_repos
 
     def process_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

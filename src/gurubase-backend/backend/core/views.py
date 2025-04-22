@@ -895,7 +895,12 @@ def create_data_sources(request, guru_type):
             service.validate_integration('zendesk')
 
         # Process GitHub repos - this will update existing ones
-        service.update_existing_github_repos(github_repos)
+        updated_repos = service.update_existing_github_repos(github_repos)
+        
+        # Reindex any updated repos
+        if updated_repos:
+            for repo in updated_repos:
+                repo.reindex()
             
         # Create data sources
         results = service.create_data_sources(
