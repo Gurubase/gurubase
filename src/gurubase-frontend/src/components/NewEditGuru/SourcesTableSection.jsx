@@ -177,7 +177,7 @@ export function SourcesTableSection({
         case "SUCCESS":
           badgeProps.icon = Check;
           badgeProps.iconColor = "text-green-700";
-          badgeProps.text = `Indexed ${source.file_count} files`;
+          badgeProps.text = `${source.file_count} files`;
           badgeProps.className += " bg-green-50 text-green-700";
           break;
         case "FAIL":
@@ -195,18 +195,19 @@ export function SourcesTableSection({
           break;
       }
 
-      const badgeElement = (
-        <Badge {...badgeProps}>
-          <badgeProps.icon
-            className={cn(
-              "h-3 w-3",
-              badgeProps.iconColor,
-              isSourcesProcessing && "pointer-events-none opacity-50"
-            )}
-          />
-          {badgeProps.text}
-        </Badge>
-      );
+      const badgeElement =
+        source.status === "SUCCESS" || source.status === "FAIL" ? (
+          <Badge {...badgeProps}>
+            <badgeProps.icon
+              className={cn(
+                "h-3 w-3",
+                badgeProps.iconColor,
+                isSourcesProcessing && "pointer-events-none opacity-50"
+              )}
+            />
+            {badgeProps.text}
+          </Badge>
+        ) : null;
 
       return (
         <div className="flex items-center gap-2">
