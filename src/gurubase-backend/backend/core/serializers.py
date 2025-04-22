@@ -73,7 +73,7 @@ class WidgetIdSerializer(serializers.ModelSerializer):
 class DataSourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataSource
-        exclude = ['file', 'doc_ids', 'content', 'guru_type']
+        exclude = ['file', 'doc_ids', 'content', 'guru_type', 'last_reindex_date']
 
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
@@ -92,6 +92,7 @@ class DataSourceSerializer(serializers.ModelSerializer):
             repr['file_count'] = GithubFile.objects.filter(data_source=instance, in_milvus=True).count()
             repr['glob_pattern'] = instance.github_glob_pattern
             repr['glob_include'] = instance.github_glob_include
+            repr['last_reindex_date'] = instance.last_successful_index_date
 
         return repr
 
