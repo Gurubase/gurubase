@@ -480,7 +480,6 @@ const MonacoUrlEditor = ({
       }
 
       const { pages, page_count } = response;
-      console.log("pages", pages);
       if (pages && pages.length > 0) {
         const fetchedUrls = pages.map((page) => page.link);
         const currentContent = value || "";
