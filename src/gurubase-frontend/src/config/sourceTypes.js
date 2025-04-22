@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import {
+  ConfluenceIcon,
   JiraIcon,
   LogosYoutubeIcon,
   SolarFileTextBold,
@@ -26,7 +27,7 @@ const baseSourceTypesConfig = {
     displaySourceText: "Website", // Text shown in the table 'Type' column
     icon: LinkIcon, // Icon for the table row
     actionButtonIcon: LinkIcon, // Icon for the 'Add' button
-    actionButtonText: "Add Website",
+    actionButtonText: "Website",
     sidebarStateSetterName: "setIsUrlSidebarOpen", // Name of the state setter in NewGuru
     formField: "websiteUrls", // Corresponding field in the form schema
     canReindex: true, // Can this source type be reindexed?
@@ -41,7 +42,7 @@ const baseSourceTypesConfig = {
     displaySourceText: "Video",
     icon: SolarVideoLibraryBold,
     actionButtonIcon: LogosYoutubeIcon,
-    actionButtonText: "Add YouTube",
+    actionButtonText: "YouTube",
     sidebarStateSetterName: "setIsYoutubeSidebarOpen",
     formField: "youtubeLinks",
     canReindex: false,
@@ -56,7 +57,7 @@ const baseSourceTypesConfig = {
     displaySourceText: "File",
     icon: SolarFileTextBold,
     actionButtonIcon: Upload,
-    actionButtonText: "Upload PDFs",
+    actionButtonText: "PDFs",
     sidebarStateSetterName: null, // PDFs don't open a sidebar for editing content
     formField: "uploadedFiles",
     canReindex: false,
@@ -77,7 +78,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Jira",
     icon: JiraIcon,
     actionButtonIcon: JiraIcon,
-    actionButtonText: "Add Jira Issues",
+    actionButtonText: "Jira Issues",
     sidebarStateSetterName: "setIsJiraSidebarOpen",
     formField: "jiraIssues",
     canReindex: true,
@@ -88,6 +89,26 @@ if (isBetaFeaturesEnabled) {
     integrationModalSetterName: "setShowJiraIntegrationModal", // State setter for the integration modal
     filterValue: "jira"
   };
+
+  baseSourceTypesConfig.CONFLUENCE = {
+    id: "confluence",
+    apiType: "CONFLUENCE",
+    displayName: "Confluence",
+    displaySourceText: "Confluence",
+    icon: ConfluenceIcon,
+    actionButtonIcon: ConfluenceIcon,
+    actionButtonText: "Confluence Pages",
+    sidebarStateSetterName: "setIsConfluenceSidebarOpen",
+    formField: "confluencePages",
+    canReindex: true,
+    canEdit: true,
+    requiresIntegrationCheck: true,
+    integrationCheckProp: "confluenceIntegration",
+    integrationLoadingProp: "isLoadingConfluenceIntegration",
+    integrationModalSetterName: "setShowConfluenceIntegrationModal",
+    filterValue: "confluence"
+  };
+
   baseSourceTypesConfig.ZENDESK = {
     id: "zendesk",
     apiType: "ZENDESK",
@@ -95,7 +116,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Zendesk",
     icon: ZendeskIcon, // Placeholder
     actionButtonIcon: ZendeskIcon, // Placeholder
-    actionButtonText: "Add Zendesk Data",
+    actionButtonText: "Zendesk Data",
     sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
     formField: "zendeskTickets", // Assuming a form field name
     canReindex: true,

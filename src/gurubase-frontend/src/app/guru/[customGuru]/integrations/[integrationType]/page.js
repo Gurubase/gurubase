@@ -23,6 +23,7 @@ export default async function IntegrationsPage({ params, searchParams }) {
 
       case "jira":
       case "zendesk":
+      case "confluence":
         if (!isBetaFeaturesEnabled) {
           return null; // If beta features are off, treat as not found
         }

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 import logging
-from core.exceptions import ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
+from core.exceptions import ConfluenceAuthenticationError, ConfluenceError, ConfluenceInvalidDomainError, JiraAuthenticationError, JiraError, JiraInvalidDomainError, ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
 from core.models import Integration, GuruType
 from .helpers import IntegrationError
 from .factory import IntegrationFactory
@@ -51,6 +51,12 @@ class GetIntegrationCommand(IntegrationCommand):
                 'zendesk_user_email': self.integration.zendesk_user_email,
                 'zendesk_api_token': self.integration.masked_zendesk_api_token,
             })
+        elif self.integration.type == Integration.Type.CONFLUENCE:
+            response_data.update({
+                'confluence_domain': self.integration.confluence_domain,
+                'confluence_user_email': self.integration.confluence_user_email,
+                'confluence_api_token': self.integration.masked_confluence_api_token,
+            })
         else: # Slack, Discord
             response_data.update({
                  'access_token': self.integration.masked_access_token,
@@ -75,7 +81,7 @@ class CreateIntegrationCommand(IntegrationCommand):
 
     def execute(self) -> Response:
         # Allow Jira creation in cloud, restrict others to selfhosted
-        if self.integration_type not in [Integration.Type.JIRA, Integration.Type.ZENDESK] and settings.ENV != 'selfhosted':
+        if self.integration_type not in [Integration.Type.JIRA, Integration.Type.ZENDESK, Integration.Type.CONFLUENCE] and settings.ENV != 'selfhosted':
             return Response({'msg': 'This integration type is only available in the self-hosted version.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
@@ -86,6 +92,8 @@ class CreateIntegrationCommand(IntegrationCommand):
                 self._validate_jira_fields()
             elif self.integration_type == Integration.Type.ZENDESK:
                 self._validate_zendesk_fields()
+            elif self.integration_type == Integration.Type.CONFLUENCE:
+                self._validate_confluence_fields()
             else: # Slack, Discord
                 self._validate_standard_fields()
 
@@ -110,10 +118,12 @@ class CreateIntegrationCommand(IntegrationCommand):
             return Response({'msg': 'Invalid GitHub client ID or API error'}, status=status.HTTP_400_BAD_REQUEST)
         except (ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError) as e:
             return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ConfluenceError, ConfluenceInvalidDomainError, ConfluenceAuthenticationError) as e:
+            return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (JiraError, JiraInvalidDomainError, JiraAuthenticationError) as e:
+            return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except IntegrationError as e:
             # Pass specific Jira errors through
-            if "Jira" in str(e):
-                 return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error creating integration: {e}", exc_info=True)
@@ -141,6 +151,14 @@ class CreateIntegrationCommand(IntegrationCommand):
             raise IntegrationError('Missing Jira user email')
         if not self.data.get('jira_api_key'):
             raise IntegrationError('Missing Jira API key')
+
+    def _validate_confluence_fields(self):
+        if not self.data.get('confluence_domain'):
+            raise IntegrationError('Missing Confluence domain')
+        if not self.data.get('confluence_user_email'):
+            raise IntegrationError('Missing Confluence user email')
+        if not self.data.get('confluence_api_token'):
+            raise IntegrationError('Missing Confluence API token')
 
     def _validate_zendesk_fields(self):
         if not self.data.get('zendesk_domain'):
@@ -171,25 +189,26 @@ class CreateIntegrationCommand(IntegrationCommand):
                     self.data['jira_user_email'],
                     self.data['jira_api_key']
                  )
+            elif self.integration_type == Integration.Type.CONFLUENCE:
+                 # For Confluence, we primarily validate credentials here
+                 return strategy.fetch_workspace_details(
+                    self.data['confluence_domain'],
+                    self.data['confluence_user_email'],
+                    self.data['confluence_api_token']
+                 )
             else: # Slack, Discord
                 return strategy.fetch_workspace_details(self.data['access_token'])
         except (GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError) as e:
             raise e
         except (ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError) as e:
             raise e
+        except (JiraError, JiraInvalidDomainError, JiraAuthenticationError) as e:
+            raise e
+        except (ConfluenceError, ConfluenceInvalidDomainError, ConfluenceAuthenticationError) as e:
+            raise e
         except Exception as e:
             logger.error(f"Error fetching workspace details/validating credentials: {e}", exc_info=True)
-            if self.integration_type == Integration.Type.JIRA:
-                 # TODO: Make this like github exceptions
-                 # Check for specific Jira auth errors
-                 if "Unauthorized" in str(e) or "401" in str(e):
-                      raise IntegrationError('Invalid Jira credentials.')
-                 elif "Forbidden" in str(e) or "403" in str(e):
-                      raise IntegrationError('Jira API access forbidden.')
-                 else:
-                      raise IntegrationError(f"Failed to validate Jira connection: {str(e)}")
-            else:
-                raise IntegrationError('Failed to fetch workspace details. Please make sure your inputs are valid.')
+            raise IntegrationError('Failed to fetch workspace details. Please make sure your inputs are valid.')
 
     def _create_integration(self, strategy, workspace_details: Dict[str, Any]) -> Integration:
         """Create integration with CRUD."""
@@ -234,6 +253,18 @@ class CreateIntegrationCommand(IntegrationCommand):
                 zendesk_api_token=self.data['zendesk_api_token'],
                 channels=[]
             )
+        elif self.integration_type == Integration.Type.CONFLUENCE:
+             # workspace_details for Confluence contains validated domain/email
+             return Integration.objects.create(
+                 guru_type=self.guru_type_object,
+                 type=self.integration_type,
+                 workspace_name=workspace_details['workspace_name'], # Typically the domain
+                 external_id=workspace_details['external_id'], # Typically the domain
+                 confluence_domain=self.data['confluence_domain'],
+                 confluence_user_email=self.data['confluence_user_email'],
+                 confluence_api_token=self.data['confluence_api_token'],
+                 channels=[] # Confluence doesn't have channels in the same way
+             )
         else: # Slack, Discord
             return Integration.objects.create(
                 guru_type=self.guru_type_object,
