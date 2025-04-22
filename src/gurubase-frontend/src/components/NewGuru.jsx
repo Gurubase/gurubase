@@ -2083,6 +2083,27 @@ export default function NewGuru({ guruData, isProcessing }) {
           ]
         }));
       } else {
+        // Check if the repository URL already exists in sources
+        const repoExists = sources.some(
+          (source) =>
+            source.type === "github_repo" &&
+            !source.deleted &&
+            source.url.toLowerCase() === repoUrl.toLowerCase()
+        );
+
+        if (repoExists) {
+          // Skip adding if the repository already exists
+          CustomToast({
+            message: "This GitHub repository has already been added.",
+            variant: "info"
+          });
+
+          // Reset the input fields
+          setRepoUrl("");
+          setGlobPattern("");
+          return;
+        }
+
         // Create new repo
         const urlParts = (repoUrl || "").split("/");
         const newRepoId = `github-${Date.now()}`;
@@ -2140,7 +2161,7 @@ export default function NewGuru({ guruData, isProcessing }) {
       setRepoUrl("");
       setGlobPattern("");
     },
-    [form, setDirtyChanges, isEditingRepo]
+    [form, setDirtyChanges, isEditingRepo, sources]
   );
 
   // Add handler for editing GitHub repositories
