@@ -1,3 +1,4 @@
+from core.exceptions import JiraAuthenticationError, JiraError, JiraInvalidDomainError
 from .strategy import IntegrationStrategy
 from .helpers import IntegrationError
 from core.models import Integration, GuruType
@@ -59,12 +60,12 @@ class JiraStrategy(IntegrationStrategy):
             # Re-raise as IntegrationError for consistent handling in the command
             if "Unauthorized" in str(e) or "401" in str(e):
                 # Jira user email or API key is wrong
-                 raise IntegrationError("Invalid Jira credentials. Either the user email or API key is wrong.")
+                 raise JiraAuthenticationError("Invalid Jira credentials. Either the user email or API key is wrong.")
             elif "Forbidden" in str(e) or "403" in str(e):
-                 raise IntegrationError("Jira API access forbidden. Check user permissions or API key scope.")
+                 raise JiraError("Jira API access forbidden. Check user permissions or API key scope.")
             else:
                 # Jira domain is wrong
-                 raise IntegrationError(f"Could not connect to Jira instance at {jira_domain}. Please check the domain.")
+                 raise JiraInvalidDomainError(f"Could not connect to Jira instance at {jira_domain}. Please check the domain.")
 
     def send_test_message(self, channel_id: str) -> bool:
         raise NotImplementedError("Sending test messages is not applicable for Jira integration.")

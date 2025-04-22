@@ -47,7 +47,7 @@ import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSectio
 import { GuruDetailsSection } from "@/components/NewEditGuru/GuruDetailsSection"; // Import new component
 import { SourcesTableSection } from "@/components/NewEditGuru/SourcesTableSection"; // Import new component
 import { IntegrationRequiredModal } from "@/components/NewEditGuru/IntegrationRequiredModal";
-import { JiraIcon, ZendeskIcon } from "@/components/Icons"; // Import icons
+import { JiraIcon, ZendeskIcon, ConfluenceIcon } from "@/components/Icons"; // Import icons
 
 const formSchema = z.object({
   guruName: z
@@ -85,7 +85,8 @@ const formSchema = z.object({
   youtubeLinks: z.array(z.string()).optional(),
   websiteUrls: z.array(z.string()).optional(),
   jiraIssues: z.array(z.string()).optional(),
-  zendeskTickets: z.array(z.string()).optional() // <-- Add Zendesk
+  zendeskTickets: z.array(z.string()).optional(), // <-- Add Zendesk
+  confluencePages: z.array(z.string()).optional() // <-- Add Confluence
 });
 
 export default function NewGuru({ guruData, isProcessing }) {
@@ -225,7 +226,6 @@ export default function NewGuru({ guruData, isProcessing }) {
   const isOllamaConfigValid =
     isOllamaUrlValid && isEmbeddingModelValid && isBaseModelValid;
 
-
   // Modify the auth check effect
   useEffect(() => {
     if (!isSelfHosted && !user && !authLoading) {
@@ -263,8 +263,10 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [isYoutubeSidebarOpen, setIsYoutubeSidebarOpen] = useState(false);
   const [youtubeEditorContent, setYoutubeEditorContent] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isJiraSidebarOpen, setIsJiraSidebarOpen] = useState(false); // <-- New state for Jira sidebar
-  const [jiraEditorContent, setJiraEditorContent] = useState(""); // <-- New state for Jira editor
+  const [isJiraSidebarOpen, setIsJiraSidebarOpen] = useState(false); // <-- State for Jira sidebar
+  const [jiraEditorContent, setJiraEditorContent] = useState(""); // <-- State for Jira editor
+  const [isConfluenceSidebarOpen, setIsConfluenceSidebarOpen] = useState(false); // <-- New state for Confluence sidebar
+  const [confluenceEditorContent, setConfluenceEditorContent] = useState(""); // <-- New state for Confluence editor
   const [isZendeskSidebarOpen, setIsZendeskSidebarOpen] = useState(false); // <-- Add Zendesk sidebar state
   const [zendeskEditorContent, setZendeskEditorContent] = useState(""); // <-- Add Zendesk editor state
 
@@ -274,14 +276,22 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const [jiraIntegration, setJiraIntegration] = useState(null); // <-- State for Jira integration details
   const [isLoadingIntegration, setIsLoadingIntegration] = useState(true); // <-- State for loading integration
-  const [showJiraIntegrationModal, setShowJiraIntegrationModal] =
-    useState(false); // <-- State for integration prompt modal
+
+  const [confluenceIntegration, setConfluenceIntegration] = useState(null); // <-- State for Confluence integration
+  const [isLoadingConfluenceIntegration, setIsLoadingConfluenceIntegration] =
+    useState(true); // <-- State for loading Confluence integration
 
   const [zendeskIntegration, setZendeskIntegration] = useState(null); // <-- Add Zendesk integration state
   const [isLoadingZendeskIntegration, setIsLoadingZendeskIntegration] =
     useState(true); // <-- Add Zendesk loading state
+
+  const [showJiraIntegrationModal, setShowJiraIntegrationModal] =
+    useState(false); // <-- State for integration prompt modal
+
   const [showZendeskIntegrationModal, setShowZendeskIntegrationModal] =
     useState(false); // <-- Add Zendesk modal state
+  const [showConfluenceIntegrationModal, setShowConfluenceIntegrationModal] =
+    useState(false); // <-- Add Confluence modal state
 
   useEffect(() => {
     const fetchIntegration = async () => {
@@ -314,6 +324,24 @@ export default function NewGuru({ guruData, isProcessing }) {
     fetchZendeskIntegration();
   }, [customGuru]);
 
+  // <-- Add useEffect for Confluence integration -->
+  useEffect(() => {
+    const fetchConfluenceIntegration = async () => {
+      if (!customGuru) {
+        setIsLoadingConfluenceIntegration(false);
+        return;
+      }
+      const integration = await getIntegrationDetails(customGuru, "CONFLUENCE");
+      if (integration.status === 202 || integration.error) {
+        setConfluenceIntegration(null);
+      } else {
+        setConfluenceIntegration(integration);
+      }
+      setIsLoadingConfluenceIntegration(false);
+    };
+    fetchConfluenceIntegration();
+  }, [customGuru]);
+
   const isSourceProcessing = (source) => {
     if (typeof source.id === "string") {
       return false;
@@ -339,7 +367,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       youtubeLinks: [],
       websiteUrls: [],
       jiraIssues: [],
-      zendeskTickets: [] // <-- Initialize Zendesk tickets
+      zendeskTickets: [], // <-- Initialize Zendesk tickets
+      confluencePages: [] // <-- Initialize Confluence pages
     }
   });
 
@@ -375,6 +404,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       setUrlEditorContent(notProcessedSources);
     } else if (type === "jira") {
       setJiraEditorContent(notProcessedSources);
+    } else if (type === "confluence") {
+      setConfluenceEditorContent(notProcessedSources);
     }
   }, []);
 
@@ -511,7 +542,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                 ? "Jira"
                 : source.type === "ZENDESK"
                   ? "Zendesk" // <-- Add Zendesk type display
-                  : "Website",
+                  : source.type === "CONFLUENCE"
+                    ? "Confluence" // <-- Add Confluence type display
+                    : "Website",
         name: source.title,
         type: source.type.toLowerCase(),
         size: source.type === "PDF" ? source.size : "N/A",
@@ -567,6 +600,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       form.setValue(
         "zendeskTickets",
         newSources.filter((s) => s.type === "zendesk").map((s) => s.url)
+      );
+      form.setValue(
+        "confluencePages",
+        newSources.filter((s) => s.type === "confluence").map((s) => s.url)
       );
       form.setValue(
         "uploadedFiles",
@@ -778,7 +815,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       sourceType !== "website" &&
       sourceType !== "youtube" &&
       sourceType !== "jira" &&
-      sourceType !== "zendesk"
+      sourceType !== "zendesk" &&
+      sourceType !== "confluence"
     )
       return;
 
@@ -808,7 +846,9 @@ export default function NewGuru({ guruData, isProcessing }) {
           ? setIsJiraSidebarOpen
           : sourceType === "zendesk"
             ? setIsZendeskSidebarOpen
-            : setIsUrlSidebarOpen;
+            : sourceType === "confluence"
+              ? setIsConfluenceSidebarOpen
+              : setIsUrlSidebarOpen;
 
     setSidebar(true);
   };
@@ -884,7 +924,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                       ? "Jira"
                       : source.type === "ZENDESK"
                         ? "Zendesk"
-                        : "Website",
+                        : source.type === "CONFLUENCE"
+                          ? "Confluence"
+                          : "Website",
               name: source.title,
               type: source.type.toLowerCase(),
               size: source.type === "PDF" ? source.size : "N/A",
@@ -916,6 +958,9 @@ export default function NewGuru({ guruData, isProcessing }) {
                 .map((s) => s.url),
               zendeskTickets: updatedSources
                 .filter((s) => s.type === "zendesk")
+                .map((s) => s.url),
+              confluencePages: updatedSources
+                .filter((s) => s.type === "confluence")
                 .map((s) => s.url),
               uploadedFiles: updatedSources
                 .filter((s) => s.type === "pdf")
@@ -991,6 +1036,9 @@ export default function NewGuru({ guruData, isProcessing }) {
     const zendeskCount = sources.filter(
       (s) => s.type.toLowerCase() === "zendesk" && !s.deleted
     ).length;
+    const confluenceCount = sources.filter(
+      (s) => s.type.toLowerCase() === "confluence" && !s.deleted
+    ).length;
 
     // Calculate PDF size
     let currentPdfSize = sources
@@ -1023,6 +1071,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       customGuruData.zendesk_limit === undefined
         ? Infinity
         : customGuruData.zendesk_limit;
+    const confluenceLimit =
+      customGuruData.confluence_limit === undefined
+        ? Infinity
+        : customGuruData.confluence_limit;
     const pdfSizeLimitMb =
       customGuruData.pdf_size_limit_mb === undefined
         ? Infinity
@@ -1064,6 +1116,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (zendeskCount > zendeskLimit) {
       CustomToast({
         message: `You have exceeded the Zendesk ticket limit (${zendeskLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (confluenceCount > confluenceLimit) {
+      CustomToast({
+        message: `You have exceeded the Confluence page limit (${confluenceLimit}).`,
         variant: "error"
       });
       return false;
@@ -1118,7 +1178,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         data.youtubeLinks?.length > 0 ||
         data.websiteUrls?.length > 0 ||
         data.jiraIssues?.length > 0 ||
-        data.zendeskTickets?.length > 0;
+        data.zendeskTickets?.length > 0 ||
+        data.confluencePages?.length > 0;
 
       // Add check for GitHub repo changes
       const hasGithubChanges = isEditMode
@@ -1359,6 +1420,24 @@ export default function NewGuru({ guruData, isProcessing }) {
         hasNewSources = true;
       }
 
+      // Add Confluence pages <-- Add Confluence sources -->
+      const confluenceSources = dirtyChanges.sources
+        .filter(
+          (source) =>
+            source.type === "confluence" &&
+            source.newAddedSource &&
+            !source.deleted
+        )
+        .map((source) => source.url);
+
+      if (confluenceSources.length > 0) {
+        newSourcesFormData.append(
+          "confluence_urls",
+          JSON.stringify(confluenceSources)
+        );
+        hasNewSources = true;
+      }
+
       if (hasNewSources) {
         hasChanges = true;
         setIsSourcesProcessing(true);
@@ -1445,7 +1524,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         youtubeLinks: data.youtubeLinks || [],
         websiteUrls: data.websiteUrls || [],
         jiraIssues: data.jiraIssues || [],
-        zendeskTickets: data.zendeskTickets || []
+        zendeskTickets: data.zendeskTickets || [],
+        confluencePages: data.confluencePages || []
       });
 
       fetchDataSources(guruSlug);
@@ -1633,6 +1713,9 @@ export default function NewGuru({ guruData, isProcessing }) {
           .map((s) => s.url),
         zendeskTickets: dataSources.results
           .filter((s) => s.type.toLowerCase() === "zendesk")
+          .map((s) => s.url),
+        confluencePages: dataSources.results
+          .filter((s) => s.type.toLowerCase() === "confluence")
           .map((s) => s.url)
       };
 
@@ -1663,12 +1746,16 @@ export default function NewGuru({ guruData, isProcessing }) {
     setJiraEditorContent(newValue);
   }, []);
 
-  // <-- Add handlers for Zendesk -->
-  const handleZendeskEditorChange = useCallback((newValue) => {
-    setZendeskEditorContent(newValue);
+  // Handler for Confluence editor
+  const handleConfluenceEditorChange = useCallback((newValue) => {
+    setConfluenceEditorContent(newValue);
   }, []);
 
-  // Placeholder - Needs actual implementation for adding Jira links
+  // <-- Add handlers for Zendesk -->
+  const handleZendeskEditorChange = (value) => {
+    setZendeskEditorContent(value);
+  };
+
   const handleAddJiraUrls = useCallback(
     (links) => {
       setSources((prevSources) => {
@@ -1757,6 +1844,101 @@ export default function NewGuru({ guruData, isProcessing }) {
       });
     },
     [form, jiraEditorContent, sources]
+  );
+
+  // <-- Add handler for Confluence URLs -->
+  const handleAddConfluenceUrls = useCallback(
+    (links) => {
+      setSources((prevSources) => {
+        // Get the current Jira issues from editor content
+        const currentPages = confluenceEditorContent
+          .split("\n")
+          .filter(Boolean);
+
+        // Keep existing sources that are already processed (excluding unprocessed Jira issues)
+        const existingProcessedSources = prevSources.filter(
+          (source) =>
+            source.type.toLowerCase() !== "confluence" ||
+            source.status === "SUCCESS" ||
+            source.status === "FAIL"
+        );
+
+        // Create new source objects for each Jira issue in the editor
+        const newSources = currentPages.map((issue) => ({
+          id: issue,
+          type: "confluence",
+          sources: "Confluence",
+          url: issue,
+          status: "NOT_PROCESSED",
+          error: null,
+          newAddedSource: true,
+          issueKey: issue.split("/").pop() // Extract issue key from URL
+        }));
+
+        // Remove duplicates from newSources and check for duplicates with existing processed sources
+        const newSourcesWithoutDuplicates = newSources.filter(
+          (source, index, self) =>
+            index === self.findIndex((t) => t.url === source.url) &&
+            !existingProcessedSources.some((s) => s.url === source.url)
+        );
+
+        // Combine existing processed sources with new sources
+        const updatedSources = [
+          ...existingProcessedSources,
+          ...newSourcesWithoutDuplicates
+        ];
+
+        // Update the form's Confluence fields to match editor content
+        const formField = "confluencePages";
+
+        // Get all Confluence pages, including both processed and new ones
+        const allConfluencePages = updatedSources
+          .filter((source) => source.type.toLowerCase() === "confluence")
+          .map((source) => source.url);
+
+        form.setValue(formField, allConfluencePages);
+
+        return updatedSources;
+      });
+
+      // Update dirtyChanges to reflect only the new Confluence pages
+      setDirtyChanges((prev) => {
+        const currentPages = confluenceEditorContent
+          .split("\n")
+          .filter(Boolean);
+
+        // Keep existing deleted sources and sources of other types
+        const filteredSources = prev.sources.filter(
+          (source) => source.type !== "confluence" || source.deleted
+        );
+
+        // Add only new entries from editor content that aren't already in sources
+        const newEntries = currentPages
+          .filter((page) => {
+            // Check if this issue is new (not in existing sources)
+            const isNewPage = !sources.some(
+              (source) =>
+                source.url === page && source.status !== "NOT_PROCESSED"
+            );
+
+            return isNewPage;
+          })
+          .map((page) => ({
+            id: page,
+            type: "confluence",
+            url: page,
+            name: page,
+            error: null,
+            newAddedSource: true
+          }));
+
+        return {
+          ...prev,
+          sources: [...filteredSources, ...newEntries]
+        };
+      });
+    },
+    [form, confluenceEditorContent, sources]
   );
 
   // <-- Add handler for Zendesk URLs -->
@@ -1917,7 +2099,8 @@ export default function NewGuru({ guruData, isProcessing }) {
       !isUrlSidebarOpen &&
       !isYoutubeSidebarOpen &&
       !isJiraSidebarOpen &&
-      !isZendeskSidebarOpen
+      !isZendeskSidebarOpen &&
+      !isConfluenceSidebarOpen
     ) {
       setClickedSource([]);
       setSelectedUrls([]);
@@ -1972,6 +2155,18 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
     }
 
+    if (
+      confluenceEditorContent === "" &&
+      dirtyChanges.sources.some(
+        (source) => source.newAddedSource && source.type === "confluence"
+      )
+    ) {
+      setDirtyChanges((prev) => ({
+        ...prev,
+        sources: prev.sources.filter((source) => source.type !== "confluence")
+      }));
+    }
+
     const youtubeUrls = youtubeEditorContent
       .split("\n")
       .map((url) => url.trim())
@@ -1992,10 +2187,16 @@ export default function NewGuru({ guruData, isProcessing }) {
       .map((url) => url.trim())
       .filter((url) => url && isValidUrl(url));
 
+    const confluenceUrls = confluenceEditorContent
+      .split("\n")
+      .map((url) => url.trim())
+      .filter((url) => url && isValidUrl(url));
+
     const uniqueYoutubeUrls = [...new Set(youtubeUrls)];
     const uniqueWebsiteUrls = [...new Set(websiteUrls)];
     const uniqueJiraUrls = [...new Set(jiraUrls)];
     const uniqueZendeskUrls = [...new Set(zendeskUrls)]; // <-- Get unique Zendesk URLs
+    const uniqueConfluenceUrls = [...new Set(confluenceUrls)]; // <-- Get unique Confluence URLs
 
     if (uniqueYoutubeUrls.length > 0) {
       const newYoutubeUrls = uniqueYoutubeUrls.map((url) => ({
@@ -2044,11 +2245,24 @@ export default function NewGuru({ guruData, isProcessing }) {
       }));
       handleAddZendeskUrls(newZendeskUrls);
     }
+
+    // <-- Handle adding Confluence URLs -->
+    if (uniqueConfluenceUrls.length > 0) {
+      const newConfluenceUrls = uniqueConfluenceUrls.map((url) => ({
+        id: url,
+        type: "confluence",
+        url: url,
+        status: "NOT_PROCESSED",
+        newAddedSource: true
+      }));
+      handleAddConfluenceUrls(newConfluenceUrls);
+    }
   }, [
     isUrlSidebarOpen,
     isYoutubeSidebarOpen,
     isJiraSidebarOpen,
-    isZendeskSidebarOpen
+    isZendeskSidebarOpen,
+    isConfluenceSidebarOpen
   ]); // <-- Add isZendeskSidebarOpen dependency
 
   // If still loading auth or no user, show loading state
@@ -2144,8 +2358,14 @@ export default function NewGuru({ guruData, isProcessing }) {
               isLoadingZendeskIntegration={isLoadingZendeskIntegration}
               setIsZendeskSidebarOpen={setIsZendeskSidebarOpen}
               setShowZendeskIntegrationModal={setShowZendeskIntegrationModal}
+              // Add Confluence props
+              confluenceIntegration={confluenceIntegration}
+              isLoadingConfluenceIntegration={isLoadingConfluenceIntegration}
+              setIsConfluenceSidebarOpen={setIsConfluenceSidebarOpen}
+              setShowConfluenceIntegrationModal={
+                setShowConfluenceIntegrationModal
+              }
               isEditMode={isEditMode}
-              // isSourceProcessing={isSourceProcessing} // Pass isSourceProcessing
             />
 
             <div className="w-full">
@@ -2333,6 +2553,27 @@ export default function NewGuru({ guruData, isProcessing }) {
         isYoutubeKeyValid={isYoutubeKeyValid}
         integrationId={zendeskIntegration?.id}
       />
+      <SourceDialog
+        clickedSource={clickedSource}
+        editorContent={confluenceEditorContent}
+        form={form}
+        handleDeleteUrls={handleDeleteUrls}
+        initialActiveTab={initialActiveTab}
+        isMobile={isMobile}
+        isOpen={isConfluenceSidebarOpen}
+        selectedUrls={selectedUrls}
+        setClickedSource={setClickedSource}
+        setDirtyChanges={setDirtyChanges}
+        setSelectedUrls={setSelectedUrls}
+        setSources={setSources}
+        sourceType="confluence"
+        title="Confluence Pages"
+        onAddUrls={handleAddConfluenceUrls}
+        onEditorChange={handleConfluenceEditorChange}
+        onOpenChange={setIsConfluenceSidebarOpen}
+        isYoutubeKeyValid={isYoutubeKeyValid}
+        integrationId={confluenceIntegration?.id}
+      />
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         onDelete={handleDeleteGuru}
@@ -2353,6 +2594,14 @@ export default function NewGuru({ guruData, isProcessing }) {
         integrationName="Zendesk"
         IntegrationIcon={ZendeskIcon}
         integrationId="zendesk"
+      />
+      <IntegrationRequiredModal
+        isOpen={showConfluenceIntegrationModal}
+        onOpenChange={setShowConfluenceIntegrationModal}
+        guruSlug={customGuru}
+        integrationName="Confluence"
+        IntegrationIcon={ConfluenceIcon}
+        integrationId="confluence"
       />
     </>
   );

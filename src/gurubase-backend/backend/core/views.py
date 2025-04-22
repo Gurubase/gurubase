@@ -19,7 +19,7 @@ from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from slack_sdk import WebClient
 from core.github.exceptions import GithubAppHandlerError
-from core.requester import GeminiRequester, OpenAIRequester, OllamaRequester
+from core.requester import ConfluenceRequester, GeminiRequester, OpenAIRequester, OllamaRequester
 from core.data_sources import CrawlService, YouTubeService
 from core.serializers import WidgetIdSerializer, BingeSerializer, DataSourceSerializer, GuruTypeSerializer, GuruTypeInternalSerializer, QuestionCopySerializer, FeaturedDataSourceSerializer, APIKeySerializer, DataSourceAPISerializer, SettingsSerializer
 from core.auth import auth, follow_up_examples_auth, jwt_auth, combined_auth, stream_combined_auth, api_key_auth
@@ -853,6 +853,7 @@ def create_data_sources(request, guru_type):
     pdf_privacies = request.data.get('pdf_privacies', '[]')
     jira_urls = request.data.get('jira_urls', '[]')
     zendesk_urls = request.data.get('zendesk_urls', '[]')
+    confluence_urls = request.data.get('confluence_urls', '[]')
     try:
         if type(youtube_urls) == str:
             youtube_urls = json.loads(youtube_urls)
@@ -866,6 +867,8 @@ def create_data_sources(request, guru_type):
             jira_urls = json.loads(jira_urls)
         if type(zendesk_urls) == str:
             zendesk_urls = json.loads(zendesk_urls)
+        if type(confluence_urls) == str:
+            confluence_urls = json.loads(confluence_urls)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -873,8 +876,9 @@ def create_data_sources(request, guru_type):
     if not settings.BETA_FEAT_ON:
         jira_urls = []
         zendesk_urls = []
+        confluence_urls = []
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls:
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -886,11 +890,14 @@ def create_data_sources(request, guru_type):
         service.validate_url_limits(website_urls, 'website')
         service.validate_url_limits(jira_urls, 'jira')
         service.validate_url_limits(zendesk_urls, 'zendesk')
+        service.validate_url_limits(confluence_urls, 'confluence')
 
         if jira_urls:
             service.validate_integration('jira')
         if zendesk_urls:
             service.validate_integration('zendesk')
+        if confluence_urls:
+            service.validate_integration('confluence')
 
         # Create data sources
         results = service.create_data_sources(
@@ -899,7 +906,8 @@ def create_data_sources(request, guru_type):
             youtube_urls=youtube_urls,
             website_urls=website_urls,
             jira_urls=jira_urls,
-            zendesk_urls=zendesk_urls
+            zendesk_urls=zendesk_urls,
+            confluence_urls=confluence_urls
         )
         
         return Response({
@@ -1053,6 +1061,13 @@ def data_sources_frontend(request, guru_type):
             is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, zendesk_urls_count=len(zendesk_urls))
             if not is_allowed:
                 return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check Confluence page limits
+        confluence_urls = json.loads(request.data.get('confluence_urls', '[]'))
+        if confluence_urls:
+            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, confluence_urls_count=len(confluence_urls))
+            if not is_allowed:
+                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)                
 
         return create_data_sources(request, guru_type)
     elif request.method == 'DELETE':
@@ -3154,7 +3169,7 @@ def list_jira_issues(request, integration_id):
 
     try:
         jira_requester = JiraRequester(integration)
-        issues = jira_requester.list_issues(jql=jql_query)
+        issues = jira_requester.list_issues(jql_query=jql_query)
         return Response({'issues': issues, 'issue_count': len(issues)}, status=status.HTTP_200_OK)
     except ValueError as e:
         # Handle specific errors from JiraRequester
@@ -3290,3 +3305,58 @@ def validate_ollama_url(request):
         'is_valid': True,
         'models': models
     })
+
+@api_view(['POST'])
+@jwt_auth
+def list_confluence_pages(request, integration_id):
+    """
+    List Confluence pages with optional filtering.
+    
+    This endpoint handles both spaces and pages, functioning as a combined endpoint:
+    - If cql parameter is provided, returns pages matching the query
+    - If no parameters are provided, returns all pages
+    
+    Requires integration_id in the path.
+    Optional POST body parameters:
+    - cql: Confluence Query Language for filtering pages
+    """
+    try:
+        integration = Integration.objects.get(id=integration_id)
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Integration not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate user permission (e.g., maintainer or admin)
+    try:
+        get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        # This shouldn't happen if integration exists, but good practice
+        return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate integration type
+    if integration.type != Integration.Type.CONFLUENCE:
+        return Response({'msg': 'This integration is not a Confluence integration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Extract parameters from request data with defaults
+    cql = request.data.get('query')
+
+    try:
+        confluence_requester = ConfluenceRequester(integration)
+        result = confluence_requester.list_pages(
+            cql=cql 
+        )
+        return Response(result, status=status.HTTP_200_OK)
+    except ValueError as e:
+        # Handle specific errors from ConfluenceRequester
+        error_str = str(e)
+        if "Invalid Confluence credentials" in error_str:
+             return Response({'msg': 'Invalid Confluence credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif "Confluence API access forbidden" in error_str:
+             return Response({'msg': 'Confluence API access forbidden. Check user permissions or API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+             logger.error(f"Error listing Confluence content for integration {integration_id}: {e}", exc_info=True)
+             return Response({'msg': f'Failed to list Confluence pages: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        logger.error(f"Unexpected error listing Confluence content for integration {integration_id}: {e}", exc_info=True)
+        return Response({'msg': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

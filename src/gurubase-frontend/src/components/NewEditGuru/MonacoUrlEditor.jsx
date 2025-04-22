@@ -19,7 +19,8 @@ import {
   fetchYoutubeChannel,
   fetchJiraIssues,
   fetchZendeskTickets,
-  fetchZendeskArticles
+  fetchZendeskArticles,
+  fetchConfluencePages
 } from "@/app/actions";
 
 // Add this dynamic import for MonacoEditor
@@ -105,6 +106,8 @@ const MonacoUrlEditor = ({
   const [stoppingCrawl, setStoppingCrawl] = useState(false);
   const prevValueRef = useRef(value);
   const [loadingType, setLoadingType] = useState(null);
+  const [confluenceQuery, setConfluenceQuery] = useState("");
+  const [showConfluenceInput, setShowConfluenceInput] = useState(true);
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
@@ -455,6 +458,63 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const handleConfluenceFetch = async () => {
+    try {
+      onSitemapLoadingChange(true);
+      const response = await fetchConfluencePages(
+        integrationId,
+        confluenceQuery
+      );
+
+      if (!isLoadingSitemapRef.current) {
+        return;
+      }
+
+      if (response.error || response.message || !response.pages) {
+        CustomToast({
+          message: response.message || "Failed to fetch Confluence pages",
+          variant: "error"
+        });
+
+        return;
+      }
+
+      const { pages, page_count } = response;
+      console.log("pages", pages);
+      if (pages && pages.length > 0) {
+        const fetchedUrls = pages.map((page) => page.link);
+        const currentContent = value || "";
+        const existingUrls = currentContent
+          .split("\n")
+          .filter((url) => url.trim());
+
+        const allItems = [...new Set([...existingUrls, ...fetchedUrls])];
+
+        const newContent = allItems.join("\n");
+        onChange(newContent);
+
+        CustomToast({
+          message: `Successfully added ${page_count || pages.length} pages from Confluence`,
+          variant: "success"
+        });
+      } else {
+        CustomToast({
+          message: response.message || "No pages found for the query",
+          variant: "warning"
+        });
+      }
+    } catch (error) {
+      CustomToast({
+        message:
+          error.message ||
+          "An unexpected error occurred while fetching Confluence pages",
+        variant: "error"
+      });
+    } finally {
+      onSitemapLoadingChange(false);
+    }
+  };
+
   const crawlButtonContent = () => {
     if (!isCrawling) {
       return (
@@ -579,6 +639,31 @@ const MonacoUrlEditor = ({
     }
   };
 
+  const confluenceButtonContent = () => {
+    if (!isLoadingSitemapRef.current) {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1"
+          disabled={isLoadingSitemapRef.current}
+          onClick={handleConfluenceFetch}
+          variant="outline">
+          Fetch Pages
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          className="h-8 guru-sm:flex-1 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
+          onClick={() => onStopSitemapLoading()}
+          disabled={!isLoadingSitemapRef.current}
+          variant="outline">
+          <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          Stop
+        </Button>
+      );
+    }
+  };
+
   const zendeskTicketsButtonContent = () => {
     if (!isLoadingSitemapRef.current) {
       return (
@@ -659,7 +744,7 @@ const MonacoUrlEditor = ({
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton || showConfluenceInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -830,6 +915,121 @@ const MonacoUrlEditor = ({
               )}
             </div>
           )}
+          {sourceType === "confluence" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {!showConfluenceInput ? (
+                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                          onClick={() => setShowConfluenceInput(true)}>
+                          <Icon icon="mdi:confluence" className="h-4 w-4" />
+                          <span className="text-sm">Fetch Pages</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Fetch pages using a search query</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <div className="relative w-full">
+                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                      CQL
+                    </span>
+                    <Input
+                      className="w-[600px] h-10 guru-sm:w-full pt-6"
+                      placeholder="Enter CQL Query (Optional)"
+                      value={confluenceQuery}
+                      onChange={(e) => setConfluenceQuery(e.target.value)}
+                      disabled={isLoadingSitemapRef.current}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 guru-sm:w-full">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {confluenceButtonContent()}
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Fetch pages using a CQL query</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {/* <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 hover:bg-gray-100"
+                      disabled={isLoadingSitemapRef.current}
+                      onClick={() => {
+                        setShowJiraInput(false);
+                        setJiraQuery(defaultJQL);
+                      }}>
+                      ✕
+                    </Button> */}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {/* {sourceType === "confluence" && (
+            <div className={`flex items-center gap-2 guru-sm:w-full`}>
+              {!showConfluenceInput ? (
+                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
+                          onClick={() => setShowConfluenceInput(true)}>
+                          <Icon icon="mdi:confluence" className="h-4 w-4" />
+                          <span className="text-sm">Fetch Pages</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Fetch pages using a search query</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              
+                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                  <div className="relative w-full">
+                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
+                      Query
+                    </span>
+                    <Input
+                      className="w-[600px] h-10 guru-sm:w-full pt-6"
+                      placeholder="Enter Search Query (Optional)"
+                      value={confluenceQuery}
+                      onChange={(e) => setConfluenceQuery(e.target.value)}
+                      disabled={isLoadingSitemapRef.current}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 guru-sm:w-full">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {confluenceButtonContent()}
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Fetch pages using a search query</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              )}
+            </div>
+          )} */}
           {sourceType === "youtube" && (
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
               {!showYoutubeInput ? (
@@ -988,11 +1188,13 @@ const MonacoUrlEditor = ({
                         ? `Importing ${youtubeType}...`
                         : sourceType === "jira"
                           ? "Fetching Jira issues..."
-                          : sourceType === "zendesk"
-                            ? loadingType === "articles"
-                              ? "Fetching Zendesk articles..."
-                              : "Fetching Zendesk tickets..."
-                            : "Loading...")}
+                          : sourceType === "confluence"
+                            ? "Fetching Confluence pages..."
+                            : sourceType === "zendesk"
+                              ? loadingType === "articles"
+                                ? "Fetching Zendesk articles..."
+                                : "Fetching Zendesk tickets..."
+                              : "Loading...")}
                 </span>
               </div>
             </div>
