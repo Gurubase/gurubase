@@ -984,6 +984,9 @@ export default function NewGuru({ guruData, isProcessing }) {
     const zendeskCount = sources.filter(
       (s) => s.type.toLowerCase() === "zendesk" && !s.deleted
     ).length;
+    const githubRepoCount = sources.filter(
+      (s) => s.type.toLowerCase() === "github_repo" && !s.deleted
+    ).length;
 
     // Calculate PDF size
     let currentPdfSize = sources
@@ -1016,6 +1019,10 @@ export default function NewGuru({ guruData, isProcessing }) {
       customGuruData.zendesk_limit === undefined
         ? Infinity
         : customGuruData.zendesk_limit;
+    const githubRepoLimit =
+      customGuruData.github_repo_limit === undefined
+        ? Infinity
+        : customGuruData.github_repo_limit;
     const pdfSizeLimitMb =
       customGuruData.pdf_size_limit_mb === undefined
         ? Infinity
@@ -1057,6 +1064,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     if (zendeskCount > zendeskLimit) {
       CustomToast({
         message: `You have exceeded the Zendesk ticket limit (${zendeskLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (githubRepoCount > githubRepoLimit) {
+      CustomToast({
+        message: `You have exceeded the GitHub repository limit (${githubRepoLimit}).`,
         variant: "error"
       });
       return false;
@@ -2136,7 +2151,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         // Mark as dirty changes
         setDirtyChanges((prev) => ({
           ...prev,
-          guruUpdated: true, // Mark form as changed
           sources: [
             ...prev.sources,
             {
