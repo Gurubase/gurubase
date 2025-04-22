@@ -136,6 +136,7 @@ Four types of data sources are supported:
 - Codebases
 - Jira Issues
 - ZenDesk Tickets/Articles
+- Confluence Pages
 
 #### YouTube videos
 
@@ -149,11 +150,15 @@ The system uses `firecrawl` to extract content from websites. It scrapes the web
 
 #### Jira Issues
 
-The system uses Jira Python SDK to fetch issues based on the integration configuration.
+The system uses Atlassian Python SDK to fetch issues based on the integration configuration.
 
 #### ZenDesk Tickets/Articles
 
 The system uses ZenDesk Web API to fetch tickets and articles based on the integration configuration.
+
+#### Confluence Pages
+
+The system uses Atlassian Python SDK to fetch pages based on the integration configuration.
 
 #### PDFs
 
