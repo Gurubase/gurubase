@@ -209,6 +209,10 @@ export function SourcesTableSection({
           </Badge>
         ) : null;
 
+      const lastIndexedDate = source.last_reindex_date
+        ? new Date(source.last_reindex_date).toLocaleString()
+        : null;
+
       return (
         <div className="flex items-center gap-2">
           {source.status === "FAIL" && source.error ? (
@@ -229,6 +233,37 @@ export function SourcesTableSection({
                   sideOffset={8}>
                   <p className="text-center relative font-inter px-2 text-xs font-medium text-red-600">
                     {source.error}
+                  </p>
+                  <div
+                    className="absolute w-3 h-3 border-l border-t bg-background"
+                    style={{
+                      bottom: "-6px",
+                      left: "50%",
+                      transform: "translateX(-50%) rotate(225deg)",
+                      borderColor: "inherit"
+                    }}
+                  />
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : source.last_reindex_date ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      isSourcesProcessing && "pointer-events-none opacity-50"
+                    )}>
+                    {badgeElement}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  align="center"
+                  className="rounded-lg shadow-lg border p-3 bg-background max-w-xs"
+                  side="top"
+                  sideOffset={8}>
+                  <p className="text-center relative font-inter px-2 text-xs font-medium text-green-700">
+                    Last indexed at {lastIndexedDate}
                   </p>
                   <div
                     className="absolute w-3 h-3 border-l border-t bg-background"
