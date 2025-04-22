@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0077_settings_split_min_length_settings_split_overlap_and_more'),
+        ('core', '0078_gurutype_confluence_count_limit_and_more'),
     ]
 
     operations = [
