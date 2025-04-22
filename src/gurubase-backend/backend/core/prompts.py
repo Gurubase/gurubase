@@ -126,6 +126,7 @@ First, carefully read and analyze the following contexts:
 {github_context}
 
 When answering the question, follow these guidelines:
+{custom_instruction_section}
 1. Use only the information provided in the contexts. Do not use prior knowledge or hallucinate information.
 2. Contexts are not the exact answer, but they are relevant information to answer the question.
 3. Highlight critical information in bold for emphasis.
