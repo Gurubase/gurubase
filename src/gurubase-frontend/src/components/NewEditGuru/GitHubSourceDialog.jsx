@@ -219,7 +219,7 @@ const GitHubSourceDialog = React.memo(
                           />
                           <Label
                             htmlFor="includePattern"
-                            className="font-regular cursor-pointer text-base">
+                            className="cursor-pointer">
                             Include/Exclude
                           </Label>
                         </div>
