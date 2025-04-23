@@ -39,10 +39,3 @@ jobs:
         tags: ${{ secrets.GURUBASE_BE_PCS_DOCKER_REPOSITORY }}:${{ github.event.inputs.version }}
         platforms: linux/amd64,linux/arm64
         file: src/gurubase-backend/Dockerfile
-
-    - name: Image Tag
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        echo "$IMAGE_TAG"
-        echo "Image Tag: $IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
