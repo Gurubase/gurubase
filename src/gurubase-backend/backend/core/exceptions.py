@@ -88,6 +88,29 @@ class ZendeskInvalidSubdomainError(ZendeskError):
     """Exception raised for Zendesk invalid subdomain errors."""
     pass
 
+class ConfluenceError(Exception):
+    """Exception raised for Confluence errors."""
+    pass
+
+class ConfluenceInvalidDomainError(ConfluenceError):
+    """Exception raised for Confluence invalid domain errors."""
+    pass
+
+class ConfluenceAuthenticationError(ConfluenceError):
+    """Exception raised for Confluence authentication errors."""
+    pass
+
+class JiraError(Exception):
+    """Exception raised for Jira errors."""
+    pass
+
+class JiraInvalidDomainError(JiraError):
+    """Exception raised for Jira invalid domain errors."""
+    pass
+
+class JiraAuthenticationError(JiraError):
+    """Exception raised for Jira authentication errors."""
+    pass
 
 class IntegrityError(Exception):
     """Exception raised for integrity errors."""

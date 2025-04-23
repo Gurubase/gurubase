@@ -172,6 +172,7 @@ class AnalyticsService:
             if settings.BETA_FEAT_ON:
                 filters.append({'value': 'jira', 'label': 'Jira'})
                 filters.append({'value': 'zendesk', 'label': 'Zendesk'})
+                filters.append({'value': 'confluence', 'label': 'Confluence'})
         else:
             filters = []
             

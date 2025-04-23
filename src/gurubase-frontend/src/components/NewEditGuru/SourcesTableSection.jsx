@@ -73,6 +73,10 @@ export function SourcesTableSection({
   setIsZendeskSidebarOpen,
   setShowZendeskIntegrationModal,
   zendeskIntegration,
+  setIsConfluenceSidebarOpen,
+  setShowConfluenceIntegrationModal,
+  confluenceIntegration,
+  isLoadingConfluenceIntegration,
   isEditMode
 }) {
   const [filterType, setFilterType] = useState("all");
@@ -96,6 +100,15 @@ export function SourcesTableSection({
     }
   };
 
+  const handleAddConfluence = () => {
+    if (confluenceIntegration) {
+      setClickedSource([]);
+      setIsConfluenceSidebarOpen(true);
+    } else {
+      setShowConfluenceIntegrationModal(true);
+    }
+  };
+
   const handleAddZendesk = () => {
     if (zendeskIntegration) {
       setClickedSource([]);
@@ -115,12 +128,14 @@ export function SourcesTableSection({
     website: handleAddWebsite,
     youtube: handleAddYoutube,
     jira: handleAddJira,
+    confluence: handleAddConfluence,
     onUploadPdfClick: handleUploadPdf,
     zendesk: handleAddZendesk
   };
 
   const sourceLoadingStates = {
-    isLoadingIntegration: isLoadingIntegration
+    isLoadingIntegration: isLoadingIntegration,
+    isLoadingConfluenceIntegration: isLoadingConfluenceIntegration
   };
 
   const isSourceProcessing = (source) => {
@@ -315,6 +330,7 @@ export function SourcesTableSection({
       source.type.toLowerCase() === "youtube" ||
       source.type.toLowerCase() === "website" ||
       source.type.toLowerCase() === "jira" ||
+      source.type.toLowerCase() === "confluence" ||
       source.type.toLowerCase() === "zendesk"
   );
   const fileSources = filteredSources.filter(

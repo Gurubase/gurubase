@@ -279,7 +279,7 @@ def prepare_contexts(contexts, reranked_scores):
                 'question': reference_key,
                 'link': reference_link
             }
-        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK']:
+        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE']:
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],
@@ -1231,9 +1231,17 @@ def prepare_chat_messages(user_question, question, guru_variables, context_vals,
     else:
         binge_answer_prompt = ""
     
+    # Process custom instruction prompt
+    custom_instruction_prompt = guru_variables.get('custom_instruction_prompt', '')
+    if custom_instruction_prompt and custom_instruction_prompt.strip():
+        custom_instruction_section = f"\nCUSTOM INSTRUCTIONS (These take priority if there are conflicts with other guidelines):\n\n{custom_instruction_prompt}\n\nDEFAULT INSTRUCTIONS (These are the default instructions that will be used if there are no conflicts with the custom instructions):\n"
+    else:
+        custom_instruction_section = ""
+    
     # Insert binge_answer_prompt into the main prompt
     final_prompt = prompt_template.format(
         binge_answer_prompt=binge_answer_prompt if history else "",
+        custom_instruction_section=custom_instruction_section,
         **guru_variables,
         **context_vals
     )

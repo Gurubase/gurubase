@@ -1062,6 +1062,9 @@ export async function createSelfhostedIntegration(
           jira_domain: data.jira_domain,
           jira_user_email: data.jira_user_email,
           jira_api_key: data.jira_api_key,
+          confluence_domain: data.confluence_domain,
+          confluence_user_email: data.confluence_user_email,
+          confluence_api_token: data.confluence_api_token,
           zendesk_domain: data.zendesk_domain,
           zendesk_user_email: data.zendesk_user_email,
           zendesk_api_token: data.zendesk_api_token
@@ -1215,6 +1218,45 @@ export async function fetchJiraIssues(integrationId, jqlQuery) {
       context: "fetchJiraIssues",
       integrationId,
       jqlQuery
+    });
+  }
+}
+
+export async function fetchConfluencePages(integrationId, searchQuery) {
+  try {
+    // Construct the endpoint URL using the integrationId
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/confluence/pages/${integrationId}/`;
+
+    const response = await makeAuthenticatedRequest(endpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Send the search query in the request body
+      body: JSON.stringify({ query: searchQuery })
+    });
+
+    if (!response) {
+      return { error: true, message: "No response from server" };
+    }
+
+    // Parse the JSON response from the backend
+    const data = await response.json();
+
+    // Check for backend errors indicated in the response data
+    if (!response.ok) {
+      return {
+        error: true,
+        message: data.msg || data.detail || "Failed to fetch Confluence pages",
+        status: response.status
+      };
+    }
+
+    return data; // Return the successful response data (includes pages)
+  } catch (error) {
+    // Handle network or other unexpected errors
+    return handleRequestError(error, {
+      context: "fetchConfluencePages",
+      integrationId,
+      searchQuery
     });
   }
 }

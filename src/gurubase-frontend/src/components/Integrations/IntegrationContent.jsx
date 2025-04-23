@@ -11,7 +11,8 @@ import {
   ConnectedIntegrationIcon,
   GitHubIcon,
   JiraIcon,
-  ZendeskIcon
+  ZendeskIcon,
+  ConfluenceIcon
 } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import {
@@ -59,6 +60,11 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const [jiraDomain, setJiraDomain] = useState("");
   const [jiraUserEmail, setJiraUserEmail] = useState("");
   const [jiraApiKey, setJiraApiKey] = useState("");
+
+  // Confluence State
+  const [confluenceDomain, setConfluenceDomain] = useState("");
+  const [confluenceUserEmail, setConfluenceUserEmail] = useState("");
+  const [confluenceApiKey, setConfluenceApiKey] = useState("");
 
   // Zendesk State
   const [zendeskDomain, setZendeskDomain] = useState("");
@@ -193,6 +199,26 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
       showChannels: false,
       selfhostedDescription: <></>
     };
+    baseIntegrationConfig.confluence = {
+      name: "Confluence",
+      description: (
+        <>
+          Connect your Confluence to add pages to your Guru as a data source.
+          Here is the guide to{" "}
+          <Link
+            href="https://docs.gurubase.io/integrations/confluence-bot"
+            className="text-blue-500 hover:text-blue-600"
+            target="_blank">
+            learn more
+          </Link>
+          .
+        </>
+      ),
+      iconSize: "w-5 h-5",
+      icon: ConfluenceIcon,
+      showChannels: false,
+      selfhostedDescription: <></>
+    };
     baseIntegrationConfig.zendesk = {
       name: "Zendesk",
       description: (
@@ -266,7 +292,10 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   const Icon = config.icon;
   const name = config.name;
 
-  const addBotSuffix = !["Jira", "Zendesk"].includes(name) ? " Bot" : "";
+  const addBotSuffix = " Bot";
+  // const addBotSuffix = !["Jira", "Zendesk", "Confluence"].includes(name)
+  //   ? " Bot"
+  //   : "";
   if (loading) {
     return (
       <div className="w-full">
@@ -309,7 +338,10 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               </Button>
             </div>
           </div>
-          {selfhosted || type === "jira" || type === "zendesk" ? (
+          {selfhosted ||
+          type === "jira" ||
+          type === "zendesk" ||
+          type === "confluence" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -464,6 +496,96 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                               : undefined
                           }
                           placeholder="Enter Jira API key..."
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : type === "confluence" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence Domain
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_domain ||
+                            confluenceDomain
+                          }
+                          onChange={
+                            !integrationData?.confluence_domain
+                              ? (e) => setConfluenceDomain(e.target.value)
+                              : undefined
+                          }
+                          placeholder="yourcompany.atlassian.net"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence User Email
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_user_email ||
+                            confluenceUserEmail
+                          }
+                          onChange={
+                            !integrationData?.confluence_user_email
+                              ? (e) => setConfluenceUserEmail(e.target.value)
+                              : undefined
+                          }
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence API Key
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_api_token}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_api_token
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_api_token ||
+                            confluenceApiKey
+                          }
+                          onChange={
+                            !integrationData?.confluence_api_token
+                              ? (e) => setConfluenceApiKey(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter Confluence API key..."
                         />
                       </div>
                     </div>
@@ -676,14 +798,17 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
   // Default case: Show create content (204 or no integration)
   return (
     <div className="w-full">
-      <IntegrationHeader text={`${name} Bot`} />
+      <IntegrationHeader text={`${name}${addBotSuffix}`} />
       <IntegrationDivider />
       {internalError && <IntegrationError message={internalError} />}
       {error && <IntegrationError message={error} />}
       <div
         className={cn(
           "flex p-6 gap-4",
-          selfhosted || type === "jira" || type === "zendesk"
+          selfhosted ||
+            type === "jira" ||
+            type === "confluence" ||
+            type === "zendesk"
             ? "flex-col"
             : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
         )}>
@@ -696,11 +821,17 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
         <div
           className={cn(
             "flex flex-col gap-4 mt-2",
-            selfhosted || type === "jira" || type === "zendesk"
+            selfhosted ||
+              type === "jira" ||
+              type === "confluence" ||
+              type === "zendesk"
               ? "w-full md:"
               : "w-full md:w-auto"
           )}>
-          {selfhosted || type === "jira" || type === "zendesk" ? (
+          {selfhosted ||
+          type === "jira" ||
+          type === "confluence" ||
+          type === "zendesk" ? (
             <>
               <div className="space-y-8">
                 {type === "github" ? (
@@ -750,49 +881,33 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                               ? (e) => setInstallationId(e.target.value)
                               : undefined
                           }
-                          placeholder="Enter GitHub App installation ID..."
+                          placeholder="Enter GitHub App installation ID"
                         />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex flex-col gap-2">
-                        <h3 className="text-lg font-medium">
-                          Webhook Secret (Optional)
-                        </h3>
-                      </div>
-                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
-                        <Input
-                          readOnly={!!integrationData?.github_secret}
-                          className={cn(
-                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
-                            integrationData?.github_secret
-                              ? "bg-gray-50"
-                              : "bg-white"
-                          )}
-                          value={integrationData?.github_secret || secret}
-                          onChange={
-                            !integrationData?.github_secret
-                              ? (e) => setSecret(e.target.value)
-                              : undefined
-                          }
-                          placeholder="Enter GitHub App webhook secret..."
-                        />
-                      </div>
-                    </div>
-                    {!integrationData?.github_client_id && (
+                    {integrationData?.github_secret && (
                       <div>
                         <div className="flex flex-col gap-2">
-                          <h3 className="text-lg font-medium">Private Key</h3>
-                          <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
-                            Make sure the newlines are included
-                          </p>
+                          <h3 className="text-lg font-medium">
+                            Webhook Secret (Optional)
+                          </h3>
                         </div>
-                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
-                          <textarea
-                            className="h-32 w-full px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white resize-none"
-                            value={privateKey}
-                            onChange={(e) => setPrivateKey(e.target.value)}
-                            placeholder="Enter GitHub App private key..."
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                          <Input
+                            readOnly={!!integrationData?.github_secret}
+                            className={cn(
+                              "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                              integrationData?.github_secret
+                                ? "bg-gray-50"
+                                : "bg-white"
+                            )}
+                            value={integrationData?.github_secret || secret}
+                            onChange={
+                              !integrationData?.github_secret
+                                ? (e) => setSecret(e.target.value)
+                                : undefined
+                            }
+                            placeholder="Enter GitHub App webhook secret..."
                           />
                         </div>
                       </div>
@@ -809,9 +924,19 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                       <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
-                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
-                          value={jiraDomain}
-                          onChange={(e) => setJiraDomain(e.target.value)}
+                          readOnly={!!integrationData?.jira_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.jira_domain || jiraDomain}
+                          onChange={
+                            !integrationData?.jira_domain
+                              ? (e) => setJiraDomain(e.target.value)
+                              : undefined
+                          }
                           placeholder="yourcompany.atlassian.net"
                         />
                       </div>
@@ -822,9 +947,21 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                       <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
-                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
-                          value={jiraUserEmail}
-                          onChange={(e) => setJiraUserEmail(e.target.value)}
+                          readOnly={!!integrationData?.jira_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.jira_user_email || jiraUserEmail
+                          }
+                          onChange={
+                            !integrationData?.jira_user_email
+                              ? (e) => setJiraUserEmail(e.target.value)
+                              : undefined
+                          }
                           placeholder="your.email@example.com"
                         />
                       </div>
@@ -835,11 +972,110 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                       </div>
                       <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
                         <Input
-                          type="password"
-                          className="h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white"
-                          value={jiraApiKey}
-                          onChange={(e) => setJiraApiKey(e.target.value)}
+                          readOnly={!!integrationData?.jira_api_key}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.jira_api_key
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={integrationData?.jira_api_key || jiraApiKey}
+                          onChange={
+                            !integrationData?.jira_api_key
+                              ? (e) => setJiraApiKey(e.target.value)
+                              : undefined
+                          }
                           placeholder="Enter Jira API key..."
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : type === "confluence" ? (
+                  <>
+                    <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
+                      {config.selfhostedDescription}
+                    </p>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence Domain
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_domain}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_domain
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_domain ||
+                            confluenceDomain
+                          }
+                          onChange={
+                            !integrationData?.confluence_domain
+                              ? (e) => setConfluenceDomain(e.target.value)
+                              : undefined
+                          }
+                          placeholder="yourcompany.atlassian.net"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence User Email
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_user_email}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_user_email
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_user_email ||
+                            confluenceUserEmail
+                          }
+                          onChange={
+                            !integrationData?.confluence_user_email
+                              ? (e) => setConfluenceUserEmail(e.target.value)
+                              : undefined
+                          }
+                          placeholder="your.email@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-lg font-medium">
+                          Confluence API Key
+                        </h3>
+                      </div>
+                      <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-2">
+                        <Input
+                          readOnly={!!integrationData?.confluence_api_token}
+                          className={cn(
+                            "h-12 px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919]",
+                            integrationData?.confluence_api_token
+                              ? "bg-gray-50"
+                              : "bg-white"
+                          )}
+                          value={
+                            integrationData?.confluence_api_token ||
+                            confluenceApiKey
+                          }
+                          onChange={
+                            !integrationData?.confluence_api_token
+                              ? (e) => setConfluenceApiKey(e.target.value)
+                              : undefined
+                          }
+                          placeholder="Enter Confluence API key..."
                         />
                       </div>
                     </div>
@@ -972,13 +1208,21 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             size="lgRounded"
             className={cn(
               "bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]",
-              selfhosted || type === "jira" || type === "zendesk"
+              selfhosted ||
+                type === "jira" ||
+                type === "confluence" ||
+                type === "zendesk"
                 ? "w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]"
                 : "guru-xs:w-full w-auto"
             )}
             disabled={isConnecting}
             onClick={async () => {
-              if (selfhosted || type === "jira" || type === "zendesk") {
+              if (
+                selfhosted ||
+                type === "jira" ||
+                type === "confluence" ||
+                type === "zendesk"
+              ) {
                 setIsConnecting(true);
                 try {
                   const credentials =
@@ -995,17 +1239,23 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                             jira_user_email: jiraUserEmail,
                             jira_api_key: jiraApiKey
                           }
-                        : type === "zendesk"
+                        : type === "confluence"
                           ? {
-                              zendesk_domain: zendeskDomain,
-                              zendesk_user_email: zendeskUserEmail,
-                              zendesk_api_token: zendeskApiKey
+                              confluence_domain: confluenceDomain,
+                              confluence_user_email: confluenceUserEmail,
+                              confluence_api_token: confluenceApiKey
                             }
-                          : {
-                              workspaceName,
-                              externalId,
-                              accessToken
-                            };
+                          : type === "zendesk"
+                            ? {
+                                zendesk_domain: zendeskDomain,
+                                zendesk_user_email: zendeskUserEmail,
+                                zendesk_api_token: zendeskApiKey
+                              }
+                            : {
+                                workspaceName,
+                                externalId,
+                                accessToken
+                              };
 
                   const response = await createSelfhostedIntegration(
                     guruData?.slug,
