@@ -1274,9 +1274,6 @@ export async function fetchZendeskTickets(integrationId) {
       return { error: true, message: "No response from server" };
     }
 
-    // Parse the JSON response from the backend
-    const data = await response.json();
-
     // Check for backend errors indicated in the response data
     if (!response.ok) {
       return {
@@ -1286,6 +1283,8 @@ export async function fetchZendeskTickets(integrationId) {
       };
     }
 
+    // Parse the JSON response from the backend
+    const data = await response.json();
     // Assuming response format: { tickets: [{ link: 'url1' }, ...], ticket_count: N }
     return data;
   } catch (error) {
@@ -1310,9 +1309,6 @@ export async function fetchZendeskArticles(integrationId) {
       return { error: true, message: "No response from server" };
     }
 
-    // Parse the JSON response from the backend
-    const data = await response.json();
-
     // Check for backend errors indicated in the response data
     if (!response.ok) {
       return {
@@ -1322,6 +1318,8 @@ export async function fetchZendeskArticles(integrationId) {
       };
     }
 
+    // Parse the JSON response from the backend
+    const data = await response.json();
     // Assuming response format: { articles: [{ link: 'url1' }, ...], article_count: N }
     return data;
   } catch (error) {
