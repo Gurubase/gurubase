@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0077_settings_split_min_length_settings_split_overlap_and_more'),
+        ('core', '0079_gurutype_custom_instruction_prompt'),
     ]
 
     operations = [
