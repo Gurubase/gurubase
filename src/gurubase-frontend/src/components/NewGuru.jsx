@@ -976,7 +976,6 @@ export default function NewGuru({ guruData, isProcessing }) {
             setUrlEditorContent("");
             setYoutubeEditorContent("");
 
-            setIsSourcesProcessing(false);
             // Reset polling flag before returning
             isPollingRef.current = false;
             return true; // Indicate successful completion
@@ -985,7 +984,6 @@ export default function NewGuru({ guruData, isProcessing }) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
           return await poll();
         } else {
-          setIsSourcesProcessing(false);
           CustomToast({
             message:
               "Sources are being processed in the background. You can continue using the guru.",
@@ -1233,6 +1231,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         formData.append("existing_guru_logo", data.guruLogo);
       }
 
+      setIsSourcesProcessing(true);
+
       const guruResponse = isEditMode
         ? await updateGuru(customGuru, formData)
         : await createGuru(formData);
@@ -1457,7 +1457,6 @@ export default function NewGuru({ guruData, isProcessing }) {
 
       if (hasNewSources) {
         hasChanges = true;
-        setIsSourcesProcessing(true);
 
         const sourcesResponse = await addGuruSources(
           guruSlug,
