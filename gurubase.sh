@@ -277,7 +277,7 @@ is_port_available() {
     exit 1
   fi
 
-  if lsof -i :"$port" >/dev/null 2>&1; then
+  if lsof -i :"$port" -P -n | grep LISTEN >/dev/null 2>&1; then
     echo "❌ Port $port is already in use. Free up the current port and try again."
     exit 1
   fi
