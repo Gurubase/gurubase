@@ -1455,8 +1455,7 @@ def stream_question_answer(
 
 def validate_guru_type(guru_type, only_active=True):
     if guru_type not in get_guru_type_names(only_active=only_active):
-        raise exceptions.InvalidRequestError({'msg': 'Guru type is invalid.'})
-
+        raise exceptions.GuruNotFoundError({'msg': f'Guru type {guru_type} is not found.'})
 
 class SeoFriendlyTitleAnswer(BaseModel):
     seo_frienly_title: str

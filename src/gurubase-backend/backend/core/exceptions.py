@@ -6,6 +6,11 @@ class InvalidRequestError(APIException):
     default_detail = {"msg": "invalid request"}
     default_code = 'invalidrequest'
 
+class GuruNotFoundError(APIException):
+    status_code = status.HTTP_404_NOT_FOUND
+    default_detail = {"msg": "Guru type not found"}
+    default_code = 'guru_not_found'
+
 
 class ContentExtractionError(Exception):
     """Base class for content extraction errors."""

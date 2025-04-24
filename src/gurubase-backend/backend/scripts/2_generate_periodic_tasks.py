@@ -70,14 +70,6 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    'task_copy_raw_questions': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.copy_raw_questions',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
     'task_process_titles': {
         'every': 1,
         'period': HOURS,
@@ -258,7 +250,6 @@ if settings.ENV == 'selfhosted':
     periodic_tasks.pop('task_update_question_as_the_question_content_h1')
     periodic_tasks.pop('task_fill_empty_og_images')
     periodic_tasks.pop('task_find_duplicate_question_titles')
-    periodic_tasks.pop('task_copy_raw_questions')
     periodic_tasks.pop('task_process_titles')
     periodic_tasks.pop('task_llm_eval')
     periodic_tasks.pop('task_llm_eval_result')
