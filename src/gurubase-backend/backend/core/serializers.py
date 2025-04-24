@@ -73,7 +73,7 @@ class WidgetIdSerializer(serializers.ModelSerializer):
 class DataSourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataSource
-        exclude = ['file', 'doc_ids', 'content', 'guru_type', 'last_reindex_date']
+        exclude = ['file', 'doc_ids', 'content', 'guru_type', 'last_reindex_date', 'github_glob_pattern', 'github_glob_include']
 
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
