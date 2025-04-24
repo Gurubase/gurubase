@@ -525,7 +525,7 @@ export function SourcesTableSection({
       </div>
 
       <div className="flex items-center justify-between space-x-4 mb-3">
-        {sources.length > 0 && (
+        {sources.length > 0 ? (
           <Select
             disabled={isSourcesProcessing || isProcessing || isSubmitting}
             onValueChange={(value) => setFilterType(value)}
@@ -541,6 +541,9 @@ export function SourcesTableSection({
               ))}
             </SelectContent>
           </Select>
+        ) : (
+          // To preserve the layout when source selection is not available during initial loading and new guru creation
+          <div className="w-[180px]"></div>
         )}
         <SourceActions
           isProcessing={isProcessing}
