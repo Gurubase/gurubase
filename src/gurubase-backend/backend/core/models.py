@@ -548,7 +548,7 @@ class GuruType(models.Model):
 
         # Check Zendesk ticket limit
         if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
-            return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
+            return False, f"Zendesk ticket/article limit ({self.zendesk_count_limit}) reached"
         
         # Check Confluence page limit
         if (confluence_count + confluence_urls_count) > self.confluence_count_limit:
