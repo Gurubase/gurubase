@@ -918,7 +918,7 @@ def create_data_sources(request, guru_type):
             website_urls=website_urls,
             jira_urls=jira_urls,
             zendesk_urls=zendesk_urls,
-            github_repos=github_repos,
+            github_repos=new_github_repos,
             confluence_urls=confluence_urls
         )
         
