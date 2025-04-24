@@ -56,6 +56,10 @@ export const SourceActions = ({
             // Don't warn for integration types here, as the check is in the handler
           }
 
+        // Jira (and potentially future integration types) needs a special check within its handler,
+        // but we use the handler name from the config to call it.
+        // The loading state is used to show the spinner.
+
           // Special disabling logic for Jira in 'create' mode
           const isJiraInCreateMode = config.id === "jira" && !isEditMode;
           const isZendeskInCreateMode = config.id === "zendesk" && !isEditMode;
