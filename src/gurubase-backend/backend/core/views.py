@@ -436,7 +436,6 @@ def question_detail(request, guru_type, slug):
     # This endpoint is only used for UI.
     # validate_guru_type(guru_type)
 
-    
     user = request.user
     
     question_text = request.query_params.get('question')
@@ -454,6 +453,7 @@ def question_detail(request, guru_type, slug):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
 
     guru_type_object = get_guru_type_object(guru_type)
+    
     question = search_question(
         user, 
         guru_type_object, 
