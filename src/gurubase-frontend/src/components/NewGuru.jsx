@@ -574,11 +574,6 @@ export default function NewGuru({ guruData, isProcessing }) {
         return baseSource;
       });
 
-      console.log(
-        "newSources",
-        newSources.filter((s) => s.type === "github_repo")
-      );
-
       // Check for unprocessed sources (including GitHub)
       const hasUnprocessedSources = newSources.some(
         (source) => source.status === "NOT_PROCESSED"
@@ -656,10 +651,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       });
     }
   }, [form.formState.errors]);
-
-  useEffect(() => {
-    console.log("Form values:", form.getValues());
-  }, [form.getValues()]);
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
@@ -1146,7 +1137,6 @@ export default function NewGuru({ guruData, isProcessing }) {
 
   const onSubmit = async (data) => {
     try {
-      console.log("Sending data:", data);
       // Check data source limits first
       if (!validateSourceLimits(sources, dirtyChanges, customGuruData)) {
         return;
@@ -1176,10 +1166,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       }
 
       if (!data.guruContext) {
-        console.log(
-          "Stopping submission because guruContext is empty:",
-          data.guruContext
-        );
         return;
       }
 
@@ -1591,10 +1577,6 @@ export default function NewGuru({ guruData, isProcessing }) {
   }, [dirtyChanges.sources, initialFormValues, form.setValue]);
 
   const [hasFormChanged, setHasFormChanged] = useState(false);
-
-  useEffect(() => {
-    console.log("Has form changed:", hasFormChanged);
-  }, [hasFormChanged]);
 
   // Modify hasFormChanged to be a pure function
   useEffect(() => {
@@ -2443,19 +2425,8 @@ export default function NewGuru({ guruData, isProcessing }) {
             onSubmit={(e) => {
               e.preventDefault();
               form.trigger().then((isValid) => {
-                console.log(
-                  "Form valid:",
-                  isValid,
-                  "Errors:",
-                  form.formState.errors
-                );
                 if (isValid) {
                   form.handleSubmit(onSubmit)(e);
-                } else {
-                  console.log(
-                    "Form validation failed with values:",
-                    form.getValues()
-                  );
                 }
               });
             }}>
