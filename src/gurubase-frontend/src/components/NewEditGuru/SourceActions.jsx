@@ -47,17 +47,18 @@ export const SourceActions = ({
         // Special disabling logic for Jira in 'create' mode
         const isJiraInCreateMode = config.id === "jira" && !isEditMode;
         const isZendeskInCreateMode = config.id === "zendesk" && !isEditMode;
+        const isConfluenceInCreateMode =
+          config.id === "confluence" && !isEditMode;
         const finalDisabled =
-          baseDisabled || isJiraInCreateMode || isZendeskInCreateMode;
+          baseDisabled ||
+          isJiraInCreateMode ||
+          isZendeskInCreateMode ||
+          isConfluenceInCreateMode;
 
         const button = (
           <Button
             key={config.id}
-            className={cn(
-              "text-black-600",
-              isJiraInCreateMode && "cursor-not-allowed",
-              isZendeskInCreateMode && "cursor-not-allowed"
-            )}
+            className={cn("text-black-600")}
             disabled={finalDisabled}
             type="button"
             variant="outline"
@@ -104,6 +105,21 @@ export const SourceActions = ({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Zendesk integration requires an existing Guru.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        }
+
+        if (isConfluenceInCreateMode) {
+          return (
+            <TooltipProvider key={config.id} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={-1}>{button}</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Confluence integration requires an existing Guru.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
