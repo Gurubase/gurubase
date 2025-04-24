@@ -179,6 +179,8 @@ export default function NewGuru({ guruData, isProcessing }) {
         redirect("/not-found");
       }
       setDataSources(sources);
+      // Reset deletingSources when new data is fetched
+      setDeletingSources([]);
       return sources;
     } catch (error) {
       // console.error("Error fetching data sources:", error);
@@ -298,6 +300,7 @@ export default function NewGuru({ guruData, isProcessing }) {
   const [globPattern, setGlobPattern] = useState("");
   const [isEditingRepo, setIsEditingRepo] = useState(false);
   const [editingRepo, setEditingRepo] = useState(null);
+  const [deletingSources, setDeletingSources] = useState([]);
 
   useEffect(() => {
     const fetchIntegration = async () => {
@@ -809,6 +812,10 @@ export default function NewGuru({ guruData, isProcessing }) {
     const sourceIds = source.domains
       ? source.domains.map((domain) => domain.id)
       : [source.id];
+
+    // Add source to deletingSources
+    const sourcesToDelete = source.domains || [source];
+    setDeletingSources((prev) => [...prev, ...sourcesToDelete]);
 
     handleDeleteUrls({
       urlIds: sourceIds,
@@ -2501,6 +2508,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               handleEditGithubGlob={handleEditGithubGlob}
               setIsEditingRepo={setIsEditingRepo}
               setEditingRepo={setEditingRepo}
+              deletingSources={deletingSources}
             />
 
             <div className="w-full">

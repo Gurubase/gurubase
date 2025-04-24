@@ -85,7 +85,8 @@ export function SourcesTableSection({
   setIsGithubSidebarOpen,
   handleEditGithubGlob,
   setIsEditingRepo,
-  setEditingRepo
+  setEditingRepo,
+  deletingSources = []
 }) {
   const [filterType, setFilterType] = useState("all");
 
@@ -170,6 +171,15 @@ export function SourcesTableSection({
     return (
       source.status === "NOT_PROCESSED" ||
       (source.status === "SUCCESS" && !source.in_milvus)
+    );
+  };
+
+  const isSourceDeleting = (source) => {
+    return deletingSources.some(
+      (deletingSource) =>
+        deletingSource.id === source.id ||
+        (source.domains &&
+          source.domains.some((domain) => domain.id === deletingSource.id))
     );
   };
 
@@ -592,7 +602,12 @@ export function SourcesTableSection({
                   </TableCell>
 
                   <TableCell>
-                    {isSourceProcessing(source) && isSourcesProcessing ? (
+                    {isSourceDeleting(source) ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Deleting source...</span>
+                      </div>
+                    ) : isSourceProcessing(source) && isSourcesProcessing ? (
                       <div className="flex items-center gap-2 text-gray-500">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                         <span className="text-sm">Processing source...</span>
@@ -618,7 +633,9 @@ export function SourcesTableSection({
                           <DropdownMenuTrigger asChild>
                             <Button
                               className="h-8 w-8 p-0"
-                              disabled={isSourcesProcessing}
+                              disabled={
+                                isSourcesProcessing || isSourceDeleting(source)
+                              }
                               size="icon"
                               variant="ghost">
                               <span className="sr-only">Open menu</span>
@@ -628,7 +645,10 @@ export function SourcesTableSection({
                           <DropdownMenuContent align="end">
                             {config?.canEdit && (
                               <DropdownMenuItem
-                                disabled={isSourcesProcessing}
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
                                 onClick={() => handleEditSource(source)}>
                                 <Edit className="mr-2 h-3 w-3" />
                                 Edit
@@ -636,7 +656,10 @@ export function SourcesTableSection({
                             )}
                             {source.type === "github_repo" && (
                               <DropdownMenuItem
-                                disabled={isSourcesProcessing}
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
                                 onClick={() => handleEditGithubGlob(source)}>
                                 <Edit className="mr-2 h-3 w-3" />
                                 Edit Glob
@@ -644,14 +667,19 @@ export function SourcesTableSection({
                             )}
                             {config?.canReindex && (
                               <DropdownMenuItem
-                                disabled={isSourcesProcessing}
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
                                 onClick={() => handleReindexSource(source)}>
                                 <RotateCw className="mr-2 h-3 w-3" />
                                 Reindex
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              disabled={isSourcesProcessing}
+                              disabled={
+                                isSourcesProcessing || isSourceDeleting(source)
+                              }
                               onClick={() => handleDeleteSource(source)}>
                               <SolarTrashBinTrashBold className="mr-2 h-3 w-3" />
                               Delete
