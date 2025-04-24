@@ -301,7 +301,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': context['entity']['metadata']['link']
             }
@@ -322,7 +322,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': context['entity']['metadata']['link']
             }
@@ -353,7 +353,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': link
             }
