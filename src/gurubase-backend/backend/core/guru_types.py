@@ -1,7 +1,7 @@
 from core.serializers import GuruTypeInternalSerializer
 from core.models import GuruType
 from accounts.models import User
-from core.exceptions import PermissionError, NotFoundError
+from core.exceptions import PermissionError, NotFoundError, GuruNotFoundError
 from django.conf import settings
 import logging
 
@@ -53,7 +53,7 @@ def get_guru_type_object(guru_type, only_active=True):
             return GuruType.objects.get(slug=guru_type, active=True)
         return GuruType.objects.get(slug=guru_type)
     except GuruType.DoesNotExist:
-        raise ValueError(f'Guru type {guru_type} does not exist')
+        raise GuruNotFoundError({'msg': f'Guru type {guru_type} is not found'})
 
 def get_auth0_user(auth0_id):
     if settings.ENV == 'selfhosted':
@@ -85,8 +85,3 @@ def get_guru_type_object_by_maintainer(guru_type, request):
         logger.warning(f'Guru type {guru_type} not found')
         raise NotFoundError(f'Guru type {guru_type} not found')
     return guru_type_object
-
-
-def get_guru_types_dict():
-    guru_types = GuruType.objects.filter(active=True)
-    return {guru_type.slug: guru_type for guru_type in guru_types}
