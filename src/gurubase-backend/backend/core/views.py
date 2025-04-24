@@ -554,7 +554,8 @@ def my_gurus(request, guru_slug=None):
                 'jira_limit': guru.jira_count_limit,
                 'zendesk_limit': guru.zendesk_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
-                'github_repo_limit': guru.github_repo_count_limit
+                'github_repo_limit': guru.github_repo_count_limit,
+                'ready': guru.ready
             })
         
         if guru_slug:
@@ -900,6 +901,14 @@ def create_data_sources(request, guru_type):
             service.validate_integration('zendesk')
         if confluence_urls:
             service.validate_integration('confluence')
+
+        # Process GitHub repos - this will update existing ones
+        updated_repos = service.update_existing_github_repos(github_repos)
+        
+        # Reindex any updated repos
+        if updated_repos:
+            for repo in updated_repos:
+                repo.reindex()            
 
         # Create data sources
         results = service.create_data_sources(
