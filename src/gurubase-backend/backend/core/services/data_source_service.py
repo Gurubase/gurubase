@@ -42,7 +42,7 @@ class DataSourceService:
             if not is_allowed:
                 raise ValueError(error_msg)
 
-    def validate_url_limits(self, youtube_urls=None, website_urls=None, jira_urls=None, zendesk_urls=None) -> None:
+    def validate_url_limits(self, youtube_urls=None, website_urls=None, jira_urls=None, zendesk_urls=None, confluence_urls=None) -> None:
         """
         Validates URL count limits for multiple URL types
         
@@ -59,8 +59,8 @@ class DataSourceService:
         website_urls = website_urls or []
         jira_urls = jira_urls or []
         zendesk_urls = zendesk_urls or []
-        
-        if any([youtube_urls, website_urls, jira_urls, zendesk_urls]):
+        confluence_urls = confluence_urls or []
+        if any([youtube_urls, website_urls, jira_urls, zendesk_urls, confluence_urls]):
             is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
                 self.user, 
                 website_urls_count=len(website_urls),
