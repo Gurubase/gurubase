@@ -590,7 +590,7 @@ export function SourcesTableSection({
                       </div>
                     ) : (
                       <span>
-                        {source.name || source.domain}
+                        {source.domain || source.name}
                         {source.type === "pdf" && source.size && (
                           <span className="ml-2 text-xs text-gray-400">
                             ({formatFileSize(source.size)})
