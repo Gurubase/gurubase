@@ -126,6 +126,7 @@ First, carefully read and analyze the following contexts:
 {github_context}
 
 When answering the question, follow these guidelines:
+{custom_instruction_section}
 1. Use only the information provided in the contexts. Do not use prior knowledge or hallucinate information.
 2. Contexts are not the exact answer, but they are relevant information to answer the question.
 3. Highlight critical information in bold for emphasis.
@@ -172,7 +173,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets/articles, Confluence pages, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.

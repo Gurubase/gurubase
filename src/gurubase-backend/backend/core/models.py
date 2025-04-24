@@ -317,6 +317,7 @@ class GuruType(models.Model):
     milvus_collection_name = models.CharField(max_length=100, blank=True, null=True)
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
+    custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
     # GitHub repository limits
     github_repo_count_limit = models.IntegerField(default=1)
@@ -329,6 +330,7 @@ class GuruType(models.Model):
     pdf_size_limit_mb = models.IntegerField(default=100)
     jira_count_limit = models.IntegerField(default=100)
     zendesk_count_limit = models.IntegerField(default=100)
+    confluence_count_limit = models.IntegerField(default=100)
 
     text_embedding_model = models.CharField(
         max_length=100,
@@ -457,7 +459,8 @@ class GuruType(models.Model):
     def prompt_map(self):
         return {
             "guru_type": self.name,
-            "domain_knowledge": self.domain_knowledge
+            "domain_knowledge": self.domain_knowledge,
+            "custom_instruction_prompt": self.custom_instruction_prompt
         }
 
     @property
@@ -469,7 +472,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, github_repos_count=0):
+    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0, github_repos_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -507,6 +510,11 @@ class GuruType(models.Model):
             guru_type=self,
             type=DataSource.Type.ZENDESK
         ).count()
+        
+        confluence_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.CONFLUENCE
+        ).count()
 
         # Get total PDF size in MB
         pdf_sources = DataSource.objects.filter(
@@ -543,6 +551,10 @@ class GuruType(models.Model):
         # Check Zendesk ticket limit
         if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
             return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
+        
+        # Check Confluence page limit
+        if (confluence_count + confluence_urls_count) > self.confluence_count_limit:
+            return False, f"Confluence page limit ({self.confluence_count_limit}) reached"
 
         # Check PDF size limit if file provided
         if file:
@@ -617,6 +629,7 @@ class DataSource(models.Model):
         GITHUB_REPO = "GITHUB_REPO"
         JIRA = "JIRA"
         ZENDESK = "ZENDESK"
+        CONFLUENCE = "CONFLUENCE"
 
     class Status(models.TextChoices):
         NOT_PROCESSED = "NOT_PROCESSED"
@@ -1933,6 +1946,7 @@ class Integration(models.Model):
         GITHUB = "GITHUB"
         JIRA = "JIRA"
         ZENDESK = "ZENDESK"
+        CONFLUENCE = "CONFLUENCE"
 
     type = models.CharField(
         max_length=50,
@@ -1957,6 +1971,10 @@ class Integration(models.Model):
     jira_api_key = models.TextField(null=True, blank=True)
     jira_user_email = models.TextField(null=True, blank=True)
     jira_domain = models.TextField(null=True, blank=True)
+
+    confluence_api_token = models.TextField(null=True, blank=True)
+    confluence_user_email = models.TextField(null=True, blank=True)
+    confluence_domain = models.TextField(null=True, blank=True)
 
     zendesk_domain = models.TextField(null=True, blank=True)
     zendesk_api_token = models.TextField(null=True, blank=True)
@@ -2006,6 +2024,13 @@ class Integration(models.Model):
     def masked_zendesk_api_token(self):
         if self.zendesk_api_token:
             return self.zendesk_api_token[:3] + ('*' * len(self.zendesk_api_token[3:-3])) + self.zendesk_api_token[-3:]
+        else:
+            return None
+
+    @property
+    def masked_confluence_api_token(self):
+        if self.confluence_api_token:
+            return self.confluence_api_token[:3] + ('*' * len(self.confluence_api_token[3:-3])) + self.confluence_api_token[-3:]
         else:
             return None
 

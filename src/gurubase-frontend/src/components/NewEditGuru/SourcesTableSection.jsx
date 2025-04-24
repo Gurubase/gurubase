@@ -77,6 +77,10 @@ export function SourcesTableSection({
   setIsZendeskSidebarOpen,
   setShowZendeskIntegrationModal,
   zendeskIntegration,
+  setIsConfluenceSidebarOpen,
+  setShowConfluenceIntegrationModal,
+  confluenceIntegration,
+  isLoadingConfluenceIntegration,
   isEditMode,
   setIsGithubSidebarOpen,
   handleEditGithubGlob,
@@ -101,6 +105,15 @@ export function SourcesTableSection({
       setIsJiraSidebarOpen(true);
     } else {
       setShowJiraIntegrationModal(true);
+    }
+  };
+
+  const handleAddConfluence = () => {
+    if (confluenceIntegration) {
+      setClickedSource([]);
+      setIsConfluenceSidebarOpen(true);
+    } else {
+      setShowConfluenceIntegrationModal(true);
     }
   };
 
@@ -134,13 +147,15 @@ export function SourcesTableSection({
     website: handleAddWebsite,
     youtube: handleAddYoutube,
     jira: handleAddJira,
+    confluence: handleAddConfluence,
     onUploadPdfClick: handleUploadPdf,
     zendesk: handleAddZendesk,
     github_repo: handleAddGithub
   };
 
   const sourceLoadingStates = {
-    isLoadingIntegration: isLoadingIntegration
+    isLoadingIntegration: isLoadingIntegration,
+    isLoadingConfluenceIntegration: isLoadingConfluenceIntegration
   };
 
   const isSourceProcessing = (source) => {

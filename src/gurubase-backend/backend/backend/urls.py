@@ -89,6 +89,7 @@ urlpatterns += [
     path('jira/issues/<int:integration_id>/', core_views.list_jira_issues, name='list_jira_issues'),
     path('zendesk/tickets/<int:integration_id>/', core_views.list_zendesk_tickets, name='list_zendesk_tickets'),
     path('zendesk/articles/<int:integration_id>/', core_views.list_zendesk_articles, name='list_zendesk_articles'),
+    path('confluence/pages/<int:integration_id>/', core_views.list_confluence_pages, name='list_confluence_pages'),
 ]
 
 if settings.STREAM_ENABLED:

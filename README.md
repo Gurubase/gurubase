@@ -43,6 +43,8 @@
 - 📑 PDFs
 - 🎥 YouTube videos
 - 💻 GitHub repositories
+- 📝 Jira issues
+- 📝 Zendesk tickets and articles
 
 Start asking questions directly on Gurubase, or [embed it on your website](https://github.com/Gurubase/gurubase-widget) to let your users ask questions about your product. It's already being [used by](#used-by) hundreds of open-source repositories. You can also install the entire system on your server, check [INSTALL.md](INSTALL.md) for instructions on how to self-host Gurubase.
 
@@ -119,7 +121,7 @@ Gurubase offers a GitHub bot that allows you to ask questions on GitHub issues. 
 
 ## How to Update Datasources
 
-Datasources can include your tool's documentation webpages, YouTube videos, or PDF files. You can add new ones, remove existing ones, or reindex them. Reindexing ensures your Guru is updated based on changes to the indexed datasources. For example, if you update your tool's documentation, you can reindex those pages so your Guru generates answers based on the latest data.
+Datasources can include your tool's documentation webpages, YouTube videos, PDF files, GitHub repositories, Jira issues, and Zendesk tickets and articles. You can add new ones, remove existing ones, or reindex them. Reindexing ensures your Guru is updated based on changes to the indexed datasources. For example, if you update your tool's documentation, you can reindex those pages so your Guru generates answers based on the latest data.
 
 Once you claim your Guru, you will see your Gurus in the "My Gurus" section.
 
@@ -376,7 +378,7 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
 ## Frequently Asked Questions
 
 ### What is Gurubase?
-Gurubase is an open-source RAG system that creates AI-powered Q&A assistants ("Gurus"). It processes various data sources like web pages, videos, PDFs, and GitHub code repositories to provide context-aware answers.
+Gurubase is an open-source RAG system that creates AI-powered Q&A assistants ("Gurus"). It processes various data sources like web pages, videos, PDFs, GitHub code repositories, Jira issues, and Zendesk tickets and articles to provide context-aware answers.
 
 ### How does Gurubase work?
 Gurubase uses a modern RAG architecture:
@@ -395,6 +397,8 @@ Gurubase supports multiple data source types:
 - 📑 PDF Documents
 - 🎥 YouTube Videos
 - 💻 GitHub repositories for codebase indexing
+- 📝 Jira issues
+- 📝 Zendesk tickets and articles
 - More formats coming soon! Open an issue if you want a new data source type.
 
 ### What's the system architecture?

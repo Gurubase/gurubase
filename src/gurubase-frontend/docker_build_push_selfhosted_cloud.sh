@@ -1,13 +1,33 @@
 #!/bin/bash
 # Uses https://build.docker.com/
-# ./docker_buildcloud_onprem.sh x.y.z
+# bash docker_build_push_selfhosted_cloud.sh -v latest-selfhosted -p linux/amd64,linux/arm64 -r ddosify/gurubase-frontend -d Dockerfile.selfhosted
 
-# Get version as argument and default to latest
-VERSION=${1:-latest-selfhosted}
-PLATFORM=${2:-linux/amd64,linux/arm64}
-# DOCKER_IMAGE_TAG=ddosify/kubernetesguru_frontend:$VERSION
-DOCKER_IMAGE_TAG=ddosify/gurubase-frontend:$VERSION
-DOCKERFILE=Dockerfile.selfhosted
+# Parse command line arguments
+while getopts "v:p:r:d:" opt; do
+  case $opt in
+    v) VERSION="$OPTARG" ;;
+    p) PLATFORM="$OPTARG" ;;
+    r) REPOSITORY="$OPTARG" ;;
+    d) DOCKERFILE="$OPTARG" ;;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+  esac
+done
+
+# Set default values if not provided
+VERSION=${VERSION:-latest-selfhosted}
+PLATFORM=${PLATFORM:-linux/amd64,linux/arm64}
+REPOSITORY=${REPOSITORY:-ddosify/gurubase-frontend}
+DOCKERFILE=${DOCKERFILE:-Dockerfile.selfhosted}
+
+echo "Do you confirm the following parameters?"
+echo "Version: $VERSION"
+echo "Platform: $PLATFORM"
+echo "Repository: $REPOSITORY"
+echo "Dockerfile: $DOCKERFILE"
+
+read -p "Press Enter to continue"
+
+DOCKER_IMAGE_TAG=$REPOSITORY:$VERSION
 
 echo "Building $DOCKER_IMAGE_TAG"
 

@@ -8,7 +8,8 @@ import {
   WebWidgetIcon,
   GitHubIcon,
   JiraIcon,
-  ZendeskIcon
+  ZendeskIcon,
+  ConfluenceIcon
 } from "@/components/Icons";
 import { Link } from "@/components/Link";
 import clsx from "clsx";
@@ -77,7 +78,7 @@ const IntegrationTypesList = ({ guruData }) => {
       {
         id: "jira",
         name: "Jira",
-        description: "Connect your Jira issues to your Guru as data sources.",
+        description: "Connect your Jira to your Guru as a data source.",
         icon: JiraIcon,
         type: "JIRA"
       },
@@ -87,6 +88,13 @@ const IntegrationTypesList = ({ guruData }) => {
         description: "Connect your Zendesk to your Guru as a data source.",
         icon: ZendeskIcon,
         type: "ZENDESK"
+      },
+      {
+        id: "confluence",
+        name: "Confluence",
+        description: "Connect your Confluence to your Guru as a data source.",
+        icon: ConfluenceIcon,
+        type: "CONFLUENCE"
       }
     ];
   }

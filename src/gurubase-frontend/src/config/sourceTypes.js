@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import {
+  ConfluenceIcon,
   GitHubIcon,
   JiraIcon,
   LogosYoutubeIcon,
@@ -109,6 +110,27 @@ if (isBetaFeaturesEnabled) {
     filterValue: "jira",
     willGroup: true // Group Jira issues by domain (project?)
   };
+
+  baseSourceTypesConfig.CONFLUENCE = {
+    id: "confluence",
+    apiType: "CONFLUENCE",
+    displayName: "Confluence",
+    displaySourceText: "Confluence",
+    icon: ConfluenceIcon,
+    actionButtonIcon: ConfluenceIcon,
+    actionButtonText: "Confluence Pages",
+    sidebarStateSetterName: "setIsConfluenceSidebarOpen",
+    formField: "confluencePages",
+    canReindex: true,
+    canEdit: true,
+    requiresIntegrationCheck: true,
+    integrationCheckProp: "confluenceIntegration",
+    integrationLoadingProp: "isLoadingConfluenceIntegration",
+    integrationModalSetterName: "setShowConfluenceIntegrationModal",
+    filterValue: "confluence",
+    willGroup: true // Group Confluence pages by domain
+  };
+
   baseSourceTypesConfig.ZENDESK = {
     id: "zendesk",
     apiType: "ZENDESK",

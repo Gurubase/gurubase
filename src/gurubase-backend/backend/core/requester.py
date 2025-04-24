@@ -914,102 +914,125 @@ class GitHubRequester():
 class JiraRequester():
     def __init__(self, integration):
         """
-        Initialize JiraRequester with integration credentials
+        Initialize Jira Requester with integration credentials
         Args:
             integration (Integration): Integration model instance containing Jira credentials
         """
-        from jira import JIRA
+        from atlassian import Jira
         self.url = f"https://{integration.jira_domain}"
-        self.jira = JIRA(
-            server=self.url,
-            basic_auth=(integration.jira_user_email, integration.jira_api_key)
+        self.jira = Jira(
+            url=self.url,
+            username=integration.jira_user_email,
+            password=integration.jira_api_key
         )
 
-
-    def list_issues(self, jql, batch_size=50):
+    def list_issues(self, jql_query, start=0, max_results=50):
         """
-        List Jira issues based on JQL query with pagination
+        List Jira issues using JQL query with pagination
         Args:
-            jql (str): JQL query string
+            jql_query (str): JQL query string to filter issues
+            start (int): Starting index for pagination
             max_results (int): Maximum number of results to fetch per request
         Returns:
-            list: List of Jira issues
+            list: List of Jira issues matching the query
         Raises:
             ValueError: If API request fails
         """
-        assert jql, "JQL query is required"
-
-        start_at = 0
-        all_issues = []
-
         try:
-            while True:
-                issues = self.jira.search_issues(jql, startAt=start_at, maxResults=batch_size)
-                if not issues:
-                    break
-                all_issues.extend([self._format_issue(issue) for issue in issues])
-                start_at += len(issues)
-            return all_issues
+            # Get issues using JQL
+            issues_data = self.jira.jql(jql_query, start=start, limit=max_results)
+            issues = []
+            
+            for issue in issues_data.get('issues', []):
+                formatted_issue = {
+                    'id': issue.get('id'),
+                    # 'key': issue.get('key'),
+                    # 'summary': issue.get('fields', {}).get('summary'),
+                    # 'issue_type': issue.get('fields', {}).get('issuetype', {}).get('name'),
+                    # 'status': issue.get('fields', {}).get('status', {}).get('name'),
+                    # 'priority': issue.get('fields', {}).get('priority', {}).get('name'),
+                    # 'assignee': issue.get('fields', {}).get('assignee', {}).get('displayName'),
+                    'link': f"{self.url}/browse/{issue.get('key')}"
+                }
+                issues.append(formatted_issue)
+                
+            return issues
         except Exception as e:
-            text = str(e)
-            if hasattr(e, 'args') and len(e.args) > 0:
-                text = e.args[0]
-            raise ValueError(text)
+            logger.error(f"Error listing Jira issues: {str(e)}", exc_info=True)
+            if "401" in str(e):
+                raise ValueError("Invalid Jira credentials")
+            elif "403" in str(e):
+                raise ValueError("Jira API access forbidden")
+            else:
+                raise ValueError(str(e))
 
-    def get_issue(self, issue_key, expand="renderedFields,comments"):
+    def get_issue(self, issue_key):
         """
-        Get details of a specific Jira issue
+        Get detailed information about a specific Jira issue
         Args:
-            issue_key (str): Jira issue key (e.g. "PROJ-123")
-            expand (str): Comma-separated list of fields to expand
+            issue_key (str): Key of the Jira issue (e.g., 'PROJECT-123')
         Returns:
             dict: Issue details
         Raises:
             ValueError: If API request fails
         """
         try:
-            issue = self.jira.issue(issue_key, expand=expand)
-            return self._format_issue(issue)
+            # Get issue details
+            issue = self.jira.issue(issue_key)
+            
+            fields = issue.get('fields', {})
+            comments = []
+            
+            # Get comments if available
+            for comment in fields.get('comment', {}).get('comments', []):
+                comments.append({
+                    'content': comment.get('body', '')
+                })
+            
+            # Format issue content with description and comments
+            title = fields.get('summary', '')
+            
+            # Format the content with issue description and comments
+            formatted_content = f"<Jira Issue>\n"
+            
+            # Add description if available
+            if fields.get('summary'):
+                formatted_content += f"Title: {title}\n"
+            if fields.get('description'):
+                formatted_content += f"Description: {fields.get('description', '')}\n"
+            
+            formatted_content += f"</Jira Issue>\n"
+            
+            # Add comments if available
+            for comment in comments:
+                formatted_content += f"<Jira Comment>\n{comment['content']}\n</Jira Comment>\n"
+            
+            return {
+                'id': issue.get('id'),
+                'title': title,
+                'content': formatted_content,
+                # 'key': issue.get('key'),
+                # 'summary': fields.get('summary'),
+                # 'description': fields.get('description'),
+                # 'issue_type': fields.get('issuetype', {}).get('name'),
+                # 'status': fields.get('status', {}).get('name'),
+                # 'priority': fields.get('priority', {}).get('name'),
+                # 'assignee': fields.get('assignee', {}).get('displayName'),
+                # 'reporter': fields.get('reporter', {}).get('displayName'),
+                # 'created': fields.get('created'),
+                # 'updated': fields.get('updated'),
+                'comments': comments,
+                'link': f"{self.url}/browse/{issue.get('key')}"
+            }
         except Exception as e:
-            text = str(e)
-            if hasattr(e, 'args') and len(e.args) > 0:
-                text = e.args[0]
-            raise ValueError(text)
-
-    def _format_issue(self, issue):
-        """
-        Format a Jira issue into a dictionary
-        Args:
-            issue: Jira issue object
-        Returns:
-            dict: Formatted issue data
-        """
-
-        content = f'<Jira Issue>\n\nTitle: {issue.fields.summary}\n\nDescription: {issue.fields.description}\n\n</Jira Issue>'
-        for comment in issue.fields.comment.comments:
-            content += f'\n\n<Jira Comment>\n\n{comment.body}\n\n</Jira Comment>'
-        return {
-            'key': issue.key,
-            'link': f"{self.url}/browse/{issue.key}",
-            'title': issue.fields.summary,
-            # 'description': issue.fields.description,
-            # 'status': issue.fields.status.name,
-            # 'assignee': issue.fields.assignee.displayName if issue.fields.assignee else None,
-            # 'reporter': issue.fields.reporter.displayName if issue.fields.reporter else None,
-            # 'created': issue.fields.created,
-            # 'updated': issue.fields.updated,
-            # 'priority': issue.fields.priority.name if issue.fields.priority else None,
-            # 'labels': issue.fields.labels,
-            # 'comments': [{
-            #     'author': comment.author.displayName,
-            #     'body': comment.body,
-            #     'created': comment.created
-            # } for comment in issue.fields.comment.comments] if hasattr(issue.fields, 'comment') else [],
-            # 'renderedFields': {
-            #     'description': issue.renderedFields.description if hasattr(issue, 'renderedFields') else None
-            # },
-            'content': content
-        }
+            if "401" in str(e):
+                raise ValueError("Invalid Jira credentials")
+            elif "403" in str(e):
+                raise ValueError("Jira API access forbidden")
+            elif "404" in str(e):
+                raise ValueError(f"Issue {issue_key} not found")
+            else:
+                raise ValueError(f"Error getting Jira issue: {str(e)}")
 
 class ZendeskRequester():
     def __init__(self, integration):
@@ -1782,3 +1805,423 @@ class OllamaRequester():
                 return False, f"Ollama API failed to embed text: {text}"
             results.append(result)
         return True, results
+
+class ConfluenceRequester():
+    def __init__(self, integration):
+        """
+        Initialize Confluence Requester with integration credentials
+        Args:
+            integration (Integration): Integration model instance containing Confluence credentials
+        """
+        from atlassian import Confluence
+        self.domain = integration.confluence_domain
+        self.url = f"https://{integration.confluence_domain}"
+        self.confluence = Confluence(
+            url=self.url,
+            username=integration.confluence_user_email,
+            password=integration.confluence_api_token
+        )
+
+    def _format_space(self, space):
+        """
+        Format a Confluence space into a dictionary
+        Args:
+            space (dict): Space data from Confluence API
+        Returns:
+            dict: Formatted space data
+        """
+        return {
+            'key': space.get('key'),
+            'name': space.get('name'),
+            'type': space.get('type'),
+            'url': f"{self.url}/wiki/spaces/{space.get('key')}"
+        }
+
+    def _format_page(self, page, space_key=None, space_name=None):
+        """
+        Format a Confluence page into a dictionary
+        Args:
+            page (dict): Page data from Confluence API
+            space_key (str, optional): Space key if not included in page data
+            space_name (str, optional): Space name if not included in page data
+        Returns:
+            dict: Formatted page data
+        """
+        return {
+            'id': page.get('id'),
+            'title': page.get('title'),
+            'type': page.get('type', 'page'),
+            'space_key': space_key or page.get('space', {}).get('key'),
+            'space_name': space_name or page.get('space', {}).get('name', ''),
+            'link': f"{self.url}/wiki{page.get('_links', {}).get('webui', '')}"
+        }
+
+    def _format_comment(self, comment):
+        """
+        Format a Confluence comment into a dictionary
+        Args:
+            comment (dict): Comment data from Confluence API
+        Returns:
+            dict: Formatted comment data
+        """
+        # Try to get content from body.view first (expanded response)
+        content = ''
+        if comment.get('body') and comment['body'].get('view') and comment['body']['view'].get('value'):
+            content = comment['body']['view']['value']
+        # Fall back to storage format if view is not available
+        elif comment.get('body') and comment['body'].get('storage') and comment['body']['storage'].get('value'):
+            content = comment['body']['storage']['value']
+        
+        # Convert HTML to markdown if content is HTML
+        if content and ('<' in content or '&lt;' in content):
+            content = html2text.html2text(content)
+        
+        return {
+            'id': comment.get('id'),
+            'content': content,
+        }
+        
+    def _format_page_content(self, page, comments=None):
+        """
+        Format a Confluence page with its content into a dictionary
+        Args:
+            page (dict): Page data from Confluence API with content
+            comments (list, optional): List of comments for the page
+        Returns:
+            dict: Formatted page data with content
+        """
+        space = page.get('space', {})
+        body = page.get('body', {}).get('storage', {}).get('value', '')
+        markdown_body = html2text.html2text(body) if body else ''
+
+        formatted_body = f"<Confluence Page>\n{markdown_body}\n</Confluence Page>\n"
+        if comments:
+            for comment in comments:
+                formatted_body += f"<Confluence Comment>\n{comment['content']}\n</Confluence Comment>"
+        
+        return {
+            'id': page.get('id'),
+            'title': page.get('title'),
+            'content': formatted_body,
+            'space_key': space.get('key'),
+            'space_name': space.get('name'),
+            'version': page.get('version', {}).get('number'),
+            'created_at': page.get('created'),
+            'updated_at': page.get('version', {}).get('when'),
+            'comments': comments or [],
+            'url': f"{self.url}/wiki/spaces/{space.get('key')}/pages/{page.get('id')}"
+        }
+
+    def list_pages(self, cql=None):
+        """
+        List Confluence pages using CQL or list all pages if no CQL is provided.
+        This method combines the functionality of listing spaces and pages.
+        
+        Args:
+            cql (str, optional): Confluence Query Language query to filter pages.
+                                Examples: 
+                                - "type=page AND space=DEV"
+                                - "title ~ 'Project'"
+                                - "created > '2023-01-01'"
+        
+        Returns:
+            dict: Contains 'pages' list
+        
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            # Get all pages from all spaces
+            all_pages = []
+            
+            spaces_data = self.confluence.get_all_spaces()
+            spaces = spaces_data.get('results', [])
+            
+            # For each space, get all pages with proper pagination
+            for space in spaces:
+                space_key = space.get('key')
+                space_name = space.get('name', '')
+                try:
+                    # Use pagination to get all pages from the space
+                    page_start = 0
+                    page_limit = 100  # Fetch 100 pages at a time
+                    while True:
+                        pages_batch = self.confluence.get_all_pages_from_space(
+                            space_key, 
+                            start=page_start, 
+                            limit=page_limit
+                        )
+                        
+                        if not pages_batch:
+                            break
+                            
+                        for page in pages_batch:
+                            formatted_page = self._format_page(page, space_key, space_name)
+                            all_pages.append(formatted_page)
+                            
+                        # If we got fewer pages than requested, we've reached the end
+                        if len(pages_batch) < page_limit:
+                            break
+                            
+                        # Move to the next page
+                        page_start += page_limit
+                        
+                except Exception as e:
+                    # Continue to next space if there's an error with this one
+                    logger.warning(f"Error fetching pages from space {space_key}: {str(e)}")
+                    continue
+            
+            # Filter pages by CQL if provided
+            if cql:
+                # Implement pagination for the CQL query as well
+                cql_page_ids = set()
+                cql_start = 0
+                cql_limit = 100  # Fetch 100 results at a time
+                
+                while True:
+                    cql_results = self.confluence.cql(cql, start=cql_start, limit=cql_limit)
+                    results = cql_results.get('results', [])
+                    
+                    if not results:
+                        break
+                        
+                    for result in results:
+                        content = result.get('content', {})
+                        cql_page_ids.add(content.get('id'))
+                    
+                    # If we got fewer results than requested, we've reached the end
+                    if len(results) < cql_limit:
+                        break
+                        
+                    # Move to the next page
+                    cql_start += cql_limit
+                
+                # Filter the all_pages list to only include pages that match the CQL
+                filtered_pages = [page for page in all_pages if page.get('id') in cql_page_ids]
+                
+                return {
+                    'pages': filtered_pages,
+                    'page_count': len(filtered_pages)
+                }
+            
+            # No CQL filtering, just return all pages
+            return {
+                'pages': all_pages,
+                'page_count': len(all_pages)
+            }
+                
+        except Exception as e:
+            if "401" in str(e):
+                raise ValueError("Invalid Confluence credentials")
+            elif "403" in str(e):
+                raise ValueError("Confluence API access forbidden")
+            else:
+                raise ValueError(str(e))
+
+    def get_page_content(self, page_id, include_comments=True):
+        """
+        Get content of a specific Confluence page
+        Args:
+            page_id (str): ID of the Confluence page
+            include_comments (bool): Whether to include comments
+        Returns:
+            dict: Page details with content
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            # Get page and its content 
+            page = self.confluence.get_page_by_id(page_id, expand='body.storage,version,space')
+            
+            # Get comments if requested
+            comments = []
+            if include_comments:
+                try:
+                    comments_data = self.get_page_comments(page_id)
+                    comments = comments_data.get('comments', [])
+                except Exception:
+                    # Continue even if comments can't be fetched
+                    pass
+            
+            return self._format_page_content(page, comments)
+            
+        except Exception as e:
+            if "401" in str(e):
+                raise ValueError("Invalid Confluence credentials")
+            elif "403" in str(e):
+                raise ValueError("Confluence API access forbidden")
+            elif "404" in str(e):
+                raise ValueError(f"Confluence page {page_id} not found")
+            else:
+                raise ValueError(f"Error getting Confluence page: {str(e)}")
+
+    def get_page_comments(self, page_id, start=0, limit=50):
+        """
+        Get comments for a specific Confluence page with pagination
+        Args:
+            page_id (str): ID of the Confluence page
+            start (int): Starting index for pagination
+            limit (int): Maximum number of results to fetch per request
+        Returns:
+            dict: Contains comments list with pagination details
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            # Get all comments with proper pagination
+            all_comments = []
+            
+            # Use pagination to get all comments
+            page_start = 0
+            page_limit = 100  # Fetch 100 comments at a time
+            while True:
+                try:
+                    # The Confluence API doesn't support direct pagination for comments
+                    # So we fetch all comments and then paginate in memory
+                    # Expand body.view to get the comment content
+                    comments_data = self.confluence.get_page_comments(
+                        page_id, 
+                        expand='body.view,version',
+                        start=page_start,
+                        limit=page_limit
+                    )
+                    results = comments_data.get('results', [])
+                    
+                    if not results:
+                        break
+                        
+                    for comment in results:
+                        formatted_comment = self._format_comment(comment)
+                        all_comments.append(formatted_comment)
+                        
+                    # If we got fewer comments than requested, we've reached the end
+                    if len(results) < page_limit:
+                        break
+                        
+                    # Move to the next page
+                    page_start += page_limit
+                    
+                except Exception as e:
+                    logger.warning(f"Error fetching comments for page {page_id}: {str(e)}")
+                    break
+            
+            # Apply pagination for the response
+            total_size = len(all_comments)
+            end_index = min(start + limit, total_size)
+            paginated_comments = all_comments[start:end_index] if start < total_size else []
+            
+            return {
+                'comments': paginated_comments,
+                'size': total_size,
+                'start': start,
+                'limit': limit
+            }
+                
+        except Exception as e:
+            if "401" in str(e):
+                raise ValueError("Invalid Confluence credentials")
+            elif "403" in str(e):
+                raise ValueError("Confluence API access forbidden")
+            elif "404" in str(e):
+                raise ValueError(f"Confluence page {page_id} not found")
+            else:
+                raise ValueError(f"Error getting Confluence page comments: {str(e)}")
+
+    def list_spaces(self, start=0, limit=50):
+        """
+        List all Confluence spaces with pagination
+        
+        Args:
+            start (int): Starting index for pagination
+            limit (int): Maximum number of results to fetch per request
+        
+        Returns:
+            dict: Contains spaces list with pagination details
+        
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            # Get all spaces with proper pagination
+            all_spaces = []
+            
+            # Use pagination to get all spaces
+            space_start = 0
+            space_limit = 100  # Fetch 100 spaces at a time
+            while True:
+                spaces_data = self.confluence.get_all_spaces(start=space_start, limit=space_limit)
+                results = spaces_data.get('results', [])
+                
+                if not results:
+                    break
+                    
+                for space in results:
+                    formatted_space = self._format_space(space)
+                    all_spaces.append(formatted_space)
+                    
+                # If we got fewer spaces than requested, we've reached the end
+                if len(results) < space_limit:
+                    break
+                    
+                # Move to the next page
+                space_start += space_limit
+            
+            # Apply pagination for the response
+            total_size = len(all_spaces)
+            end_index = min(start + limit, total_size)
+            paginated_spaces = all_spaces[start:end_index] if start < total_size else []
+            
+            return {
+                'spaces': paginated_spaces,
+                'size': total_size,
+                'start': start,
+                'limit': limit
+            }
+                
+        except Exception as e:
+            if "401" in str(e):
+                raise ValueError("Invalid Confluence credentials")
+            elif "403" in str(e):
+                raise ValueError("Confluence API access forbidden")
+            else:
+                raise ValueError(f"Error listing Confluence spaces: {str(e)}")
+
+    def get_space_with_homepage(self, space_key):
+        """
+        Get space details including homepage information
+        
+        Args:
+            space_key (str): Key of the Confluence space
+            
+        Returns:
+            dict: Space details with homepage information
+            
+        Raises:
+            ValueError: If API request fails
+        """
+        try:
+            # Get space details with homepage expanded
+            space = self.confluence.get_space(space_key, expand='homepage')
+            
+            # Format space details
+            space_data = {
+                'key': space.get('key'),
+                'name': space.get('name'),
+                'type': space.get('type'),
+                'homepage': space.get('homepage')
+            }
+            
+            # Add URL to space
+            space_data['url'] = f"{self.url}/wiki/spaces/{space_data['key']}"
+            
+            return space_data
+                
+        except Exception as e:
+            if "401" in str(e):
+                raise ValueError("Invalid Confluence credentials")
+            elif "403" in str(e):
+                raise ValueError("Confluence API access forbidden")
+            elif "404" in str(e):
+                raise ValueError(f"Confluence space '{space_key}' not found")
+            else:
+                raise ValueError(str(e))

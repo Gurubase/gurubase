@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
 from core.models import DataSource, GuruType, Integration
-from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, GitHubStrategy
+from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, GitHubStrategy, ConfluenceStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
 
@@ -19,7 +19,8 @@ class DataSourceService:
             'website': WebsiteStrategy(),
             'jira': JiraStrategy(),
             'zendesk': ZendeskStrategy(),
-            'github': GitHubStrategy()
+            'github': GitHubStrategy(),
+            'confluence': ConfluenceStrategy()
         }
 
     def validate_pdf_files(self, pdf_files: List[UploadedFile], pdf_privacies: List[bool]) -> None:
@@ -50,7 +51,7 @@ class DataSourceService:
             website_urls: List of website URLs to validate
             jira_urls: List of Jira URLs to validate
             zendesk_urls: List of Zendesk URLs to validate
-            
+            confluence_urls: List of Confluence URLs to validate
         Raises:
             ValueError: If validation fails
         """
@@ -65,7 +66,8 @@ class DataSourceService:
                 website_urls_count=len(website_urls),
                 youtube_urls_count=len(youtube_urls),
                 jira_urls_count=len(jira_urls),
-                zendesk_urls_count=len(zendesk_urls)
+                zendesk_urls_count=len(zendesk_urls),
+                confluence_urls_count=len(confluence_urls)
             )
             if not is_allowed:
                 raise ValueError(error_msg)
@@ -75,7 +77,7 @@ class DataSourceService:
         Validates integration
         
         Args:
-            type: Type of integration ('jira' or 'zendesk')
+            type: Type of integration ('jira' or 'zendesk' or 'confluence')
             
         """
         if type == 'jira':
@@ -86,6 +88,101 @@ class DataSourceService:
             zendesk_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.ZENDESK).first()
             if not zendesk_integration:
                 raise ValueError('Zendesk integration not found')
+        elif type == 'confluence':
+            confluence_integration = Integration.objects.filter(guru_type=self.guru_type_object, type=Integration.Type.CONFLUENCE).first()
+            if not confluence_integration:
+                raise ValueError('Confluence integration not found')
+
+    def validate_github_repos_limits(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Validates GitHub repos count limits for new repos only
+        
+        Args:
+            github_repos: List of GitHub repos to validate - should only contain new repos
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        if github_repos:
+            is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
+                self.user,
+                github_repos_count=len(github_repos)
+            )
+            if not is_allowed:
+                raise ValueError(error_msg)
+
+    def identify_new_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Identify GitHub repos that don't exist in the system yet
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries
+            
+        Returns:
+            List of GitHub repos that don't exist and need to be created
+        """
+        new_repos = []
+        
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).exists()
+            
+            if not existing_repo:
+                # Add to list of new repos to create
+                new_repos.append(repo)
+                
+        return new_repos
+        
+    def update_existing_github_repos(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Update glob patterns for existing GitHub repos
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+        """
+        updated_repos = []
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).first()
+            
+            if existing_repo:
+                # Update glob patterns
+                existing_repo.github_glob_pattern = repo['glob_pattern']
+                existing_repo.github_glob_include = repo['include_glob']
+                existing_repo.save()
+                updated_repos.append(existing_repo)
+
+        return updated_repos
+
+    def process_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process GitHub repos, updating existing ones and returning new ones to be created
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+            
+        Returns:
+            List of GitHub repos that need to be created (didn't exist before)
+        """
+        # Identify new repos
+        new_repos = self.identify_new_github_repos(github_repos)
+        
+        # Update existing repos
+        self.update_existing_github_repos(github_repos)
+                
+        return new_repos
 
     def validate_github_repos_limits(self, github_repos: List[Dict[str, Any]]) -> None:
         """
@@ -186,7 +283,8 @@ class DataSourceService:
         website_urls: List[str],
         jira_urls: List[str],
         zendesk_urls: List[str],
-        github_repos: List[Dict[str, Any]]
+        github_repos: List[Dict[str, Any]],
+        confluence_urls: List[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Creates data sources of different types
@@ -199,6 +297,7 @@ class DataSourceService:
             jira_urls: List of Jira URLs
             zendesk_urls: List of Zendesk URLs
             github_repos: List of GitHub repos
+            confluence_urls: List of Confluence URLs
         Returns:
             List of created data source results
         """
@@ -227,6 +326,16 @@ class DataSourceService:
         clean_zendesk_urls = clean_data_source_urls(zendesk_urls)
         for url in clean_zendesk_urls:
             results.append(self.strategies['zendesk'].create(self.guru_type_object, url))
+            
+        # Process Confluence URLs
+        if confluence_urls:
+            clean_confluence_urls = clean_data_source_urls(confluence_urls)
+            for url in clean_confluence_urls:
+                results.append(self.strategies['confluence'].create(self.guru_type_object, url))
+
+        # Process GitHub repos
+        for repo in github_repos:
+            results.append(self.strategies['github'].create(self.guru_type_object, repo))
 
         # Process GitHub repos
         for repo in github_repos:

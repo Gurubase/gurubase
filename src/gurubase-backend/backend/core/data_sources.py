@@ -14,7 +14,7 @@ from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
 from core.github.data_source_handler import process_github_repository, extract_repo_name
-from core.requester import JiraRequester, ZendeskRequester, get_web_scraper, YouTubeRequester
+from core.requester import ConfluenceRequester, JiraRequester, ZendeskRequester, get_web_scraper, YouTubeRequester
 import scrapy
 from scrapy.crawler import CrawlerProcess
 from multiprocessing import Process
@@ -331,6 +331,11 @@ def fetch_data_source_content(integration, data_source):
         data_source.title = title
         data_source.content = content
         data_source.scrape_tool = 'zendesk'
+    elif data_source.type == DataSource.Type.CONFLUENCE:
+        title, content = confluence_content_extraction(integration, data_source.url)
+        data_source.title = title
+        data_source.content = content
+        data_source.scrape_tool = 'confluence'
     elif data_source.type == DataSource.Type.GITHUB_REPO:
         default_branch = process_github_repository(data_source)
         # Use the repository name as the title
@@ -987,4 +992,78 @@ class YouTubeService:
             return {
                 'msg': 'An error occurred while fetching the channel'
             }, 500
+
+
+class ConfluenceContentExtractionError(Exception):
+    pass
+
+
+def confluence_content_extraction(integration, confluence_page_url):
+    try:
+        confluence_requester = ConfluenceRequester(integration)
+        
+        # Check if this is a space overview URL
+        if confluence_page_url.endswith('/overview'):
+            # Extract the space key from the URL
+            url_parts = confluence_page_url.split('/')
+            space_key = url_parts[-2]  # Get the space key from URL
+            
+            try:
+                # Get space with homepage information
+                space_data = confluence_requester.get_space_with_homepage(space_key)
+                
+                # If homepage exists, use it
+                if space_data.get('homepage') and space_data['homepage'].get('id'):
+                    homepage_id = space_data['homepage']['id']
+                    page = confluence_requester.get_page_content(homepage_id)
+                    return page['title'], page['content']
+                else:
+                    raise ValueError(f"No homepage found for space {space_key}")
+            except Exception as space_err:
+                logger.warning(f"Could not get space data for {space_key}: {str(space_err)}")
+                # Create a basic title/content as fallback
+                space_title = f"Space: {space_key}"
+                space_content = f"This is a Confluence space with key: {space_key}"
+                return space_title, space_content
+        else:
+            # Regular page URL - extract the page ID as before
+            page_id = confluence_page_url.split('/')[-2]
+            page = confluence_requester.get_page_content(page_id)
+            return page['title'], page['content']
+    except Exception as e:
+        logger.error(f"Error extracting content from Confluence page {confluence_page_url}: {traceback.format_exc()}")
+        raise ConfluenceContentExtractionError(traceback.format_exc()) from e
+
+
+class ConfluenceStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, confluence_url):
+        try:
+            data_source = DataSource.objects.create(
+                type=DataSource.Type.CONFLUENCE,
+                guru_type=guru_type_object,
+                url=confluence_url,
+            )
+            return {
+                'type': 'Confluence',
+                'url': confluence_url,
+                'status': 'success',
+                'id': data_source.id,
+                'title': data_source.title
+            }
+        except DataSourceExists as e:
+            return {
+                'type': 'Confluence',
+                'url': confluence_url,
+                'status': 'exists',
+                'id': e.args[0]['id'],
+                'title': e.args[0]['title']
+            }
+        except Exception as e:
+            logger.error(f'Error processing Confluence URL {confluence_url}: {traceback.format_exc()}')
+            return {
+                'type': 'Confluence',
+                'url': confluence_url,
+                'status': 'error',
+                'message': str(e)
+            }
 
