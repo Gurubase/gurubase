@@ -553,6 +553,7 @@ def my_gurus(request, guru_slug=None):
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
                 'jira_limit': guru.jira_count_limit,
                 'zendesk_limit': guru.zendesk_count_limit,
+                'confluence_limit': guru.confluence_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit,
                 'ready': guru.ready
