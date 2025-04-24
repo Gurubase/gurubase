@@ -3104,7 +3104,7 @@ def list_jira_issues(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         # This shouldn't happen if integration exists, but good practice
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -3128,7 +3128,7 @@ def list_jira_issues(request, integration_id):
         if "Invalid Jira credentials" in error_str:
              return Response({'msg': 'Invalid Jira credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Jira API access forbidden" in error_str:
-             return Response({'msg': 'Jira API access forbidden. Check user permissions or API key scope.'}, status=status.HTTP_403_FORBIDDEN)
+             return Response({'msg': 'Jira API access forbidden. Check user permissions or API key scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         else:
              logger.error(f"Error listing Jira issues for integration {integration_id}: {e}", exc_info=True)
              return Response({'msg': f'Failed to list Jira issues: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -3152,7 +3152,7 @@ def list_zendesk_tickets(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -3172,7 +3172,7 @@ def list_zendesk_tickets(request, integration_id):
         elif "Authentication failed" in error_str:
              return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Permission denied" in error_str:
-             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
             return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
         elif "rate limit exceeded" in error_str:
@@ -3200,7 +3200,7 @@ def list_zendesk_articles(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -3220,7 +3220,7 @@ def list_zendesk_articles(request, integration_id):
         elif "Authentication failed" in error_str:
              return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Permission denied" in error_str:
-             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
             return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
         elif "rate limit exceeded" in error_str:
@@ -3280,7 +3280,7 @@ def list_confluence_pages(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         # This shouldn't happen if integration exists, but good practice
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -3304,7 +3304,7 @@ def list_confluence_pages(request, integration_id):
         if "Invalid Confluence credentials" in error_str:
              return Response({'msg': 'Invalid Confluence credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Confluence API access forbidden" in error_str:
-             return Response({'msg': 'Confluence API access forbidden. Check user permissions or API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+             return Response({'msg': 'Confluence API access forbidden. Check user permissions or API token scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         else:
              logger.error(f"Error listing Confluence content for integration {integration_id}: {e}", exc_info=True)
              return Response({'msg': f'Failed to list Confluence pages: {error_str}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
