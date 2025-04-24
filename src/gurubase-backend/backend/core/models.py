@@ -629,7 +629,7 @@ class DataSource(models.Model):
         ZENDESK = "ZENDESK"
         CONFLUENCE = "CONFLUENCE"
 
-    class Status(models.TextChoices):
+    class Status(models.TextChoices): # This is the data retrieval status. It is not the readiness of the data source as it may not be written to milvus yet.
         NOT_PROCESSED = "NOT_PROCESSED"
         SUCCESS = "SUCCESS"
         FAIL = "FAIL"
