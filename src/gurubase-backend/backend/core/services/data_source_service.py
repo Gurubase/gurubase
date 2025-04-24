@@ -337,10 +337,6 @@ class DataSourceService:
         for repo in github_repos:
             results.append(self.strategies['github'].create(self.guru_type_object, repo))
 
-        # Process GitHub repos
-        for repo in github_repos:
-            results.append(self.strategies['github'].create(self.guru_type_object, repo))
-
         # Trigger background task
         data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)
         
