@@ -85,8 +85,3 @@ def get_guru_type_object_by_maintainer(guru_type, request):
         logger.warning(f'Guru type {guru_type} not found')
         raise NotFoundError(f'Guru type {guru_type} not found')
     return guru_type_object
-
-
-def get_guru_types_dict():
-    guru_types = GuruType.objects.filter(active=True)
-    return {guru_type.slug: guru_type for guru_type in guru_types}
