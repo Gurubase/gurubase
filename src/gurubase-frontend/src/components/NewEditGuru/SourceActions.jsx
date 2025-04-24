@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, ChevronDown } from "lucide-react";
 import { getAllSourceTypeConfigs } from "@/config/sourceTypes";
 import {
   Tooltip,
@@ -8,9 +8,15 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-// Updated component to dynamically render action buttons based on config
+// Updated component to render actions in a dropdown menu
 export const SourceActions = ({
   isProcessing,
   isSourcesProcessing,
@@ -23,96 +29,110 @@ export const SourceActions = ({
   const configs = getAllSourceTypeConfigs();
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
-      {configs.map((config) => {
-        const ActionIcon = config.actionButtonIcon;
-        const isLoading =
-          config.requiresIntegrationCheck &&
-          loadingStates[config.integrationLoadingProp];
-        const baseDisabled = isProcessing || isSourcesProcessing || isLoading;
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="text-black-600"
+          disabled={isProcessing || isSourcesProcessing}>
+          Add
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {configs.map((config) => {
+          const ActionIcon = config.actionButtonIcon;
+          const isLoading =
+            config.requiresIntegrationCheck &&
+            loadingStates[config.integrationLoadingProp];
+          const baseDisabled = isProcessing || isSourcesProcessing || isLoading;
 
-        // Determine the correct handler: prioritize specific actionHandlerName, fallback to id
-        const handlerKey = config.actionHandlerName || config.id;
-        const onClickHandler = actionHandlers[handlerKey];
+          // Determine the correct handler: prioritize specific actionHandlerName, fallback to id
+          const handlerKey = config.actionHandlerName || config.id;
+          const onClickHandler = actionHandlers[handlerKey];
 
-        // Optionally log a warning if a handler is missing for a configured type
-        if (!onClickHandler && !config.requiresIntegrationCheck) {
-          // Don't warn for integration types here, as the check is in the handler
-        }
+          // Optionally log a warning if a handler is missing for a configured type
+          if (!onClickHandler && !config.requiresIntegrationCheck) {
+            // Don't warn for integration types here, as the check is in the handler
+          }
 
-        // Jira (and potentially future integration types) needs a special check within its handler,
-        // but we use the handler name from the config to call it.
-        // The loading state is used to show the spinner.
+          // Special disabling logic for Jira in 'create' mode
+          const isJiraInCreateMode = config.id === "jira" && !isEditMode;
+          const isZendeskInCreateMode = config.id === "zendesk" && !isEditMode;
+          const isConfluenceInCreateMode =
+            config.id === "confluence" && !isEditMode;
+          const finalDisabled =
+            baseDisabled ||
+            isJiraInCreateMode ||
+            isZendeskInCreateMode ||
+            isConfluenceInCreateMode;
 
-        // Special disabling logic for Jira in 'create' mode
-        const isJiraInCreateMode = config.id === "jira" && !isEditMode;
-        const isZendeskInCreateMode = config.id === "zendesk" && !isEditMode;
-        const finalDisabled =
-          baseDisabled || isJiraInCreateMode || isZendeskInCreateMode;
-
-        const button = (
-          <Button
-            key={config.id}
-            className={cn(
-              "text-black-600",
-              isJiraInCreateMode && "cursor-not-allowed",
-              isZendeskInCreateMode && "cursor-not-allowed"
-            )}
-            disabled={finalDisabled}
-            type="button"
-            variant="outline"
-            // Use the determined handler. If it's missing for non-integration types, button might do nothing or be skipped.
-            // For integration types, the handler passed in (e.g., actionHandlers.jira) contains the integration check.
-            onClick={isJiraInCreateMode ? undefined : onClickHandler}
-            aria-disabled={finalDisabled}
-            tabIndex={isJiraInCreateMode ? -1 : 0} // Prevent tabbing to disabled button
-          >
-            {isLoading ? (
-              <LoaderCircle className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ActionIcon className="guru-sm:mr-0 guru-md:mr-2 guru-lg:mr-2 h-4 w-4" />
-            )}
-            <span className="guru-sm:hidden guru-md:block guru-lg:block">
-              {config.actionButtonText}
-            </span>
-          </Button>
-        );
-
-        // Conditionally wrap Jira button with Tooltip in create mode
-        if (isJiraInCreateMode) {
-          return (
-            <TooltipProvider key={config.id} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  {/* Wrap the button in a span for TooltipTrigger when disabled */}
-                  <span tabIndex={-1}>{button}</span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Jira integration requires an existing Guru.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          const menuItem = (
+            <DropdownMenuItem
+              key={config.id}
+              className={cn("flex items-center gap-2")}
+              disabled={finalDisabled}
+              onClick={isJiraInCreateMode ? undefined : onClickHandler}
+              tabIndex={isJiraInCreateMode ? -1 : 0}>
+              {isLoading ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <ActionIcon className="h-4 w-4" />
+              )}
+              <span>{config.actionButtonText}</span>
+            </DropdownMenuItem>
           );
-        }
 
-        if (isZendeskInCreateMode) {
-          return (
-            <TooltipProvider key={config.id} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={-1}>{button}</span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Zendesk integration requires an existing Guru.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
-        }
+          // Conditionally wrap with Tooltip in create mode
+          if (isJiraInCreateMode) {
+            return (
+              <TooltipProvider key={config.id} delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>{menuItem}</div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Jira integration requires an existing Guru.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
 
-        // Return the button directly for other source types or when in edit mode
-        return button;
-      })}
-    </div>
+          if (isZendeskInCreateMode) {
+            return (
+              <TooltipProvider key={config.id} delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>{menuItem}</div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Zendesk integration requires an existing Guru.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
+          if (isConfluenceInCreateMode) {
+            return (
+              <TooltipProvider key={config.id} delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>{menuItem}</div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Confluence integration requires an existing Guru.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
+          // Return the menu item directly for other source types or when in edit mode
+          return menuItem;
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
