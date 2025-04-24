@@ -1119,7 +1119,7 @@ export default function NewGuru({ guruData, isProcessing }) {
 
     if (zendeskCount > zendeskLimit) {
       CustomToast({
-        message: `You have exceeded the Zendesk ticket limit (${zendeskLimit}).`,
+        message: `You have exceeded the Zendesk ticket/article limit (${zendeskLimit}).`,
         variant: "error"
       });
       return false;
