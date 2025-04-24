@@ -72,8 +72,20 @@ export const SourceActions = ({
               key={config.id}
               className={cn("flex items-center gap-2")}
               disabled={finalDisabled}
-              onClick={isJiraInCreateMode ? undefined : onClickHandler}
-              tabIndex={isJiraInCreateMode ? -1 : 0}>
+              onClick={
+                isJiraInCreateMode ||
+                isZendeskInCreateMode ||
+                isConfluenceInCreateMode
+                  ? undefined
+                  : onClickHandler
+              }
+              tabIndex={
+                isJiraInCreateMode ||
+                isZendeskInCreateMode ||
+                isConfluenceInCreateMode
+                  ? -1
+                  : 0
+              }>
               {isLoading ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
               ) : (
