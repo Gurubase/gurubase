@@ -545,6 +545,7 @@ export default function NewGuru({ guruData, isProcessing }) {
           size: source.type === "PDF" ? source.size : "N/A",
           url: source.url || "",
           status: source.status,
+          in_milvus: source.in_milvus,
           file_count: source.file_count, // Add file_count
           last_reindex_date: source.last_reindex_date || "",
           error: source.error || "",
@@ -923,6 +924,7 @@ export default function NewGuru({ guruData, isProcessing }) {
               size: source.type === "PDF" ? source.size : "N/A",
               url: source.url || "",
               status: source.status,
+              in_milvus: source.in_milvus,
               file_count: source.file_count,
               last_reindex_date: source.last_reindex_date || "",
               error: source.error || "",

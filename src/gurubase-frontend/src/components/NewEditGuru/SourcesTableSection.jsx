@@ -167,7 +167,10 @@ export function SourcesTableSection({
       return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
     }
 
-    return source.status === "NOT_PROCESSED";
+    return (
+      source.status === "NOT_PROCESSED" ||
+      (source.status === "SUCCESS" && !source.in_milvus)
+    );
   };
 
   const renderBadges = (source) => {
@@ -178,6 +181,10 @@ export function SourcesTableSection({
       source.type?.toLowerCase() === SOURCE_TYPES_CONFIG.PDF.id;
 
     if (!config) return null;
+
+    const sourceDone =
+      (source.status === "SUCCESS" && source.in_milvus) ||
+      source.status === "FAIL";
 
     if (isGithubSource) {
       let badgeProps = {
@@ -210,19 +217,18 @@ export function SourcesTableSection({
           break;
       }
 
-      const badgeElement =
-        source.status === "SUCCESS" || source.status === "FAIL" ? (
-          <Badge {...badgeProps}>
-            <badgeProps.icon
-              className={cn(
-                "h-3 w-3",
-                badgeProps.iconColor,
-                isSourcesProcessing && "pointer-events-none opacity-50"
-              )}
-            />
-            {badgeProps.text}
-          </Badge>
-        ) : null;
+      const badgeElement = sourceDone ? (
+        <Badge {...badgeProps}>
+          <badgeProps.icon
+            className={cn(
+              "h-3 w-3",
+              badgeProps.iconColor,
+              isSourcesProcessing && "pointer-events-none opacity-50"
+            )}
+          />
+          {badgeProps.text}
+        </Badge>
+      ) : null;
 
       const lastIndexedDate = source.last_reindex_date
         ? new Date(source.last_reindex_date).toLocaleString()
