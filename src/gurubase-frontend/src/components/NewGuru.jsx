@@ -2494,12 +2494,6 @@ export default function NewGuru({ guruData, isProcessing }) {
               setShowConfluenceIntegrationModal={
                 setShowConfluenceIntegrationModal
               }
-              confluenceIntegration={confluenceIntegration}
-              isLoadingConfluenceIntegration={isLoadingConfluenceIntegration}
-              setIsConfluenceSidebarOpen={setIsConfluenceSidebarOpen}
-              setShowConfluenceIntegrationModal={
-                setShowConfluenceIntegrationModal
-              }
               isEditMode={isEditMode}
               setIsGithubSidebarOpen={setIsGithubSidebarOpen}
               handleEditGithubGlob={handleEditGithubGlob}
