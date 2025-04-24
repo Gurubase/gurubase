@@ -1241,84 +1241,6 @@ def process_sitemap():
     logger.info('Processed sitemap for all guru types')
 
 @shared_task
-@with_redis_lock(
-    redis_client,
-    'update_guru_type_details_lock',
-    1800
-)
-def update_guru_type_details():
-    """
-    Updates GuruType details:
-    1. Adds github details if missing (only for the first GitHub repo)
-    2. Updates domain knowledge if it's the default value
-    """
-    logger.info("Updating guru type details")
-    
-    from core.utils import get_root_summarization_of_guru_type
-    from core.requester import GitHubRequester
-    
-    github_requester = GitHubRequester()
-
-    guru_types = GuruType.objects.filter(custom=True, active=True)
-
-    for guru_type in guru_types:
-        # Update GitHub details if missing
-        if not guru_type.github_details:
-            github_repo = DataSource.objects.filter(guru_type=guru_type, type=DataSource.Type.GITHUB_REPO).first()
-            if github_repo:
-                try:
-                    # Only fetch details for the first GitHub repo
-                    first_repo = github_repo.url
-                    if not first_repo:
-                        continue
-                    try:
-                        github_details = github_requester.get_github_repo_details(first_repo)
-                        guru_type.github_details = github_details
-                        guru_type.save()
-                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
-                    except Exception as e:
-                        logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
-                except Exception as e:
-                    logger.error(f"Error getting github details for {guru_type.slug}: {traceback.format_exc()}")
-                    continue
-
-        # Update domain knowledge if it's default
-        if settings.ENV != 'selfhosted' and guru_type.domain_knowledge == settings.DEFAULT_DOMAIN_KNOWLEDGE:
-            from core.requester import GeminiRequester
-            gemini_requester = GeminiRequester(model_name="gemini-1.5-pro-002")
-            root_summarization = get_root_summarization_of_guru_type(guru_type.slug)
-            if not root_summarization:
-                logger.info(f'No root summarization found for {guru_type.slug}')
-                continue
-
-            try:
-                # Get topics and description from github_details
-                github_topics = []
-                github_description = ""
-                
-                if guru_type.github_details:
-                    github_topics = guru_type.github_details.get('topics', [])
-                    github_description = guru_type.github_details.get('description', '')
-                
-                gemini_response = gemini_requester.generate_topics_from_summary(
-                    root_summarization.result_content, 
-                    guru_type.name,
-                    github_topics,
-                    github_description
-                )
-                
-                new_topics = gemini_response.get('topics', [])
-                if new_topics:
-                    guru_type.domain_knowledge = ', '.join(new_topics)
-                    guru_type.save()
-                    logger.info(f'Updated domain knowledge for {guru_type.slug}')
-            except Exception as e:
-                logger.error(f"Error updating domain knowledge for {guru_type.slug}: {traceback.format_exc()}")
-                continue
-
-    logger.info("Updated guru type details")
-
-@shared_task
 def check_datasource_in_milvus_false_and_success():
     # This should not be happened. During deployment times, some datasources can not be updated because of pod deletion.
     logger.info('Checking datasources that are not in Milvus and have status SUCCESS')
@@ -1359,10 +1281,10 @@ def send_request_to_questions_for_cloudflare_cache():
 )
 def update_github_details():
     """
-    Updates GitHub details for guru types that haven't been updated in the last 24 hours.
-    Processes at most 200 guru types per hour to avoid overwhelming the GitHub API.
+    Updates GitHub details for data sources of type GITHUB_REPO that haven't been updated in the last 24 hours.
+    Processes at most 200 data sources per hour to avoid overwhelming the GitHub API.
     """
-    logger.info("Updating GitHub details for guru types")
+    logger.info("Updating GitHub details for GitHub repository data sources")
     
     from core.requester import GitHubRequester
     from django.utils import timezone
@@ -1370,45 +1292,44 @@ def update_github_details():
     
     github_requester = GitHubRequester()
     
-    # Get guru types that haven't been updated in the last 24 hours
+    # Get data sources that haven't been updated in the last 24 hours
     # Order by github_details_updated_date to prioritize oldest updates
     cutoff_time = timezone.now() - timedelta(days=1)
-    guru_types = GuruType.objects.filter(
+    data_sources = DataSource.objects.filter(
         models.Q(github_details_updated_date__isnull=True) | 
         models.Q(github_details_updated_date__lt=cutoff_time),
-        github_repos__isnull=False,
-        github_repos__len__gt=0,  # Has at least one repo
-        active=True
+        type=DataSource.Type.GITHUB_REPO,
+        status=DataSource.Status.SUCCESS
     ).order_by('github_details_updated_date')[:200]
-    logger.info(f'Guru types to update: {guru_types.count()} with cutoff time: {cutoff_time}')
+    logger.info(f'GitHub repos to update: {data_sources.count()} with cutoff time: {cutoff_time}')
     
     updated_count = 0
-    for guru_type in guru_types:
+    for data_source in data_sources:
         try:
-            # Get details for all repos
-            all_details = []
-            for repo_url in guru_type.github_repos:
-                try:
-                    details = github_requester.get_github_repo_details(repo_url)
-                    all_details.append(details)
-                except Exception as e:
-                    logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
-                    continue
-            
-            if all_details:  # Only update if we got at least one repo's details
-                guru_type.github_details = all_details
-                guru_type.github_details_updated_date = timezone.now()
-                guru_type.save()
-                updated_count += 1
-                logger.info(f'Updated GitHub details for {guru_type.slug}')
+            # Get details for the repo
+            repo_url = data_source.url
+            try:
+                details = github_requester.get_github_repo_details(repo_url)
+                
+                if details:
+                    # Store github details in a custom field
+                    data_source.github_details = details
+                    data_source.github_details_updated_date = timezone.now()
+                    data_source.save()
+                    updated_count += 1
+                    logger.info(f'Updated GitHub details for {repo_url}')
+            except Exception as e:
+                logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
+                # Still update the timestamp to avoid repeatedly trying failed updates
+                data_source.github_details_updated_date = timezone.now()
+                data_source.save()
+                continue
+                
         except Exception as e:
-            logger.error(f"Error updating GitHub details for {guru_type.slug}: {traceback.format_exc()}")
-            # Still update the timestamp to avoid repeatedly trying failed updates
-            guru_type.github_details_updated_date = timezone.now()
-            guru_type.save()
+            logger.error(f"Error updating GitHub details for data source {data_source.id}: {traceback.format_exc()}")
             continue
             
-    logger.info(f'Updated GitHub details for {updated_count} guru types')
+    logger.info(f'Updated GitHub details for {updated_count} GitHub repositories')
 
 @shared_task
 @with_redis_lock(

@@ -953,6 +953,7 @@ def vector_db_fetch(
         context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
+            ctx['link'] = contexts[i]['entity']['metadata'].get('link')
             # Filter using the final calculated threshold
             if ctx['score'] >= final_threshold:
                 context_data.append((contexts[i], reranked_scores[i], ctx['score']))
@@ -1167,34 +1168,78 @@ def create_custom_guru_type_slug(name):
     return slug
 
 
-def get_github_details_if_applicable(guru_type):
-    guru_type_obj = get_guru_type_object(guru_type)
-    response = ""
-    if guru_type_obj and guru_type_obj.github_details:
+def get_github_details_if_applicable(guru_type, context_links=None, processed_ctx_relevances=None):
+    # Get GitHub details from data sources referenced in the context links
+    if not context_links or not processed_ctx_relevances:
+        return ""
+    
+    # Extract all GitHub links from context links that were kept after relevance filtering
+    github_links = []
+    kept_links = set()
+    
+    # Get the links that were kept after relevance filtering
+    if processed_ctx_relevances and 'kept' in processed_ctx_relevances:
+        for kept_item in processed_ctx_relevances['kept']:
+            kept_links.add(kept_item['link'])
+    
+    # If we don't have kept links, return empty string
+    if not kept_links and context_links:
+        return ""
+    else:
+        # Only include links that were kept
+        for link in context_links:
+            if 'link' in link and link['link'] and link['link'] in kept_links and 'github.com' in link['link']:
+                github_links.append(link['link'])
+    
+    if not github_links:
+        return ""
+    
+    # Get all GitHub files that match these links in a single query
+    from core.models import GithubFile, DataSource
+    github_files = GithubFile.objects.filter(
+        link__in=github_links,
+        data_source__guru_type__slug=guru_type
+    ).select_related('data_source')
+    
+    # If no files found directly, return empty string
+    if not github_files.exists():
+        return ""
+    else:
+        # Extract unique data sources from GitHub files
+        data_sources = {github_file.data_source for github_file in github_files}
+    
+    # Extract GitHub details from data sources
+    repos_details = []
+    for data_source in data_sources:
         try:
-            simplified_github_details = {}
-            github_details = guru_type_obj.github_details
-            simplified_github_details['name'] = github_details.get('name', '')
-            simplified_github_details['description'] = github_details.get('description', '')
-            simplified_github_details['topics'] = github_details.get('topics', [])
-            simplified_github_details['language'] = github_details.get('language', '')
-            simplified_github_details['size'] = github_details.get('size', 0)
-            simplified_github_details['homepage'] = github_details.get('homepage', '')
-            simplified_github_details['stargazers_count'] = github_details.get('stargazers_count', 0)
-            simplified_github_details['forks_count'] = github_details.get('forks_count', 0)
-            # Handle null license case
-            license_info = github_details.get('license')
-            simplified_github_details['license_name'] = license_info.get('name', '') if license_info else ''
-            simplified_github_details['open_issues_count'] = github_details.get('open_issues_count', 0)
-            simplified_github_details['pushed_at'] = github_details.get('pushed_at', '')
-            simplified_github_details['created_at'] = github_details.get('created_at', '')
-            owner = github_details.get('owner', {})
-            simplified_github_details['owner_login'] = owner.get('login', '')
-            response = f"Here is the GitHub details for {guru_type_obj.name}: {simplified_github_details}"
+            if data_source.github_details:
+                github_details = data_source.github_details
+                simplified_github_details = {
+                    'name': github_details.get('name', ''),
+                    'description': github_details.get('description', ''),
+                    'topics': github_details.get('topics', []),
+                    'language': github_details.get('language', ''),
+                    'size': github_details.get('size', 0),
+                    'homepage': github_details.get('homepage', ''),
+                    'stargazers_count': github_details.get('stargazers_count', 0),
+                    'forks_count': github_details.get('forks_count', 0),
+                    'license_name': github_details.get('license', {}).get('name', '') if github_details.get('license') else '',
+                    'open_issues_count': github_details.get('open_issues_count', 0),
+                    'pushed_at': github_details.get('pushed_at', ''),
+                    'created_at': github_details.get('created_at', ''),
+                    'owner_login': github_details.get('owner', {}).get('login', ''),
+                    'repo_url': data_source.url
+                }
+                repos_details.append(simplified_github_details)
         except Exception as e:
-            logger.error(f"Error while processing GitHub details for guru type {guru_type}: {str(e)}")
-            response = ""
-    return response
+            logger.error(f"Error while processing GitHub details for data source {data_source.id}: {str(e)}")
+    
+    if repos_details:
+        guru_type_obj = get_guru_type_object(guru_type)
+        guru_type_name = guru_type_obj.name if guru_type_obj else guru_type
+        return f"Here are the GitHub details for repositories related to {guru_type_name}: {repos_details}"
+    
+    return ""
 
 
 def format_history_for_prompt(history):
@@ -1305,7 +1350,8 @@ def ask_question_with_stream(
         times['total'] = time.perf_counter() - start_total
         return None, None, None, None, None, None, None, None, None, times
 
-    simplified_github_details = get_github_details_if_applicable(guru_type)
+    # Get GitHub details from data sources referenced in the context links
+    simplified_github_details = get_github_details_if_applicable(guru_type, links, processed_ctx_relevances)
 
     guru_variables = get_guru_type_prompt_map(guru_type)
     guru_variables['streaming_type']='streaming'

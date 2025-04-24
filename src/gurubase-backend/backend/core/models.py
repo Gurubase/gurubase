@@ -304,8 +304,6 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_details = models.JSONField(default=dict, blank=True, null=False)
-    github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
     icon_url = models.CharField(max_length=2000, default="", blank=True, null=True)
     ogimage_url = models.URLField(max_length=2000, default="", blank=True, null=True)  # question
@@ -672,6 +670,8 @@ class DataSource(models.Model):
     final_summarization_created = models.BooleanField(default=False)
 
     default_branch = models.CharField(max_length=100, null=True, blank=True)  # Only used for Github Repos
+    github_details = models.JSONField(default=dict, blank=True, null=True)  # For storing GitHub repository details
+    github_details_updated_date = models.DateTimeField(null=True, blank=True)  # When GitHub details were last updated
 
     private = models.BooleanField(default=False)
 
