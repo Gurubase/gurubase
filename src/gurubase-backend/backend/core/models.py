@@ -1262,6 +1262,7 @@ class Settings(models.Model):
     is_ollama_embedding_model_valid = models.BooleanField(default=False)
     ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
     is_ollama_base_model_valid = models.BooleanField(default=False)
+    gurubase_url = models.TextField(null=True, blank=True, default='http://localhost:8029')
 
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
@@ -1287,6 +1288,26 @@ class Settings(models.Model):
         
         # Fallback to environment-based default if no settings object exists
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
+
+    def validate_gurubase_url(self):
+        """
+        Validates the gurubase_url field.
+        """
+        from django.core.validators import URLValidator
+        from django.core.exceptions import ValidationError
+        
+        # Validate URL format
+        url_validator = URLValidator()
+        try:
+            url_validator(self.gurubase_url)
+            
+            # Check that URL has http or https protocol
+            if not (self.gurubase_url.startswith('http://') or self.gurubase_url.startswith('https://')):
+                return False
+                
+            return True
+        except ValidationError:
+            return False
 
     def validate_ollama_settings(self):
         """

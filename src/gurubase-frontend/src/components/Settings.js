@@ -43,6 +43,8 @@ const Settings = () => {
   const [hasExistingYoutubeKey, setHasExistingYoutubeKey] = useState(false);
   const [isYoutubeEditing, setIsYoutubeEditing] = useState(false);
   const [maskedYoutubeKey, setMaskedYoutubeKey] = useState("");
+  const [gurubaseUrl, setGurubaseUrl] = useState("");
+  const [gurubaseUrlError, setGurubaseUrlError] = useState("");
 
   // New state variables for AI Model Provider
   const [aiModelProvider, setAiModelProvider] = useState("OPENAI");
@@ -78,6 +80,11 @@ const Settings = () => {
       setHasExistingKey(!!settings.openai_api_key);
       setMaskedOpenAIKey(settings.openai_api_key || "");
       setDataSourcesExist(settings.data_sources_exist);
+
+      // Set Gurubase URL if it exists
+      if (settings.gurubase_url && !keepFields) {
+        setGurubaseUrl(settings.gurubase_url);
+      }
 
       // Set AI Model Provider settings
       if (!keepFields && settings.ai_model_provider) {
@@ -164,6 +171,7 @@ const Settings = () => {
     setIsLoading(true);
     // Clear previous errors
     setOllamaUrlError("");
+    setGurubaseUrlError("");
 
     let error = false;
     let requestSent = false;
@@ -212,6 +220,18 @@ const Settings = () => {
         }
       }
 
+      // Validate Gurubase URL if provided
+      if (gurubaseUrl.trim() && !gurubaseUrl.trim().match(/^https?:\/\/.+/)) {
+        error = true;
+        setGurubaseUrlError(
+          "Please enter a valid URL starting with http:// or https://"
+        );
+        CustomToast({
+          message: "Invalid Gurubase URL format",
+          variant: "error"
+        });
+      }
+
       if (error) {
         setIsLoading(false);
 
@@ -219,6 +239,9 @@ const Settings = () => {
       }
 
       const formData = new FormData();
+
+      // Add Gurubase URL
+      formData.append("gurubase_url", gurubaseUrl.trim());
 
       // Add AI Model Provider settings
       formData.append("ai_model_provider", aiModelProvider);
@@ -829,6 +852,50 @@ const Settings = () => {
                               onChange={handleYoutubeChange}
                               onStartEditing={startYoutubeEditing}
                             />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Gurubase URL Section */}
+                      <div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <label className="text-[14px] font-medium text-[#191919] font-inter">
+                              Gurubase URL (Optional)
+                            </label>
+                          </div>
+                          <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
+                            By default, Gurubase runs at http://localhost:8029.
+                            If you are serving it on a different URL, please
+                            update this field accordingly.
+                          </p>
+                          {isInitialLoading ? (
+                            <Skeleton className="h-12" />
+                          ) : (
+                            <>
+                              <input
+                                className={`w-full h-12 px-4 rounded-lg border ${
+                                  gurubaseUrlError
+                                    ? "border-red-500"
+                                    : "border-[#E2E2E2]"
+                                } focus:outline-none focus:ring-2 focus:ring-[#191919] focus:border-transparent`}
+                                placeholder="http://localhost:8029"
+                                type="text"
+                                value={gurubaseUrl}
+                                onChange={(e) => {
+                                  setGurubaseUrl(e.target.value);
+                                  if (gurubaseUrlError) setGurubaseUrlError("");
+                                }}
+                              />
+                              {gurubaseUrlError && (
+                                <div className="flex items-center gap-1 mt-2">
+                                  <CloseCircleIcon className="text-[#DC2626]" />
+                                  <span className="text-[12px] font-inter font-normal text-[#DC2626]">
+                                    {gurubaseUrlError}
+                                  </span>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
