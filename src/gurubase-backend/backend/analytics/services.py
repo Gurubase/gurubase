@@ -336,13 +336,15 @@ class AnalyticsService:
             )
             github_files = GithubFile.objects.filter(
                 link__in=referenced_links,
-                data_source__status=DataSource.Status.SUCCESS
+                data_source__status=DataSource.Status.SUCCESS,
+                data_source__guru_type=guru_type
             ).select_related('data_source')
         elif filter_type == 'github_repo':
             data_sources = []
             github_files = GithubFile.objects.filter(
                 link__in=referenced_links,
-                data_source__status=DataSource.Status.SUCCESS
+                data_source__status=DataSource.Status.SUCCESS,
+                data_source__guru_type=guru_type
             ).select_related('data_source')
         else:
             data_sources = DataSource.objects.filter(
