@@ -867,7 +867,8 @@ const Settings = () => {
                           <p className="text-[12px] font-normal text-[#6D6D6D] font-inter mb-2">
                             By default, Gurubase runs at http://localhost:8029.
                             If you are serving it on a different URL, please
-                            update this field accordingly.
+                            update this field accordingly. If nothing is
+                            provided, http://localhost:8029 will be used.
                           </p>
                           {isInitialLoading ? (
                             <Skeleton className="h-12" />
