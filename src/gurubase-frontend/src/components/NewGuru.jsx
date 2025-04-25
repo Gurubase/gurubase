@@ -89,7 +89,12 @@ const formSchema = z.object({
   confluencePages: z.array(z.string()).optional() // <-- Add Confluence
 });
 
-export default function NewGuru({ guruData, isProcessing }) {
+export default function NewGuru({
+  guruData,
+  isProcessing,
+  setHasDataSources, // Used to link it with the sidebar
+  hasDataSources // Used to link it with the sidebar
+}) {
   const navigation = useAppNavigation();
   const redirectingRef = useRef(false);
   // Add useCrawler here with other hooks
@@ -323,6 +328,14 @@ export default function NewGuru({ guruData, isProcessing }) {
     };
     fetchZendeskIntegration();
   }, [customGuru]);
+
+  useEffect(() => {
+    if (dataSources && dataSources.results.length > 0) {
+      setHasDataSources(true);
+    } else {
+      setHasDataSources(false);
+    }
+  }, [dataSources]);
 
   // <-- Add useEffect for Confluence integration -->
   useEffect(() => {
@@ -1185,22 +1198,6 @@ export default function NewGuru({ guruData, isProcessing }) {
       const hasGithubChanges = isEditMode
         ? (data.githubRepos || []) !== (customGuruData?.github_repos || [])
         : !!data.githubRepos;
-
-      if (
-        (!hasResources && (!index_repo || !hasGithubChanges) && !isEditMode) ||
-        (sources.length === 0 &&
-          (!index_repo || !hasGithubChanges) &&
-          isEditMode)
-      ) {
-        CustomToast({
-          message: index_repo
-            ? "At least one resource (PDF, YouTube link, website URL) must be added, or GitHub repository settings must be changed."
-            : "At least one resource (PDF, YouTube link, website URL) must be added.",
-          variant: "error"
-        });
-
-        return;
-      }
 
       // Track if any changes were made that require polling
       let hasChanges = false;
@@ -2381,7 +2378,7 @@ export default function NewGuru({ guruData, isProcessing }) {
             </div>
             {/* Replace the bottom buttons section with this */}
             <div className="flex guru-sm:flex-col guru-md:flex-row guru-lg:flex-row gap-4 items-center">
-              {customGuru && (
+              {customGuru && hasDataSources && (
                 <Button
                   className="guru-sm:w-full guru-md:w-auto guru-lg:w-auto rounded-lg bg-white hover:bg-gray-50 text-gray-800 border border-gray-200"
                   disabled={
