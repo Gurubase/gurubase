@@ -2734,6 +2734,9 @@ def search_question(
     ): 
     def get_source_conditions(user):
         """Helper function to get source conditions based on user"""
+        if settings.ENV == 'selfhosted':
+            return Q()
+
         if user is None:
             # For anonymous users
             # API requests are not allowed
