@@ -192,14 +192,23 @@ class AnalyticsService:
         start_date, end_date = get_date_range(interval)
         
         try:
-            data_source = DataSource.objects.get(guru_type=guru_type, url=data_source_url)
-            is_github = False
+            DataSource.objects.get(guru_type=guru_type, url=data_source_url)
         except DataSource.DoesNotExist:
-            try:
-                data_source = GithubFile.objects.select_related('data_source').get(link=data_source_url, data_source__guru_type=guru_type)
-                is_github = True
-            except GithubFile.DoesNotExist:
-                return None
+            found = False
+            if settings.ENV == 'selfhosted':
+                split_url = data_source_url.split('/', 3)
+                if len(split_url) >= 4:
+                    simplified_url = split_url[3]
+                    data_sources = DataSource.objects.filter(url__icontains=simplified_url)
+                    if data_sources.exists():
+                        data_source_url = data_sources.first().url
+                        found = True
+
+            if not found:
+                try:
+                    GithubFile.objects.select_related('data_source').get(link=data_source_url, data_source__guru_type=guru_type)
+                except GithubFile.DoesNotExist:
+                    return None
         
         # Build the base queryset
         queryset = Question.objects.filter(
