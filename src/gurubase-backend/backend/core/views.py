@@ -28,7 +28,7 @@ from core.models import CrawlState, FeaturedDataSource, Question, ContentPageSta
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, validate_binge_follow_up,
+    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, get_base_url, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -2452,7 +2452,7 @@ async def send_channel_unauthorized_message(
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
-        settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/slack"
+        settings_url = f"{get_base_url().rstrip('/')}/guru/{guru_slug}/integrations/slack"
         message = (
             "❌ This channel is not authorized to use the bot.\n\n"
             f"Please visit <{settings_url}|Gurubase Settings> to configure "

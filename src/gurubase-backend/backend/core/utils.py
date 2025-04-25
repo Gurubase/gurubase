@@ -3610,3 +3610,13 @@ def get_default_embedding_dimensions():
     """
     model_choice = Settings.get_default_embedding_model()
     return get_embedding_model_config(model_choice)[1]
+
+def get_base_url():
+    """
+    Returns the base URL for the current environment
+    """
+    default_settings = get_default_settings()
+    if settings.ENV == 'selfhosted' and default_settings.gurubase_url:
+        return default_settings.gurubase_url
+    else:
+        return settings.BASE_URL
