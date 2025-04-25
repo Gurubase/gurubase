@@ -2452,7 +2452,8 @@ async def send_channel_unauthorized_message(
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
-        settings_url = f"{get_base_url().rstrip('/')}/guru/{guru_slug}/integrations/slack"
+        base_url = await sync_to_async(get_base_url)()
+        settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/slack"
         message = (
             "❌ This channel is not authorized to use the bot.\n\n"
             f"Please visit <{settings_url}|Gurubase Settings> to configure "
