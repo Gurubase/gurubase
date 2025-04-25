@@ -225,7 +225,8 @@ class Command(BaseCommand):
     ) -> None:
         """Send a message explaining how to authorize the channel."""
         try:
-            settings_url = f"{get_base_url().rstrip('/')}/guru/{guru_slug}/integrations/discord"
+            base_url = await sync_to_async(get_base_url)()
+            settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/discord"
             
             # Create embed for better formatting
             embed = discord.Embed(
