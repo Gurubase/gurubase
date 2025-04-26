@@ -3620,6 +3620,6 @@ def get_base_url():
     """
     default_settings = get_default_settings()
     if settings.ENV == 'selfhosted' and default_settings.gurubase_url:
-        return default_settings.gurubase_url
+        return default_settings.gurubase_url.rstrip('/')
     else:
-        return settings.BASE_URL
+        return settings.BASE_URL.rstrip('/')
