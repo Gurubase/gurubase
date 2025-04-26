@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 
 def replace_media_root_with_nginx_base_url(url):
-    # TODO: Update this when selfhosted url setting is added
     if settings.ENV == 'selfhosted':
         # Replace also for development environment
         if not url:
@@ -19,14 +18,17 @@ def replace_media_root_with_nginx_base_url(url):
     return url
 
 def replace_media_root_with_base_url(url):
-    # TODO: Update this when selfhosted url setting is added
+    from core.utils import get_base_url
     if settings.ENV == 'selfhosted':
         if not url:
             logger.error("URL is None", traceback.format_exc())
             return ''
         # Replace also for development environment
         path = url.split(settings.MEDIA_ROOT)[1]
-        return f'{settings.BASE_URL}/media{path}'
+
+        base_url = get_base_url()
+
+        return f'{base_url}/media{path}'
     return url
 
 
