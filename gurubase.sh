@@ -93,7 +93,7 @@ server {
         proxy_set_header X-Forwarded-Host $host:$server_port;
     }
 
-    location /api/ {
+    location ~ ^/(api|admin|backend)(/|$) {
         proxy_pass http://backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
