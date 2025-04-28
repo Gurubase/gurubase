@@ -28,9 +28,8 @@ def jwt_auth(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if settings.ENV == 'selfhosted':
+            request.user = User.objects.get(email=settings.ROOT_EMAIL)
             return view_func(request, *args, **kwargs)
-        # request.user = User.objects.all().first()
-        # return view_func(request, *args, **kwargs)
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
             return Response({'error': 'Invalid authorization header'}, status=401)
@@ -80,6 +79,9 @@ def combined_auth(view_func):
         # return view_func(request, *args, **kwargs)
         # First try JWT auth
         auth_header = request.headers.get('Authorization', '')
+
+        if settings.ENV == 'selfhosted':
+            request.user = User.objects.get(email=settings.ROOT_EMAIL)
         
         # If it's a Bearer token, try JWT auth
         if auth_header.startswith('Bearer '):
@@ -115,6 +117,7 @@ def combined_auth(view_func):
                 if not auth_header == settings.AUTH_TOKEN:
                     return Response({'error': 'Authentication failed'}, status=401)
         
+
         return view_func(request, *args, **kwargs)
             
     return wrapper
@@ -123,6 +126,7 @@ def stream_combined_auth(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if settings.ENV == 'selfhosted':
+            request.user = User.objects.get(email=settings.ROOT_EMAIL)
             return view_func(request, *args, **kwargs)
         # return view_func(request, *args, **kwargs)
         # First try JWT auth
@@ -244,6 +248,8 @@ def follow_up_examples_auth(view_func):
     def wrapper(request, *args, **kwargs):
         # First try JWT auth
         auth_header = request.headers.get('Authorization', '')
+        if settings.ENV == 'selfhosted':
+            request.user = User.objects.get(email=settings.ROOT_EMAIL)
         
         if auth_header.startswith('Bearer '):
             token = auth_header.split(' ')[1]
