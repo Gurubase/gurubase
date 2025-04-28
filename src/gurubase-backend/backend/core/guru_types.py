@@ -29,7 +29,9 @@ def get_guru_type_prompt_map(guru_type, only_active=True):
     except GuruType.DoesNotExist:
         raise ValueError(f'Guru type {guru_type} does not exist')
     
-    return guru_type_obj.prompt_map
+    prompt_map = guru_type_obj.prompt_map
+    prompt_map['language'] = guru_type_obj.language
+    return prompt_map
 
 
 def get_guru_type_names(only_active=True):

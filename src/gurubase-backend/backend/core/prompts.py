@@ -71,6 +71,8 @@ Return a structured summary of the user's question with the following fields:
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
 - **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 
+Answer in {language}.
+
 {binge_summary_prompt}
 
 {github_context}
@@ -157,6 +159,8 @@ Handling Edge Cases:
   - Suggest how to rephrase the question to relate to {guru_type}.
 
 Use the markdown guide provided earlier for proper formatting.
+
+Answer in {language}.
 
 Remember, today's date is {date}. Use this information if any date-related questions arise.
 
@@ -608,6 +612,8 @@ Generate up to {num_questions} new follow-up questions that:
 4. Maintain appropriate technical depth based on the contexts
 5. Are specific and focused on information present in the contexts
 6. Do NOT overlap with or ask similar questions to those in the question history (neither question nor user_question)
+
+Answer in {language}.
 
 Here are some examples of question overlaps:
 

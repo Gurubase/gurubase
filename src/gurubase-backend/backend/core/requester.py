@@ -607,8 +607,7 @@ class OpenAIRequester():
         
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
         prompt = generate_follow_up_questions_prompt.format(
-            guru_type=guru_type.name,
-            domain_knowledge=prompt_map['domain_knowledge'],
+            **prompt_map,
             questions=json.dumps(questions, indent=2),
             answer=last_content,
             contexts=json.dumps(contexts, indent=2),
@@ -872,8 +871,7 @@ class GeminiRequester():
         
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
         prompt = generate_follow_up_questions_prompt.format(
-            guru_type=guru_type.name,
-            domain_knowledge=prompt_map['domain_knowledge'],
+            **prompt_map,
             questions=json.dumps(questions, indent=2),
             answer=last_content,
             contexts=json.dumps(contexts, indent=2),

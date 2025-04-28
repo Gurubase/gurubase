@@ -300,6 +300,10 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
 
+    class Language(models.TextChoices):
+        ENGLISH = "ENGLISH", "English"
+        TURKISH = "TURKISH", "Turkish"
+
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
@@ -349,6 +353,11 @@ class GuruType(models.Model):
         blank=True
     )
     send_notification = models.BooleanField(default=False)
+    language = models.CharField(
+        max_length=100,
+        choices=Language.choices,
+        default=Language.ENGLISH
+    )
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
