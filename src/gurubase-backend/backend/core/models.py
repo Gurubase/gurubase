@@ -1394,11 +1394,13 @@ class Settings(models.Model):
             
         try:
             from openai import OpenAI
+            from django.conf import settings
             client = OpenAI(api_key=self.openai_api_key, timeout=10)
             client.models.list()
             self.is_openai_key_valid = True
-            self.last_valid_embedding_model = Settings.DefaultEmbeddingModel.SELFHOSTED.value
-            self.last_valid_embedding_model_dimension = 1536
+            # Use settings for embedding model and dimension
+            self.last_valid_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+            self.last_valid_embedding_model_dimension = settings.SELFHOSTED_DEFAULT_EMBEDDING_DIMENSION
             return True
         except Exception as e:
             self.is_openai_key_valid = False
