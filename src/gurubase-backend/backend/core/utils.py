@@ -3090,7 +3090,12 @@ def api_ask(question: str,
     summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
-        return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
+        if guru_type.language == GuruType.Language.TURKISH:
+            msg = f"Bu soru {guru_type.name} ile ilgili değildir."
+        else:
+            msg = f"This question is not related to {guru_type.name}."
+
+        return APIAskResponse.from_error(msg)
 
     # Prepare summary data
     summary_prompt_tokens = summary_data.get('prompt_tokens', 0)
@@ -3128,7 +3133,11 @@ def api_ask(question: str,
         )
 
         if not response:
-            return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
+            if guru_type.language == GuruType.Language.TURKISH:
+                msg = f"{guru_type.name} Guru bu soru için yeterli veriye sahip değildir."
+            else:
+                msg = f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question."
+            return APIAskResponse.from_error(msg)
 
         times = {}
         times['before_stream'] = before_stream_times
@@ -3161,7 +3170,11 @@ def api_ask(question: str,
         )
     except Exception as e:
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
-        return APIAskResponse.from_error(f"There was an error in the stream. We are investigating the issue. Please try again later.")
+        if guru_type.language == GuruType.Language.TURKISH:
+            msg = "Soruyu yanıtlayamadık. Lütfen daha sonra tekrar deneyiniz."
+        else:
+            msg = "There was an error in the stream. We are investigating the issue. Please try again later."
+        return APIAskResponse.from_error(msg)
     
     return APIAskResponse.from_stream(stream_generator, question)
 
