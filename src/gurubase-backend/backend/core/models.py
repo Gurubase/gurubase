@@ -300,6 +300,21 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
 
+    class Language(models.TextChoices):
+        ENGLISH = "ENGLISH", "English"
+        TURKISH = "TURKISH", "Turkish"
+        
+    # Language code mapping
+    LANGUAGE_CODES = {
+        'ENGLISH': 'en',
+        'TURKISH': 'tr',
+    }
+    
+    # Get language code helper method
+    def get_language_code(self):
+        """Returns the ISO language code for the selected language"""
+        return self.LANGUAGE_CODES.get(self.language, 'en')
+
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
@@ -319,6 +334,7 @@ class GuruType(models.Model):
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
+    custom_follow_up_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
     # GitHub repository limits
@@ -349,6 +365,11 @@ class GuruType(models.Model):
         blank=True
     )
     send_notification = models.BooleanField(default=False)
+    language = models.CharField(
+        max_length=100,
+        choices=Language.choices,
+        default=Language.ENGLISH
+    )
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -469,7 +490,9 @@ class GuruType(models.Model):
         return {
             "guru_type": self.name,
             "domain_knowledge": self.domain_knowledge,
-            "custom_instruction_prompt": self.custom_instruction_prompt
+            "custom_instruction_prompt": self.custom_instruction_prompt,
+            "custom_follow_up_prompt": self.custom_follow_up_prompt,
+            "language": self.language
         }
 
     @property
@@ -1271,6 +1294,8 @@ class Settings(models.Model):
     split_size = models.IntegerField(default=2000)
     split_overlap = models.IntegerField(default=300)
     split_min_length = models.IntegerField(default=500)
+
+    rerank = models.BooleanField(default=True)
 
     @classmethod
     def get_default_embedding_model(cls):
