@@ -13,7 +13,7 @@ from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalid
 from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
-from core.guru_types import get_guru_type_names, get_guru_type_object
+from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_type_object_without_filters
 from core.models import DataSource, Favicon, GuruType, Integration, LLMEval, LinkReference, LinkValidity, Question, Settings, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
@@ -260,7 +260,7 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
             # Wait for a bit for the data sources to be synced
             time.sleep(countdown)
 
-        guru_type_object = get_guru_type_object(guru_type_slug)
+        guru_type_object = get_guru_type_object_without_filters(guru_type_slug)
         if is_github:
             data_sources = DataSource.objects.filter(
                 status=DataSource.Status.NOT_PROCESSED,
@@ -485,7 +485,7 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
         questions = Question.objects.filter(llm_eval=True, guru_type__slug=guru_type).order_by('-date_created')
         
         logger.info(f'Will evaluate {questions.count()} questions for guru type {guru_type}')
-        guru_type_obj = get_guru_type_object(guru_type)
+        guru_type_obj = get_guru_type_object_without_filters(guru_type)
         collection_name = guru_type_obj.milvus_collection_name
 
         for q in questions:

@@ -315,16 +315,28 @@ export async function getGurutypeResources(guruType) {
 
 export async function getGuruTypes() {
   try {
+    const session = await getUserSession();
     const cacheConfig = shouldUsePublicRequest()
       ? { cache: "no-store" }
       : { next: { revalidate: 3600 } };
 
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
-      cacheConfig
-    );
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
+        cacheConfig
+      );
 
-    return await response.json();
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
+        cacheConfig
+      );
+
+      return await response.json();
+    }
   } catch (error) {
     return { error: true, message: error.message, status: error.status };
   }
@@ -332,16 +344,28 @@ export async function getGuruTypes() {
 
 export async function getGuruType(slug) {
   try {
+    const session = await getUserSession();
     const cacheConfig = shouldUsePublicRequest()
       ? { cache: "no-store" }
       : { next: { revalidate: 3600 } };
 
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
-      cacheConfig
-    );
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
+        cacheConfig
+      );
 
-    return await response.json();
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
+        cacheConfig
+      );
+
+      return await response.json();
+    }
   } catch (error) {
     return { error: true, message: error.message, status: error.status };
   }
@@ -349,13 +373,24 @@ export async function getGuruType(slug) {
 
 export async function checkGuruReadiness(guruName) {
   try {
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/status/${guruName}/`,
-      { cache: "no-store" }
-    );
-    const data = await response.json();
+    const session = await getUserSession();
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/status/${guruName}/`;
 
-    return data?.ready || false;
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(url, {
+        cache: "no-store"
+      });
+      if (!response) return false;
+      const data = await response.json();
+      return data?.ready || false;
+    } else {
+      // Public request
+      const response = await makePublicRequest(url, { cache: "no-store" });
+      if (!response) return false;
+      const data = await response.json();
+      return data?.ready || false;
+    }
   } catch (error) {
     return false;
   }

@@ -365,6 +365,7 @@ class GuruType(models.Model):
         blank=True
     )
     send_notification = models.BooleanField(default=False)
+    private = models.BooleanField(default=False)
     language = models.CharField(
         max_length=100,
         choices=Language.choices,
