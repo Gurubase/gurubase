@@ -28,7 +28,7 @@ from core.models import CrawlState, FeaturedDataSource, Question, ContentPageSta
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, validate_binge_follow_up,
+    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, get_base_url, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -154,6 +154,8 @@ def summary(request, guru_type):
         'total': 0
     }
 
+    guru_type_object = get_guru_type_object(guru_type)
+
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
         valid = False
@@ -171,7 +173,6 @@ def summary(request, guru_type):
         if not valid:
             return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
 
-
     if settings.ENV == 'selfhosted':
         user = None
     else:
@@ -181,8 +182,6 @@ def summary(request, guru_type):
             user = request.user
     
     endpoint_start = time.time()
-    validate_guru_type(guru_type)
-
     payload_start = time.time()
     try:
         data = request.data
@@ -195,7 +194,7 @@ def summary(request, guru_type):
         
     if question is None:
         return Response({'msg': "Please provide a question in the request body"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     if binge_id:
         try:
             binge = Binge.objects.get(id=binge_id)
@@ -207,7 +206,6 @@ def summary(request, guru_type):
         binge = None
         
     if parent_question_slug:
-        guru_type_object = get_guru_type_object(guru_type)
         parent_question = search_question(
             user, 
             guru_type_object,
@@ -223,7 +221,6 @@ def summary(request, guru_type):
     times['payload_processing'] = time.time() - payload_start
 
     existence_start = time.time()
-    guru_type_object = get_guru_type_object(guru_type)
     
     if not binge:
         # Only check existence for non-binge. We want to re-answer the binge questions again, and save them as separate questions.
@@ -286,6 +283,8 @@ def summary(request, guru_type):
 @conditional_csrf_exempt
 def answer(request, guru_type):
     endpoint_start = time.time()
+
+    guru_type_object = get_guru_type_object(guru_type)
     
     if settings.ENV == 'selfhosted':
         user = None
@@ -295,17 +294,6 @@ def answer(request, guru_type):
         else:
             user = request.user
 
-    
-    # jwt_start = time.time()
-    # auth_jwt_token = request.headers.get('Authorization')
-    # try:
-    #     decode_jwt(auth_jwt_token)
-    # except Exception as e:
-    #     # except jwt.ExpiredSignatureError or etc.:
-    #     logger.error(f'Failed to verify jwt on answer endpoint, exception: {e}', exc_info=True)
-    #     return Response({'msg': "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
-    
-    validate_guru_type(guru_type)
 
     # jwt_time = time.time() - jwt_start    
     payload_start = time.time()
@@ -344,7 +332,6 @@ def answer(request, guru_type):
         return Response({'msg': "Please provide all the required fields (question, description, question_slug) in the request body"}, status=status.HTTP_400_BAD_REQUEST)
 
     if parent_question_slug:
-        guru_type_object = get_guru_type_object(guru_type)
         parent_question = search_question(
             user, 
             guru_type_object,
@@ -434,12 +421,8 @@ def answer(request, guru_type):
 @combined_auth
 def question_detail(request, guru_type, slug):
     # This endpoint is only used for UI.
-    # validate_guru_type(guru_type)
-
-    
+    guru_type_object = get_guru_type_object(guru_type)
     user = request.user
-    
-    question_text = request.query_params.get('question')
     
     binge_id = request.query_params.get('binge_id')
     if binge_id:
@@ -453,7 +436,7 @@ def question_detail(request, guru_type, slug):
     if binge and not check_binge_auth(binge, user):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    guru_type_object = get_guru_type_object(guru_type)
+    
     question = search_question(
         user, 
         guru_type_object, 
@@ -545,9 +528,6 @@ def my_gurus(request, guru_slug=None):
                 'icon': icon_url,
                 'icon_url': icon_url,
                 'domain_knowledge': guru.domain_knowledge,
-                'youtubeCount': 0,
-                'pdfCount': 0,
-                'websiteCount': 0,
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
@@ -686,6 +666,7 @@ def og_image_generate(request,question_id):
 @api_view(['GET'])
 @auth
 def get_guru_type_resources(request, guru_type):
+    validate_guru_type(guru_type)
     try:
         resources = []
 
@@ -949,7 +930,6 @@ def get_data_sources_detailed(request, guru_type):
     except NotFoundError:
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    validate_guru_type(guru_type, only_active=False)
     data_sources_queryset = DataSource.objects.filter(guru_type=guru_type_object).order_by('type', 'url')
     
     paginator = DataSourcePagination()
@@ -1024,8 +1004,6 @@ def data_sources_frontend(request, guru_type):
         return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
     except NotFoundError:
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
-    
-    validate_guru_type(guru_type, only_active=False)
     
     if request.method == 'POST':
         return create_data_sources(request, guru_type)
@@ -1170,7 +1148,7 @@ def follow_up_examples(request, guru_type):
     if not settings.GENERATE_FOLLOW_UP_EXAMPLES:
         return Response([], status=status.HTTP_200_OK)
     
-    validate_guru_type(guru_type, only_active=True)
+    guru_type_object = get_guru_type_object(guru_type, only_active=True)
     
     binge_id = request.data.get('binge_id')
     question_slug = request.data.get('question_slug')
@@ -1191,7 +1169,6 @@ def follow_up_examples(request, guru_type):
     if binge and not widget and not check_binge_auth(binge, user):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    guru_type_object = get_guru_type_object(guru_type, only_active=True)
         
     last_question = search_question(
         user, 
@@ -1259,8 +1236,8 @@ def follow_up_examples(request, guru_type):
 @api_view(['GET'])
 @combined_auth
 def follow_up_graph(request, guru_type):
+    guru_type_obj = get_guru_type_object(guru_type)
     user = request.user
-    validate_guru_type(guru_type, only_active=True)
 
     binge_id = request.query_params.get('binge_id')
     if not binge_id:
@@ -1274,8 +1251,6 @@ def follow_up_graph(request, guru_type):
     if not check_binge_auth(binge, user):
         return Response({'msg': 'User does not have access to this binge'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    guru_type_obj = get_guru_type_object(guru_type)
-
     graph_nodes = Question.objects.filter(binge=binge, guru_type=guru_type_obj)
     
     # Format the response
@@ -1309,6 +1284,7 @@ def follow_up_graph(request, guru_type):
 @api_view(['POST'])
 @jwt_auth
 def create_binge(request, guru_type):
+    guru_type_object = get_guru_type_object(guru_type, only_active=True)
     if settings.ENV == 'selfhosted':
         user = None
     else:
@@ -1316,10 +1292,6 @@ def create_binge(request, guru_type):
             user = None
         else:
             user = request.user
-    
-    validate_guru_type(guru_type, only_active=True)
-    
-    guru_type_object = get_guru_type_object(guru_type, only_active=True)
     
     root_slug = request.data.get('root_slug')
     if not root_slug:
@@ -1599,8 +1571,6 @@ def api_data_sources(request, guru_type):
         return response_handler.handle_error_response('Forbidden', status.HTTP_403_FORBIDDEN)
     except NotFoundError:
         return response_handler.handle_error_response(f'Guru type {guru_type} not found', status.HTTP_404_NOT_FOUND)
-
-    validate_guru_type(guru_type, only_active=False)
 
     if request.method == 'GET':
         class DataSourcePagination(PageNumberPagination):
@@ -2430,7 +2400,8 @@ async def send_channel_unauthorized_message(
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
-        settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/slack"
+        base_url = await sync_to_async(get_base_url)()
+        settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/slack"
         message = (
             "❌ This channel is not authorized to use the bot.\n\n"
             f"Please visit <{settings_url}|Gurubase Settings> to configure "

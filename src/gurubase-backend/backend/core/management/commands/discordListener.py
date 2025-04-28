@@ -9,7 +9,7 @@ from django.conf import settings
 from core.integrations.helpers import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji
 from core.models import Integration, Thread
 from asgiref.sync import sync_to_async
-from core.utils import create_fresh_binge
+from core.utils import create_fresh_binge, get_base_url
 import time
 from django.core.cache import caches
 import requests
@@ -225,7 +225,8 @@ class Command(BaseCommand):
     ) -> None:
         """Send a message explaining how to authorize the channel."""
         try:
-            settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/discord"
+            base_url = await sync_to_async(get_base_url)()
+            settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/discord"
             
             # Create embed for better formatting
             embed = discord.Embed(

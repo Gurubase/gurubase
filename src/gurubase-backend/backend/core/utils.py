@@ -1501,8 +1501,7 @@ def stream_question_answer(
 
 def validate_guru_type(guru_type, only_active=True):
     if guru_type not in get_guru_type_names(only_active=only_active):
-        raise exceptions.InvalidRequestError({'msg': 'Guru type is invalid.'})
-
+        raise exceptions.GuruNotFoundError({'msg': f'Guru type {guru_type} is not found.'})
 
 class SeoFriendlyTitleAnswer(BaseModel):
     seo_frienly_title: str
@@ -2780,6 +2779,9 @@ def search_question(
     ): 
     def get_source_conditions(user):
         """Helper function to get source conditions based on user"""
+        if settings.ENV == 'selfhosted':
+            return Q()
+
         if user is None:
             # For anonymous users
             # API requests are not allowed
@@ -3445,7 +3447,9 @@ def get_embedder_and_model(model_choice, sync = True):
         settings_obj = Settings.objects.first()
         if not sync:
             if model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
-                return (OpenAIRequester(), "text-embedding-3-small")
+                # Check for setting override
+                openai_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+                return (OpenAIRequester(), openai_embedding_model)
             else:
                 return (OllamaRequester(settings_obj.ollama_url), model_choice)
 
@@ -3455,7 +3459,9 @@ def get_embedder_and_model(model_choice, sync = True):
             # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
             return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
         else:
-            return (OpenAIRequester(), "text-embedding-3-small")
+            # Check for setting override
+            openai_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+            return (OpenAIRequester(), openai_embedding_model)
     
     # Cloud version logic
     model_map = {
@@ -3488,9 +3494,21 @@ def get_embedding_model_config(model_choice, sync = True):
         settings_obj = Settings.objects.first()
         assert settings_obj, "Settings object not found"
 
+        # Get custom embedding settings from Django settings
+        default_embedding = settings.SELFHOSTED_DEFAULT_EMBEDDING
+        default_dimension = settings.SELFHOSTED_DEFAULT_EMBEDDING_DIMENSION
+        
         if not sync:
-            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"]:
+            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"] or \
+               (model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_embedding == 'text-embedding-3-small'):
                 return "github_repo_code", 1536
+            elif model_choice in ["text-embedding-3-large", "OPENAI_TEXT_EMBEDDING_3_LARGE"] or \
+                 (model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_embedding == 'text-embedding-3-large'):
+                return "github_repo_code_openai_text_embedding_3_large", 3072
+            elif model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_dimension is not None:
+                # Use custom model with specified dimension
+                model_name = default_embedding.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_name}", default_dimension
             else:
                 model_choice = model_choice.replace(':', '_').replace('.', '_').replace('-', '_')
                 return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
@@ -3502,8 +3520,23 @@ def get_embedding_model_config(model_choice, sync = True):
             return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
         else:
             # For OpenAI in selfhosted
-            return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
-
+            if default_embedding == 'text-embedding-3-small':
+                return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
+            elif default_embedding == 'text-embedding-3-large':
+                return "github_repo_code_openai_text_embedding_3_large", 3072  # OpenAI text-embedding-3-large dimension
+            elif default_dimension is not None:
+                # Use custom model with specified dimension
+                model_name = default_embedding.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_name}", default_dimension
+            else:
+                # For any other model, fall back to default model configs
+                model_configs = {
+                    'text-embedding-3-small': ('github_repo_code', 1536),
+                    'text-embedding-3-large': ('github_repo_code_openai_text_embedding_3_large', 3072),
+                    'text-embedding-ada-002': ('github_repo_code_openai_ada_002', 1536)
+                }
+                return model_configs.get(default_embedding, ('github_repo_code', 1536))
+    
     # Get default settings
     try:
         settings_obj = get_default_settings()
@@ -3656,3 +3689,13 @@ def get_default_embedding_dimensions():
     """
     model_choice = Settings.get_default_embedding_model()
     return get_embedding_model_config(model_choice)[1]
+
+def get_base_url():
+    """
+    Returns the base URL for the current environment
+    """
+    default_settings = get_default_settings()
+    if settings.ENV == 'selfhosted' and default_settings.gurubase_url:
+        return default_settings.gurubase_url.rstrip('/')
+    else:
+        return settings.BASE_URL.rstrip('/')

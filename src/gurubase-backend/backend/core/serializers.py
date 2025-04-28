@@ -144,7 +144,7 @@ class APIKeySerializer(serializers.ModelSerializer):
 class SettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Settings
-        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'youtube_api_key', 'is_youtube_key_valid', 'scrape_type', 'ai_model_provider', 'ollama_url', 'ollama_embedding_model', 'ollama_base_model', 'is_ollama_url_valid', 'is_ollama_embedding_model_valid', 'is_ollama_base_model_valid']
+        fields = ['openai_api_key', 'is_openai_key_valid', 'firecrawl_api_key', 'is_firecrawl_key_valid', 'youtube_api_key', 'is_youtube_key_valid', 'scrape_type', 'ai_model_provider', 'ollama_url', 'ollama_embedding_model', 'ollama_base_model', 'is_ollama_url_valid', 'is_ollama_embedding_model_valid', 'is_ollama_base_model_valid', 'gurubase_url']
         extra_kwargs = {
             'openai_api_key': {'write_only': True},  # Ensure API key is write-only for security
             'is_openai_key_valid': {'read_only': True},  # This field is computed on save

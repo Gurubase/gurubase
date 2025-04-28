@@ -82,7 +82,7 @@ After you have opened the backend (src/gurubase-backend) in a separate VSCode wi
 4. If this is the first time you run the backend, you need to run the following command **once** to fill the database with initial data and other initializations. You don't need to run this command again.
 
     ```bash
-    cd backend && ./manage.py migrate && python scripts/1_generate_users.py && python scripts/3_update_site.py && python scripts/5_fill_llm_prices.py && python scripts/4_create_milvus_collections.py && python manage.py collectstatic --noinput --verbosity 0
+    cd backend && ./manage.py migrate && python scripts/1_generate_users.py && python scripts/3_update_site.py && python scripts/5_create_default_settings.py && python scripts/4_create_milvus_collections.py && python manage.py collectstatic --noinput --verbosity 0
     ```
 
 5. Run the following command to start the backend server:

@@ -198,17 +198,19 @@ export default function WidgetModal({
               <div className="relative">
                 <div className="bg-[#011727] text-white font-inter text-[12px] font-normal p-4 rounded-lg">
                   {widgetId}
-                  <Button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#FFFFFF]"
-                    size="icon"
-                    variant="link"
-                    onClick={() => copyToClipboard(widgetId, "id")}>
-                    {copied === "id" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <CopyIcon />
-                    )}
-                  </Button>
+                  {navigator.clipboard && (
+                    <Button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[#FFFFFF]"
+                      size="icon"
+                      variant="link"
+                      onClick={() => copyToClipboard(widgetId, "id")}>
+                      {copied === "id" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <CopyIcon />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -243,17 +245,19 @@ export default function WidgetModal({
                       </pre>
                     )}
                   </Highlight>
-                  <Button
-                    className="absolute right-2 top-4 text-[#FFFFFF]"
-                    size="icon"
-                    variant="link"
-                    onClick={() => copyToClipboard(widgetScript, "script")}>
-                    {copied === "script" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <CopyIcon />
-                    )}
-                  </Button>
+                  {navigator.clipboard && (
+                    <Button
+                      className="absolute right-2 top-4 text-[#FFFFFF]"
+                      size="icon"
+                      variant="link"
+                      onClick={() => copyToClipboard(widgetScript, "script")}>
+                      {copied === "script" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <CopyIcon />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

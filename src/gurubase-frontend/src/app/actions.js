@@ -1122,6 +1122,7 @@ export async function updateSettings(formData) {
     const ollama_embedding_model = formData.get("ollama_embedding_model");
     const ollama_base_model = formData.get("ollama_base_model");
     const ai_model_provider = formData.get("ai_model_provider");
+    const gurubase_url = formData.get("gurubase_url");
 
     const openai_api_key_written =
       formData.get("openai_api_key_written") === "true";
@@ -1146,7 +1147,8 @@ export async function updateSettings(formData) {
           ollama_url,
           ollama_embedding_model,
           ollama_base_model,
-          ai_model_provider
+          ai_model_provider,
+          gurubase_url
         })
       }
     );
