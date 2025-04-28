@@ -606,6 +606,7 @@ Here are the relevant contexts that were used to answer the last question:
 </contexts>
 
 Generate up to {num_questions} new follow-up questions that:
+{custom_follow_up_section}
 1. Can be confidently answered using ONLY the provided contexts
 2. Are natural extensions of the conversation
 3. Help explore different aspects covered in the contexts

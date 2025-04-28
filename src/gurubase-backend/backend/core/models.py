@@ -323,6 +323,7 @@ class GuruType(models.Model):
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
+    custom_follow_up_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
     # GitHub repository limits
@@ -478,7 +479,9 @@ class GuruType(models.Model):
         return {
             "guru_type": self.name,
             "domain_knowledge": self.domain_knowledge,
-            "custom_instruction_prompt": self.custom_instruction_prompt
+            "custom_instruction_prompt": self.custom_instruction_prompt,
+            "custom_follow_up_prompt": self.custom_follow_up_prompt,
+            "language": self.language
         }
 
     @property
