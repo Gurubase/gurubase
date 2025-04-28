@@ -43,7 +43,6 @@ def get_guru_types(only_active=True, user=None):
     filters = Q()
     if only_active:
         filters &= Q(active=True)
-    
     if user is None or user.is_anonymous:
         filters &= Q(private=False)
     elif not user.is_admin:
