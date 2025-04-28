@@ -606,13 +606,21 @@ class OpenAIRequester():
         from .prompts import generate_follow_up_questions_prompt
         
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
+
+        # Process custom instruction prompt
+        custom_follow_up_prompt = prompt_map.get('custom_follow_up_prompt', '')
+        if custom_follow_up_prompt and custom_follow_up_prompt.strip():
+            custom_follow_up_section = f"\nCUSTOM INSTRUCTIONS (These take priority if there are conflicts with other guidelines):\n\n{custom_follow_up_prompt}\n\nDEFAULT INSTRUCTIONS (These are the default instructions that will be used if there are no conflicts with the custom instructions):\n"
+        else:
+            custom_follow_up_section = ""
+
         prompt = generate_follow_up_questions_prompt.format(
-            guru_type=guru_type.name,
-            domain_knowledge=prompt_map['domain_knowledge'],
+            **prompt_map,
             questions=json.dumps(questions, indent=2),
             answer=last_content,
             contexts=json.dumps(contexts, indent=2),
-            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT
+            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT,
+            custom_follow_up_section=custom_follow_up_section
         )
         
         try:
@@ -871,13 +879,21 @@ class GeminiRequester():
         )
         
         prompt_map = get_guru_type_prompt_map(guru_type.slug)
+
+        # Process custom instruction prompt
+        custom_follow_up_prompt = prompt_map.get('custom_follow_up_prompt', '')
+        if custom_follow_up_prompt and custom_follow_up_prompt.strip():
+            custom_follow_up_section = f"\nCUSTOM INSTRUCTIONS (These take priority if there are conflicts with other guidelines):\n\n{custom_follow_up_prompt}\n\nDEFAULT INSTRUCTIONS (These are the default instructions that will be used if there are no conflicts with the custom instructions):\n"
+        else:
+            custom_follow_up_section = ""
+
         prompt = generate_follow_up_questions_prompt.format(
-            guru_type=guru_type.name,
-            domain_knowledge=prompt_map['domain_knowledge'],
+            **prompt_map,
             questions=json.dumps(questions, indent=2),
             answer=last_content,
             contexts=json.dumps(contexts, indent=2),
-            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT
+            num_questions=settings.FOLLOW_UP_EXAMPLE_COUNT,
+            custom_follow_up_section=custom_follow_up_section
         )
         
         try:

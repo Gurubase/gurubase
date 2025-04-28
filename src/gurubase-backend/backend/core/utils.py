@@ -61,7 +61,7 @@ def get_openai_requester():
 def stream_and_save(
         user_question, 
         question, 
-        guru_type, 
+        guru_type_object, 
         question_slug, 
         description, 
         response, 
@@ -116,8 +116,6 @@ def stream_and_save(
 
     cost_dollars = get_llm_usage(settings.GPT_MODEL, prompt_tokens, completion_tokens, cached_prompt_tokens)
     
-    guru_type_object = get_guru_type_object(guru_type)
-
     answer = ''.join(total_response)
 
     llm_usages = {}
@@ -176,7 +174,7 @@ def stream_and_save(
             question_obj.times = times
             question_obj.enhanced_question = enhanced_question
             question_obj.save()
-            get_cloudflare_requester().purge_cache(guru_type, question_slug)
+            get_cloudflare_requester().purge_cache(guru_type_object.slug, question_slug)
             
         else:
             question_obj = Question(
@@ -566,7 +564,8 @@ def vector_db_fetch(
         return merged_answers
 
     def rerank_batch(batch, question, user_question, enhanced_question, llm_eval):
-        if settings.ENV == 'selfhosted':
+        default_settings = get_default_settings()
+        if settings.ENV == 'selfhosted' or not default_settings.rerank:
             # Do not rerank in selfhosted
             return [i for i in range(len(batch))], [1 for _ in range(len(batch))]
         batch_texts = [result['entity']['text'] for result in batch]
@@ -1167,8 +1166,7 @@ def create_custom_guru_type_slug(name):
     return slug
 
 
-def get_github_details_if_applicable(guru_type):
-    guru_type_obj = get_guru_type_object(guru_type)
+def get_github_details_if_applicable(guru_type_obj):
     response = ""
     if guru_type_obj and guru_type_obj.github_details:
         try:
@@ -1192,7 +1190,7 @@ def get_github_details_if_applicable(guru_type):
             simplified_github_details['owner_login'] = owner.get('login', '')
             response = f"Here is the GitHub details for {guru_type_obj.name}: {simplified_github_details}"
         except Exception as e:
-            logger.error(f"Error while processing GitHub details for guru type {guru_type}: {str(e)}")
+            logger.error(f"Error while processing GitHub details for guru type {guru_type_obj.name}: {str(e)}")
             response = ""
     return response
 
@@ -1258,7 +1256,7 @@ def ask_question_with_stream(
     milvus_client, 
     collection_name, 
     question, 
-    guru_type, 
+    guru_type_obj, 
     user_intent, 
     answer_length, 
     user_question, 
@@ -1281,19 +1279,19 @@ def ask_question_with_stream(
 
     default_settings = get_default_settings()
     start_get_contexts = time.perf_counter()
-    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type, user_question, enhanced_question)
+    context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, get_contexts_times = get_contexts(milvus_client, collection_name, question, guru_type_obj, user_question, enhanced_question)
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
     github_context = ""
     if github_comments:
         comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type)
+        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
             question=question, 
-            guru_type=get_guru_type_object(guru_type), 
+            guru_type=guru_type_obj, 
             user_question=user_question, 
             rerank_threshold=default_settings.rerank_threshold, 
             trust_score_threshold=default_settings.trust_score_threshold,  # No need to use the dynamic trust score. Because we haven't found any valid contexts to update the trust score.
@@ -1305,9 +1303,9 @@ def ask_question_with_stream(
         times['total'] = time.perf_counter() - start_total
         return None, None, None, None, None, None, None, None, None, times
 
-    simplified_github_details = get_github_details_if_applicable(guru_type)
+    simplified_github_details = get_github_details_if_applicable(guru_type_obj)
 
-    guru_variables = get_guru_type_prompt_map(guru_type)
+    guru_variables = guru_type_obj.prompt_map
     guru_variables['streaming_type']='streaming'
     guru_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     guru_variables['user_intent'] = user_intent
@@ -1420,7 +1418,7 @@ def get_question_summary(question: str, guru_type: str, binge: Binge, short_answ
 
 def stream_question_answer(
         question, 
-        guru_type, 
+        guru_type_obj, 
         user_intent, 
         answer_length, 
         user_question, 
@@ -1430,7 +1428,6 @@ def stream_question_answer(
         user=None,
         github_comments: list | None = None
     ):
-    guru_type_obj = get_guru_type_object(guru_type)
     collection_name = guru_type_obj.milvus_collection_name
     milvus_client = get_milvus_client()
 
@@ -1438,7 +1435,7 @@ def stream_question_answer(
         milvus_client, 
         collection_name, 
         question, 
-        guru_type, 
+        guru_type_obj, 
         user_intent, 
         answer_length, 
         user_question, 
@@ -2302,7 +2299,7 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
 
     response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = stream_question_answer(
         question, 
-        guru_type.slug, 
+        guru_type, 
         user_intent, 
         answer_length, 
         user_question,
@@ -2734,6 +2731,9 @@ def search_question(
     ): 
     def get_source_conditions(user):
         """Helper function to get source conditions based on user"""
+        if settings.ENV == 'selfhosted':
+            return Q()
+
         if user is None:
             # For anonymous users
             # API requests are not allowed
@@ -3086,7 +3086,12 @@ def api_ask(question: str,
     summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
-        return APIAskResponse.from_error(f"This question is not related to {guru_type.name}.")
+        if guru_type.language == GuruType.Language.TURKISH:
+            msg = f"Bu soru {guru_type.name} ile ilgili değildir."
+        else:
+            msg = f"This question is not related to {guru_type.name}."
+
+        return APIAskResponse.from_error(msg)
 
     # Prepare summary data
     summary_prompt_tokens = summary_data.get('prompt_tokens', 0)
@@ -3112,7 +3117,7 @@ def api_ask(question: str,
         # Get streaming response
         response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
-            guru_type.slug, 
+            guru_type, 
             user_intent, 
             answer_length, 
             user_question,
@@ -3124,7 +3129,11 @@ def api_ask(question: str,
         )
 
         if not response:
-            return APIAskResponse.from_error(f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question.")
+            if guru_type.language == GuruType.Language.TURKISH:
+                msg = f"{guru_type.name} Guru bu soru için yeterli veriye sahip değildir."
+            else:
+                msg = f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question."
+            return APIAskResponse.from_error(msg)
 
         times = {}
         times['before_stream'] = before_stream_times
@@ -3133,7 +3142,7 @@ def api_ask(question: str,
         stream_generator = stream_and_save(
             user_question=user_question,
             question=question,
-            guru_type=guru_type.slug,
+            guru_type_object=guru_type,
             question_slug=question_slug,
             description=description,
             response=response,
@@ -3157,7 +3166,11 @@ def api_ask(question: str,
         )
     except Exception as e:
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
-        return APIAskResponse.from_error(f"There was an error in the stream. We are investigating the issue. Please try again later.")
+        if guru_type.language == GuruType.Language.TURKISH:
+            msg = "Soruyu yanıtlayamadık. Lütfen daha sonra tekrar deneyiniz."
+        else:
+            msg = "There was an error in the stream. We are investigating the issue. Please try again later."
+        return APIAskResponse.from_error(msg)
     
     return APIAskResponse.from_stream(stream_generator, question)
 
@@ -3399,7 +3412,9 @@ def get_embedder_and_model(model_choice, sync = True):
         settings_obj = Settings.objects.first()
         if not sync:
             if model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value:
-                return (OpenAIRequester(), "text-embedding-3-small")
+                # Check for setting override
+                openai_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+                return (OpenAIRequester(), openai_embedding_model)
             else:
                 return (OllamaRequester(settings_obj.ollama_url), model_choice)
 
@@ -3409,7 +3424,9 @@ def get_embedder_and_model(model_choice, sync = True):
             # TODO: If text/code separation is needed, we need to get it as an arg to @get_embedder_and_model. Then use it to fetch from settings_obj and return. Nothing else is needed
             return (OllamaRequester(settings_obj.ollama_url), settings_obj.ollama_embedding_model)
         else:
-            return (OpenAIRequester(), "text-embedding-3-small")
+            # Check for setting override
+            openai_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+            return (OpenAIRequester(), openai_embedding_model)
     
     # Cloud version logic
     model_map = {
@@ -3442,9 +3459,21 @@ def get_embedding_model_config(model_choice, sync = True):
         settings_obj = Settings.objects.first()
         assert settings_obj, "Settings object not found"
 
+        # Get custom embedding settings from Django settings
+        default_embedding = settings.SELFHOSTED_DEFAULT_EMBEDDING
+        default_dimension = settings.SELFHOSTED_DEFAULT_EMBEDDING_DIMENSION
+        
         if not sync:
-            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"]:
+            if model_choice in ["text-embedding-3-small", "OPENAI_TEXT_EMBEDDING_3_SMALL"] or \
+               (model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_embedding == 'text-embedding-3-small'):
                 return "github_repo_code", 1536
+            elif model_choice in ["text-embedding-3-large", "OPENAI_TEXT_EMBEDDING_3_LARGE"] or \
+                 (model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_embedding == 'text-embedding-3-large'):
+                return "github_repo_code_openai_text_embedding_3_large", 3072
+            elif model_choice == Settings.DefaultEmbeddingModel.SELFHOSTED.value and default_dimension is not None:
+                # Use custom model with specified dimension
+                model_name = default_embedding.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_name}", default_dimension
             else:
                 model_choice = model_choice.replace(':', '_').replace('.', '_').replace('-', '_')
                 return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
@@ -3456,8 +3485,23 @@ def get_embedding_model_config(model_choice, sync = True):
             return f"github_repo_code_{model_choice}", settings_obj.ollama_embedding_model_dimension
         else:
             # For OpenAI in selfhosted
-            return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
-
+            if default_embedding == 'text-embedding-3-small':
+                return "github_repo_code", 1536  # OpenAI text-embedding-3-small dimension
+            elif default_embedding == 'text-embedding-3-large':
+                return "github_repo_code_openai_text_embedding_3_large", 3072  # OpenAI text-embedding-3-large dimension
+            elif default_dimension is not None:
+                # Use custom model with specified dimension
+                model_name = default_embedding.replace(':', '_').replace('.', '_').replace('-', '_')
+                return f"github_repo_code_{model_name}", default_dimension
+            else:
+                # For any other model, fall back to default model configs
+                model_configs = {
+                    'text-embedding-3-small': ('github_repo_code', 1536),
+                    'text-embedding-3-large': ('github_repo_code_openai_text_embedding_3_large', 3072),
+                    'text-embedding-ada-002': ('github_repo_code_openai_ada_002', 1536)
+                }
+                return model_configs.get(default_embedding, ('github_repo_code', 1536))
+    
     # Get default settings
     try:
         settings_obj = get_default_settings()
@@ -3610,3 +3654,13 @@ def get_default_embedding_dimensions():
     """
     model_choice = Settings.get_default_embedding_model()
     return get_embedding_model_config(model_choice)[1]
+
+def get_base_url():
+    """
+    Returns the base URL for the current environment
+    """
+    default_settings = get_default_settings()
+    if settings.ENV == 'selfhosted' and default_settings.gurubase_url:
+        return default_settings.gurubase_url.rstrip('/')
+    else:
+        return settings.BASE_URL.rstrip('/')

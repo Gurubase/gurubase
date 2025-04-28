@@ -28,7 +28,7 @@ from core.models import CrawlState, FeaturedDataSource, Question, ContentPageSta
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, validate_binge_follow_up,
+    check_binge_auth, create_fresh_binge, decode_guru_slug, encode_guru_slug, generate_jwt, get_base_url, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -154,7 +154,8 @@ def summary(request, guru_type):
         'total': 0
     }
 
-    guru_type_object = get_guru_type_object(guru_type)
+    user = request.user
+    guru_type_object = get_guru_type_object(guru_type, user=user)
 
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
@@ -173,13 +174,6 @@ def summary(request, guru_type):
         if not valid:
             return Response({'msg': 'Invalid AI model provider settings', 'reason': reason, 'type': error_type}, status=490)
 
-    if settings.ENV == 'selfhosted':
-        user = None
-    else:
-        if request.user.is_anonymous:
-            user = None
-        else:
-            user = request.user
     
     endpoint_start = time.time()
     payload_start = time.time()
@@ -257,7 +251,7 @@ def summary(request, guru_type):
 
     answer, get_question_summary_times = get_question_summary(
         question, 
-        guru_type, 
+        guru_type_object, 
         binge, 
         short_answer=False,
         parent_question=parent_question
@@ -282,18 +276,8 @@ def summary(request, guru_type):
 @stream_combined_auth
 @conditional_csrf_exempt
 def answer(request, guru_type):
-    endpoint_start = time.time()
-
-    guru_type_object = get_guru_type_object(guru_type)
-    
-    if settings.ENV == 'selfhosted':
-        user = None
-    else:
-        if request.user.is_anonymous:
-            user = None
-        else:
-            user = request.user
-
+    user = request.user
+    guru_type_object = get_guru_type_object(guru_type, user=user)
 
     # jwt_time = time.time() - jwt_start    
     payload_start = time.time()
@@ -368,7 +352,7 @@ def answer(request, guru_type):
     try:
         response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, before_stream_times = stream_question_answer(
             question, 
-            guru_type, 
+            guru_type_object, 
             user_intent, 
             answer_length, 
             user_question, 
@@ -393,7 +377,7 @@ def answer(request, guru_type):
     return StreamingHttpResponse(stream_and_save(
         user_question, 
         question, 
-        guru_type, 
+        guru_type_object, 
         question_slug, 
         description, 
         response, 
@@ -421,9 +405,9 @@ def answer(request, guru_type):
 @combined_auth
 def question_detail(request, guru_type, slug):
     # This endpoint is only used for UI.
-    guru_type_object = get_guru_type_object(guru_type)
     user = request.user
-    
+    guru_type_object = get_guru_type_object(guru_type, user=user)
+
     binge_id = request.query_params.get('binge_id')
     if binge_id:
         try:
@@ -473,19 +457,20 @@ def question_detail(request, guru_type, slug):
 
 
 @api_view(['GET'])
-@auth
+@combined_auth
 def guru_types(request):
     # Default get all active guru types. If ?all=1, get all guru types.
+    user = request.user
     get_all = request.query_params.get('all', '0')
     if get_all == '1':
-        return Response(get_guru_types(only_active=False), status=status.HTTP_200_OK)
+        return Response(get_guru_types(only_active=False, user=user), status=status.HTTP_200_OK)
     else:
-        return Response(get_guru_types(only_active=True), status=status.HTTP_200_OK)
+        return Response(get_guru_types(only_active=True, user=user), status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@auth
+@combined_auth
 def guru_type(request, slug):
-    guru_type_object = get_guru_type_object(slug)
+    guru_type_object = get_guru_type_object(slug, user=request.user)
     serializer = GuruTypeInternalSerializer(guru_type_object)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -530,9 +515,6 @@ def my_gurus(request, guru_slug=None):
                 'domain_knowledge': guru.domain_knowledge,
                 'github_repos': guru.github_repos,
                 'index_repo': guru.index_repo,
-                'youtubeCount': 0,
-                'pdfCount': 0,
-                'websiteCount': 0,
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
@@ -823,12 +805,9 @@ def add_featured_ds_via_api(request, guru_type):
     
     return Response({'msg': 'Featured data source added successfully'}, status=status.HTTP_200_OK)
     
-    
-
-    
 @parser_classes([MultiPartParser, FormParser])
 def create_data_sources(request, guru_type):
-    guru_type_object = get_guru_type_object(guru_type, only_active=False)
+    guru_type_object = get_guru_type_object(guru_type, only_active=False, user=request.user)
 
     pdf_files = request.FILES.getlist('pdf_files', [])
     youtube_urls = request.data.get('youtube_urls', '[]')
@@ -929,13 +908,14 @@ def get_data_sources_detailed(request, guru_type):
     return paginator.get_paginated_response(serializer.data)
 
 def delete_data_sources(request, guru_type):
-    guru_type_object = get_guru_type_object(guru_type, only_active=False)
+    user = request.user
+    guru_type_object = get_guru_type_object(guru_type, only_active=False, user=user)
 
     if 'ids' not in request.data:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     datasource_ids = request.data.get('ids', [])
-    service = DataSourceService(guru_type_object, request.user)
+    service = DataSourceService(guru_type_object, user)
     
     try:
         service.delete_data_sources(datasource_ids)
@@ -999,7 +979,7 @@ def data_sources_frontend(request, guru_type):
         if settings.ENV == 'selfhosted':
             user = None
         else:
-            user = get_auth0_user(request.auth0_id)
+            user = request.user
         
         # Check PDF file limits
         pdf_files = request.FILES.getlist('pdf_files', [])
@@ -1147,9 +1127,9 @@ def delete_guru_type(request, guru_type):
     return Response({'msg': 'Guru type deleted successfully'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@auth
+@combined_auth
 def guru_type_status(request, guru_type):
-    guru_type_object: GuruType = get_guru_type_object(guru_type, only_active=False)
+    guru_type_object: GuruType = get_guru_type_object(guru_type, only_active=False, user=request.user)
     is_ready = guru_type_object.ready
     return Response({'ready': is_ready}, status=status.HTTP_200_OK)
 
@@ -1200,7 +1180,7 @@ def follow_up_examples(request, guru_type):
     if not settings.GENERATE_FOLLOW_UP_EXAMPLES:
         return Response([], status=status.HTTP_200_OK)
     
-    guru_type_object = get_guru_type_object(guru_type, only_active=True)
+    guru_type_object = get_guru_type_object(guru_type, only_active=True, user=user)
     
     binge_id = request.data.get('binge_id')
     question_slug = request.data.get('question_slug')
@@ -1288,8 +1268,8 @@ def follow_up_examples(request, guru_type):
 @api_view(['GET'])
 @combined_auth
 def follow_up_graph(request, guru_type):
-    guru_type_obj = get_guru_type_object(guru_type)
     user = request.user
+    guru_type_obj = get_guru_type_object(guru_type, user=user)
 
     binge_id = request.query_params.get('binge_id')
     if not binge_id:
@@ -1336,14 +1316,8 @@ def follow_up_graph(request, guru_type):
 @api_view(['POST'])
 @jwt_auth
 def create_binge(request, guru_type):
-    guru_type_object = get_guru_type_object(guru_type, only_active=True)
-    if settings.ENV == 'selfhosted':
-        user = None
-    else:
-        if request.user.is_anonymous:
-            user = None
-        else:
-            user = request.user
+    user = request.user
+    guru_type_object = get_guru_type_object(guru_type, only_active=True, user=user)
     
     root_slug = request.data.get('root_slug')
     if not root_slug:
@@ -1563,7 +1537,7 @@ def widget_create_binge(request):
 @api_view(['POST', 'DELETE'])
 @jwt_auth
 def manage_widget_ids(request, guru_type):
-    guru_type_object = get_guru_type_object(guru_type, only_active=False)
+    guru_type_object = get_guru_type_object(guru_type, only_active=False, user=request.user)
 
     if request.method == 'POST':
         domain_url = request.data.get('domain_url')
@@ -1656,10 +1630,7 @@ def api_answer(request, guru_type):
     response_handler = APIResponseHandler()
     
     # Get guru type
-    try:
-        guru_type_object = get_guru_type_object(guru_type)
-    except Exception as e:
-        return response_handler.handle_error_response(e)
+    guru_type_object = get_guru_type_object(guru_type, user=request.user)
     
     # Get request parameters
     question = request.data.get('question')
@@ -2452,7 +2423,8 @@ async def send_channel_unauthorized_message(
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
-        settings_url = f"{settings.BASE_URL.rstrip('/')}/guru/{guru_slug}/integrations/slack"
+        base_url = await sync_to_async(get_base_url)()
+        settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/slack"
         message = (
             "❌ This channel is not authorized to use the bot.\n\n"
             f"Please visit <{settings_url}|Gurubase Settings> to configure "

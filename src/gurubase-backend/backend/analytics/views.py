@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.exceptions import ValidationError
+from core.gcp import replace_media_root_with_base_url
 from core.throttling import ConcurrencyThrottleApiKey
 
 from core.auth import (
@@ -168,7 +169,7 @@ def analytics_table(request, guru_type):
                 'type': source['type'],
                 'title': source['title'],
                 'truncated_title': source['title'][:60] + '...' if len(source['title']) > 60 else source['title'],
-                'link': source['url'],
+                'link': replace_media_root_with_base_url(source['url']) if source['type'].lower() == 'pdf' else source['url'],
                 'reference_count': source['reference_count']
             } for source in sources]
             

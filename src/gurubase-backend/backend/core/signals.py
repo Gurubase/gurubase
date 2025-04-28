@@ -21,54 +21,54 @@ from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
 
-@receiver(post_save, sender=Question)
-def save_question_to_typesense(sender, instance: Question, **kwargs):
-    if settings.ENV == 'selfhosted':
-        return
+# @receiver(post_save, sender=Question)
+# def save_question_to_typesense(sender, instance: Question, **kwargs):
+#     if settings.ENV == 'selfhosted':
+#         return
 
-    if settings.TYPESENSE_API_KEY == "xxx":
-        return
-    curr_sitemap = instance.add_to_sitemap
-    try:
-        guru_type = instance.guru_type.slug
-    except Exception as e:
-        logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.", exc_info=True)
-        return
+#     if settings.TYPESENSE_API_KEY == "xxx":
+#         return
+#     curr_sitemap = instance.add_to_sitemap
+#     try:
+#         guru_type = instance.guru_type.slug
+#     except Exception as e:
+#         logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.", exc_info=True)
+#         return
     
-    if not guru_type:
-        logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.")
-        return
+#     if not guru_type:
+#         logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.")
+#         return
 
-    from core.typesense_utils import TypeSenseClient
-    from typesense.exceptions import ObjectNotFound
-    typesense_client = TypeSenseClient(guru_type)
-    if curr_sitemap:
-        # Question is in sitemap
-        # Upsert the question to TypeSense
-        doc = {
-            'id': str(instance.id),
-            'slug': instance.slug,
-            'question': instance.question,
-            # 'content': instance.content,
-            # 'description': instance.description,
-            # 'change_count': instance.change_count,
-        }
-        try:
-            response = typesense_client.import_documents([doc])
-            logger.info(f"Upserted question {instance.id} to Typesense")
-        except Exception as e:
-            logger.error(f"Error writing question {instance.id} to Typesense: {e}", exc_info=True)
+#     from core.typesense_utils import TypeSenseClient
+#     from typesense.exceptions import ObjectNotFound
+#     typesense_client = TypeSenseClient(guru_type)
+#     if curr_sitemap:
+#         # Question is in sitemap
+#         # Upsert the question to TypeSense
+#         doc = {
+#             'id': str(instance.id),
+#             'slug': instance.slug,
+#             'question': instance.question,
+#             # 'content': instance.content,
+#             # 'description': instance.description,
+#             # 'change_count': instance.change_count,
+#         }
+#         try:
+#             response = typesense_client.import_documents([doc])
+#             logger.info(f"Upserted question {instance.id} to Typesense")
+#         except Exception as e:
+#             logger.error(f"Error writing question {instance.id} to Typesense: {e}", exc_info=True)
 
-    else:
-        # Question is not in sitemap
-        # Delete it from TypeSense
-        try:
-            response = typesense_client.delete_document(str(instance.id))
-            logger.info(f"Deleted question {instance.id} from Typesense")
-        except ObjectNotFound:
-            pass
-        except Exception as e:
-            logger.error(f"Error deleting question {instance.id} from Typesense: {e}", exc_info=True)
+#     else:
+#         # Question is not in sitemap
+#         # Delete it from TypeSense
+#         try:
+#             response = typesense_client.delete_document(str(instance.id))
+#             logger.info(f"Deleted question {instance.id} from Typesense")
+#         except ObjectNotFound:
+#             pass
+#         except Exception as e:
+#             logger.error(f"Error deleting question {instance.id} from Typesense: {e}", exc_info=True)
 
 @receiver(post_save, sender=Question)
 def generate_og_image_for_new_question(sender, instance, **kwargs):

@@ -96,15 +96,15 @@ class Question(models.Model):
     @property
     def frontend_url(self):
         """Returns the frontend URL for this question."""
-        from django.conf import settings
+        from core.utils import get_base_url
         if not self.guru_type:
             return ""
             
         if self.binge:
             root_slug = self.binge.root_question.slug if self.binge.root_question else self.slug
-            return f"{settings.BASE_URL}/g/{self.guru_type.slug}/{root_slug}/binge/{self.binge.id}?question_slug={self.slug}"
+            return f"{get_base_url()}/g/{self.guru_type.slug}/{root_slug}/binge/{self.binge.id}?question_slug={self.slug}"
         
-        return f"{settings.BASE_URL}/g/{self.guru_type.slug}/{self.slug}"
+        return f"{get_base_url()}/g/{self.guru_type.slug}/{self.slug}"
 
     def __str__(self):
         return f"{self.id} - {self.slug}"
@@ -300,6 +300,21 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
 
+    class Language(models.TextChoices):
+        ENGLISH = "ENGLISH", "English"
+        TURKISH = "TURKISH", "Turkish"
+        
+    # Language code mapping
+    LANGUAGE_CODES = {
+        'ENGLISH': 'en',
+        'TURKISH': 'tr',
+    }
+    
+    # Get language code helper method
+    def get_language_code(self):
+        """Returns the ISO language code for the selected language"""
+        return self.LANGUAGE_CODES.get(self.language, 'en')
+
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
@@ -319,6 +334,7 @@ class GuruType(models.Model):
     typesense_collection_name = models.CharField(max_length=100, blank=True, null=True)
     domain_knowledge = models.TextField(default='', blank=True, null=True)
     custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
+    custom_follow_up_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
     index_repo = models.BooleanField(default=True)
     # GitHub repository limits
@@ -349,6 +365,12 @@ class GuruType(models.Model):
         blank=True
     )
     send_notification = models.BooleanField(default=False)
+    private = models.BooleanField(default=False)
+    language = models.CharField(
+        max_length=100,
+        choices=Language.choices,
+        default=Language.ENGLISH
+    )
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -469,7 +491,9 @@ class GuruType(models.Model):
         return {
             "guru_type": self.name,
             "domain_knowledge": self.domain_knowledge,
-            "custom_instruction_prompt": self.custom_instruction_prompt
+            "custom_instruction_prompt": self.custom_instruction_prompt,
+            "custom_follow_up_prompt": self.custom_follow_up_prompt,
+            "language": self.language
         }
 
     @property
@@ -1262,6 +1286,7 @@ class Settings(models.Model):
     is_ollama_embedding_model_valid = models.BooleanField(default=False)
     ollama_base_model = models.CharField(max_length=100, null=True, blank=True)
     is_ollama_base_model_valid = models.BooleanField(default=False)
+    gurubase_url = models.TextField(null=True, blank=True, default='http://localhost:8029')
 
     code_file_extensions = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
     package_manifest_files = models.JSONField(default=list, blank=True, null=True)  # Used for github repos
@@ -1270,6 +1295,8 @@ class Settings(models.Model):
     split_size = models.IntegerField(default=2000)
     split_overlap = models.IntegerField(default=300)
     split_min_length = models.IntegerField(default=500)
+
+    rerank = models.BooleanField(default=True)
 
     @classmethod
     def get_default_embedding_model(cls):
@@ -1287,6 +1314,26 @@ class Settings(models.Model):
         
         # Fallback to environment-based default if no settings object exists
         return cls.DefaultEmbeddingModel.CLOUD if settings.ENV != 'selfhosted' else cls.DefaultEmbeddingModel.SELFHOSTED
+
+    def validate_gurubase_url(self):
+        """
+        Validates the gurubase_url field.
+        """
+        from django.core.validators import URLValidator
+        from django.core.exceptions import ValidationError
+        
+        # Validate URL format
+        url_validator = URLValidator()
+        try:
+            url_validator(self.gurubase_url)
+            
+            # Check that URL has http or https protocol
+            if not (self.gurubase_url.startswith('http://') or self.gurubase_url.startswith('https://')):
+                return False
+                
+            return True
+        except ValidationError:
+            return False
 
     def validate_ollama_settings(self):
         """
@@ -1373,11 +1420,13 @@ class Settings(models.Model):
             
         try:
             from openai import OpenAI
+            from django.conf import settings
             client = OpenAI(api_key=self.openai_api_key, timeout=10)
             client.models.list()
             self.is_openai_key_valid = True
-            self.last_valid_embedding_model = Settings.DefaultEmbeddingModel.SELFHOSTED.value
-            self.last_valid_embedding_model_dimension = 1536
+            # Use settings for embedding model and dimension
+            self.last_valid_embedding_model = settings.SELFHOSTED_DEFAULT_EMBEDDING
+            self.last_valid_embedding_model_dimension = settings.SELFHOSTED_DEFAULT_EMBEDDING_DIMENSION
             return True
         except Exception as e:
             self.is_openai_key_valid = False
