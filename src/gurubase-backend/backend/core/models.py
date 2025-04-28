@@ -303,6 +303,17 @@ class GuruType(models.Model):
     class Language(models.TextChoices):
         ENGLISH = "ENGLISH", "English"
         TURKISH = "TURKISH", "Turkish"
+        
+    # Language code mapping
+    LANGUAGE_CODES = {
+        'ENGLISH': 'en',
+        'TURKISH': 'tr',
+    }
+    
+    # Get language code helper method
+    def get_language_code(self):
+        """Returns the ISO language code for the selected language"""
+        return self.LANGUAGE_CODES.get(self.language, 'en')
 
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)

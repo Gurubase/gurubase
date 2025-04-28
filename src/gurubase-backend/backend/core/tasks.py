@@ -1627,7 +1627,7 @@ def update_github_repositories(successful_repos=True):
     logger.info("Completed GitHub repositories update task")
 
 @shared_task
-def crawl_website(url: str, crawl_state_id: int, link_limit: int):
+def crawl_website(url: str, crawl_state_id: int, link_limit: int, language_code: str):
     """
     Celery task to crawl a website and collect internal links.
     
@@ -1637,7 +1637,7 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int):
         link_limit (int): Maximum number of links to collect
     """
     try:
-        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
+        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit, language_code=language_code)
     except Exception as e:
         logger.error(f"Error in crawl_website task: {str(e)}", exc_info=True)
         # Update crawl state to failed
