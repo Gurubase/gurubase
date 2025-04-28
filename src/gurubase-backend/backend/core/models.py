@@ -349,6 +349,7 @@ class GuruType(models.Model):
         blank=True
     )
     send_notification = models.BooleanField(default=False)
+    private = models.BooleanField(default=False)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
