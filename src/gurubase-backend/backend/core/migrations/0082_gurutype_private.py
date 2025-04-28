@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0080_settings_gurubase_url'),
+        ('core', '0081_gurutype_custom_follow_up_prompt_gurutype_language_and_more'),
     ]
 
     operations = [
