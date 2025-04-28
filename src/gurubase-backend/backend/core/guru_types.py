@@ -49,7 +49,7 @@ def get_guru_types(only_active=True, user=None):
         # For non-admin users, show public gurus OR gurus they maintain
         filters &= (Q(private=False) | Q(maintainers=user))
     
-    guru_types = GuruType.objects.filter(filters).order_by('id')
+    guru_types = GuruType.objects.filter(filters).distinct().order_by('id')
     serializer = GuruTypeInternalSerializer(guru_types, many=True)
     return serializer.data
 
@@ -66,7 +66,7 @@ def get_guru_type_object(guru_type, only_active=True, user=None):
         filters &= (Q(private=False) | Q(maintainers=user))
     
     try:
-        return GuruType.objects.get(filters)
+        return GuruType.objects.filter(filters).distinct().first()
     except GuruType.DoesNotExist:
         raise GuruNotFoundError({'msg': f'Guru type {guru_type} is not found'})
 
