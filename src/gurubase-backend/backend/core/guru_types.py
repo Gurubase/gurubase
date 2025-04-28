@@ -44,7 +44,7 @@ def get_guru_types(only_active=True, user=None):
     if only_active:
         filters &= Q(active=True)
     
-    if user is None:
+    if user is None or user.is_anonymous:
         filters &= Q(private=False)
     elif not user.is_admin:
         # For non-admin users, show public gurus OR gurus they maintain
