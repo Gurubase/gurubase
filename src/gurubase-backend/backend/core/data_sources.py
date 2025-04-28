@@ -27,13 +27,16 @@ from youtube_transcript_api import NoTranscriptFound
 logger = logging.getLogger(__name__)
 
 
-def youtube_content_extraction(youtube_url):
+def youtube_content_extraction(youtube_url, language_code='en'):
+    transctipt_langs = ["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'] # The top 5 most spoken languages
+    if language_code not in transctipt_langs:
+        transctipt_langs.append(language_code)
     try:
         loader = YoutubeLoader.from_youtube_url(
             youtube_url, 
             add_video_info=True,
-            language=["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'], # The top 5 most spoken languages
-            translation="en",
+            language=transctipt_langs,
+            translation=language_code,
             chunk_size_seconds=30,
         )
     except Exception as e:
@@ -305,7 +308,7 @@ def sanitize_filename(filename):
     return clean_filename
 
 
-def fetch_data_source_content(integration, data_source):
+def fetch_data_source_content(integration, data_source, language_code):
     from core.models import DataSource
 
     if data_source.type == DataSource.Type.PDF:
@@ -317,7 +320,7 @@ def fetch_data_source_content(integration, data_source):
         data_source.content = content
         data_source.scrape_tool = scrape_tool
     elif data_source.type == DataSource.Type.YOUTUBE:
-        content = youtube_content_extraction(data_source.url)
+        content = youtube_content_extraction(data_source.url, language_code)
         data_source.title = content['metadata']['title']
         data_source.content = content['content']
         data_source.scrape_tool = 'youtube'
