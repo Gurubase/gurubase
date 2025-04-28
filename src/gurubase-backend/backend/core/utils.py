@@ -2734,7 +2734,7 @@ def search_question(
         if settings.ENV == 'selfhosted':
             return Q()
 
-        if user is None:
+        if user is None or user.is_anonymous:
             # For anonymous users
             # API requests are not allowed
             # Widget requests are allowed
