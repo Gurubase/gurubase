@@ -1295,6 +1295,8 @@ class Settings(models.Model):
     split_overlap = models.IntegerField(default=300)
     split_min_length = models.IntegerField(default=500)
 
+    rerank = models.BooleanField(default=True)
+
     @classmethod
     def get_default_embedding_model(cls):
         """
