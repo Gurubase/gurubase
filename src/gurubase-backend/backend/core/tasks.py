@@ -366,16 +366,17 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
         jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
         zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
         confluence_integration = Integration.objects.filter(type=Integration.Type.CONFLUENCE, guru_type=guru_type_object).first()
+        language_code = guru_type_object.get_language_code()
         for data_source in sources_to_process:
             try:
                 if data_source.type == DataSource.Type.JIRA:
-                    data_source = fetch_data_source_content(jira_integration, data_source)
+                    data_source = fetch_data_source_content(jira_integration, data_source, language_code)
                 elif data_source.type == DataSource.Type.ZENDESK:
-                    data_source = fetch_data_source_content(zendesk_integration, data_source)
+                    data_source = fetch_data_source_content(zendesk_integration, data_source, language_code)
                 elif data_source.type == DataSource.Type.CONFLUENCE:
-                    data_source = fetch_data_source_content(confluence_integration, data_source)
+                    data_source = fetch_data_source_content(confluence_integration, data_source, language_code)
                 else:
-                    data_source = fetch_data_source_content(None, data_source)
+                    data_source = fetch_data_source_content(None, data_source, language_code)
                 data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
@@ -1627,7 +1628,7 @@ def update_github_repositories(successful_repos=True):
     logger.info("Completed GitHub repositories update task")
 
 @shared_task
-def crawl_website(url: str, crawl_state_id: int, link_limit: int):
+def crawl_website(url: str, crawl_state_id: int, link_limit: int, language_code: str):
     """
     Celery task to crawl a website and collect internal links.
     
@@ -1637,7 +1638,7 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int):
         link_limit (int): Maximum number of links to collect
     """
     try:
-        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
+        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit, language_code=language_code)
     except Exception as e:
         logger.error(f"Error in crawl_website task: {str(e)}", exc_info=True)
         # Update crawl state to failed

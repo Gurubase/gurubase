@@ -27,13 +27,16 @@ from youtube_transcript_api import NoTranscriptFound
 logger = logging.getLogger(__name__)
 
 
-def youtube_content_extraction(youtube_url):
+def youtube_content_extraction(youtube_url, language_code='en'):
+    transctipt_langs = ["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'] # The top 5 most spoken languages
+    if language_code not in transctipt_langs:
+        transctipt_langs.append(language_code)
     try:
         loader = YoutubeLoader.from_youtube_url(
             youtube_url, 
             add_video_info=True,
-            language=["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'], # The top 5 most spoken languages
-            translation="en",
+            language=transctipt_langs,
+            translation=language_code,
             chunk_size_seconds=30,
         )
     except Exception as e:
@@ -305,7 +308,7 @@ def sanitize_filename(filename):
     return clean_filename
 
 
-def fetch_data_source_content(integration, data_source):
+def fetch_data_source_content(integration, data_source, language_code):
     from core.models import DataSource
 
     if data_source.type == DataSource.Type.PDF:
@@ -317,7 +320,7 @@ def fetch_data_source_content(integration, data_source):
         data_source.content = content
         data_source.scrape_tool = scrape_tool
     elif data_source.type == DataSource.Type.YOUTUBE:
-        content = youtube_content_extraction(data_source.url)
+        content = youtube_content_extraction(data_source.url, language_code)
         data_source.title = content['metadata']['title']
         data_source.content = content['content']
         data_source.scrape_tool = 'youtube'
@@ -558,7 +561,7 @@ class GitHubRepoStrategy(DataSourceStrategy):
             }
 
 
-def run_spider_process(url, crawl_state_id, link_limit):
+def run_spider_process(url, crawl_state_id, link_limit, language_code):
     """Run spider in a separate process"""
     try:
         settings = {
@@ -581,7 +584,8 @@ def run_spider_process(url, crawl_state_id, link_limit):
             start_urls=[url],
             original_url=url,
             crawl_state_id=crawl_state_id,
-            link_limit=link_limit
+            link_limit=link_limit,
+            language_code=language_code
         )
         process.start()
     except Exception as e:
@@ -589,14 +593,14 @@ def run_spider_process(url, crawl_state_id, link_limit):
         logger.error(traceback.format_exc())
 
 
-def get_internal_links(url: str, crawl_state_id: int, link_limit: int) -> List[str]:
+def get_internal_links(url: str, crawl_state_id: int, link_limit: int, language_code: str) -> List[str]:
     """
     Crawls a website starting from the given URL and returns a list of all internal links found.
     The crawler only follows links that start with the same domain as the initial URL.
     """
     try:
         # Start the spider in a separate process
-        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit))
+        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit, language_code))
         crawler_process.start()
         
     except Exception as e:
@@ -623,6 +627,7 @@ class InternalLinkSpider(scrapy.Spider):
             super().__init__(*args, **kwargs)
             self.start_url = self.start_urls[0]
             self.original_url = kwargs.get('original_url')
+            self.language_code = kwargs.get('language_code')
             self.internal_links: Set[str] = set()
             self.crawl_state_id = kwargs.get('crawl_state_id')
             self.link_limit = kwargs.get('link_limit', 1500)
@@ -665,13 +670,13 @@ class InternalLinkSpider(scrapy.Spider):
             content_lang = response.headers.get('Content-Language', b'')
             content_lang = content_lang.decode('utf-8').strip() if content_lang else None
 
-            is_english = (
+            language_valid = (
                 not html_lang and not content_lang or
-                (html_lang and html_lang.lower().startswith('en')) or
-                (content_lang and content_lang.lower().startswith('en'))
+                (html_lang and html_lang.lower().startswith(self.language_code)) or
+                (content_lang and content_lang.lower().startswith(self.language_code))
             )
             
-            if response.status == 200 and is_english:
+            if response.status == 200 and language_valid:
                 if response.url.startswith(self.start_url) or response.url.startswith(self.original_url):
                     self.internal_links.add(response.url)
                     if self.crawl_state_id:
@@ -795,15 +800,17 @@ class CrawlService:
         user = CrawlService.get_user(user)
         try:
             guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+            language_code = guru_type.get_language_code()
             link_limit = guru_type.website_count_limit
         except NotFoundError as e:
             if source == CrawlState.Source.UI:
+                # Defaults
                 guru_type = None
                 link_limit = 1500
+                language_code = 'en'
             else:
                 raise e
         
-        # Existing crawl start logic
         if guru_type:
             existing_crawl = CrawlState.objects.filter(
                 guru_type=guru_type, 
@@ -820,7 +827,7 @@ class CrawlService:
             user=user,
             source=source
         )
-        crawl_website.delay(url, crawl_state.id, link_limit)
+        crawl_website.delay(url, crawl_state.id, link_limit, language_code)
         return CrawlStateSerializer(crawl_state).data, 200
 
     @staticmethod
