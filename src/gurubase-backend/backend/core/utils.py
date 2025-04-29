@@ -565,7 +565,7 @@ def vector_db_fetch(
 
     def rerank_batch(batch, question, user_question, enhanced_question, llm_eval):
         default_settings = get_default_settings()
-        if settings.ENV == 'selfhosted' or not default_settings.rerank:
+        if settings.ENV == 'selfhosted' or not guru_type.rerank:
             # Do not rerank in selfhosted
             return [i for i in range(len(batch))], [1 for _ in range(len(batch))]
         batch_texts = [result['entity']['text'] for result in batch]
