@@ -27,9 +27,12 @@ def auth(view_func):
 def jwt_auth(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        request.user = None
+
         if settings.ENV == 'selfhosted':
             request.user = User.objects.get(email=settings.ROOT_EMAIL)
             return view_func(request, *args, **kwargs)
+
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
             return Response({'error': 'Invalid authorization header'}, status=401)
@@ -79,6 +82,7 @@ def combined_auth(view_func):
         # return view_func(request, *args, **kwargs)
         # First try JWT auth
         auth_header = request.headers.get('Authorization', '')
+        request.user = None
 
         if settings.ENV == 'selfhosted':
             request.user = User.objects.get(email=settings.ROOT_EMAIL)
@@ -125,9 +129,12 @@ def combined_auth(view_func):
 def stream_combined_auth(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        request.user = None
+
         if settings.ENV == 'selfhosted':
             request.user = User.objects.get(email=settings.ROOT_EMAIL)
             return view_func(request, *args, **kwargs)
+
         # return view_func(request, *args, **kwargs)
         # First try JWT auth
         auth_header = request.headers.get('Authorization', '')
@@ -246,6 +253,8 @@ def api_key_auth(view_func):
 def follow_up_examples_auth(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        request.user = None
+
         # First try JWT auth
         auth_header = request.headers.get('Authorization', '')
         if settings.ENV == 'selfhosted':
