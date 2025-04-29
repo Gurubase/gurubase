@@ -168,14 +168,14 @@ def clone_repository(repo_url):
 def get_file_content(file_path):
     """Read and return the content of a file."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             return f.read()
-    except UnicodeDecodeError:
+    except UnicodeDecodeError as e:
         # Skip binary files
-        return None
+        return ''
     except Exception as e:
         logger.warning(f"Error reading file {file_path}: {str(e)}")
-        return None
+        return ''
     
 def read_repository(repo_path, include=True, glob_pattern=None):
     """Get the directory structure and file contents of the repository.
