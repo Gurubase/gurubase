@@ -809,7 +809,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             type === "jira" ||
             type === "confluence" ||
             type === "zendesk" ||
-            type === "github"
+            (type === "github" && selfhosted)
             ? "flex-col"
             : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
         )}>
@@ -826,7 +826,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               type === "jira" ||
               type === "confluence" ||
               type === "zendesk" ||
-              type === "github"
+              (type === "github" && selfhosted)
               ? "w-full md:"
               : "w-full md:w-auto"
           )}>
@@ -834,10 +834,10 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           type === "jira" ||
           type === "confluence" ||
           type === "zendesk" ||
-          type === "github" ? (
+          (type === "github" && selfhosted) ? (
             <>
               <div className="space-y-8">
-                {type === "github" ? (
+                {type === "github" && selfhosted ? (
                   <>
                     <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
                       {config.selfhostedDescription}
