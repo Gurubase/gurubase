@@ -1265,7 +1265,7 @@ def ask_question_with_stream(
     enhanced_question,
     user=None,
     github_comments: list | None = None):
-    from core.prompts import github_context_template
+    from integrations.bots.github.prompts import github_context_template
     from integrations.bots.github.app_handler import GithubAppHandler
 
     start_total = time.perf_counter()
@@ -1341,7 +1341,8 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_summary_template, binge_summary_prompt
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, binge_summary_prompt
+    from integrations.bots.github.prompts import github_summary_template
     from integrations.bots.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
