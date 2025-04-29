@@ -137,7 +137,7 @@ upgrade_gurubase() {
 
     # Download the latest docker-compose.yml
     echo "📥 Downloading latest docker-compose.yml..."
-    if ! curl -sSL https://cdn.jsdelivr.net/gh/Gurubase/gurubase/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
+    if ! curl -sSL https://raw.githack.com/Gurubase/gurubase/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"; then
         echo "❌ Failed to download new docker-compose.yml"
         # Restore backup if it exists
         if [ -f "${DOCKER_COMPOSE_FILE}.backup" ]; then
@@ -326,7 +326,7 @@ echo "🚀 Deploying Gurubase Self Hosted..."
 # Start all services using docker compose
 if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
     echo "📥 Downloading docker-compose.yml..."
-    curl -sSL https://cdn.jsdelivr.net/gh/Gurubase/gurubase/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
+    curl -sSL https://raw.githack.com/Gurubase/gurubase/master/docker-compose.yml -o "$DOCKER_COMPOSE_FILE"
 fi
 
 cd "$GURUBASE_DIR"
