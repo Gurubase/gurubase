@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from core.models import WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
+from integrations.models import WidgetId
+from core.models import Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 from django.conf import settings
 
@@ -67,7 +68,6 @@ class WidgetIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = WidgetId
         fields = ['key', 'domain_url']
-
 
 
 class DataSourceSerializer(serializers.ModelSerializer):

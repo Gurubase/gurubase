@@ -8,9 +8,9 @@ import hmac
 import hashlib
 import requests
 
-from core.github.models import GithubEvent
-from core.integrations.helpers import cleanup_title, get_trust_score_emoji, strip_first_header
-from core.github.exceptions import (
+from .models import GithubEvent
+from integrations.bots.helpers import cleanup_title, get_trust_score_emoji, strip_first_header
+from .exceptions import (
     GithubAppHandlerError, GithubAppTokenError, GithubInstallationTokenError, GithubInvalidInstallationError, GithubPrivateKeyError, GithubTokenError, GithubWebhookError,
     GithubAPIError, GithubGraphQLError, GithubInstallationError,
     GithubRepositoryError, GithubDiscussionError, GithubCommentError, GithubWebhookSecretError

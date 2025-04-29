@@ -1,14 +1,15 @@
 import logging
-from core.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
-from core.integrations.helpers import IntegrationError
-from core.integrations.strategy import IntegrationStrategy
-from core.models import GuruType, Integration
+from integrations.bots.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
+from integrations.bots.helpers import IntegrationError
+from integrations.strategy import IntegrationStrategy
+from integrations.models import Integration
+from core.models import GuruType
 
 logger = logging.getLogger(__name__)
 
 class GitHubStrategy(IntegrationStrategy):
     def __init__(self, integration: 'Integration' = None):
-        from core.github.app_handler import GithubAppHandler
+        from integrations.bots.github.app_handler import GithubAppHandler
         super().__init__(integration)
         self.github_handler = GithubAppHandler(integration)
 

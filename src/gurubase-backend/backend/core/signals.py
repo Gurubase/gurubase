@@ -15,8 +15,8 @@ from PIL import ImageColor
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
-import secrets
-from .models import Integration, APIKey, GuruCreationForm, OutOfContextQuestion, Settings
+from .models import APIKey, GuruCreationForm, OutOfContextQuestion, Settings
+from integrations.models import Integration
 from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
@@ -955,7 +955,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
     if settings.ENV != 'selfhosted':
         if instance.type == Integration.Type.DISCORD:
             try:
-                from core.integrations.factory import IntegrationFactory
+                from integrations.factory import IntegrationFactory
                 discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
                 
                 def leave_guild():
@@ -976,7 +976,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         # Step 2: Revoke access token
         try:
-            from core.integrations.factory import IntegrationFactory
+            from integrations.factory import IntegrationFactory
             strategy = IntegrationFactory.get_strategy(instance.type, instance)
             strategy.revoke_access_token()
         except Exception as e:
@@ -987,7 +987,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
             instance.api_key.delete()
 
     if instance.type == Integration.Type.GITHUB:
-        from .github.app_handler import GithubAppHandler
+        from integrations.bots.github.app_handler import GithubAppHandler
         GithubAppHandler(instance).clear_redis_cache()
 
 @receiver(post_save, sender=GuruCreationForm)

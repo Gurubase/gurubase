@@ -1266,7 +1266,7 @@ def ask_question_with_stream(
     user=None,
     github_comments: list | None = None):
     from core.prompts import github_context_template
-    from core.github.app_handler import GithubAppHandler
+    from integrations.bots.github.app_handler import GithubAppHandler
 
     start_total = time.perf_counter()
     times = {
@@ -1342,7 +1342,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
     from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_summary_template, binge_summary_prompt
-    from core.github.app_handler import GithubAppHandler
+    from integrations.bots.github.app_handler import GithubAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()

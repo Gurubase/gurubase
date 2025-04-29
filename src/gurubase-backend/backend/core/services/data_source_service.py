@@ -1,11 +1,11 @@
 from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
-from core.models import DataSource, GuruType, Integration
+from core.models import DataSource, GuruType
 from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, ConfluenceStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
-
+from integrations.models import Integration
 
 class DataSourceService:
     """Service layer for data source CRUD operations"""

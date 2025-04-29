@@ -2,7 +2,8 @@ import logging
 from django.conf import settings
 import requests
 
-from core.integrations.strategy import IntegrationStrategy
+from integrations.strategy import IntegrationStrategy
+
 logger = logging.getLogger(__name__)
 
 

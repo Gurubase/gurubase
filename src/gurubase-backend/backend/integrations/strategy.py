@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from django.conf import settings
 
-from core.integrations.helpers import IntegrationError
+from integrations.bots.helpers import IntegrationError
+from integrations.models import Integration
+from core.models import GuruType
 
 import logging
-from core.models import Integration, GuruType
 
 logger = logging.getLogger(__name__)
 
