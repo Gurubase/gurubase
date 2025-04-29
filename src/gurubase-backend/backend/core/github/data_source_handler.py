@@ -171,10 +171,11 @@ def get_file_content(file_path):
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             return f.read()
     except UnicodeDecodeError as e:
+        logger.error(f"UnicodeDecodeError reading file {file_path}: {str(e)}")
         # Skip binary files
         return ''
     except Exception as e:
-        logger.warning(f"Error reading file {file_path}: {str(e)}")
+        logger.error(f"Error reading file {file_path}: {str(e)}")
         return ''
     
 def read_repository(repo_path, include=True, glob_pattern=None):
