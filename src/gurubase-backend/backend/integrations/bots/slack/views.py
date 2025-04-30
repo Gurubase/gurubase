@@ -447,6 +447,13 @@ async def handle_slack_message(
     clean_message: str
 ) -> None:
     """Handle a single Slack message."""
+    if not clean_message:
+        thinking_response = client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text="Please provide a valid question. 🤔"
+        )
+        return
 
     try:
         # First send a thinking message
