@@ -1975,7 +1975,7 @@ class ConfluenceRequester():
                 try:
                     # Use pagination to get all pages from the space
                     page_start = 0
-                    page_limit = 100  # Fetch 100 pages at a time
+                    page_limit = 25  # Fetch 25 pages at a time
                     while True:
                         pages_batch = self.confluence.get_all_pages_from_space(
                             space_key, 
@@ -2007,7 +2007,7 @@ class ConfluenceRequester():
                 # Implement pagination for the CQL query as well
                 cql_page_ids = set()
                 cql_start = 0
-                cql_limit = 100  # Fetch 100 results at a time
+                cql_limit = 25  # Fetch 100 results at a time
                 
                 while True:
                     cql_results = self.confluence.cql(cql, start=cql_start, limit=cql_limit)
@@ -2104,7 +2104,7 @@ class ConfluenceRequester():
             
             # Use pagination to get all comments
             page_start = 0
-            page_limit = 100  # Fetch 100 comments at a time
+            page_limit = 25  # Fetch 100 comments at a time
             while True:
                 try:
                     # The Confluence API doesn't support direct pagination for comments
@@ -2178,7 +2178,7 @@ class ConfluenceRequester():
             
             # Use pagination to get all spaces
             space_start = 0
-            space_limit = 100  # Fetch 100 spaces at a time
+            space_limit = 25  # Fetch 100 spaces at a time
             while True:
                 spaces_data = self.confluence.get_all_spaces(start=space_start, limit=space_limit)
                 results = spaces_data.get('results', [])
