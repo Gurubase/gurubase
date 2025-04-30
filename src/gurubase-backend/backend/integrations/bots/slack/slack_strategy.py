@@ -145,19 +145,20 @@ class SlackContextHandler(IntegrationContextHandler):
             slack_handler = SlackAppHandler(self.integration)
             
             # First get thread messages if in a thread
-            messages = []
             if thread_ts:
                 thread_messages = slack_handler.get_thread_messages(channel_id, thread_ts)
             
             # If we haven't exceeded the limit, get channel messages
-            if sum(len(msg) for msg in thread_messages) < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
-                channel_messages = slack_handler.get_channel_messages(channel_id)
-                messages.extend(channel_messages)
+            length = sum(len(msg) for msg in thread_messages)
+            if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+                channel_messages = slack_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            else:
+                channel_messages = []
             
             return BotContext(
                 type=BotContext.Type.SLACK,
-                data={'thread_messages': thread_messages,
-                      'channel_messages': channel_messages}
+                data={'thread_messages': reversed(thread_messages),
+                      'channel_messages': reversed(channel_messages)}
             )
             
         except Exception as e:

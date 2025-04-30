@@ -1292,8 +1292,8 @@ def ask_question_with_stream(
             comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
             bot_context_prompt = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
         elif bot_context.type == BotContext.Type.SLACK:
-            thread_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['thread_messages'])
-            channel_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['channel_messages'])
+            thread_messages = bot_context.data['thread_messages']
+            channel_messages = bot_context.data['channel_messages']
             bot_context_prompt = slack_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
 
     if not reranked_scores:
@@ -1370,8 +1370,8 @@ def get_summary(question, guru_type, short_answer=False, bot_context: BotContext
             comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
             bot_context_prompt = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
         elif bot_context.type == BotContext.Type.SLACK:
-            thread_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['thread_messages'])
-            channel_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['channel_messages'])
+            thread_messages = bot_context.data['thread_messages']
+            channel_messages = bot_context.data['channel_messages']
             bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
 
     if parent_question:
