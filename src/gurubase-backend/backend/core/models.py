@@ -1219,6 +1219,7 @@ class OutOfContextQuestion(models.Model):
     )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
     enhanced_question = models.TextField(default='', blank=True, null=True)
+    bot_context = models.TextField(default='', blank=True, null=True)
 
     def __str__(self):
         return self.question

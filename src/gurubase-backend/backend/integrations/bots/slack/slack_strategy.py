@@ -4,6 +4,7 @@ import requests
 
 from integrations.bots.models import BotContext
 from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from .app_handler import SlackAppHandler
 
 logger = logging.getLogger(__name__)
 
@@ -135,17 +136,30 @@ class SlackContextHandler(IntegrationContextHandler):
     """Handler for Slack integration context."""
     
     def get_context(self, api_url: str, external_id: str) -> BotContext:
-        # TODO: Implement actual Slack context gathering
-        # This is a mock implementation
         try:
-            # Mock implementation would:
-            # 1. Get thread messages using Slack API
-            # 2. Format messages with user info and timestamps
-            # 3. Limit context by length
+            # Get channel_id and thread_ts from api_url
+            # api_url format: channel_id:thread_ts
+            channel_id, thread_ts = api_url.split(':')
+            
+            # Initialize Slack app handler
+            slack_handler = SlackAppHandler(self.integration)
+            
+            # First get thread messages if in a thread
+            messages = []
+            if thread_ts:
+                thread_messages = slack_handler.get_thread_messages(channel_id, thread_ts)
+            
+            # If we haven't exceeded the limit, get channel messages
+            if sum(len(msg) for msg in thread_messages) < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+                channel_messages = slack_handler.get_channel_messages(channel_id)
+                messages.extend(channel_messages)
+            
             return BotContext(
                 type=BotContext.Type.SLACK,
-                data="Mock Slack message 1\nMock Slack message 2"
+                data={'thread_messages': thread_messages,
+                      'channel_messages': channel_messages}
             )
+            
         except Exception as e:
             logger.error(f"Error getting Slack context: {e}", exc_info=True)
             return None

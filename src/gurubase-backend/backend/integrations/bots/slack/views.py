@@ -266,6 +266,7 @@ async def stream_and_update_message(
     client: WebClient,
     channel_id: str,
     message_ts: str,
+    thread_ts: str,
     update_interval: float = 0.5
 ) -> None:
     """Stream the response and update the Slack message periodically."""
@@ -276,6 +277,10 @@ async def stream_and_update_message(
         # Create request using APIRequestFactory
         factory = APIRequestFactory()
         guru_type = payload.get('guru_type')
+
+        payload['channel_id'] = channel_id
+        if thread_ts:
+            payload['thread_ts'] = thread_ts
         
         request = factory.post(
             f'/api/v1/{guru_type}/answer/',
@@ -489,7 +494,8 @@ async def handle_slack_message(
                     payload=stream_payload,
                     client=client,
                     channel_id=channel_id,
-                    message_ts=thinking_response["ts"]
+                    message_ts=thinking_response["ts"],
+                    thread_ts=thread_ts
                 )
                 
                 # Then get final formatted response

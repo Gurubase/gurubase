@@ -1478,7 +1478,18 @@ def api_answer(request, guru_type):
         assert request.integration is not None
         context_handler = get_context_handler(api_type, request.integration)
         if context_handler:
-            integration_context = context_handler.get_context(request.data.get('github_api_url'), request.integration.external_id)
+            if api_type == APIType.SLACK:
+                # For Slack, combine channel_id and thread_ts into api_url
+                channel_id = request.data.get('channel_id')
+                thread_ts = request.data.get('thread_ts')
+                if channel_id and thread_ts:
+                    api_url = f"{channel_id}:{thread_ts}"
+                else:
+                    api_url = channel_id
+            else:
+                api_url = request.data.get('github_api_url')
+                
+            integration_context = context_handler.get_context(api_url, request.integration.external_id)
 
     # Get API response
     api_response = api_ask(

@@ -5,7 +5,7 @@ class BotContext:
         SLACK = "slack"
         DISCORD = "discord"
 
-    def __init__(self, type: Type, data: list):
+    def __init__(self, type: Type, data: dict):
         self.type = type
         self.data = data
 

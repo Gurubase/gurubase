@@ -140,7 +140,7 @@ class GithubContextHandler(IntegrationContextHandler):
             # Limit comments by length
             return BotContext(
                 type=BotContext.Type.GITHUB,
-                data=github_handler.limit_issue_comments_by_length(github_comments)
+                data={'comments': github_handler.limit_issue_comments_by_length(github_comments)}
             )
             
         except Exception as e:

@@ -1265,9 +1265,11 @@ def ask_question_with_stream(
     source,
     enhanced_question,
     user=None,
-    integration_context: BotContext | None = None):
+    bot_context: BotContext | None = None):
     from integrations.bots.github.prompts import github_context_template
     from integrations.bots.github.app_handler import GithubAppHandler
+    from integrations.bots.slack.prompts import slack_context_template
+    from integrations.bots.slack.app_handler import SlackAppHandler
 
     start_total = time.perf_counter()
     times = {
@@ -1284,10 +1286,15 @@ def ask_question_with_stream(
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
-    github_context = ""
-    if integration_context:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(integration_context.data)
-        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
+    bot_context_prompt = ""
+    if bot_context:
+        if bot_context.type == BotContext.Type.GITHUB:
+            comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
+            bot_context_prompt = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
+        elif bot_context.type == BotContext.Type.SLACK:
+            thread_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['thread_messages'])
+            channel_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['channel_messages'])
+            bot_context_prompt = slack_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1298,7 +1305,8 @@ def ask_question_with_stream(
             trust_score_threshold=default_settings.trust_score_threshold,  # No need to use the dynamic trust score. Because we haven't found any valid contexts to update the trust score.
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
-            enhanced_question=enhanced_question
+            enhanced_question=enhanced_question,
+            bot_context=bot_context_prompt
         )
 
         times['total'] = time.perf_counter() - start_total
@@ -1312,7 +1320,7 @@ def ask_question_with_stream(
     guru_variables['user_intent'] = user_intent
     guru_variables['answer_length'] = answer_length
     guru_variables['github_details_if_applicable'] = simplified_github_details
-    guru_variables['github_context'] = github_context
+    guru_variables['bot_context'] = bot_context_prompt
 
     start_history = time.perf_counter()
     history = get_question_history(parent_question)
@@ -1334,8 +1342,7 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False, integration_context: BotContext | None = None, parent_question: Question | None = None):
-    # TODO:
+def get_summary(question, guru_type, short_answer=False, bot_context: BotContext | None = None, parent_question: Question | None = None):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1346,6 +1353,8 @@ def get_summary(question, guru_type, short_answer=False, integration_context: Bo
     from core.prompts import summary_template, summary_short_answer_addition, summary_addition, binge_summary_prompt
     from integrations.bots.github.prompts import github_summary_template
     from integrations.bots.github.app_handler import GithubAppHandler
+    from integrations.bots.slack.prompts import slack_summary_template
+    from integrations.bots.slack.app_handler import SlackAppHandler
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
@@ -1355,10 +1364,15 @@ def get_summary(question, guru_type, short_answer=False, integration_context: Bo
     else:
         summary_addition = summary_addition
 
-    github_context = ""
-    if integration_context:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(integration_context.data)
-        github_context = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
+    bot_context_prompt = ""
+    if bot_context:
+        if bot_context.type == BotContext.Type.GITHUB:
+            comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
+            bot_context_prompt = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
+        elif bot_context.type == BotContext.Type.SLACK:
+            thread_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['thread_messages'])
+            channel_messages = SlackAppHandler().format_comments_for_prompt(bot_context.data['channel_messages'])
+            bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
 
     if parent_question:
         history = get_question_history(parent_question)
@@ -1374,7 +1388,7 @@ def get_summary(question, guru_type, short_answer=False, integration_context: Bo
     prompt = summary_template.format(
         **context_variables, 
         summary_addition=summary_addition,
-        github_context=github_context,
+        bot_context=bot_context_prompt,
         binge_summary_prompt=binge_summary_prompt,
         user_question=question
     )

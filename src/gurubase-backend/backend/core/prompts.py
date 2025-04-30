@@ -42,7 +42,7 @@ Answer in {language}.
 
 {binge_summary_prompt}
 
-{github_context}
+{bot_context}
 
 For any questions related to date, remember today's date is {date}. Here is the user's question:
 
@@ -92,7 +92,7 @@ First, carefully read and analyze the following contexts:
 {contexts}
 </contexts>
 
-{github_context}
+{bot_context}
 
 When answering the question, follow these guidelines:
 {custom_instruction_section}
