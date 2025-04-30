@@ -1498,7 +1498,7 @@ def api_answer(request, guru_type):
                     api_url = f"None:{thread_id}"
                 else:
                     api_url = None
-            else:
+            elif api_type == APIType.GITHUB:
                 api_url = request.data.get('github_api_url')
                 
             integration_context = context_handler.get_context(api_url, request.integration.external_id)
