@@ -947,7 +947,7 @@ class JiraRequester():
         List Jira issues using JQL query with pagination
         Args:
             jql_query (str): JQL query string to filter issues
-            start (int): Starting index for pagination
+            start (int): Starting index for pagination (unused, kept for compatibility)
             max_results (int): Maximum number of results to fetch per request
         Returns:
             list: List of Jira issues matching the query
@@ -955,24 +955,39 @@ class JiraRequester():
             ValueError: If API request fails
         """
         try:
-            # Get issues using JQL
-            issues_data = self.jira.jql(jql_query, start=start, limit=max_results)
-            issues = []
+            all_issues = []
+            current_start = 0
+            page_size = max_results
             
-            for issue in issues_data.get('issues', []):
-                formatted_issue = {
-                    'id': issue.get('id'),
-                    # 'key': issue.get('key'),
-                    # 'summary': issue.get('fields', {}).get('summary'),
-                    # 'issue_type': issue.get('fields', {}).get('issuetype', {}).get('name'),
-                    # 'status': issue.get('fields', {}).get('status', {}).get('name'),
-                    # 'priority': issue.get('fields', {}).get('priority', {}).get('name'),
-                    # 'assignee': issue.get('fields', {}).get('assignee', {}).get('displayName'),
-                    'link': f"{self.url}/browse/{issue.get('key')}"
-                }
-                issues.append(formatted_issue)
+            while True:
+                # Get issues using JQL
+                issues_data = self.jira.jql(jql_query, start=current_start, limit=page_size)
+                issues = issues_data.get('issues', [])
                 
-            return issues
+                if not issues:
+                    break
+                    
+                for issue in issues:
+                    formatted_issue = {
+                        'id': issue.get('id'),
+                        # 'key': issue.get('key'),
+                        # 'summary': issue.get('fields', {}).get('summary'),
+                        # 'issue_type': issue.get('fields', {}).get('issuetype', {}).get('name'),
+                        # 'status': issue.get('fields', {}).get('status', {}).get('name'),
+                        # 'priority': issue.get('fields', {}).get('priority', {}).get('name'),
+                        # 'assignee': issue.get('fields', {}).get('assignee', {}).get('displayName'),
+                        'link': f"{self.url}/browse/{issue.get('key')}"
+                    }
+                    all_issues.append(formatted_issue)
+                
+                # If we got fewer issues than requested, we've reached the end
+                if len(issues) < page_size:
+                    break
+                    
+                # Move to the next page
+                current_start += page_size
+                
+            return all_issues
         except Exception as e:
             logger.error(f"Error listing Jira issues: {str(e)}", exc_info=True)
             if "401" in str(e):
@@ -1296,7 +1311,7 @@ class ZendeskRequester():
                     if article.get('draft') is False:
                         all_articles.append(self._format_article(article))
 
-                url = data.get('next_page')
+                url = data.get('links', {}).get('next')
             return all_articles
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if e.response is not None else None
@@ -1384,7 +1399,7 @@ class ZendeskRequester():
                 comments = data.get('comments', [])
                 all_comments.extend([self._format_article_comment(comment) for comment in comments])
 
-                url = data.get('next_page')
+                url = data.get('links', {}).get('next')
             all_comments.sort(key=lambda x: x['created_at'])
             return all_comments
         except requests.exceptions.RequestException as e:
