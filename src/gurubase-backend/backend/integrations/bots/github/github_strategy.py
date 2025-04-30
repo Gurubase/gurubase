@@ -129,7 +129,7 @@ class GithubContextHandler(IntegrationContextHandler):
             github_comments = github_handler.get_issue_comments(api_url, external_id)
             
             # Add issue as last comment since helper reverses comments
-            github_comments.append(github_issue)
+            github_comments.insert(0, github_issue)
             
             # Process and format comments
             github_comments = github_handler.strip_and_format_issue_comments(

@@ -473,7 +473,7 @@ class GithubAppHandler:
 
         if total_length < limit:
             i += 1
-        return reversed_comments[:i]
+        return list(reversed(reversed_comments[:i]))
 
     def strip_and_format_issue_comments(self, comments: list, bot_name: str) -> list:
         """Strip the comments and format them for the prompt."""
