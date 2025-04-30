@@ -679,10 +679,6 @@ class OpenAIRequester():
                 {
                     'role': 'system',
                     'content': prompt
-                },
-                {
-                    'role': 'user',
-                    'content': question
                 }
             ],
             response_format=GptSummary
