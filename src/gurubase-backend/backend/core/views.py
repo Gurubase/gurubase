@@ -1482,17 +1482,12 @@ def api_answer(request, guru_type):
                 # For Slack, combine channel_id and thread_ts into api_url
                 channel_id = request.data.get('channel_id')
                 thread_ts = request.data.get('thread_ts')
-                api_url = None
                 if channel_id and thread_ts:
                     api_url = f"{channel_id}:{thread_ts}"
                 else:
                     api_url = channel_id
-                if not api_url:
-                    return response_handler.handle_error_response("Invalid Slack API URL. Code: S-902")
             else:
                 api_url = request.data.get('github_api_url')
-                if not api_url:
-                    return response_handler.handle_error_response("Invalid GitHub API URL. Code: S-903")
                 
             integration_context = context_handler.get_context(api_url, request.integration.external_id)
 
