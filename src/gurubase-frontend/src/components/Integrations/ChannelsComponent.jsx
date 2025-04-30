@@ -53,10 +53,16 @@ const ChannelsComponent = ({
 
   useEffect(() => {
     // Compare current repositories with initial repositories to determine if there are changes
-    const hasModeChanges = channels.some(
-      (channel, index) => channel.mode !== originalChannels[index]?.mode
-    );
-    setHasChanges(hasModeChanges);
+    const channelsChanged = channels.some((channel) => {
+      const originalChannel = originalChannels.find((c) => c.id === channel.id);
+      return (
+        !originalChannel ||
+        channel.allowed !== originalChannel.allowed ||
+        channel.mode !== originalChannel.mode
+      );
+    });
+
+    setHasChanges(channelsChanged);
   }, [channels, originalChannels]);
 
   useEffect(() => {
@@ -231,7 +237,6 @@ const ChannelsComponent = ({
                           c.id === channel.id ? { ...c, allowed: false } : c
                         )
                       );
-                      setHasChanges(true);
                     }}>
                     <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
                   </button>
@@ -295,7 +300,6 @@ const ChannelsComponent = ({
                                 { ...channel, allowed: true }
                               ];
                               setChannels(updatedChannels);
-                              setHasChanges(true);
                               setOpen(false);
                             }}
                             className="px-3 py-2 text-[14px] hover:bg-[#F3F4F6] cursor-pointer rounded-md">
