@@ -1962,8 +1962,78 @@ class ConfluenceRequester():
             ValueError: If API request fails
         """
         try:
-            # Get all pages from all spaces
+            # If CQL is provided, use it directly to get pages
+            if cql:
+                cql += " AND type=page"
+                all_pages = []
+                seen_page_ids = set()  # Track unique page IDs
+                cql_limit = 100  # Fetch 100 results at a time
+                
+                # Initial request
+                url = f"{self.url}/wiki/rest/api/search"
+                params = {
+                    'cql': cql,
+                    'limit': cql_limit,
+                    'expand': 'space'
+                }
+                
+                while True:
+                    response = requests.get(
+                        url,
+                        auth=(self.confluence.username, self.confluence.password),
+                        params=params,
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 401:
+                        raise ValueError("Invalid Confluence credentials")
+                    elif response.status_code == 403:
+                        raise ValueError("Confluence API access forbidden")
+                    elif response.status_code != 200:
+                        raise ValueError(f"Confluence API request failed with status {response.status_code}")
+                    
+                    cql_results = response.json()
+                    results = cql_results.get('results', [])
+                    
+                    if not results:
+                        break
+                        
+                    for result in results:
+                        content = result.get('content', {})
+                        page_id = content.get('id')
+                        
+                        # Skip if we've seen this page ID before
+                        if not page_id or page_id in seen_page_ids:
+                            continue
+                            
+                        seen_page_ids.add(page_id)
+                        
+                        # Get space info from the expanded result
+                        space = content.get('space', {})
+                        space_key = space.get('key')
+                        space_name = space.get('name', '')
+                        
+                        # Format and add the page
+                        formatted_page = self._format_page(content, space_key, space_name)
+                        all_pages.append(formatted_page)
+                    
+                    # Check if there's a next page
+                    next_link = cql_results.get('_links', {}).get('next')
+                    if not next_link:
+                        break
+                        
+                    # Update URL and params for next request
+                    url = f"{self.url}/wiki{next_link}"
+                    params = {}  # Clear params as they're included in the next_link
+                
+                return {
+                    'pages': all_pages,
+                    'page_count': len(all_pages)
+                }
+            
+            # If no CQL, get all pages from all spaces
             all_pages = []
+            seen_page_ids = set()  # Track unique page IDs
             
             spaces_data = self.confluence.get_all_spaces()
             spaces = spaces_data.get('results', [])
@@ -1975,7 +2045,7 @@ class ConfluenceRequester():
                 try:
                     # Use pagination to get all pages from the space
                     page_start = 0
-                    page_limit = 25  # Fetch 25 pages at a time
+                    page_limit = 100  # Fetch 100 pages at a time
                     while True:
                         pages_batch = self.confluence.get_all_pages_from_space(
                             space_key, 
@@ -1987,8 +2057,12 @@ class ConfluenceRequester():
                             break
                             
                         for page in pages_batch:
-                            formatted_page = self._format_page(page, space_key, space_name)
-                            all_pages.append(formatted_page)
+                            page_id = page.get('id')
+                            # Only add page if we haven't seen its ID before
+                            if page_id and page_id not in seen_page_ids:
+                                seen_page_ids.add(page_id)
+                                formatted_page = self._format_page(page, space_key, space_name)
+                                all_pages.append(formatted_page)
                             
                         # If we got fewer pages than requested, we've reached the end
                         if len(pages_batch) < page_limit:
@@ -2002,40 +2076,6 @@ class ConfluenceRequester():
                     logger.warning(f"Error fetching pages from space {space_key}: {str(e)}")
                     continue
             
-            # Filter pages by CQL if provided
-            if cql:
-                # Implement pagination for the CQL query as well
-                cql_page_ids = set()
-                cql_start = 0
-                cql_limit = 25  # Fetch 25 results at a time
-                
-                while True:
-                    cql_results = self.confluence.cql(cql, start=cql_start, limit=cql_limit)
-                    results = cql_results.get('results', [])
-                    
-                    if not results:
-                        break
-                        
-                    for result in results:
-                        content = result.get('content', {})
-                        cql_page_ids.add(content.get('id'))
-                    
-                    # If we got fewer results than requested, we've reached the end
-                    if len(results) < cql_limit:
-                        break
-                        
-                    # Move to the next page
-                    cql_start += cql_limit
-                
-                # Filter the all_pages list to only include pages that match the CQL
-                filtered_pages = [page for page in all_pages if page.get('id') in cql_page_ids]
-                
-                return {
-                    'pages': filtered_pages,
-                    'page_count': len(filtered_pages)
-                }
-            
-            # No CQL filtering, just return all pages
             return {
                 'pages': all_pages,
                 'page_count': len(all_pages)
@@ -2104,7 +2144,7 @@ class ConfluenceRequester():
             
             # Use pagination to get all comments
             page_start = 0
-            page_limit = 25  # Fetch 25 comments at a time
+            page_limit = 100  # Fetch 100 comments at a time
             while True:
                 try:
                     # The Confluence API doesn't support direct pagination for comments
