@@ -1941,13 +1941,18 @@ def manage_channels(request, guru_type, integration_type):
         try:
             channels = request.data.get('channels', [])
             integration.channels = channels
+
+            if 'allow_dm' in request.data:
+                integration.allow_dm = request.data['allow_dm']
+
             integration.save()
-            
+
             return Response({
                 'id': integration.id,
                 'type': integration.type,
                 'guru_type': integration.guru_type.slug,
-                'channels': integration.channels
+                'channels': integration.channels,
+                'allow_dm': integration.allow_dm
             })
         except Exception as e:
             logger.error(f"Error updating channels: {e}", exc_info=True)
@@ -2422,17 +2427,25 @@ async def send_channel_unauthorized_message(
     client: WebClient,
     channel_id: str,
     thread_ts: str,
-    guru_slug: str
+    guru_slug: str,
+    dm: bool
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
         base_url = await sync_to_async(get_base_url)()
         settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/slack"
-        message = (
-            "❌ This channel is not authorized to use the bot.\n\n"
-            f"Please visit <{settings_url}|Gurubase Settings> to configure "
-            "the bot and add this channel to the allowed channels list."
-        )
+        if dm:
+            message = (
+                "❌ Bot direct messages are not enabled.\n\n"
+                f"Please visit <{settings_url}|Gurubase Settings> to configure "
+                "the bot and enable direct messages."
+            )
+        else:
+            message = (
+                "❌ This channel is not authorized to use the bot.\n\n"
+                f"Please visit <{settings_url}|Gurubase Settings> to configure "
+                "the bot and add this channel to the allowed channels list."
+            )
         client.chat_postMessage(
             channel=channel_id,
             thread_ts=thread_ts,
@@ -2465,12 +2478,17 @@ def slack_events(request):
                 
                 # Only proceed if it's a message event and not from a bot
                 if event["type"] == "message" and "subtype" not in event and event.get("user") != event.get("bot_id"):
+                    dm = False
+                    if event['channel_type'] == 'im':
+                        dm = True
                     # Get bot user ID from authorizations
                     bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
                     user_message = event["text"]
                     
                     # First check if the bot is mentioned
-                    if not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                    if not dm and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                        return
+                    elif dm and event['user'] == bot_user_id:
                         return
                         
                     team_id = data.get('team_id')
@@ -2500,12 +2518,15 @@ def slack_events(request):
                         channel_id = event["channel"]
                         
                         # Check if the current channel is allowed
-                        channels = integration.channels
-                        channel_allowed = False
-                        for channel in channels:
-                            if str(channel.get('id')) == channel_id and channel.get('allowed', False):
-                                channel_allowed = True
-                                break
+                        if not dm:
+                            channels = integration.channels
+                            channel_allowed = False
+                            for channel in channels:
+                                if str(channel.get('id')) == channel_id and channel.get('allowed', False):
+                                    channel_allowed = True
+                                    break
+                        else:
+                            channel_allowed = integration.allow_dm
 
                         # Get thread_ts if it exists (means we're in a thread)
                         thread_ts = event.get("thread_ts") or event.get("ts")
@@ -2519,7 +2540,8 @@ def slack_events(request):
                                     client=client,
                                     channel_id=channel_id,
                                     thread_ts=thread_ts,
-                                    guru_slug=integration.guru_type.slug
+                                    guru_slug=integration.guru_type.slug,
+                                    dm=dm
                                 ))
                             finally:
                                 loop.close()

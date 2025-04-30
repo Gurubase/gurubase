@@ -55,7 +55,8 @@ class SlackStrategy(IntegrationStrategy):
                     {
                         'id': c['id'],
                         'name': c['name'],
-                        'allowed': False
+                        'allowed': False,
+                        'direct_messages': False
                     }
                     for c in data.get('channels', [])
                 ])

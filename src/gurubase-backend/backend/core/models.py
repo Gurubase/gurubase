@@ -2028,6 +2028,8 @@ class Integration(models.Model):
     zendesk_api_token = models.TextField(null=True, blank=True)
     zendesk_user_email = models.TextField(null=True, blank=True)
 
+    allow_dm = models.BooleanField(default=False)
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
