@@ -1,15 +1,11 @@
 discord_base_template = """
-This question is asked on a Discord channel.
+This question is asked on a Discord thread.
 
-Here is the Discord history:
+Here is the Discord thread:
 
 <Discord thread>
 {thread_messages}
 </Discord thread>
-
-<Discord channel>
-{channel_messages}
-</Discord channel>
 """
 
 discord_context_template = discord_base_template + """

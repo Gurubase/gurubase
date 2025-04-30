@@ -186,20 +186,25 @@ class DiscordContextHandler(IntegrationContextHandler):
             # First get thread messages if in a thread
             if thread_id:
                 thread_messages = discord_handler.get_thread_messages(thread_id)
+                # Get the initial message that started the thread
+                length = sum(len(msg) for msg in thread_messages)
+                if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:
+                    initial_message = discord_handler.get_initial_thread_message(channel_id, thread_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+                    if initial_message:
+                        thread_messages.append(initial_message)
             else:
                 thread_messages = []
             
-            # If we haven't exceeded the limit, get channel messages
-            length = sum(len(msg) for msg in thread_messages)
-            if channel_id and length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
-                channel_messages = discord_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
-            else:
-                channel_messages = []
+            # # If we haven't exceeded the limit, get channel messages
+            # length = sum(len(msg) for msg in thread_messages)
+            # if channel_id and length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+            #     channel_messages = discord_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            # else:
+            #     channel_messages = []
             
             return BotContext(
                 type=BotContext.Type.DISCORD,
-                data={'thread_messages': list(reversed(thread_messages)),
-                      'channel_messages': list(reversed(channel_messages))}
+                data={'thread_messages': list(reversed(thread_messages))}
             )
             
         except Exception as e:

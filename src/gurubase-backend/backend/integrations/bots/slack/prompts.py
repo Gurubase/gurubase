@@ -1,15 +1,11 @@
 slack_base_template = """
-This question is asked on a Slack channel.
+This question is asked on a Slack thread.
 
-Here is the Slack history:
+Here is the Slack thread:
 
 <Slack thread>
 {thread_messages}
 </Slack thread>
-
-<Slack channel>
-{channel_messages}
-</Slack channel>
 """
 
 slack_context_template = slack_base_template + """

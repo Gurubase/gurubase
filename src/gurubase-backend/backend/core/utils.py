@@ -1293,12 +1293,12 @@ def ask_question_with_stream(
             bot_context_prompt = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
         elif bot_context.type == BotContext.Type.SLACK:
             thread_messages = ''.join(bot_context.data['thread_messages'])
-            channel_messages = ''.join(bot_context.data['channel_messages'])
-            bot_context_prompt = slack_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
+            # channel_messages = ''.join(bot_context.data['channel_messages'])
+            bot_context_prompt = slack_context_template.format(thread_messages=thread_messages)
         elif bot_context.type == BotContext.Type.DISCORD:
             thread_messages = ''.join(bot_context.data['thread_messages'])
-            channel_messages = ''.join(bot_context.data['channel_messages'])
-            bot_context_prompt = discord_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
+            # channel_messages = ''.join(bot_context.data['channel_messages'])
+            bot_context_prompt = discord_context_template.format(thread_messages=thread_messages)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1375,12 +1375,12 @@ def get_summary(question, guru_type, short_answer=False, bot_context: BotContext
             bot_context_prompt = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
         elif bot_context.type == BotContext.Type.SLACK:
             thread_messages = bot_context.data['thread_messages']
-            channel_messages = bot_context.data['channel_messages']
-            bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
+            # channel_messages = bot_context.data['channel_messages']
+            bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, guru_type=guru_type)
         elif bot_context.type == BotContext.Type.DISCORD:
             thread_messages = bot_context.data['thread_messages']
-            channel_messages = bot_context.data['channel_messages']
-            bot_context_prompt = discord_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
+            # channel_messages = bot_context.data['channel_messages']
+            bot_context_prompt = discord_summary_template.format(thread_messages=thread_messages, guru_type=guru_type)
 
     if parent_question:
         history = get_question_history(parent_question)

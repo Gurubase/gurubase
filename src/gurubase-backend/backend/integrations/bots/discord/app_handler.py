@@ -20,6 +20,7 @@ class DiscordAppHandler:
             return {"Authorization": f"Bot {self.integration.access_token}"}
             
         raise ValueError("No valid bot token available")
+    
 
     def get_thread_messages(self, thread_id: str, max_length: int = settings.GITHUB_CONTEXT_CHAR_LIMIT) -> list:
         """Get messages in a thread until max_length is reached."""
@@ -39,6 +40,8 @@ class DiscordAppHandler:
             # Process messages and check length
             for msg in response.json():
                 # Format message
+                if not msg['content']:
+                    continue
                 formatted_msg = self._format_single_message(msg)
                 msg_length = len(formatted_msg)
                 
@@ -118,4 +121,27 @@ class DiscordAppHandler:
 
     def format_comments_for_prompt(self, messages: list) -> str:
         """Format comments for the prompt."""
-        return self.format_messages(messages) 
+        return self.format_messages(messages)
+
+    def get_initial_thread_message(self, parent_channel_id: str, message_id: str, max_length: int = settings.GITHUB_CONTEXT_CHAR_LIMIT) -> str:
+        """Get the initial message that started the thread."""
+        try:
+            response = requests.get(
+                f"{self.base_url}/channels/{parent_channel_id}/messages/{message_id}",
+                headers=self.headers
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Error fetching initial thread message: {response.text}")
+            
+            msg = response.json()
+            formatted_msg = self._format_single_message(msg)
+            
+            # Only return if within length limit
+            if len(formatted_msg) <= max_length:
+                return formatted_msg
+            return ""
+            
+        except Exception as e:
+            logger.error(f"Error fetching initial thread message: {e}", exc_info=True)
+            raise e 
