@@ -1990,7 +1990,14 @@ class ConfluenceRequester():
                     elif response.status_code == 403:
                         raise ValueError("Confluence API access forbidden")
                     elif response.status_code != 200:
-                        raise ValueError(f"Confluence API request failed with status {response.status_code}")
+                        if 'could not parse' in response.text.lower():
+                            raise ValueError(f"Invalid CQL query.")
+                        else:
+                            split = response.json().get('message', '').split(':', 1)
+                            if len(split) > 1:
+                                raise ValueError(split[1].strip())
+                            else:
+                                raise ValueError(f"Confluence API request failed with status {response.status_code}")
                     
                     cql_results = response.json()
                     results = cql_results.get('results', [])
