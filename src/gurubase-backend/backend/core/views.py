@@ -56,6 +56,7 @@ from core.handlers.response_handlers import (
 )
 from core.services.data_source_service import DataSourceService
 from core.throttling import ConcurrencyThrottleApiKey
+from integrations.strategy import get_context_handler
 
 logger = logging.getLogger(__name__)
 
@@ -1455,10 +1456,6 @@ def api_answer(request, guru_type):
     user = request.user
     api_type = request.api_type  # This is now set by the api_key_auth decorator
 
-    github_api_url = None
-    if api_type == APIType.GITHUB:
-        github_api_url = request.data.get('github_api_url')
-
     # Initialize with default values
     binge = None
     parent = None
@@ -1476,15 +1473,12 @@ def api_answer(request, guru_type):
         # Find the last question in the binge as the parent
         parent = Question.objects.filter(binge=binge).order_by('-date_updated').first()
 
-    github_comments = None
-    if github_api_url:
-        # TODO: Fix this
-        github_handler = GithubAppHandler(request.integration)
-        github_issue = github_handler.get_issue(github_api_url, request.external_id)
-        github_comments = github_handler.get_issue_comments(github_api_url, request.external_id)
-        github_comments.append(github_issue) # Add it as last since the helper reverses the comments before processing
-        github_comments = github_handler.strip_and_format_issue_comments(github_comments, request.integration.github_bot_name)
-        github_comments = github_handler.limit_issue_comments_by_length(github_comments)
+    integration_context = None
+    if api_type in [APIType.GITHUB, APIType.SLACK, APIType.DISCORD]:
+        assert request.integration is not None
+        context_handler = get_context_handler(api_type, request.integration)
+        if context_handler:
+            integration_context = context_handler.get_context(request.data.get('github_api_url'), request.integration.external_id)
 
     # Get API response
     api_response = api_ask(
@@ -1495,7 +1489,7 @@ def api_answer(request, guru_type):
         fetch_existing=fetch_existing,
         api_type=api_type,
         user=user,
-        github_comments=github_comments
+        integration_context=integration_context
     )
     
     # Handle error case

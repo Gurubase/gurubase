@@ -2,7 +2,8 @@ import logging
 from django.conf import settings
 import requests
 
-from integrations.strategy import IntegrationStrategy
+from integrations.bots.models import BotContext
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -163,3 +164,22 @@ class DiscordStrategy(IntegrationStrategy):
             'external_id': guild['id'],
             'workspace_name': guild['name']
         }
+
+class DiscordContextHandler(IntegrationContextHandler):
+    """Handler for Discord integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        # TODO: Implement actual Discord context gathering
+        # This is a mock implementation
+        try:
+            # Mock implementation would:
+            # 1. Get thread messages using Discord API
+            # 2. Format messages with user info and timestamps
+            # 3. Limit context by length
+            return BotContext(
+                type=BotContext.Type.DISCORD,
+                data="Mock Discord message 1\nMock Discord message 2"
+            )
+        except Exception as e:
+            logger.error(f"Error getting Discord context: {e}", exc_info=True)
+            return None

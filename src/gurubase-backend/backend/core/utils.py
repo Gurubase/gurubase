@@ -15,11 +15,12 @@ from django.db.models.functions import Lower
 from openai import OpenAI
 from django.conf import settings
 import requests
+from integrations.bots.models import BotContext
 from core.milvus_utils import search_for_closest
-from core.guru_types import get_guru_type_object, get_guru_type_prompt_map, get_guru_type_names
+from core.guru_types import get_guru_type_prompt_map, get_guru_type_names
 from core import exceptions
 from pymilvus import MilvusClient
-from core.models import GithubFile, GuruType, Question, OutOfContextQuestion, Summarization, Settings, SummaryQuestionGeneration
+from core.models import GuruType, Question, OutOfContextQuestion, Summarization, Settings, SummaryQuestionGeneration
 import json
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -35,7 +36,7 @@ from core.models import DataSource, Binge
 from accounts.models import User
 from dataclasses import dataclass
 from typing import Optional, Generator, Union, Dict
-from django.db.models import Model, Q
+from django.db.models import Q
 from django.core.cache import caches
 import hashlib
 import pickle
@@ -1264,7 +1265,7 @@ def ask_question_with_stream(
     source,
     enhanced_question,
     user=None,
-    github_comments: list | None = None):
+    integration_context: BotContext | None = None):
     from integrations.bots.github.prompts import github_context_template
     from integrations.bots.github.app_handler import GithubAppHandler
 
@@ -1284,8 +1285,8 @@ def ask_question_with_stream(
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
     github_context = ""
-    if github_comments:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+    if integration_context:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(integration_context.data)
         github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
 
     if not reranked_scores:
@@ -1333,7 +1334,8 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None, parent_question: Question | None = None):
+def get_summary(question, guru_type, short_answer=False, integration_context: BotContext | None = None, parent_question: Question | None = None):
+    # TODO:
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1354,8 +1356,8 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
         summary_addition = summary_addition
 
     github_context = ""
-    if github_comments:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
+    if integration_context:
+        comment_contexts = GithubAppHandler().format_comments_for_prompt(integration_context.data)
         github_context = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
 
     if parent_question:
@@ -1397,13 +1399,15 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None, parent_question: Question | None = None):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, integration_context: BotContext | None = None, parent_question: Question | None = None):
+    # TODO:
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments, parent_question)
+    # TODO:
+    response, get_summary_times = get_summary(question, guru_type, short_answer, integration_context, parent_question)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -1427,7 +1431,7 @@ def stream_question_answer(
         enhanced_question,
         parent_question=None,
         user=None,
-        github_comments: list | None = None
+        integration_context: BotContext | None = None
     ):
     collection_name = guru_type_obj.milvus_collection_name
     milvus_client = get_milvus_client()
@@ -1444,7 +1448,7 @@ def stream_question_answer(
         source,
         enhanced_question,
         user,
-        github_comments
+        integration_context
     )
     if not response:
         return None, None, None, None, None, None, None, None, None, times
@@ -3037,7 +3041,7 @@ def api_ask(question: str,
             fetch_existing: bool, 
             api_type: APIType, 
             user: User | None,
-            github_comments: list | None = None) -> APIAskResponse:
+            integration_context: BotContext | None = None) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -3050,7 +3054,7 @@ def api_ask(question: str,
         fetch_existing (bool): Whether to fetch the existing question data.
         api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK, GITHUB).
         user (User): The user making the request.
-        github_comments (list): The comments for the GitHub issue.
+        integration_context (BotContext): The context for the integration (if exists).
 
     Returns:
         APIAskResponse: A dataclass containing all response information
@@ -3084,7 +3088,7 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments, parent_question=parent)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, integration_context=integration_context, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
         if guru_type.language == GuruType.Language.TURKISH:
@@ -3126,7 +3130,7 @@ def api_ask(question: str,
             enhanced_question,
             parent,
             user,
-            github_comments
+            integration_context
         )
 
         if not response:

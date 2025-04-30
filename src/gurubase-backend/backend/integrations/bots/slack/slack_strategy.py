@@ -2,7 +2,8 @@ import logging
 from django.conf import settings
 import requests
 
-from integrations.strategy import IntegrationStrategy
+from integrations.bots.models import BotContext
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +130,22 @@ class SlackStrategy(IntegrationStrategy):
             'workspace_name': data['team']
         }
 
+
+class SlackContextHandler(IntegrationContextHandler):
+    """Handler for Slack integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        # TODO: Implement actual Slack context gathering
+        # This is a mock implementation
+        try:
+            # Mock implementation would:
+            # 1. Get thread messages using Slack API
+            # 2. Format messages with user info and timestamps
+            # 3. Limit context by length
+            return BotContext(
+                type=BotContext.Type.SLACK,
+                data="Mock Slack message 1\nMock Slack message 2"
+            )
+        except Exception as e:
+            logger.error(f"Error getting Slack context: {e}", exc_info=True)
+            return None
