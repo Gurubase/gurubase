@@ -157,8 +157,8 @@ class SlackContextHandler(IntegrationContextHandler):
             
             return BotContext(
                 type=BotContext.Type.SLACK,
-                data={'thread_messages': reversed(thread_messages),
-                      'channel_messages': reversed(channel_messages)}
+                data={'thread_messages': list(reversed(thread_messages)),
+                      'channel_messages': list(reversed(channel_messages))}
             )
             
         except Exception as e:
