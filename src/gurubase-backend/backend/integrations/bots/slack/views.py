@@ -465,7 +465,7 @@ async def handle_slack_message(
         
         try:
             # Get or create thread and binge
-            thread, binge = await sync_to_async(get_or_create_thread_binge)(thread_ts, integration)
+            _, binge = await sync_to_async(get_or_create_thread_binge)(thread_ts, integration)
         except Exception as e:
             logger.error(f"Error creating thread/binge: {str(e)}", exc_info=True)
             client.chat_update(

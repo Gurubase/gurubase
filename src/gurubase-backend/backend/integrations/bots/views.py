@@ -139,16 +139,18 @@ def manage_channels(request, guru_type, integration_type):
 
 def get_or_create_thread_binge(thread_id: str, integration: Integration) -> tuple[Thread, Binge]:
     """Get or create a thread and its associated binge."""
-    try:
-        thread = Thread.objects.get(thread_id=thread_id, integration=integration)
-        return thread, thread.binge
-    except Thread.DoesNotExist:
-        # Create new binge without a root question
-        binge = create_fresh_binge(integration.guru_type, None)
-        thread = Thread.objects.create(
-            thread_id=thread_id,
-            binge=binge,
-            integration=integration
-        )
-        return thread, binge
+    binge = create_fresh_binge(integration.guru_type, None)
+    return None, binge
+    # try:
+    #     thread = Thread.objects.get(thread_id=thread_id, integration=integration)
+    #     return thread, thread.binge
+    # except Thread.DoesNotExist:
+    #     # Create new binge without a root question
+    #     binge = create_fresh_binge(integration.guru_type, None)
+    #     thread = Thread.objects.create(
+    #         thread_id=thread_id,
+    #         binge=binge,
+    #         integration=integration
+    #     )
+    #     return thread, binge
 
