@@ -57,7 +57,8 @@ class DiscordStrategy(IntegrationStrategy):
                     'id': c['id'],
                     'name': c['name'],
                     'allowed': False,
-                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown'
+                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown',
+                    'mode': 'manual'
                 }
                 for c in channels
                 if c['type'] in [0, 15]  # 0 is text channel, 15 is forum

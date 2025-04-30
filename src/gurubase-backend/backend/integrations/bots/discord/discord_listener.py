@@ -280,10 +280,6 @@ class DiscordListener:
             if message.author == client.user:
                 return
 
-            # First check if bot was mentioned
-            if client.user not in message.mentions:
-                return
-
             # Then check if we have a valid guild
             guild_id = str(message.guild.id) if message.guild else None
             if not guild_id:
@@ -303,12 +299,17 @@ class DiscordListener:
                 
                 channels = await sync_to_async(lambda: integration.channels)()
                 channel_allowed = False
+                channel_mode = 'manual'
                 question = message.content.replace(f'<@{client.user.id}>', '').strip()
 
                 for channel in channels:
                     if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                         channel_allowed = True
+                        channel_mode = channel.get('mode', 'manual')
                         break
+
+                if channel_mode == 'manual' and client.user not in message.mentions:
+                    return
                 
                 if not channel_allowed:
                     guru_type_slug = await self.get_guru_type_slug(integration)
@@ -327,6 +328,10 @@ class DiscordListener:
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
+                        if client.user not in message.mentions:
+                            # Regardless of channel mode, if the bot is not mentioned, return
+                            return
+
                         thread = message.channel
                         if not question:
                             await thread.send("Please provide a valid question. 🤔")

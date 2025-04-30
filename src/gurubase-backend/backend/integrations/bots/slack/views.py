@@ -50,9 +50,9 @@ def slack_events(request):
                     bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
                     user_message = event["text"]
                     
-                    # First check if the bot is mentioned
-                    if not (bot_user_id and f"<@{bot_user_id}>" in user_message):
-                        return
+                    # # First check if the bot is mentioned
+                    # if not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                    #     return
                         
                     team_id = data.get('team_id')
                     if not team_id:
@@ -83,13 +83,22 @@ def slack_events(request):
                         # Check if the current channel is allowed
                         channels = integration.channels
                         channel_allowed = False
+                        channel_mode = 'manual'
                         for channel in channels:
                             if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                                 channel_allowed = True
+                                channel_mode = channel.get('mode', 'manual')
                                 break
+
+                        if channel_mode == 'manual' and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                            return
 
                         # Get thread_ts if it exists (means we're in a thread)
                         thread_ts = event.get("thread_ts") or event.get("ts")
+
+                        # thread_ts means we're in a thread
+                        if event.get('thread_ts') and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                            return
                         
                         if not channel_allowed:
                             # Run the unauthorized message handler in the event loop

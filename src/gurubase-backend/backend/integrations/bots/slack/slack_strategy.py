@@ -57,7 +57,8 @@ class SlackStrategy(IntegrationStrategy):
                     {
                         'id': c['id'],
                         'name': c['name'],
-                        'allowed': False
+                        'allowed': False,
+                        'mode': 'manual'
                     }
                     for c in data.get('channels', [])
                 ])

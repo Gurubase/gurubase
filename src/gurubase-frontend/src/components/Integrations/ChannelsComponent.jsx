@@ -28,6 +28,14 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover";
 import { CustomToast } from "@/components/CustomToast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
 
 const ChannelsComponent = ({
   guruData,
@@ -44,6 +52,14 @@ const ChannelsComponent = ({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // Compare current repositories with initial repositories to determine if there are changes
+    const hasModeChanges = channels.some(
+      (channel, index) => channel.mode !== originalChannels[index]?.mode
+    );
+    setHasChanges(hasModeChanges);
+  }, [channels, originalChannels]);
+
+  useEffect(() => {
     const fetchChannels = async () => {
       try {
         const channelsData = await getIntegrationChannels(
@@ -58,8 +74,13 @@ const ChannelsComponent = ({
                 : "Failed to fetch channels.")
           );
         } else {
-          setChannels(channelsData?.channels || []);
-          setOriginalChannels(channelsData?.channels || []);
+          const channelsWithMode =
+            channelsData?.channels?.map((channel) => ({
+              ...channel,
+              mode: channel.mode || "auto"
+            })) || [];
+          setChannels(channelsWithMode);
+          setOriginalChannels(channelsWithMode);
           setInternalError(null);
         }
       } catch (err) {
@@ -96,6 +117,13 @@ const ChannelsComponent = ({
           <strong>Send test message</strong>, and call the bot with{" "}
           <strong>@Gurubase.io</strong>.
         </p>
+        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+          In <strong>Auto</strong> mode, the bot replies to new messages
+          automatically, but follow-up messages require a mention.
+          <br />
+          In <strong>Manual</strong> mode, all replies require mentioning the
+          bot.
+        </p>
         {type === "slack" && (
           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
             To subscribe to a <strong>private channel</strong> and send test
@@ -131,6 +159,26 @@ const ChannelsComponent = ({
                   className="bg-gray-50 pt-8 pb-2"
                   value={channel.name}
                 />
+              </div>
+              <div className="flex items-center gap-3">
+                <Select
+                  value={channel.mode || "manual"}
+                  onValueChange={(value) => {
+                    setChannels(
+                      channels.map((c) =>
+                        c.id === channel.id ? { ...c, mode: value } : c
+                      )
+                    );
+                  }}>
+                  <SelectTrigger className="w-[100px] flex items-center justify-center">
+                    <SelectValue placeholder="Mode" className="text-center" />
+                    <ChevronDownIcon className="h-4 w-4 opacity-50 ml-2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-row gap-3 w-full md:w-auto">
                 <Button
