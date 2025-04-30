@@ -1486,6 +1486,18 @@ def api_answer(request, guru_type):
                     api_url = f"{channel_id}:{thread_ts}"
                 else:
                     api_url = channel_id
+            elif api_type == APIType.DISCORD:
+                # For Discord, combine channel_id and thread_id into api_url
+                channel_id = request.data.get('channel_id')
+                thread_id = request.data.get('thread_id')
+                if channel_id and thread_id:
+                    api_url = f"{channel_id}:{thread_id}"
+                elif channel_id:
+                    api_url = f"{channel_id}:None"
+                elif thread_id:
+                    api_url = f"None:{thread_id}"
+                else:
+                    api_url = None
             else:
                 api_url = request.data.get('github_api_url')
                 

@@ -110,23 +110,26 @@ class DiscordListener:
         return integration
 
     async def get_or_create_thread_binge(self, thread_id, integration, guru_type_object):
-        try:
-            # Try to get existing thread
-            thread = await sync_to_async(Thread.objects.get)(thread_id=thread_id, integration=integration)
-            # Get binge asynchronously
-            binge = await sync_to_async(lambda: thread.binge)()
-            return binge
-        except Thread.DoesNotExist:
-            # Create new binge and thread without needing a question
-            binge = await sync_to_async(create_fresh_binge)(guru_type_object, None)
-            await sync_to_async(Thread.objects.create)(
-                thread_id=thread_id,
-                binge=binge,
-                integration=integration
-            )
-            return binge
+        binge = await sync_to_async(create_fresh_binge)(guru_type_object, None)
+        return binge
 
-    async def stream_answer(self, guru_type, question, api_key, binge_id=None):
+        # try:
+        #     # Try to get existing thread
+        #     thread = await sync_to_async(Thread.objects.get)(thread_id=thread_id, integration=integration)
+        #     # Get binge asynchronously
+        #     binge = await sync_to_async(lambda: thread.binge)()
+        #     return binge
+        # except Thread.DoesNotExist:
+        #     # Create new binge and thread without needing a question
+        #     binge = await sync_to_async(create_fresh_binge)(guru_type_object, None)
+        #     await sync_to_async(Thread.objects.create)(
+        #         thread_id=thread_id,
+        #         binge=binge,
+        #         integration=integration
+        #     )
+        #     return binge
+
+    async def stream_answer(self, guru_type, question, api_key, channel_id, thread_id, binge_id=None):
         # Create request using APIRequestFactory
         factory = APIRequestFactory()
         
@@ -135,6 +138,12 @@ class DiscordListener:
             'stream': True,
             'short_answer': True
         }
+
+        if channel_id:
+            request_data['channel_id'] = channel_id
+        if thread_id:
+            request_data['thread_id'] = thread_id
+
         if binge_id:
             request_data['session_id'] = str(binge_id)
             
@@ -319,6 +328,10 @@ class DiscordListener:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
                         thread = message.channel
+                        if not question:
+                            await thread.send("Please provide a valid question. 🤔")
+                            return
+
                         thinking_msg = await thread.send("Thinking... 🤔")
                         
                         # Get or create thread and binge
@@ -330,6 +343,14 @@ class DiscordListener:
                         binge_id = binge.id
                     else:
                         # If not in thread, create a thread and send thinking message there
+                        if not question:
+                            thread = await message.create_thread(
+                                name="Please provide a valid question. 🤔",
+                                auto_archive_duration=60
+                            )
+                            await thread.send("Please provide a valid question. 🤔")
+                            return
+
                         thread = await message.create_thread(
                             name=f"Q: {question[:50]}...",  # Use first 50 chars of question as thread name
                             auto_archive_duration=60  # Archive after 1 hour of inactivity
@@ -355,6 +376,8 @@ class DiscordListener:
                         guru_type_slug,
                         question,
                         api_key,
+                        channel_id,
+                        thread.id,
                         binge_id
                     ):
                         current_time = time.time()

@@ -1269,7 +1269,7 @@ def ask_question_with_stream(
     from integrations.bots.github.prompts import github_context_template
     from integrations.bots.github.app_handler import GithubAppHandler
     from integrations.bots.slack.prompts import slack_context_template
-    from integrations.bots.slack.app_handler import SlackAppHandler
+    from integrations.bots.discord.prompts import discord_context_template
 
     start_total = time.perf_counter()
     times = {
@@ -1292,9 +1292,13 @@ def ask_question_with_stream(
             comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
             bot_context_prompt = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
         elif bot_context.type == BotContext.Type.SLACK:
-            thread_messages = bot_context.data['thread_messages']
-            channel_messages = bot_context.data['channel_messages']
+            thread_messages = ''.join(bot_context.data['thread_messages'])
+            channel_messages = ''.join(bot_context.data['channel_messages'])
             bot_context_prompt = slack_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
+        elif bot_context.type == BotContext.Type.DISCORD:
+            thread_messages = ''.join(bot_context.data['thread_messages'])
+            channel_messages = ''.join(bot_context.data['channel_messages'])
+            bot_context_prompt = discord_context_template.format(thread_messages=thread_messages, channel_messages=channel_messages)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1354,7 +1358,7 @@ def get_summary(question, guru_type, short_answer=False, bot_context: BotContext
     from integrations.bots.github.prompts import github_summary_template
     from integrations.bots.github.app_handler import GithubAppHandler
     from integrations.bots.slack.prompts import slack_summary_template
-    from integrations.bots.slack.app_handler import SlackAppHandler
+    from integrations.bots.discord.prompts import discord_summary_template
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
@@ -1373,6 +1377,10 @@ def get_summary(question, guru_type, short_answer=False, bot_context: BotContext
             thread_messages = bot_context.data['thread_messages']
             channel_messages = bot_context.data['channel_messages']
             bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
+        elif bot_context.type == BotContext.Type.DISCORD:
+            thread_messages = bot_context.data['thread_messages']
+            channel_messages = bot_context.data['channel_messages']
+            bot_context_prompt = discord_summary_template.format(thread_messages=thread_messages, channel_messages=channel_messages, guru_type=guru_type)
 
     if parent_question:
         history = get_question_history(parent_question)
@@ -1414,13 +1422,11 @@ def get_summary(question, guru_type, short_answer=False, bot_context: BotContext
 
 
 def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, integration_context: BotContext | None = None, parent_question: Question | None = None):
-    # TODO:
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    # TODO:
     response, get_summary_times = get_summary(question, guru_type, short_answer, integration_context, parent_question)
     times['get_summary'] = get_summary_times
 

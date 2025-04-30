@@ -4,6 +4,7 @@ import requests
 
 from integrations.bots.models import BotContext
 from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from integrations.bots.discord.app_handler import DiscordAppHandler
 
 logger = logging.getLogger(__name__)
 
@@ -169,17 +170,37 @@ class DiscordContextHandler(IntegrationContextHandler):
     """Handler for Discord integration context."""
     
     def get_context(self, api_url: str, external_id: str) -> BotContext:
-        # TODO: Implement actual Discord context gathering
-        # This is a mock implementation
         try:
-            # Mock implementation would:
-            # 1. Get thread messages using Discord API
-            # 2. Format messages with user info and timestamps
-            # 3. Limit context by length
+            # Get channel_id and thread_id from api_url
+            # api_url format: channel_id:thread_id
+            channel_id, thread_id = api_url.split(':')
+            if channel_id == 'None':
+                channel_id = None
+            if thread_id == 'None':
+                thread_id = None
+            
+            # Initialize Discord app handler
+            discord_handler = DiscordAppHandler(self.integration)
+            
+            # First get thread messages if in a thread
+            if thread_id:
+                thread_messages = discord_handler.get_thread_messages(thread_id)
+            else:
+                thread_messages = []
+            
+            # If we haven't exceeded the limit, get channel messages
+            length = sum(len(msg) for msg in thread_messages)
+            if channel_id and length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+                channel_messages = discord_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            else:
+                channel_messages = []
+            
             return BotContext(
                 type=BotContext.Type.DISCORD,
-                data="Mock Discord message 1\nMock Discord message 2"
+                data={'thread_messages': list(reversed(thread_messages)),
+                      'channel_messages': list(reversed(channel_messages))}
             )
+            
         except Exception as e:
             logger.error(f"Error getting Discord context: {e}", exc_info=True)
             return None
