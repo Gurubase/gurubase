@@ -943,7 +943,7 @@ class JiraRequester():
         List Jira issues using JQL query with pagination
         Args:
             jql_query (str): JQL query string to filter issues
-            start (int): Starting index for pagination
+            start (int): Starting index for pagination (unused, kept for compatibility)
             max_results (int): Maximum number of results to fetch per request
         Returns:
             list: List of Jira issues matching the query
@@ -951,24 +951,39 @@ class JiraRequester():
             ValueError: If API request fails
         """
         try:
-            # Get issues using JQL
-            issues_data = self.jira.jql(jql_query, start=start, limit=max_results)
-            issues = []
+            all_issues = []
+            current_start = 0
+            page_size = max_results
             
-            for issue in issues_data.get('issues', []):
-                formatted_issue = {
-                    'id': issue.get('id'),
-                    # 'key': issue.get('key'),
-                    # 'summary': issue.get('fields', {}).get('summary'),
-                    # 'issue_type': issue.get('fields', {}).get('issuetype', {}).get('name'),
-                    # 'status': issue.get('fields', {}).get('status', {}).get('name'),
-                    # 'priority': issue.get('fields', {}).get('priority', {}).get('name'),
-                    # 'assignee': issue.get('fields', {}).get('assignee', {}).get('displayName'),
-                    'link': f"{self.url}/browse/{issue.get('key')}"
-                }
-                issues.append(formatted_issue)
+            while True:
+                # Get issues using JQL
+                issues_data = self.jira.jql(jql_query, start=current_start, limit=page_size)
+                issues = issues_data.get('issues', [])
                 
-            return issues
+                if not issues:
+                    break
+                    
+                for issue in issues:
+                    formatted_issue = {
+                        'id': issue.get('id'),
+                        # 'key': issue.get('key'),
+                        # 'summary': issue.get('fields', {}).get('summary'),
+                        # 'issue_type': issue.get('fields', {}).get('issuetype', {}).get('name'),
+                        # 'status': issue.get('fields', {}).get('status', {}).get('name'),
+                        # 'priority': issue.get('fields', {}).get('priority', {}).get('name'),
+                        # 'assignee': issue.get('fields', {}).get('assignee', {}).get('displayName'),
+                        'link': f"{self.url}/browse/{issue.get('key')}"
+                    }
+                    all_issues.append(formatted_issue)
+                
+                # If we got fewer issues than requested, we've reached the end
+                if len(issues) < page_size:
+                    break
+                    
+                # Move to the next page
+                current_start += page_size
+                
+            return all_issues
         except Exception as e:
             logger.error(f"Error listing Jira issues: {str(e)}", exc_info=True)
             if "401" in str(e):
@@ -1292,7 +1307,7 @@ class ZendeskRequester():
                     if article.get('draft') is False:
                         all_articles.append(self._format_article(article))
 
-                url = data.get('next_page')
+                url = data.get('links', {}).get('next')
             return all_articles
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if e.response is not None else None
@@ -1380,7 +1395,7 @@ class ZendeskRequester():
                 comments = data.get('comments', [])
                 all_comments.extend([self._format_article_comment(comment) for comment in comments])
 
-                url = data.get('next_page')
+                url = data.get('links', {}).get('next')
             all_comments.sort(key=lambda x: x['created_at'])
             return all_comments
         except requests.exceptions.RequestException as e:
@@ -1943,8 +1958,85 @@ class ConfluenceRequester():
             ValueError: If API request fails
         """
         try:
-            # Get all pages from all spaces
+            # If CQL is provided, use it directly to get pages
+            if cql:
+                cql += " AND type=page"
+                all_pages = []
+                seen_page_ids = set()  # Track unique page IDs
+                cql_limit = 100  # Fetch 100 results at a time
+                
+                # Initial request
+                url = f"{self.url}/wiki/rest/api/search"
+                params = {
+                    'cql': cql,
+                    'limit': cql_limit,
+                    'expand': 'space'
+                }
+                
+                while True:
+                    response = requests.get(
+                        url,
+                        auth=(self.confluence.username, self.confluence.password),
+                        params=params,
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 401:
+                        raise ValueError("Invalid Confluence credentials")
+                    elif response.status_code == 403:
+                        raise ValueError("Confluence API access forbidden")
+                    elif response.status_code != 200:
+                        if 'could not parse' in response.text.lower():
+                            raise ValueError(f"Invalid CQL query.")
+                        else:
+                            split = response.json().get('message', '').split(':', 1)
+                            if len(split) > 1:
+                                raise ValueError(split[1].strip())
+                            else:
+                                raise ValueError(f"Confluence API request failed with status {response.status_code}")
+                    
+                    cql_results = response.json()
+                    results = cql_results.get('results', [])
+                    
+                    if not results:
+                        break
+                        
+                    for result in results:
+                        content = result.get('content', {})
+                        page_id = content.get('id')
+                        
+                        # Skip if we've seen this page ID before
+                        if not page_id or page_id in seen_page_ids:
+                            continue
+                            
+                        seen_page_ids.add(page_id)
+                        
+                        # Get space info from the expanded result
+                        space = content.get('space', {})
+                        space_key = space.get('key')
+                        space_name = space.get('name', '')
+                        
+                        # Format and add the page
+                        formatted_page = self._format_page(content, space_key, space_name)
+                        all_pages.append(formatted_page)
+                    
+                    # Check if there's a next page
+                    next_link = cql_results.get('_links', {}).get('next')
+                    if not next_link:
+                        break
+                        
+                    # Update URL and params for next request
+                    url = f"{self.url}/wiki{next_link}"
+                    params = {}  # Clear params as they're included in the next_link
+                
+                return {
+                    'pages': all_pages,
+                    'page_count': len(all_pages)
+                }
+            
+            # If no CQL, get all pages from all spaces
             all_pages = []
+            seen_page_ids = set()  # Track unique page IDs
             
             spaces_data = self.confluence.get_all_spaces()
             spaces = spaces_data.get('results', [])
@@ -1968,8 +2060,12 @@ class ConfluenceRequester():
                             break
                             
                         for page in pages_batch:
-                            formatted_page = self._format_page(page, space_key, space_name)
-                            all_pages.append(formatted_page)
+                            page_id = page.get('id')
+                            # Only add page if we haven't seen its ID before
+                            if page_id and page_id not in seen_page_ids:
+                                seen_page_ids.add(page_id)
+                                formatted_page = self._format_page(page, space_key, space_name)
+                                all_pages.append(formatted_page)
                             
                         # If we got fewer pages than requested, we've reached the end
                         if len(pages_batch) < page_limit:
@@ -1983,40 +2079,6 @@ class ConfluenceRequester():
                     logger.warning(f"Error fetching pages from space {space_key}: {str(e)}")
                     continue
             
-            # Filter pages by CQL if provided
-            if cql:
-                # Implement pagination for the CQL query as well
-                cql_page_ids = set()
-                cql_start = 0
-                cql_limit = 100  # Fetch 100 results at a time
-                
-                while True:
-                    cql_results = self.confluence.cql(cql, start=cql_start, limit=cql_limit)
-                    results = cql_results.get('results', [])
-                    
-                    if not results:
-                        break
-                        
-                    for result in results:
-                        content = result.get('content', {})
-                        cql_page_ids.add(content.get('id'))
-                    
-                    # If we got fewer results than requested, we've reached the end
-                    if len(results) < cql_limit:
-                        break
-                        
-                    # Move to the next page
-                    cql_start += cql_limit
-                
-                # Filter the all_pages list to only include pages that match the CQL
-                filtered_pages = [page for page in all_pages if page.get('id') in cql_page_ids]
-                
-                return {
-                    'pages': filtered_pages,
-                    'page_count': len(filtered_pages)
-                }
-            
-            # No CQL filtering, just return all pages
             return {
                 'pages': all_pages,
                 'page_count': len(all_pages)
@@ -2159,7 +2221,7 @@ class ConfluenceRequester():
             
             # Use pagination to get all spaces
             space_start = 0
-            space_limit = 100  # Fetch 100 spaces at a time
+            space_limit = 25  # Fetch 25 spaces at a time
             while True:
                 spaces_data = self.confluence.get_all_spaces(start=space_start, limit=space_limit)
                 results = spaces_data.get('results', [])

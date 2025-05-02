@@ -918,12 +918,19 @@ export async function saveIntegrationChannels(
   channels
 ) {
   try {
+    const payload =
+      integrationType === "SLACK" &&
+      typeof channels === "object" &&
+      "direct_messages" in channels
+        ? { channels: channels.channels, allow_dm: channels.direct_messages }
+        : { channels };
+
     const response = await makeAuthenticatedRequest(
       `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/channels/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channels })
+        body: JSON.stringify(payload)
       }
     );
 
