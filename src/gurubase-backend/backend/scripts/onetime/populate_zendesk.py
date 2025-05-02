@@ -52,10 +52,9 @@ def create_zendesk_content():
     ]
 
     ticket_priorities = ['urgent', 'high', 'normal', 'low']
-    ticket_statuses = ['new', 'open', 'pending', 'solved']
 
     print("Creating tickets...")
-    for i in range(10):
+    for i in range(200):
         try:
             # Create ticket with random subject and priority
             subject = f"{random.choice(ticket_subjects)} #{i+1}"
@@ -72,7 +71,7 @@ def create_zendesk_content():
                         'body': description
                     },
                     'priority': random.choice(ticket_priorities),
-                    'status': random.choice(ticket_statuses)
+                    'status': 'solved'
                 }
             }
             
@@ -84,24 +83,24 @@ def create_zendesk_content():
             )
             response.raise_for_status()
             
-            # Add 3 comments to the ticket
-            ticket_id = response.json()['ticket']['id']
-            for j in range(3):
-                comment_data = {
-                    'ticket': {
-                        'comment': {
-                            'body': f"Comment {j+1} on ticket {subject}\n\n{generate_random_text(200)}",
-                            'public': True
-                        }
-                    }
-                }
+            # # Add 3 comments to the ticket
+            # ticket_id = response.json()['ticket']['id']
+            # for j in range(3):
+            #     comment_data = {
+            #         'ticket': {
+            #             'comment': {
+            #                 'body': f"Comment {j+1} on ticket {subject}\n\n{generate_random_text(200)}",
+            #                 'public': True
+            #             }
+            #         }
+            #     }
                 
-                requests.put(
-                    f"https://{integration.zendesk_domain}/api/v2/tickets/{ticket_id}.json",
-                    json=comment_data,
-                    auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
-                )
-                time.sleep(TICKET_THROTTLE_SECONDS)  # Throttle comment creation
+            #     requests.put(
+            #         f"https://{integration.zendesk_domain}/api/v2/tickets/{ticket_id}.json",
+            #         json=comment_data,
+            #         auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
+            #     )
+            #     time.sleep(TICKET_THROTTLE_SECONDS)  # Throttle comment creation
             
             print(f"Created ticket {i+1}/100: {subject}")
             time.sleep(TICKET_THROTTLE_SECONDS)  # Throttle ticket creation
@@ -138,7 +137,7 @@ def create_zendesk_content():
         return
 
     print("\nCreating help center articles...")
-    for i in range(10):
+    for i in range(200):
         try:
             # Select a random section
             section = random.choice(sections)
@@ -177,23 +176,23 @@ def create_zendesk_content():
             )
             response.raise_for_status()
             
-            # Add 2 comments to the article
-            article_id = response.json()['article']['id']
-            for j in range(2):
-                comment_data = {
-                    'comment': {
-                        'body': f"Comment {j+1} on article {title}\n\n{generate_random_text(100)}",
-                        'public': True
-                    }
-                }
+            # # Add 2 comments to the article
+            # article_id = response.json()['article']['id']
+            # for j in range(2):
+            #     comment_data = {
+            #         'comment': {
+            #             'body': f"Comment {j+1} on article {title}\n\n{generate_random_text(100)}",
+            #             'public': True
+            #         }
+            #     }
                 
-                requests.post(
-                    f"https://{integration.zendesk_domain}/api/v2/help_center/articles/{article_id}/comments.json",
-                    json=comment_data,
-                    headers=headers,
-                    auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
-                )
-                time.sleep(ARTICLE_THROTTLE_SECONDS)  # Throttle comment creation
+            #     requests.post(
+            #         f"https://{integration.zendesk_domain}/api/v2/help_center/articles/{article_id}/comments.json",
+            #         json=comment_data,
+            #         headers=headers,
+            #         auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
+            #     )
+            #     time.sleep(ARTICLE_THROTTLE_SECONDS)  # Throttle comment creation
             
             print(f"Created article {i+1}/50: {title} in section {section['name']}")
             time.sleep(ARTICLE_THROTTLE_SECONDS)  # Throttle article creation
