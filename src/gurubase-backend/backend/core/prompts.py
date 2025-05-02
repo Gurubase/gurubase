@@ -36,7 +36,7 @@ Return a structured summary of the user's question with the following fields:
 ### Context Handling Rules
 - **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
-- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to the last answer if exists, else {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 
 Answer in {language}.
 
