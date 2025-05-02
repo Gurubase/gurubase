@@ -107,7 +107,7 @@ def slack_events(request):
                         thread_ts = event.get("thread_ts") or event.get("ts")
 
                         # thread_ts means we're in a thread
-                        if event.get('thread_ts') and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                        if not dm and event.get('thread_ts') and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
                             return
                         
                         if not channel_allowed:
