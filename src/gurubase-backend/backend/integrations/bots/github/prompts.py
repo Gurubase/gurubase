@@ -26,6 +26,4 @@ Make sure you consider the github context while generating your answer. Treat th
 
 github_summary_template = github_base_template + """
 Users asks questions to you on GitHub, the history of the conversation provided in <Github contexts> tag. When generating <question> and <enhanced_question>, take the conversation history into account as users may ask a follow-up question for the previous answer or ask about a new topic.
-
-**Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 """
