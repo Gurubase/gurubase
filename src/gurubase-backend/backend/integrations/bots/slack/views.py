@@ -87,12 +87,14 @@ def slack_events(request):
                         
                         # Check if the current channel is allowed
                         channel_allowed = False
+                        channel_mode = 'manual'
                         if not dm:
                             channels = integration.channels
                             channel_allowed = False
                             for channel in channels:
                                 if str(channel.get('id')) == channel_id and channel.get('allowed', False):
                                     channel_allowed = True
+                                    channel_mode = channel.get('mode', 'manual')
                                     break
                         else:
                             channel_allowed = integration.allow_dm
