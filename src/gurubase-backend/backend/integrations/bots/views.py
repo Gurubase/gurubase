@@ -83,13 +83,18 @@ def manage_channels(request, guru_type, integration_type):
         try:
             channels = request.data.get('channels', [])
             integration.channels = channels
+
+            if 'allow_dm' in request.data:
+                integration.allow_dm = request.data['allow_dm']
+
             integration.save()
             
             return Response({
                 'id': integration.id,
                 'type': integration.type,
                 'guru_type': integration.guru_type.slug,
-                'channels': integration.channels
+                'channels': integration.channels,
+                'allow_dm': integration.allow_dm
             })
         except Exception as e:
             logger.error(f"Error updating channels: {e}", exc_info=True)
