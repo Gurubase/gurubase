@@ -4,6 +4,7 @@ import django
 import random
 import string
 import sys
+import time
 from datetime import datetime, timedelta
 
 import requests
@@ -16,6 +17,10 @@ django.setup()
 
 from core.models import Integration, GuruType
 from core.requester import ZendeskRequester
+
+# Throttling settings
+TICKET_THROTTLE_SECONDS = 1  # 1 second between ticket requests
+ARTICLE_THROTTLE_SECONDS = 2  # 2 seconds between article requests
 
 def generate_random_text(length=1000):
     """Generate random text for content"""
@@ -49,71 +54,61 @@ def create_zendesk_content():
     ticket_priorities = ['urgent', 'high', 'normal', 'low']
     ticket_statuses = ['new', 'open', 'pending', 'solved']
 
-    # print("Creating tickets...")
-    # for i in range(100):
-    #     try:
-    #         # Create ticket with random subject and priority
-    #         subject = f"{random.choice(ticket_subjects)} #{i+1}"
-    #         description = f"""
-    #         Issue Description:
-    #         {generate_random_text()}
+    print("Creating tickets...")
+    for i in range(10):
+        try:
+            # Create ticket with random subject and priority
+            subject = f"{random.choice(ticket_subjects)} #{i+1}"
+            description = f"""
+            Issue Description:
+            {generate_random_text(5)}
+            """
             
-    #         Steps to Reproduce:
-    #         1. {generate_random_text(50)}
-    #         2. {generate_random_text(50)}
-    #         3. {generate_random_text(50)}
+            # Create ticket using Zendesk API
+            ticket_data = {
+                'ticket': {
+                    'subject': subject,
+                    'comment': {
+                        'body': description
+                    },
+                    'priority': random.choice(ticket_priorities),
+                    'status': random.choice(ticket_statuses)
+                }
+            }
             
-    #         Expected Behavior:
-    #         {generate_random_text()}
+            # Add ticket using requests since ZendeskRequester doesn't have create method
+            response = requests.post(
+                f"https://{integration.zendesk_domain}/api/v2/tickets.json",
+                json=ticket_data,
+                auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
+            )
+            response.raise_for_status()
             
-    #         Actual Behavior:
-    #         {generate_random_text()}
-    #         """
-            
-    #         # Create ticket using Zendesk API
-    #         ticket_data = {
-    #             'ticket': {
-    #                 'subject': subject,
-    #                 'comment': {
-    #                     'body': description
-    #                 },
-    #                 'priority': random.choice(ticket_priorities),
-    #                 'status': random.choice(ticket_statuses)
-    #             }
-    #         }
-            
-    #         # Add ticket using requests since ZendeskRequester doesn't have create method
-    #         import requests
-    #         response = requests.post(
-    #             f"https://{integration.zendesk_domain}/api/v2/tickets.json",
-    #             json=ticket_data,
-    #             auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
-    #         )
-    #         response.raise_for_status()
-            
-    #         # Add 3 comments to the ticket
-    #         ticket_id = response.json()['ticket']['id']
-    #         for j in range(3):
-    #             comment_data = {
-    #                 'ticket': {
-    #                     'comment': {
-    #                         'body': f"Comment {j+1} on ticket {subject}\n\n{generate_random_text(200)}",
-    #                         'public': True
-    #                     }
-    #                 }
-    #             }
+            # Add 3 comments to the ticket
+            ticket_id = response.json()['ticket']['id']
+            for j in range(3):
+                comment_data = {
+                    'ticket': {
+                        'comment': {
+                            'body': f"Comment {j+1} on ticket {subject}\n\n{generate_random_text(200)}",
+                            'public': True
+                        }
+                    }
+                }
                 
-    #             requests.put(
-    #                 f"https://{integration.zendesk_domain}/api/v2/tickets/{ticket_id}.json",
-    #                 json=comment_data,
-    #                 auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
-    #             )
+                requests.put(
+                    f"https://{integration.zendesk_domain}/api/v2/tickets/{ticket_id}.json",
+                    json=comment_data,
+                    auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
+                )
+                time.sleep(TICKET_THROTTLE_SECONDS)  # Throttle comment creation
             
-    #         print(f"Created ticket {i+1}/100: {subject}")
+            print(f"Created ticket {i+1}/100: {subject}")
+            time.sleep(TICKET_THROTTLE_SECONDS)  # Throttle ticket creation
             
-    #     except Exception as e:
-    #         print(f"Error creating ticket {i+1}: {str(e)}")
-    #         continue
+        except Exception as e:
+            print(f"Error creating ticket {i+1}: {str(e)}")
+            continue
 
     # Create 50 help center articles
     article_categories = [
@@ -124,30 +119,31 @@ def create_zendesk_content():
         "Best Practices"
     ]
 
-    print("\nCreating help center section...")
+    print("\nFetching available sections...")
     try:
-        # First create a section
-        section_data = {
-            'section': {
-                'name': 'General Documentation',
-                'locale': 'en-us'
-            }
-        }
-        
+        # Get available sections
         response = requests.get(
-            f"https://{integration.zendesk_domain}/api/v2/help_center/en-us/sections.json",
+            f"https://{integration.zendesk_domain}/api/v2/help_center/sections.json",
             auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
         )
         response.raise_for_status()
-        section_id = response.json()['sections'][0]['id']
-        print(f"Created section with ID: {section_id}")
+        sections = response.json()['sections']
+        if not sections:
+            print("No sections found!")
+            return
+            
+        print(f"Found {len(sections)} sections")
     except Exception as e:
-        print(f"Error creating section: {str(e)}")
+        print(f"Error fetching sections: {str(e)}")
         return
 
     print("\nCreating help center articles...")
-    for i in range(50):
+    for i in range(10):
         try:
+            # Select a random section
+            section = random.choice(sections)
+            section_id = section['id']
+            
             # Create article with random category
             title = f"Article {i+1}: {random.choice(article_categories)} Guide"
             body = f"""
@@ -163,9 +159,8 @@ def create_zendesk_content():
                     'title': title,
                     'body': body,
                     'locale': 'en-us',
-                    'section_id': 78910,  # Replace with your actual section ID
-                    'label_names': ['documentation', 'guide'],
-                    'comments_disabled': False
+                    'user_segment_id': None,
+                    'permission_group_id': 19808837798684
                 }
             }
             
@@ -175,7 +170,7 @@ def create_zendesk_content():
             }
             
             response = requests.post(
-                f"https://{integration.zendesk_domain}/api/v2/help_center/articles.json",
+                f"https://{integration.zendesk_domain}/api/v2/help_center/sections/{section_id}/articles.json",
                 json=article_data,
                 headers=headers,
                 auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
@@ -198,13 +193,14 @@ def create_zendesk_content():
                     headers=headers,
                     auth=(f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
                 )
+                time.sleep(ARTICLE_THROTTLE_SECONDS)  # Throttle comment creation
             
-            print(f"Created article {i+1}/50: {title}")
+            print(f"Created article {i+1}/50: {title} in section {section['name']}")
+            time.sleep(ARTICLE_THROTTLE_SECONDS)  # Throttle article creation
             
         except Exception as e:
             print(f"Error creating article {i+1}: {str(e)}")
             continue
 
 if __name__ == '__main__':
-    create_zendesk_content()
     create_zendesk_content()
