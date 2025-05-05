@@ -2730,37 +2730,49 @@ def search_question(
     allow_maintainer_access=False # Allows maintainer access to all questions
     ): 
     def get_source_conditions(user):
-        """Helper function to get source conditions based on user"""
-        if settings.ENV == 'selfhosted':
-            return Q()
+        """Helper function to get source conditions based on user and arguments."""
+        PUBLIC_SOURCES = [
+            Question.Source.USER.value,
+            Question.Source.SLACK.value,
+            Question.Source.DISCORD.value,
+            Question.Source.GITHUB.value
+        ]
+        API_SOURCE = Question.Source.API.value
+        WIDGET_SOURCE = Question.Source.WIDGET_QUESTION.value
 
-        if user is None or user.is_anonymous:
-            # For anonymous users
-            # API requests are not allowed
-            # Widget requests are allowed
-            # SLACK, DISCORD, and GITHUB questions are allowed
-            if only_widget:
-                return Q(source__in=[Question.Source.WIDGET_QUESTION.value])
-            else:
-                return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])
-        else:
-            # For authenticated users:
-            # API requests are allowed
-            # Widget requests are not possible
-            # Include non-API/WIDGET questions OR user's own API/WIDGET questions
+        is_privileged_user = False
+        is_authenticated = user and not user.is_anonymous
+
+        if settings.ENV == 'selfhosted':
+            is_privileged_user = True
+        elif is_authenticated:
             if user.is_admin:
-                return Q()
+                is_privileged_user = True
             elif allow_maintainer_access and user in guru_type_object.maintainers.all():
-                return Q()
-            else:
-                if include_api:
-                    return (
-                        ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value]) |
-                        Q(source__in=[Question.Source.API.value], user=user) |
-                        Q(source__in=[Question.Source.SLACK.value, Question.Source.DISCORD.value, Question.Source.GITHUB.value])
-                    )
-                else:
-                    return ~Q(source__in=[Question.Source.API.value, Question.Source.WIDGET_QUESTION.value])
+                is_privileged_user = True
+
+        # Handle only_widget exclusively first
+        if only_widget:
+            # Any user type might query widget questions if only_widget=True
+            return Q(source=WIDGET_SOURCE)
+
+        # Start with base public sources, accessible by default to all user types
+        allowed_sources_q = Q(source__in=PUBLIC_SOURCES)
+
+        # Handle include_api for non-widget searches
+        if include_api:
+            if is_privileged_user:
+                # Privileged users can see all API questions
+                allowed_sources_q |= Q(source=API_SOURCE)
+            elif is_authenticated:
+                # Regular authenticated users can see their own API questions
+                allowed_sources_q |= Q(source=API_SOURCE, user=user)
+            # Anonymous users do not get access to API questions
+
+        # If not include_api (and not only_widget), 
+        # allowed_sources_q remains just PUBLIC_SOURCES, correctly excluding API and WIDGET.
+
+        return allowed_sources_q
 
     def search_question_by_slug(slug, guru_type_object, binge, source_conditions):
         if not slug:
