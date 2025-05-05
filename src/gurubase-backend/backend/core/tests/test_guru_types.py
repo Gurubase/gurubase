@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from core.utils import get_default_settings
 from core.models import GuruType
 from core.guru_types import get_guru_types, get_guru_type_object, get_guru_type_object_without_filters
 from core.exceptions import GuruNotFoundError
@@ -12,6 +13,7 @@ User = get_user_model()
 class GuruTypesTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
+        get_default_settings()
         super().setUpClass()
         # Disconnect the signal for all tests in this class
         post_save.disconnect(create_milvus_collection, sender=GuruType)

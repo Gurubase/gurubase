@@ -1,18 +1,23 @@
+from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 from core.models import Question, GuruType
 from django.contrib.auth import get_user_model
+from core.utils import get_default_settings
 
 class FollowUpExamplesTests(TestCase):
     def setUp(self):
+        get_default_settings()
         self.client = APIClient()
+        get_user_model().objects.create_superuser(email=settings.ROOT_EMAIL, password=settings.ROOT_PASSWORD, name='Admin')
         self.user = get_user_model().objects.create_user(
             email='testuser@test.com',
             name='Test User',
             password='testpass123'
         )
-        self.client.force_authenticate(user=self.user)
+        if settings.ENV != 'selfhosted':
+            self.client.force_authenticate(user=self.user)
         
         # Create test data
         self.guru_type = GuruType.objects.create(

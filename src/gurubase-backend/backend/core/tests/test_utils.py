@@ -1,17 +1,21 @@
+from django.conf import settings
 from django.test import TestCase
 from core.models import Question, GuruType
 from accounts.models import User
 from django.db.models import Q
 from core.utils import search_question
+from core.utils import get_default_settings
 from datetime import datetime, timezone
 
 class SearchQuestionTests(TestCase):
     def setUp(self):
         # Create test guru type
+        get_default_settings()
         self.guru_type = GuruType.objects.create(
             name="Test Guru",
             slug="test-guru"
         )
+
         
         # Create test users
         self.user1 = User.objects.create(email="user1@test.com")
@@ -189,7 +193,7 @@ class SearchQuestionTests(TestCase):
         )
         self.assertEqual(result, self.api_question_user1)
         
-        # User1 should not find user2's API question
+        # User1 should not find user2's API question (for non selfhosted)
         result = search_question(
             user=self.user1,
             guru_type_object=self.guru_type,
@@ -197,7 +201,10 @@ class SearchQuestionTests(TestCase):
             slug="api-question-user2",
             include_api=True
         )
-        self.assertIsNone(result)
+        if settings.ENV != 'selfhosted':
+            self.assertIsNone(result)
+        else:
+            self.assertEqual(result, self.api_question_user2)
 
         # User1 should find Slack question with include_api=True
         result = search_question(
@@ -267,7 +274,8 @@ class SearchQuestionTests(TestCase):
             user=self.admin_user,
             guru_type_object=self.guru_type,
             binge=None,
-            slug="widget-question"
+            slug="widget-question",
+            only_widget=True
         )
         self.assertEqual(result, self.widget_question)
         
@@ -276,7 +284,8 @@ class SearchQuestionTests(TestCase):
             user=self.admin_user,
             guru_type_object=self.guru_type,
             binge=None,
-            slug="api-question-user1"
+            slug="api-question-user1",
+            include_api=True
         )
         self.assertEqual(result, self.api_question_user1)
 
@@ -416,7 +425,7 @@ class SearchQuestionTests(TestCase):
         )
         self.assertEqual(result, newer_api)
         
-        # Different user's API duplicate should be separate
+        # Different user's API duplicate should be separate (for non selfhosted)
         other_user_api = Question.objects.create(
             question="API duplicate",
             slug="api-duplicate-3",
@@ -434,7 +443,10 @@ class SearchQuestionTests(TestCase):
             question="API duplicate",
             include_api=True
         )
-        self.assertEqual(result, newer_api)
+        if settings.ENV != 'selfhosted':
+            self.assertEqual(result, newer_api)
+        else:
+            self.assertEqual(result, other_user_api)
         
         # Test binge duplicates
         from core.models import Binge
@@ -602,7 +614,8 @@ class SearchQuestionTests(TestCase):
             guru_type_object=self.guru_type,
             binge=None,
             slug="widget-question",
-            allow_maintainer_access=True
+            allow_maintainer_access=True,
+            only_widget=True
         )
         self.assertEqual(result, self.widget_question)
 
@@ -612,7 +625,8 @@ class SearchQuestionTests(TestCase):
             guru_type_object=self.guru_type,
             binge=None,
             slug="api-question-user1",
-            allow_maintainer_access=True
+            allow_maintainer_access=True,
+            include_api=True
         )
         self.assertEqual(result, self.api_question_user1)
 

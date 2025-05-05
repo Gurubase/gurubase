@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
@@ -6,11 +7,13 @@ from .services import AnalyticsService
 from .utils import get_date_range
 from rest_framework.test import APIClient
 from django.urls import reverse
-from django.conf import settings
+from core.utils import get_default_settings
 
 class AnalyticsFilteringTests(TestCase):
     def setUp(self):
         # Set up API client
+        get_default_settings()
+        User.objects.create_superuser(email=settings.ROOT_EMAIL, password=settings.ROOT_PASSWORD, name='Admin')
         self.client = APIClient()
         
         # Create a guru type for testing

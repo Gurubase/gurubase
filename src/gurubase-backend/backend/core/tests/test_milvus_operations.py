@@ -1,7 +1,7 @@
 from django.test import TestCase
 from unittest.mock import patch, MagicMock, call
 from django.contrib.auth import get_user_model
-from core.utils import get_default_embedding_dimensions
+from core.utils import get_default_embedding_dimensions, get_default_settings
 from core.models import GuruType, DataSource, GithubFile
 from django.conf import settings
 import os
@@ -10,6 +10,7 @@ User = get_user_model()
 
 class MilvusOperationsTests(TestCase):
     def setUp(self):
+        get_default_settings()
         # Create a test user
         self.user = User.objects.create(email='testuser@getanteon.com')
         

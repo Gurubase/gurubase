@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.test import TestCase
 from django.core.exceptions import ValidationError
+from core.utils import get_default_settings
 from core.models import GuruType, DataSource
 from django.contrib.auth import get_user_model
 
@@ -7,6 +9,7 @@ User = get_user_model()
 
 class GuruTypeGithubTests(TestCase):
     def setUp(self):
+        get_default_settings()
         self.user = User.objects.create(email='testuser@getanteon.com')
         self.valid_guru_type_data = {
             'name': 'Test Guru',
@@ -182,14 +185,27 @@ class GuruTypeGithubTests(TestCase):
         new_url = 'https://github.com/username/repo3'
         guru_type.github_repos.append(new_url)
         
-        with self.assertRaises(Exception):
-            guru_type.save() 
+        if settings.ENV != 'selfhosted':
+            with self.assertRaises(Exception):
+                guru_type.save() 
+        else:
+            guru_type.save()
+            self.assertEqual(DataSource.objects.count(), 2)
 
     def test_repo_limit_with_multiple_urls(self):
         """Test repository count limit with multiple URLs"""
-        with self.assertRaises(Exception):
+        if settings.ENV != 'selfhosted':
+            with self.assertRaises(Exception):
+                guru_type = self.create_guru_type(
+                    github_repos=self.valid_github_urls,
+                    index_repo=True,
+                    github_repo_count_limit=1  # Set limit to 1
+                )
+        else:
             guru_type = self.create_guru_type(
                 github_repos=self.valid_github_urls,
                 index_repo=True,
                 github_repo_count_limit=1  # Set limit to 1
             )
+            self.assertEqual(DataSource.objects.count(), 2)
+        
