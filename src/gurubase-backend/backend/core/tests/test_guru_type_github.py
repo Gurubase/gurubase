@@ -11,7 +11,8 @@ class GuruTypeGithubTests(TestCase):
         self.valid_guru_type_data = {
             'name': 'Test Guru',
             'slug': 'test-guru',
-            'domain_knowledge': 'Test domain knowledge'
+            'domain_knowledge': 'Test domain knowledge',
+            'github_repo_count_limit': 2
         }
         self.valid_github_urls = [
             'https://github.com/username/repo1',
@@ -49,7 +50,7 @@ class GuruTypeGithubTests(TestCase):
             github_repos=self.valid_github_urls,
             index_repo=False
         )
-        self.assertEqual(guru_type.github_repos, self.valid_github_urls)
+        self.assertEqual(sorted(guru_type.github_repos), sorted(self.valid_github_urls))
         self.assertEqual(DataSource.objects.count(), 0)
 
     def test_add_urls_and_enable_indexing(self):

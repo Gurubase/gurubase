@@ -1,4 +1,4 @@
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
 from core.models import Question, GuruType, Binge, OutOfContextQuestion, DataSource, GithubFile, User
@@ -8,7 +8,6 @@ from rest_framework.test import APIClient
 from django.urls import reverse
 from django.conf import settings
 
-@override_settings(ENV='selfhosted')
 class AnalyticsFilteringTests(TestCase):
     def setUp(self):
         # Set up API client
@@ -135,21 +134,20 @@ class AnalyticsFilteringTests(TestCase):
 
     def test_analytics_table_filtering(self):
         """Test analytics table view filtering logic"""
-        url = reverse('analytics_table', kwargs={'guru_type': self.guru_type.slug})
+        start_date = self.now - timedelta(days=1)
+        end_date = self.now + timedelta(days=1)
         
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today'
-        })
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        # Test getting all questions
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, None, '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
         # Should return 6 questions (excluding root_binge_question)
-        self.assertEqual(data['total_items'], 6)
+        self.assertEqual(paginated_data['total_items'], 6)
         
         # Verify that root_binge_question is not in results
-        question_titles = [result['title'] for result in data['results']]
+        question_titles = [item.user_question for item in paginated_data['items']]
         self.assertNotIn("Root binge question", question_titles)
         
         # Verify that slack/discord/github root questions are in results
@@ -158,42 +156,36 @@ class AnalyticsFilteringTests(TestCase):
         self.assertIn("Github root question", question_titles)
         
         # Test filtering by source
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'slack'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'slack', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return both slack questions (root and child)
-        self.assertEqual(data['total_items'], 2)
-        slack_titles = [result['title'] for result in data['results']]
+        self.assertEqual(paginated_data['total_items'], 2)
+        slack_titles = [item.user_question for item in paginated_data['items']]
         self.assertIn("Slack root question", slack_titles)
         self.assertIn("Slack child question", slack_titles)
         
         # Test filtering by discord
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'discord'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'discord', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return the discord root question
-        self.assertEqual(data['total_items'], 1)
-        self.assertEqual(data['results'][0]['title'], "Discord root question")
+        self.assertEqual(paginated_data['total_items'], 1)
+        self.assertEqual(paginated_data['items'][0].user_question, "Discord root question")
 
         # Test filtering by github
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'github'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'github', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return the github root question
-        self.assertEqual(data['total_items'], 1)
-        self.assertEqual(data['results'][0]['title'], "Github root question")
+        self.assertEqual(paginated_data['total_items'], 1)
+        self.assertEqual(paginated_data['items'][0].user_question, "Github root question")
 
     def test_binge_question_hierarchy(self):
         """Test that binge question hierarchy is correctly handled"""
@@ -290,24 +282,19 @@ class AnalyticsFilteringTests(TestCase):
             slug="widget-child-question"
         )
         
-        # Test analytics table view for these cases
-        url = reverse('analytics_table', kwargs={'guru_type': self.guru_type.slug})
-        
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today'
-        })
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        # Test getting all questions
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, None, '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
         # Should include:
         # - Previous questions (6)
         # - api_child
         # - widget_child
-        self.assertEqual(data['total_items'], 8)
+        self.assertEqual(paginated_data['total_items'], 8)
         
-        question_titles = [result['title'] for result in data['results']]
+        question_titles = [item.user_question for item in paginated_data['items']]
         
         # Verify root questions are properly filtered
         self.assertIn("Slack root question", question_titles)

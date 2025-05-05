@@ -2,11 +2,12 @@ import unittest
 from unittest.mock import patch, MagicMock
 import sys
 from pathlib import Path
+from django.test import TestCase
 
 # Add the project root to the path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-class TestMergeSplits(unittest.TestCase):
+class TestMergeSplits(TestCase):
     def setUp(self):
         # Mock text_embedding and code_embedding used in the merge_splits function
         self.text_embedding_mock = [0.1, 0.2, 0.3]

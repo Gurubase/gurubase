@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import string
+import sys
 import requests
 from django.db.models.signals import pre_delete, post_delete, post_save, pre_save
 from django.conf import settings
@@ -847,7 +848,7 @@ def manage_github_repo_datasource(sender, instance, **kwargs):
         for url in urls_to_remove:
             existing_datasources_map[url].delete()
             
-        if urls_to_add or urls_to_remove:
+        if (urls_to_add or urls_to_remove) and 'test' not in sys.argv:
             data_source_retrieval.delay(guru_type_slug=instance.slug, countdown=1)
 
     # Case 2: Either URLs list is empty or index_repo is False - Delete all DataSources
@@ -856,6 +857,9 @@ def manage_github_repo_datasource(sender, instance, **kwargs):
 
 @receiver(post_save, sender=DataSource)
 def data_source_retrieval_on_creation(sender, instance: DataSource, created, **kwargs):
+    if 'test' in sys.argv:
+        return
+
     from core.tasks import data_source_retrieval
 
     if created and instance.status == DataSource.Status.NOT_PROCESSED:
@@ -1019,6 +1023,7 @@ def handle_embedding_model_change(sender, instance, **kwargs):
     """
     Signal handler that delegates text embedding model reindexing to a celery task when text_embedding_model changes.
     """
+
     if settings.ENV == 'selfhosted':
         return
         if instance.text_embedding_model in [GuruType.EmbeddingModel.GEMINI_EMBEDDING_001, GuruType.EmbeddingModel.GEMINI_TEXT_EMBEDDING_004]:
@@ -1041,7 +1046,8 @@ def handle_embedding_model_change(sender, instance, **kwargs):
 
                 # Schedule the reindexing task
                 from core.tasks import reindex_text_embedding_model
-                reindex_text_embedding_model.delay(instance.id, old_model, new_model)
+                if 'test' not in sys.argv:
+                    reindex_text_embedding_model.delay(instance.id, old_model, new_model)
 
             if old_instance.code_embedding_model != instance.code_embedding_model:
                 if DataSource.objects.filter(guru_type=instance, status=DataSource.Status.NOT_PROCESSED).exists():
@@ -1053,7 +1059,8 @@ def handle_embedding_model_change(sender, instance, **kwargs):
 
                 # Schedule the reindexing task
                 from core.tasks import reindex_code_embedding_model
-                reindex_code_embedding_model.delay(instance.id, old_model, new_model)
+                if 'test' not in sys.argv:
+                    reindex_code_embedding_model.delay(instance.id, old_model, new_model)
                     
         except GuruType.DoesNotExist:
             pass  # This is a new guru type
@@ -1099,6 +1106,7 @@ def handle_selfhosted_embedding_model_change(sender, instance, **kwargs):
 
     guru_types = GuruType.objects.all()
     from core.tasks import reindex_code_embedding_model, reindex_text_embedding_model
-    for guru_type in guru_types:
-        reindex_code_embedding_model.delay(guru_type.id, old_model, new_model)
-        reindex_text_embedding_model.delay(guru_type.id, old_model, new_model, old_model_dimension, new_model_dimension)
+    if 'test' not in sys.argv:
+        for guru_type in guru_types:
+            reindex_code_embedding_model.delay(guru_type.id, old_model, new_model)
+            reindex_text_embedding_model.delay(guru_type.id, old_model, new_model, old_model_dimension, new_model_dimension)

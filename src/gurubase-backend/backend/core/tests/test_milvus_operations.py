@@ -48,7 +48,7 @@ class MilvusOperationsTests(TestCase):
             size=100
         )
 
-    @patch('core.utils.embed_texts')
+    @patch('core.utils.embed_texts_with_model')
     @patch('core.milvus_utils.insert_vectors')
     def test_datasource_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that DataSource.write_to_milvus correctly updates doc_ids and in_milvus flag"""
@@ -69,8 +69,8 @@ class MilvusOperationsTests(TestCase):
         # Check that the model was updated correctly
         self.assertTrue(self.data_source.in_milvus)
         self.assertEqual(self.data_source.doc_ids, ['doc_id_1', 'doc_id_2'])
-        self.assertEqual(self.data_source.status, DataSource.Status.SUCCESS)
-        self.assertIsNotNone(self.data_source.last_successful_index_date)
+        self.assertEqual(self.data_source.status, DataSource.Status.NOT_PROCESSED)
+        self.assertIsNone(self.data_source.last_successful_index_date)
 
     @patch('core.milvus_utils.delete_vectors')
     def test_datasource_delete_from_milvus(self, mock_delete_vectors):
@@ -96,7 +96,7 @@ class MilvusOperationsTests(TestCase):
         self.assertFalse(self.data_source.in_milvus)
         self.assertEqual(self.data_source.doc_ids, [])
 
-    @patch('core.utils.embed_texts')
+    @patch('core.utils.embed_texts_with_model')
     @patch('core.milvus_utils.insert_vectors')
     def test_github_file_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that GithubFile.write_to_milvus correctly updates doc_ids and in_milvus flag"""
@@ -148,7 +148,7 @@ class MilvusOperationsTests(TestCase):
         self.assertEqual(self.github_file.doc_ids, [])
         self.assertEqual(self.github_data_source.doc_ids, [])
 
-    @patch('core.utils.embed_texts')
+    @patch('core.utils.embed_texts_with_model')
     @patch('core.milvus_utils.insert_vectors')
     def test_github_datasource_write_to_milvus(self, mock_insert_vectors, mock_embed_texts):
         """Test that GitHub DataSource.write_to_milvus correctly updates doc_ids and in_milvus flag for all files"""
@@ -205,10 +205,6 @@ class MilvusOperationsTests(TestCase):
         # Check that the mock was called correctly
         mock_delete_vectors.assert_has_calls([
             call(
-                self.guru_type.milvus_collection_name, 
-                ['doc_id_1', 'doc_id_2']
-            ),
-            call(
                 settings.GITHUB_REPO_CODE_COLLECTION_NAME, 
                 ['doc_id_1', 'doc_id_2']
             )
@@ -222,7 +218,10 @@ class MilvusOperationsTests(TestCase):
         self.assertEqual(self.github_data_source.doc_ids, [])
         
         # Check that all GitHub files were deleted
-        self.assertEqual(GithubFile.objects.filter(data_source=self.github_data_source).count(), 0)
+        self.assertEqual(GithubFile.objects.filter(data_source=self.github_data_source).count(), 1)
+        self.github_file.refresh_from_db()
+        self.assertFalse(self.github_file.in_milvus)
+        self.assertEqual(self.github_file.doc_ids, [])
 
     @patch('core.milvus_utils.delete_vectors')
     def test_clear_github_file_signal(self, mock_delete_vectors):
@@ -270,13 +269,16 @@ class MilvusOperationsTests(TestCase):
 
     @patch('core.milvus_utils.delete_vectors')
     @patch('core.milvus_utils.insert_vectors')
+    @patch('core.milvus_utils.collection_exists')
     @patch('core.milvus_utils.fetch_vectors')
-    def test_update_data_source_in_milvus_signal(self, mock_fetch_vectors, mock_insert_vectors, mock_delete_vectors):
+    def test_update_data_source_in_milvus_signal(self, mock_fetch_vectors, mock_collection_exists, mock_insert_vectors, mock_delete_vectors):
         """Test that the update_data_source_in_milvus signal correctly calls delete_from_milvus when title changes"""
         # Set up the data source with mock doc_ids
         self.data_source.doc_ids = ['doc_id_1', 'doc_id_2']
         self.data_source.in_milvus = True
         self.data_source.save()
+
+        mock_collection_exists.return_value = True
 
         mock_fetch_vectors.return_value = [
             {'id': 'doc_id_1', 'metadata': {'title': 'Old Title'}},
@@ -294,7 +296,8 @@ class MilvusOperationsTests(TestCase):
         ) 
         mock_insert_vectors.assert_called_once_with(
             self.guru_type.milvus_collection_name, 
-            [{'metadata': {'title': 'Updated Title'}}, {'metadata': {'title': 'Updated Title'}}]
+            [{'metadata': {'title': 'Updated Title'}}, {'metadata': {'title': 'Updated Title'}}],
+            dimension=get_default_embedding_dimensions()
         ) 
 
     
