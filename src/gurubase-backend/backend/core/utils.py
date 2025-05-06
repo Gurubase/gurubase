@@ -3032,7 +3032,7 @@ class APIType:
 
     @classmethod
     def is_api_type(cls, api_type: str) -> bool:
-        return api_type in [cls.API, cls.DISCORD, cls.SLACK, cls.GITHUB]
+        return api_type in [cls.API, cls.DISCORD, cls.SLACK, cls.GITHUB, cls.WIDGET]
 
     @classmethod
     def get_question_source(cls, api_type: str) -> str:
