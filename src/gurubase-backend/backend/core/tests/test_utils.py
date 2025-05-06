@@ -1,11 +1,13 @@
 from django.conf import settings
-from django.test import TestCase
-from core.models import Question, GuruType
+from django.test import TestCase, override_settings
+from backend.settings import SECRET_KEY
+from core.models import Favicon, Question, GuruType
 from accounts.models import User
 from django.db.models import Q
-from core.utils import search_question
+from core.utils import APIAskResponse, APIType, adjust_color, create_custom_guru_type_slug, decode_guru_slug, decode_jwt, encode_guru_slug, format_references, generate_jwt, get_links, get_llm_usage, get_question_history, get_tokens_from_openai_response, get_website_icon, has_sufficient_contrast, lighten_color, prepare_contexts, prepare_contexts_for_context_relevance, rgb_to_hex, search_question, split_text, string_to_boolean, validate_image, validate_slug
 from core.utils import get_default_settings
 from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
 
 class SearchQuestionTests(TestCase):
     def setUp(self):
@@ -711,3 +713,1059 @@ class SearchQuestionTests(TestCase):
             allow_maintainer_access=True
         )
         self.assertEqual(result, binge_question) 
+
+class ValidateSlugTests(TestCase):
+    """Tests for the validate_slug utility function."""
+    
+    def test_basic_slug_conversion(self):
+        """Test basic slug conversion with a simple string."""
+        result = validate_slug("Hello World")
+        self.assertEqual(result, "hello-world")
+    
+    def test_slug_with_special_characters(self):
+        """Test slug conversion with special characters."""
+        result = validate_slug("Hello, World! How are you?")
+        self.assertEqual(result, "hello-world-how-are-you")
+    
+    def test_slug_with_multiple_spaces(self):
+        """Test slug conversion with multiple spaces."""
+        result = validate_slug("Hello   World")
+        self.assertEqual(result, "hello-world")
+    
+    def test_slug_with_leading_trailing_hyphens(self):
+        """Test that leading and trailing hyphens are removed."""
+        result = validate_slug("-Hello World-")
+        self.assertEqual(result, "hello-world")
+    
+    def test_slug_with_multiple_hyphens(self):
+        """Test that multiple hyphens are collapsed into a single hyphen."""
+        result = validate_slug("Hello---World")
+        self.assertEqual(result, "hello-world")
+    
+    def test_slug_with_uppercase_characters(self):
+        """Test that uppercase characters are converted to lowercase."""
+        result = validate_slug("HELLO WORLD")
+        self.assertEqual(result, "hello-world")
+    
+    def test_slug_with_numbers(self):
+        """Test slug conversion with numbers."""
+        result = validate_slug("Hello World 123")
+        self.assertEqual(result, "hello-world-123")
+    
+    def test_slug_with_non_alphanumeric(self):
+        """Test slug conversion with various non-alphanumeric characters."""
+        result = validate_slug("Hello@World#123$%^&*()")
+        self.assertEqual(result, "hello-world-123")
+
+
+class CreateCustomGuruTypeSlugTests(TestCase):
+    """Tests for the create_custom_guru_type_slug utility function."""
+    
+    def test_basic_guru_type_slug(self):
+        """Test basic guru type slug creation."""
+        result = create_custom_guru_type_slug("Test Guru")
+        self.assertEqual(result, "test-guru")
+    
+    def test_guru_type_slug_with_special_chars(self):
+        """Test guru type slug with special characters."""
+        result = create_custom_guru_type_slug("C++")
+        self.assertEqual(result, "cplusplus")
+        
+        result = create_custom_guru_type_slug("C#")
+        self.assertEqual(result, "csharp")
+        
+        result = create_custom_guru_type_slug("A&B")
+        self.assertEqual(result, "aandb")
+        
+        result = create_custom_guru_type_slug("Test@Email")
+        self.assertEqual(result, "testatemail")
+        
+        result = create_custom_guru_type_slug("A|B")
+        self.assertEqual(result, "aorb")
+        
+        result = create_custom_guru_type_slug("50%")
+        self.assertEqual(result, "50percent")
+        
+        result = create_custom_guru_type_slug("Star*")
+        self.assertEqual(result, "starstar")
+    
+    def test_guru_type_slug_with_multiple_replacements(self):
+        """Test guru type slug with multiple special character replacements."""
+        result = create_custom_guru_type_slug("C++ & Python @ 2023")
+        self.assertEqual(result, "cplusplus-and-python-at-2023")
+
+
+class FormatReferencesTests(TestCase):
+    """Tests for the format_references utility function."""
+    
+    def test_format_references_html_unescaping(self):
+        """Test that HTML entities in references are unescaped."""
+        references = [
+            {"question": "What is &quot;Python&quot;?", "link": "https://example.com/python"},
+            {"question": "React &amp; JavaScript", "link": "https://example.com/react"},
+            {"question": "HTML &lt;div&gt; element", "link": "https://example.com/html"}
+        ]
+        
+        result = format_references(references)
+        
+        self.assertEqual(result[0]["question"], 'What is "Python"?')
+        self.assertEqual(result[1]["question"], "React & JavaScript")
+        self.assertEqual(result[2]["question"], "HTML <div> element")
+        
+        # Check that links are preserved
+        self.assertEqual(result[0]["link"], "https://example.com/python")
+        self.assertEqual(result[1]["link"], "https://example.com/react")
+        self.assertEqual(result[2]["link"], "https://example.com/html")
+    
+    def test_format_references_empty_list(self):
+        """Test format_references with an empty list."""
+        result = format_references([])
+        self.assertEqual(result, [])
+
+
+class RgbToHexTests(TestCase):
+    """Tests for the rgb_to_hex utility function."""
+    
+    def test_rgb_to_hex_conversion(self):
+        """Test basic RGB to HEX conversion."""
+        # Black
+        self.assertEqual(rgb_to_hex((0, 0, 0)), "#000000")
+        
+        # White
+        self.assertEqual(rgb_to_hex((255, 255, 255)), "#ffffff")
+        
+        # Red
+        self.assertEqual(rgb_to_hex((255, 0, 0)), "#ff0000")
+        
+        # Green
+        self.assertEqual(rgb_to_hex((0, 255, 0)), "#00ff00")
+        
+        # Blue
+        self.assertEqual(rgb_to_hex((0, 0, 255)), "#0000ff")
+        
+        # Custom color
+        self.assertEqual(rgb_to_hex((123, 45, 67)), "#7b2d43")
+
+
+class LightenColorTests(TestCase):
+    """Tests for the lighten_color utility function."""
+    
+    def test_lighten_color_basic(self):
+        """Test basic color lightening."""
+        # Black should become very light gray
+        self.assertEqual(lighten_color("#000000"), "#e5e5e5")
+        
+        # A dark color should become lighter
+        self.assertEqual(lighten_color("#7b2d43"), "#f1eaec")
+        
+        # White should stay almost white
+        self.assertEqual(lighten_color("#ffffff"), "#ffffff")
+    
+    def test_lighten_color_preserves_format(self):
+        """Test that the function preserves the 6-digit hex format."""
+        result = lighten_color("#123456")
+        
+        # Check that it's a valid 6-digit hex color
+        self.assertTrue(result.startswith("#"))
+        self.assertEqual(len(result), 7)  # Including the # sign
+        self.assertTrue(all(c in "0123456789abcdef" for c in result[1:]))
+
+
+class StringToBooleanTests(TestCase):
+    """Tests for the string_to_boolean utility function."""
+    
+    def test_string_to_boolean_true_values(self):
+        """Test string_to_boolean with true values."""
+        self.assertTrue(string_to_boolean("true"))
+        self.assertTrue(string_to_boolean("True"))
+        self.assertTrue(string_to_boolean("TRUE"))
+        
+    def test_string_to_boolean_false_values(self):
+        """Test string_to_boolean with false values."""
+        self.assertFalse(string_to_boolean("false"))
+        self.assertFalse(string_to_boolean("False"))
+        self.assertFalse(string_to_boolean("FALSE"))
+        self.assertFalse(string_to_boolean("no"))
+        self.assertFalse(string_to_boolean("No"))
+        self.assertFalse(string_to_boolean("NO"))
+        self.assertFalse(string_to_boolean("0"))
+        self.assertFalse(string_to_boolean("f"))
+        self.assertFalse(string_to_boolean("n"))
+        
+    def test_string_to_boolean_invalid_values(self):
+        """Test string_to_boolean with invalid values."""
+        # Invalid values should return False
+        self.assertFalse(string_to_boolean(""))
+        self.assertFalse(string_to_boolean("maybe"))
+        self.assertFalse(string_to_boolean("123"))
+        self.assertFalse(string_to_boolean("None"))
+
+
+class GuruSlugEncodingDecodingTests(TestCase):
+    """Tests for the encode_guru_slug and decode_guru_slug utility functions."""
+    
+    def test_encode_decode_guru_slug(self):
+        """Test encoding and decoding of guru slugs."""
+        # Test regular slug
+        original_slug = "test-guru"
+        encoded = encode_guru_slug(original_slug)
+        decoded = decode_guru_slug(encoded)
+        self.assertEqual(decoded, original_slug)
+        
+        # Test slug with special characters
+        original_slug = "test/guru+with&special-chars"
+        encoded = encode_guru_slug(original_slug)
+        decoded = decode_guru_slug(encoded)
+        self.assertEqual(decoded, original_slug)
+        
+    def test_encode_guru_slug(self):
+        """Test that encode_guru_slug properly encodes slugs."""
+        # The encoding should be URL-safe base64
+        encoded = encode_guru_slug("test-guru")
+        self.assertTrue(all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=:" for c in encoded))
+        
+    def test_decode_guru_slug_invalid(self):
+        """Test that decode_guru_slug handles invalid encoded strings."""
+        result = decode_guru_slug("not-a-valid-encoded-string:")
+        self.assertEqual(result, None)
+
+
+class GetTokensFromOpenAIResponseTests(TestCase):
+    """Tests for the get_tokens_from_openai_response utility function."""
+    
+    def test_get_tokens_with_usage(self):
+        """Test getting tokens from a response with usage information."""
+        # Create mock with the correct nested structure
+        mock_response = MagicMock()
+        mock_response.usage.prompt_tokens = 100
+        mock_response.usage.completion_tokens = 50
+        mock_response.usage.prompt_tokens_details = None  # No cached tokens
+        
+        prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(mock_response)
+        
+        self.assertEqual(prompt_tokens, 100)
+        self.assertEqual(completion_tokens, 50)
+        self.assertEqual(cached_prompt_tokens, 0)  # Should be 0 when prompt_tokens_details is None
+    
+    def test_get_tokens_without_usage(self):
+        """Test getting tokens from a response without usage information."""
+        mock_response = MagicMock()
+        mock_response.usage = None
+        
+        prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(mock_response)
+        
+        self.assertEqual(prompt_tokens, 0)
+        self.assertEqual(completion_tokens, 0)
+        self.assertEqual(cached_prompt_tokens, 0)
+    
+    def test_get_tokens_with_cached(self):
+        """Test getting tokens from a response with cached tokens information."""
+        mock_response = MagicMock()
+        mock_response.usage.prompt_tokens = 100
+        mock_response.usage.completion_tokens = 50
+        # Create the nested prompt_tokens_details with cached_tokens
+        mock_response.usage.prompt_tokens_details = MagicMock()
+        mock_response.usage.prompt_tokens_details.cached_tokens = 30
+        
+        prompt_tokens, completion_tokens, cached_prompt_tokens = get_tokens_from_openai_response(mock_response)
+        
+        self.assertEqual(prompt_tokens, 100)
+        self.assertEqual(completion_tokens, 50)
+        self.assertEqual(cached_prompt_tokens, 30)
+
+
+class GetLLMUsageTests(TestCase):
+    """Tests for the get_llm_usage utility function."""
+
+    def setUp(self):
+        def_settings = get_default_settings()
+        def_settings.pricings = {
+            "gpt-4": {
+                "prompt": 0.00003,  # per 1 tokens
+                "completion": 0.00006  # per 1 tokens
+            }
+        }
+        self.mock_settings = def_settings
+    
+    @patch("core.utils.get_default_settings")
+    def test_get_llm_usage_without_cached(self, mock_settings):
+        """Test getting LLM usage cost calculation without cached tokens."""
+        # Configure settings
+        mock_settings.return_value = self.mock_settings
+        
+        # Calculate cost for 1000 prompt tokens and 500 completion tokens using gpt-4
+        cost = get_llm_usage("gpt-4", 1000, 500)
+        
+        # Expected cost: (1000 * 0.03/1000) + (500 * 0.06/1000) = 0.03 + 0.03 = 0.06
+        self.assertAlmostEqual(cost, 0.06)
+    
+    @patch("core.utils.get_default_settings")
+    def test_get_llm_usage_with_cached(self, mock_settings):
+        """Test getting LLM usage cost calculation with cached tokens."""
+        mock_settings.return_value = self.mock_settings
+        
+        # Calculate cost for 1000 prompt tokens (with 300 cached) and 500 completion tokens using gpt-4
+        cost = get_llm_usage("gpt-4", 1000, 500, 300)
+        
+        # Expected cost: ((1000-300) * 0.03/1000) + (500 * 0.06/1000) = 0.021 + 0.03 = 0.051
+        self.assertAlmostEqual(cost, 0.051)
+    
+    @patch("core.utils.get_default_settings")
+    def test_get_llm_usage_unknown_model(self, mock_settings):
+        """Test getting LLM usage cost for an unknown model."""
+        # Configure settings with known models
+        mock_settings.return_value = self.mock_settings
+        
+        # Calculate cost for an unknown model
+        cost = get_llm_usage("unknown-model", 1000, 500)
+        
+        # Should return 0 for unknown models
+        self.assertEqual(cost, 0)
+    
+    @patch("core.utils.get_default_settings")
+    def test_get_llm_usage_zero_tokens(self, mock_settings):
+        """Test getting LLM usage cost with zero tokens."""
+        # Configure settings
+        mock_settings.return_value = self.mock_settings
+        
+        # Calculate cost with zero tokens
+        cost = get_llm_usage("gpt-4", 0, 0)
+        
+        # Expected cost: 0
+        self.assertEqual(cost, 0)
+
+
+class JWTTests(TestCase):
+    """Tests for JWT utility functions."""
+    
+    @patch('core.utils.settings.SECRET_KEY', 'test-secret-key')
+    @patch('core.utils.settings.JWT_EXPIRATION_SECONDS', 60)
+    def test_generate_jwt(self):
+        """Test generating a JWT token."""
+        token = generate_jwt()
+        
+        # Token should be a string
+        self.assertIsInstance(token, str)
+        
+        # Token should have three parts separated by dots
+        parts = token.split('.')
+        self.assertEqual(len(parts), 3)
+    
+    @patch('core.utils.settings.SECRET_KEY', 'test-secret-key')
+    @patch('core.utils.jwt.decode')
+    def test_decode_jwt_valid(self, mock_decode):
+        """Test decoding a valid JWT token."""
+        mock_decode.return_value = {"sub": "test"}
+        
+        result = decode_jwt("valid.jwt.token")
+        
+        self.assertTrue(result)
+        mock_decode.assert_called_once()
+    
+    @patch('core.utils.settings.SECRET_KEY', 'test-secret-key')
+    @patch('core.utils.jwt.decode')
+    def test_decode_jwt_invalid(self, mock_decode):
+        """Test decoding an invalid JWT token."""
+        mock_decode.side_effect = Exception("Invalid token")
+        
+        result = decode_jwt("invalid.jwt.token")
+        
+        self.assertFalse(result)
+        mock_decode.assert_called_once()
+
+
+class GetWebsiteIconTests(TestCase):
+    """Tests for the get_website_icon utility function."""
+    
+    def setUp(self):
+        """Set up test data for favicon tests."""
+        self.domain = "example.com"
+        self.favicon_url = "https://example.com/favicon.ico"
+    
+    @patch('core.utils.requests.head')
+    def test_get_website_icon_existing_in_db(self, mock_head):
+        """Test getting a website icon that already exists in the database."""
+        # Create a favicon in the database
+        Favicon.objects.create(domain=self.domain, favicon_url=self.favicon_url, valid=True)
+        
+        result = get_website_icon(self.domain)
+        
+        # Should return the favicon URL without making any requests
+        self.assertEqual(result, self.favicon_url)
+        mock_head.assert_not_called()
+    
+    @patch('core.utils.requests.head')
+    def test_get_website_icon_root_favicon(self, mock_head):
+        """Test getting a website icon from the root favicon.ico."""
+        # Mock a successful HEAD request
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_head.return_value = mock_response
+        
+        result = get_website_icon(self.domain)
+        
+        # Should return the favicon URL and create a database entry
+        self.assertEqual(result, self.favicon_url)
+        mock_head.assert_called_once_with(self.favicon_url, timeout=5)
+        
+        # Check that a favicon entry was created
+        favicon = Favicon.objects.get(domain=self.domain)
+        self.assertEqual(favicon.favicon_url, self.favicon_url)
+        self.assertTrue(favicon.valid)
+    
+    @patch('core.utils.requests.head')
+    @patch('core.utils.requests.get')
+    @patch('core.utils.BeautifulSoup')
+    def test_get_website_icon_from_html(self, mock_bs, mock_get, mock_head):
+        """Test getting a website icon from HTML link tags."""
+        # Mock a failed HEAD request for favicon.ico
+        mock_head_response = MagicMock()
+        mock_head_response.status_code = 404
+        mock_head.return_value = mock_head_response
+        
+        # Mock a successful GET request for the main page
+        mock_get_response = MagicMock()
+        mock_get_response.text = "<html><head><link rel='icon' href='/custom-icon.png'></head></html>"
+        mock_get.return_value = mock_get_response
+        
+        # Mock BeautifulSoup to return a link tag
+        mock_soup = MagicMock()
+        mock_link = MagicMock()
+        mock_link.__getitem__.return_value = "/custom-icon.png"
+        mock_soup.find.return_value = mock_link
+        mock_bs.return_value = mock_soup
+        
+        result = get_website_icon(self.domain)
+        
+        # Should return the full URL to the custom icon
+        expected_url = "https://example.com/custom-icon.png"
+        self.assertEqual(result, expected_url)
+        
+        # Check that a favicon entry was created
+        favicon = Favicon.objects.get(domain=self.domain)
+        self.assertEqual(favicon.favicon_url, expected_url)
+        self.assertTrue(favicon.valid)
+    
+    @patch('core.utils.requests.head')
+    @patch('core.utils.requests.get')
+    def test_get_website_icon_exception(self, mock_get, mock_head):
+        """Test handling exceptions when fetching a website icon."""
+        # Mock an exception during requests
+        mock_head.side_effect = Exception("Connection error")
+        
+        result = get_website_icon(self.domain)
+        
+        # Should create an invalid favicon entry
+        favicon = Favicon.objects.get(domain=self.domain)
+        self.assertFalse(favicon.valid)
+        self.assertEqual(result, favicon.url)
+
+
+class ValidateImageTests(TestCase):
+    """Tests for the validate_image utility function."""
+    
+    def test_validate_image_valid_extensions(self):
+        """Test validating images with valid extensions."""
+        # Create mock files with valid extensions
+        for ext in ['jpg', 'png', 'jpeg', 'svg']:
+            mock_file = MagicMock()
+            mock_file.name = f"test.{ext}"
+            
+            error, split = validate_image(mock_file)
+            
+            self.assertIsNone(error)
+            self.assertEqual(split, ['test', ext])
+    
+    def test_validate_image_invalid_extension(self):
+        """Test validating images with invalid extensions."""
+        mock_file = MagicMock()
+        mock_file.name = "test.txt"
+        
+        error, split = validate_image(mock_file)
+        
+        self.assertEqual(error, 'Invalid image extension')
+        self.assertIsNone(split)
+    
+    def test_validate_image_no_extension(self):
+        """Test validating images with no extension."""
+        mock_file = MagicMock()
+        mock_file.name = "test"
+        
+        error, split = validate_image(mock_file)
+        
+        self.assertEqual(error, 'Invalid image extension')
+        self.assertIsNone(split)
+    
+    def test_validate_image_none(self):
+        """Test validating None as an image."""
+        error, split = validate_image(None)
+        
+        self.assertEqual(error, 'No image provided')
+        self.assertIsNone(split)
+
+
+class GetLinksTests(TestCase):
+    """Tests for the get_links utility function."""
+    
+    def test_get_links_basic(self):
+        """Test getting links from basic markdown-style links."""
+        content = "Check out this [example link](https://example.com) and [another one](https://test.com)"
+        result = get_links(content)
+        
+        self.assertEqual(len(result), 2)
+        self.assertIn("[example link](https://example.com)", result)
+        self.assertIn("[another one](https://test.com)", result)
+    
+    def test_get_links_with_no_links(self):
+        """Test getting links from content with no links."""
+        content = "This is a text with no links."
+        result = get_links(content)
+        
+        self.assertEqual(result, [])
+    
+    def test_get_links_with_complex_content(self):
+        """Test getting links from complex content with code blocks and other formatting."""
+        content = """
+        # Title
+        
+        This is a paragraph with a [link](https://example.com).
+        
+        ```python
+        # This is code, not a [fake link](https://fake.com)
+        ```
+        
+        And here's [another link](https://test.com) with some text.
+        """
+        
+        result = get_links(content)
+        
+        self.assertEqual(len(result), 3)
+        self.assertIn("[link](https://example.com)", result)
+        self.assertIn("[another link](https://test.com)", result)
+        self.assertIn("[fake link](https://fake.com)", result)
+    
+    def test_get_links_with_special_characters(self):
+        """Test getting links with special characters in label or URL."""
+        content = """
+        [Link with spaces](https://example.com/path with spaces)
+        [Link with (parentheses)](https://example.com/path(with)parentheses)
+        """
+        
+        result = get_links(content)
+        
+        self.assertEqual(len(result), 2)
+        self.assertIn("[Link with spaces](https://example.com/path with spaces)", result)
+        self.assertIn("[Link with (parentheses)](https://example.com/path(with)parentheses)", result)
+
+
+class HasSufficientContrastTests(TestCase):
+    """Tests for the has_sufficient_contrast utility function."""
+    
+    def test_has_sufficient_contrast_dark_colors(self):
+        """Test that dark colors have sufficient contrast with white."""
+        # Dark black (should have sufficient contrast)
+        self.assertTrue(has_sufficient_contrast((0, 0, 0)))
+        
+        # Dark blue (should have sufficient contrast)
+        self.assertTrue(has_sufficient_contrast((0, 0, 128)))
+        
+        # Dark red (should have sufficient contrast)
+        self.assertTrue(has_sufficient_contrast((128, 0, 0)))
+    
+    def test_has_sufficient_contrast_light_colors(self):
+        """Test that light colors don't have sufficient contrast with white."""
+        # Light yellow (should not have sufficient contrast)
+        self.assertFalse(has_sufficient_contrast((255, 255, 200)))
+        
+        # Light gray (should not have sufficient contrast)
+        self.assertFalse(has_sufficient_contrast((200, 200, 200)))
+        
+        # White (should not have sufficient contrast with white)
+        self.assertFalse(has_sufficient_contrast((255, 255, 255)))
+    
+    def test_has_sufficient_contrast_threshold(self):
+        """Test colors near the contrast threshold."""
+        # Test colors that are just above/below the threshold
+        # Note: The actual threshold in the function is a contrast ratio <= 1/2
+        
+        # Should have sufficient contrast (just below the threshold)
+        self.assertTrue(has_sufficient_contrast((100, 100, 100)))
+        
+        # Should have sufficient contrast (just above the threshold)
+        self.assertTrue(has_sufficient_contrast((180, 180, 180)))
+
+
+class AdjustColorTests(TestCase):
+    """Tests for the adjust_color utility function."""
+    
+    def test_adjust_color_below_threshold(self):
+        """Test adjusting a color below the threshold (0.03928)."""
+        # For a color below threshold (0.03928), the formula is color / 12.92
+        color = 0.03  # Below threshold
+        result = adjust_color(color)
+        expected = color / 12.92
+        self.assertAlmostEqual(result, expected)
+    
+    def test_adjust_color_above_threshold(self):
+        """Test adjusting a color above the threshold (0.03928)."""
+        # For a color above threshold, the formula is ((color + 0.055) / 1.055) ** 2.4
+        color = 0.5  # Above threshold
+        result = adjust_color(color)
+        expected = ((color + 0.055) / 1.055) ** 2.4
+        self.assertAlmostEqual(result, expected)
+    
+    def test_adjust_color_at_threshold(self):
+        """Test adjusting a color exactly at the threshold (0.03928)."""
+        color = 0.03928  # At threshold
+        result = adjust_color(color)
+        expected = color / 12.92
+        self.assertAlmostEqual(result, expected)
+
+
+class PrepareContextsForContextRelevanceTests(TestCase):
+    """Tests for the prepare_contexts_for_context_relevance utility function."""
+    
+    def test_prepare_contexts_empty(self):
+        """Test preparing an empty context list."""
+        contexts = []
+        result = prepare_contexts_for_context_relevance(contexts)
+        self.assertEqual(result, [])
+    
+    def test_prepare_contexts_single_context(self):
+        """Test preparing a single context."""
+        # Create a mock context with the expected structure
+        context = {
+            'entity': {
+                'text': 'Sample context text',
+                'metadata': {
+                    'title': 'Sample Title',
+                    'link': 'https://example.com',
+                    'type': 'WEBSITE'
+                }
+            },
+            'prefix': 'Text'
+        }
+        
+        result = prepare_contexts_for_context_relevance([context])
+        
+        self.assertEqual(len(result), 1)
+        self.assertIn('Sample context text', result[0])
+        self.assertIn('Sample Title', result[0])
+        self.assertIn('https://example.com', result[0])
+    
+    def test_prepare_contexts_multiple_contexts(self):
+        """Test preparing multiple contexts."""
+        # Create mock contexts with the expected structure
+        contexts = [
+            {
+                'entity': {
+                    'text': 'First context text',
+                    'metadata': {
+                        'title': 'First Title',
+                        'link': 'https://example.com/1',
+                        'type': 'WEBSITE'
+                    }
+                },
+                'prefix': 'Text'
+            },
+            {
+                'entity': {
+                    'text': 'Second context text',
+                    'metadata': {
+                        'title': 'Second Title',
+                        'link': 'https://example.com/2',
+                        'type': 'WEBSITE'
+                    }
+                },
+                'prefix': 'Text'
+            }
+        ]
+        
+        result = prepare_contexts_for_context_relevance(contexts)
+        
+        self.assertEqual(len(result), 2)
+        self.assertIn('First context text', result[0])
+        self.assertIn('First Title', result[0])
+        self.assertIn('https://example.com/1', result[0])
+        
+        self.assertIn('Second context text', result[1])
+        self.assertIn('Second Title', result[1])
+        self.assertIn('https://example.com/2', result[1])
+
+
+class SplitTextTests(TestCase):
+    """Tests for the split_text utility function."""
+    
+    def test_split_text_basic(self):
+        """Test basic text splitting."""
+        text = "This is a sample text that needs to be split into chunks."
+        
+        result = split_text(text, max_length=20, min_length=5, overlap=5)
+        
+        # Should split into smaller chunks
+        self.assertTrue(len(result) > 1)
+        
+        # Each chunk should respect max_length
+        for chunk in result:
+            self.assertLessEqual(len(chunk), 20)
+        
+        # Test that content is preserved
+        combined = ''.join(result)
+        # Due to overlaps, combined might be longer than original
+        for item in result:
+            self.assertTrue(item in text)
+    
+    def test_split_text_with_separators(self):
+        """Test text splitting with custom separators."""
+        text = "Paragraph 1. Paragraph 1. Paragraph 1. Paragraph 1.\n\nParagraph 2. Paragraph 2. Paragraph 2. Paragraph 2.\n\nParagraph 3. Paragraph 3. Paragraph 3. Paragraph 3."
+        separators = ["\n\n"]
+        
+        result = split_text(text, max_length=50, min_length=5, overlap=5, separators=separators)
+        
+        # Should split at paragraph boundaries
+        self.assertEqual(len(result), 3)
+        self.assertIn("Paragraph 1.", result[0])
+        self.assertIn("Paragraph 2.", result[1])
+        self.assertIn("Paragraph 3.", result[2])
+    
+    def test_split_text_small_text(self):
+        """Test splitting text smaller than max_length."""
+        text = "Small text"
+        
+        result = split_text(text, max_length=50, min_length=5, overlap=5)
+        
+        # Should return a single chunk
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0], text)
+    
+    def test_split_text_with_long_words(self):
+        """Test splitting text with words longer than max_length."""
+        text = "This contains a supercalifragilisticexpialidocious word."
+        
+        result = split_text(text, max_length=10, min_length=5, overlap=2)
+        
+        # Should still split, possibly breaking words
+        self.assertTrue(len(result) > 1)
+        
+        # Combined result should contain the original text
+        combined = ''.join(result)
+        for item in result:
+            self.assertTrue(item in ''.join(text.split(' ')))
+
+
+class PrepareContextsTests(TestCase):
+    """Tests for the prepare_contexts utility function."""
+    
+    def test_stackoverflow_contexts(self):
+        """Test preparing StackOverflow contexts."""
+        # Create a mock StackOverflow context
+        context = {
+            'question': {
+                'entity': {
+                    'text': 'How do I use Django?',
+                    'metadata': {
+                        'question': 'How do I use Django?',
+                        'link': 'https://stackoverflow.com/q/12345',
+                        'score': 10,
+                        'owner_badges': ["Gold"],
+                        'owner_reputation': 5000
+                    }
+                },
+                'prefix': 'Text'
+            },
+            'accepted_answer': {
+                'entity': {
+                    'text': 'Here is how to use Django...',
+                    'metadata': {}
+                }
+            },
+            'other_answers': [
+                {
+                    'entity': {
+                        'text': 'Another way to use Django...',
+                        'metadata': {'score': 5}
+                    }
+                }
+            ],
+            'prefix': 'Text'
+        }
+        
+        formatted_contexts, references = prepare_contexts([context], [])
+        
+        # Check the formatted contexts
+        self.assertTrue('Context 1:' in formatted_contexts['contexts'])
+        self.assertTrue('Question: \'\'\'How do I use Django?\'\'\'' in formatted_contexts['contexts'])
+        self.assertTrue('Accepted answer: \'\'\'Here is how to use Django...\'\'\'' in formatted_contexts['contexts'])
+        self.assertTrue('Answer 1 with higher score: \'\'\'Another way to use Django...\'\'\'' in formatted_contexts['contexts'])
+        
+        # Check the references
+        self.assertEqual(len(references), 1)
+        self.assertEqual(references[0]['question'], 'How do I use Django?')
+        self.assertEqual(references[0]['link'], 'https://stackoverflow.com/q/12345')
+    
+    def test_data_source_contexts(self):
+        """Test preparing data source contexts (WEBSITE, PDF, etc.)."""
+        # Create a mock data source context
+        context = {
+            'entity': {
+                'text': 'Website content about Python',
+                'metadata': {
+                    'type': 'WEBSITE',
+                    'title': 'Python Tutorial',
+                    'link': 'https://example.com/python'
+                }
+            },
+            'prefix': 'Text'
+        }
+        
+        formatted_contexts, references = prepare_contexts([context], [])
+        
+        # Check the formatted contexts
+        self.assertTrue('Context 1:' in formatted_contexts['contexts'])
+        self.assertTrue("Metadata: '''{'type': 'WEBSITE', 'title': 'Python Tutorial', 'link': 'https://example.com/python'}'''" in formatted_contexts['contexts'])
+        self.assertTrue("Text: '''Website content about Python'''" in formatted_contexts['contexts'])
+        
+        # Check the references
+        self.assertEqual(len(references), 1)
+        self.assertEqual(references[0]['question'], 'Python Tutorial')
+        self.assertEqual(references[0]['link'], 'https://example.com/python')
+    
+    def test_github_repo_contexts(self):
+        """Test preparing GitHub repository contexts."""
+        # Create a mock GitHub repo context
+        context = {
+            'entity': {
+                'text': 'def hello_world(): print("Hello, World!")',
+                'metadata': {
+                    'type': 'GITHUB_REPO',
+                    'title': 'example/hello.py',
+                    'link': 'https://github.com/example/repo/blob/main/hello.py'
+                }
+            },
+            'prefix': 'Code'
+        }
+        
+        formatted_contexts, references = prepare_contexts([context], [])
+        
+        # Check the formatted contexts
+        self.assertTrue('Context 1:' in formatted_contexts['contexts'])
+        self.assertTrue("Metadata: '''{'type': 'GITHUB_REPO', 'title': 'example/hello.py', 'link': 'https://github.com/example/repo/blob/main/hello.py'}'''" in formatted_contexts['contexts'])
+        self.assertTrue('Text: \'\'\'def hello_world(): print("Hello, World!")\'\'\'' in formatted_contexts['contexts'])
+        
+        # Check the references
+        self.assertEqual(len(references), 1)
+        self.assertEqual(references[0]['question'], 'example/hello.py')
+        self.assertEqual(references[0]['link'], 'https://github.com/example/repo/blob/main/hello.py')
+    
+    def test_private_pdf_contexts(self):
+        """Test preparing private PDF contexts where the link should be masked."""
+        # Create a mock private PDF context
+        context = {
+            'entity': {
+                'text': 'Private PDF content',
+                'metadata': {
+                    'type': 'PDF',
+                    'title': 'Private Document',
+                    'link': 'https://example.com/private.pdf'
+                }
+            },
+            'prefix': 'Text'
+        }
+        
+        # Set up the mock to return this PDF as private
+        with patch('core.models.DataSource.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.values_list.return_value = ['https://example.com/private.pdf']
+            mock_filter.return_value = mock_queryset
+            
+            formatted_contexts, references = prepare_contexts([context], [])
+            
+            # The link should be None in the metadata
+            self.assertTrue("'link': None" in formatted_contexts['contexts'])
+            
+            # The reference should still have the link (it's masked only in the prompt)
+            self.assertEqual(references[0]['link'], 'https://example.com/private.pdf')
+
+
+class GetQuestionHistoryTests(TestCase):
+    """Tests for the get_question_history utility function."""
+    
+    def setUp(self):
+        """Set up test data for question history tests."""
+        get_default_settings()
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru"
+        )
+        
+        # Create a chain of questions for testing history
+        self.root_question = Question.objects.create(
+            question="Root question",
+            slug="root-question",
+            guru_type=self.guru_type,
+            source=Question.Source.USER.value,
+            content="Answer to root question",
+            user_question="User's root question"
+        )
+        
+        self.follow_up_1 = Question.objects.create(
+            question="Follow-up 1",
+            slug="follow-up-1",
+            guru_type=self.guru_type,
+            source=Question.Source.USER.value,
+            content="Answer to follow-up 1",
+            user_question="User's follow-up 1",
+            parent=self.root_question
+        )
+        
+        self.follow_up_2 = Question.objects.create(
+            question="Follow-up 2",
+            slug="follow-up-2",
+            guru_type=self.guru_type,
+            source=Question.Source.USER.value,
+            content="Answer to follow-up 2",
+            user_question="User's follow-up 2",
+            parent=self.follow_up_1
+        )
+    
+    def test_get_question_history_no_parent(self):
+        """Test getting question history for a root question with no parent."""
+        history = get_question_history(self.root_question)
+        
+        # Should have one item (the root question)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]['question'], "Root question")
+        self.assertEqual(history[0]['user_question'], "User's root question")
+        self.assertEqual(history[0]['answer'], "Answer to root question")
+    
+    def test_get_question_history_single_parent(self):
+        """Test getting question history for a question with a single parent."""
+        history = get_question_history(self.follow_up_1)
+        
+        # Should have two items (the root question and the follow-up 1)
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[0]['question'], "Root question")
+        self.assertEqual(history[0]['user_question'], "User's root question")
+        self.assertEqual(history[0]['answer'], "Answer to root question")
+
+        # Check second item (follow-up 1)
+        self.assertEqual(history[1]['question'], "Follow-up 1")
+        self.assertEqual(history[1]['user_question'], "User's follow-up 1")
+        self.assertEqual(history[1]['answer'], "Answer to follow-up 1")
+    
+    def test_get_question_history_multiple_levels(self):
+        """Test getting question history for a question with multiple parent levels."""
+        history = get_question_history(self.follow_up_2)
+        
+        # Should have three items (root, follow-up 1, and follow-up 2)
+        self.assertEqual(len(history), 3)
+        
+        # Check first item (root question)
+        self.assertEqual(history[0]['question'], "Root question")
+        self.assertEqual(history[0]['user_question'], "User's root question")
+        self.assertEqual(history[0]['answer'], "Answer to root question")
+        
+        # Check second item (follow-up 1)
+        self.assertEqual(history[1]['question'], "Follow-up 1")
+        self.assertEqual(history[1]['user_question'], "User's follow-up 1")
+        self.assertEqual(history[1]['answer'], "Answer to follow-up 1")
+
+        # Check third item (follow-up 2)
+        self.assertEqual(history[2]['question'], "Follow-up 2")
+        self.assertEqual(history[2]['user_question'], "User's follow-up 2")
+        self.assertEqual(history[2]['answer'], "Answer to follow-up 2")
+    
+    def test_get_question_history_with_none(self):
+        """Test getting question history with None as input."""
+        history = get_question_history(None)
+        
+        # Should return an empty list
+        self.assertEqual(history, [])
+
+
+
+class APIAskResponseTests(TestCase):
+    """Tests for the APIAskResponse class methods."""
+    
+    def setUp(self):
+        """Set up test data for APIAskResponse tests."""
+        get_default_settings()
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru"
+        )
+        
+        self.question_obj = Question.objects.create(
+            question="Test question",
+            slug="test-question",
+            guru_type=self.guru_type,
+            source=Question.Source.USER.value,
+            content="Answer to test question"
+        )
+    
+    def test_from_existing(self):
+        """Test creating an APIAskResponse from an existing question."""
+        response = APIAskResponse.from_existing(self.question_obj)
+        
+        self.assertEqual(response.content, "Answer to test question")
+        self.assertIsNone(response.error)
+        self.assertEqual(response.question_obj, self.question_obj)
+        self.assertTrue(response.is_existing)
+        self.assertEqual(response.question, "Test question")
+    
+    def test_from_stream(self):
+        """Test creating an APIAskResponse from a stream generator."""
+        # Mock a generator
+        def mock_generator():
+            yield "Part 1"
+            yield "Part 2"
+            yield "Part 3"
+        
+        response = APIAskResponse.from_stream(mock_generator(), "Stream question")
+        
+        self.assertEqual(response.content.__name__, "mock_generator")  # It's the generator function
+        self.assertIsNone(response.error)
+        self.assertIsNone(response.question_obj)
+        self.assertFalse(response.is_existing)
+        self.assertEqual(response.question, "Stream question")
+    
+    def test_from_error(self):
+        """Test creating an APIAskResponse from an error."""
+        response = APIAskResponse.from_error("Test error message")
+        
+        self.assertIsNone(response.content)
+        self.assertEqual(response.error, "Test error message")
+        self.assertIsNone(response.question_obj)
+        self.assertFalse(response.is_existing)
+        self.assertIsNone(response.question)
+
+
+class APITypeTests(TestCase):
+    """Tests for the APIType class methods."""
+    
+    def test_is_api_type(self):
+        """Test the is_api_type classmethod."""
+        # Valid API types
+        self.assertTrue(APIType.is_api_type(APIType.API))
+        self.assertTrue(APIType.is_api_type(APIType.WIDGET))
+        self.assertTrue(APIType.is_api_type(APIType.DISCORD))
+        self.assertTrue(APIType.is_api_type(APIType.SLACK))
+        self.assertTrue(APIType.is_api_type(APIType.GITHUB))
+        
+        # Invalid API types
+        self.assertFalse(APIType.is_api_type("INVALID"))
+        self.assertFalse(APIType.is_api_type(""))
+        self.assertFalse(APIType.is_api_type(None))
+    
+    def test_get_question_source(self):
+        """Test the get_question_source classmethod."""
+        # Check mapping to Question.Source values
+        self.assertEqual(APIType.get_question_source(APIType.API), Question.Source.API.value)
+        self.assertEqual(APIType.get_question_source(APIType.WIDGET), Question.Source.WIDGET_QUESTION.value)
+        self.assertEqual(APIType.get_question_source(APIType.DISCORD), Question.Source.DISCORD.value)
+        self.assertEqual(APIType.get_question_source(APIType.SLACK), Question.Source.SLACK.value)
+        self.assertEqual(APIType.get_question_source(APIType.GITHUB), Question.Source.GITHUB.value)
+        
+        # Invalid API type should raise ValueError
+        with self.assertRaises(KeyError):
+            APIType.get_question_source("INVALID") 
