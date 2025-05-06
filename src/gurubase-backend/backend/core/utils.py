@@ -1864,8 +1864,43 @@ def get_website_icon(domain):
 
 
 def get_links(content):
-    # Get everything in the format (link_name)[url]
-    links = re.findall(r'\[[^\]]+\]\([^)]+\)', content)
+    """Extract markdown-style links from content, handling nested parentheses in URLs."""
+    links = []
+    i = 0
+    while i < len(content):
+        # Find opening square bracket
+        start_bracket = content.find('[', i)
+        if start_bracket == -1:
+            break
+            
+        # Find closing square bracket
+        end_bracket = content.find(']', start_bracket)
+        if end_bracket == -1:
+            break
+            
+        # Find opening parenthesis
+        start_paren = content.find('(', end_bracket)
+        if start_paren == -1 or start_paren != end_bracket + 1:
+            i = end_bracket + 1
+            continue
+            
+        # Handle nested parentheses in URL
+        depth = 1
+        end_paren = start_paren + 1
+        while end_paren < len(content) and depth > 0:
+            if content[end_paren] == '(':
+                depth += 1
+            elif content[end_paren] == ')':
+                depth -= 1
+            end_paren += 1
+            
+        if depth == 0:
+            # Found complete link
+            link = content[start_bracket:end_paren]
+            links.append(link)
+            
+        i = end_paren
+    
     return links
 
 
