@@ -2561,7 +2561,7 @@ def get_llm_usage(model_name, prompt_tokens, completion_tokens, cached_tokens=No
     pricing = settings.pricings.get(model_name, {})
     if not pricing:
         logger.error(f"No pricing found for model {model_name}")
-        return 0, 0, 0, 0
+        return 0
 
     if 'completion' in pricing:
         completion_cost = pricing.get('completion', 0) * completion_tokens
