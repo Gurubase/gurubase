@@ -120,3 +120,6 @@ class JiraAuthenticationError(JiraError):
 class IntegrityError(Exception):
     """Exception raised for integrity errors."""
     pass
+
+class ConfluenceContentExtractionError(Exception):
+    pass
