@@ -1685,6 +1685,7 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         new_model: New text embedding model name
     """
     logger.info(f"Starting text embedding model reindexing for guru type {guru_type_id}")
+    non_github_data_sources = None
     try:
         guru_type = GuruType.objects.get(id=guru_type_id)
         
@@ -1720,7 +1721,7 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         logger.info(f"Completed text embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during text embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
-        if non_github_data_sources.exists():
+        if non_github_data_sources is not None and non_github_data_sources.exists():
             non_github_data_sources.update(status=DataSource.Status.FAIL)
         raise
 
@@ -1736,6 +1737,7 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         new_model: New code embedding model name
     """
     logger.info(f"Starting code embedding model reindexing for guru type {guru_type_id}")
+    github_repos = None
     try:
         guru_type = GuruType.objects.get(id=guru_type_id)
         
@@ -1760,7 +1762,7 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         logger.info(f"Completed code embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
-        if github_repos.exists():
+        if github_repos is not None and github_repos.exists():
             github_repos.update(status=DataSource.Status.FAIL)
         raise
 
