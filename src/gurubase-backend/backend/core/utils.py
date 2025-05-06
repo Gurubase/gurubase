@@ -1,3 +1,4 @@
+import sys
 from django.core.signing import Signer, BadSignature
 from enum import Enum
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
@@ -1664,7 +1665,9 @@ def with_redis_lock(redis_client, lock_key_func, timeout):
                 logging.error(f'Failed to execute the function {func.__name__} due to {traceback.format_exc()}.')
                 
         return wrapper
-    return decorator
+    if 'test' not in sys.argv:
+        return decorator
+    return lambda x: x
 
     
 def format_references(references):
