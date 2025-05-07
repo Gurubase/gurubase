@@ -346,6 +346,7 @@ class GuruType(models.Model):
     website_count_limit = models.IntegerField(default=1500)
     youtube_count_limit = models.IntegerField(default=100)
     pdf_size_limit_mb = models.IntegerField(default=100)
+    excel_size_limit_mb = models.IntegerField(default=100)
     jira_count_limit = models.IntegerField(default=100)
     zendesk_count_limit = models.IntegerField(default=100)
     confluence_count_limit = models.IntegerField(default=100)
@@ -507,7 +508,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, file=None, website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0):
+    def check_datasource_limits(self, user, pdf_files=[], excel_files=[], website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -561,10 +562,20 @@ class GuruType(models.Model):
             guru_type=self,
             type=DataSource.Type.PDF
         )
+        excel_sources = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.EXCEL
+        )
+        
         total_pdf_mb = 0
         for source in pdf_sources:
             if source.file:
                 total_pdf_mb += source.file.size / (1024 * 1024)  # Convert bytes to MB
+
+        total_excel_mb = 0
+        for source in excel_sources:
+            if source.file:
+                total_excel_mb += source.file.size / (1024 * 1024)  # Convert bytes to MB
 
         # Check website limit
         if (website_count + website_urls_count) > self.website_count_limit:
@@ -591,10 +602,26 @@ class GuruType(models.Model):
             return False, f"Confluence page limit ({self.confluence_count_limit}) reached"
 
         # Check PDF size limit if file provided
-        if file:
-            file_size_mb = file.size / (1024 * 1024)
-            if total_pdf_mb + file_size_mb > self.pdf_size_limit_mb:
+        if pdf_files:
+            new_pdf_mb = 0
+
+            for file in pdf_files:
+                file_size_mb = file.size / (1024 * 1024)
+                new_pdf_mb += file_size_mb
+
+            if total_pdf_mb + new_pdf_mb > self.pdf_size_limit_mb:
                 return False, f"Total PDF size limit ({self.pdf_size_limit_mb}MB) would be exceeded"
+
+        # Check Excel size limit if file provided
+        if excel_files:
+            new_excel_mb = 0
+
+            for file in excel_files:
+                file_size_mb = file.size / (1024 * 1024)
+                new_excel_mb += file_size_mb
+
+            if total_excel_mb + new_excel_mb > self.excel_size_limit_mb:
+                return False, f"Total Excel size limit ({self.excel_size_limit_mb}MB) would be exceeded"
 
         return True, None
 
@@ -664,6 +691,7 @@ class DataSource(models.Model):
         JIRA = "JIRA"
         ZENDESK = "ZENDESK"
         CONFLUENCE = "CONFLUENCE"
+        EXCEL = "EXCEL" # xls, xlsx
 
     class Status(models.TextChoices):
         NOT_PROCESSED = "NOT_PROCESSED"
@@ -740,7 +768,7 @@ class DataSource(models.Model):
         return f'https://storage.googleapis.com/{settings.GS_DATA_SOURCES_BUCKET_NAME}'
 
     def get_metadata(self):
-        if self.type == DataSource.Type.PDF:
+        if self.type == DataSource.Type.PDF or self.type == DataSource.Type.EXCEL:
             return {
                 'title': self.title,
             }
@@ -756,7 +784,7 @@ class DataSource(models.Model):
             return
 
         # Check for existence. Return if it exists
-        if self.type == DataSource.Type.PDF:
+        if self.type == DataSource.Type.PDF or self.type == DataSource.Type.EXCEL:
             self.title = self.file.name.split('/')[-1]
             existing_data_source = DataSource.objects.filter(
                 type=self.type,
@@ -771,7 +799,7 @@ class DataSource(models.Model):
         if existing_data_source:
             raise DataSourceExists({'id': existing_data_source.id, 'title': existing_data_source.title})
 
-        if self.type == DataSource.Type.PDF:
+        if self.type == DataSource.Type.PDF or self.type == DataSource.Type.EXCEL:
             if self.file:
                 if settings.STORAGE_TYPE == 'gcloud':
                     from core.gcp import DATA_SOURCES_GCP
@@ -798,7 +826,7 @@ class DataSource(models.Model):
 
     def write_to_milvus(self, overridden_model=None):
         # Model override is added to reinsert code context after changing the embedding model
-        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config, get_default_settings
+        from core.utils import embed_texts_with_model, split_text, map_extension_to_language, split_code, get_embedding_model_config, get_default_settings, split_excel_content
         from core.milvus_utils import insert_vectors
         from django.conf import settings
 
@@ -928,13 +956,19 @@ class DataSource(models.Model):
 
             self.doc_ids = doc_ids
         else:
-            splitted = split_text(
-                self.content,
-                split_size,
-                split_min_length,
-                split_overlap,
-                separators=["\n\n", "\n", ".", "?", "!", " ", ""]
-            )
+            if self.type == DataSource.Type.EXCEL:
+                splitted = split_excel_content(
+                    self.content,
+                    split_size
+                )
+            else:
+                splitted = split_text(
+                    self.content,
+                    split_size,
+                    split_min_length,
+                    split_overlap,
+                    separators=["\n\n", "\n", ".", "?", "!", " ", ""]
+                )
 
             type = self.type
             link = self.url

@@ -7,6 +7,7 @@ import { getColors } from "@/lib/trustScoreColors";
 
 const sourceTypeIcons = {
   pdf: SolarFileTextBold,
+  excel: SolarFileTextBold,
   youtube: SolarVideoLibraryBold,
   website: Link,
   jira: () => <Icon icon="simple-icons:jira" className="h-4 w-4" />,

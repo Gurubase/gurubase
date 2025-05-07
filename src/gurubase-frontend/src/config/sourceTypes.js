@@ -7,12 +7,13 @@ import {
 
 import {
   ConfluenceIcon,
+  ExcelIcon,
   JiraIcon,
   LogosYoutubeIcon,
   SolarFileTextBold,
   // SolarTrashBinTrashBold, // Keep for potential future use if needed directly
   SolarVideoLibraryBold,
-  ZendeskIcon // Placeholder Icon
+  ZendeskIcon
 } from "@/components/Icons"; // Assuming Icons barrel file exists or adjust path
 
 // Check if beta features are enabled via environment variable
@@ -35,6 +36,23 @@ const baseSourceTypesConfig = {
     requiresIntegrationCheck: false, // Does adding require an integration check?
     filterValue: "website" // Value used in the filter dropdown
   },
+  EXCEL: {
+    id: "excel",
+    apiType: "EXCEL",
+    displayName: "Excel",
+    displaySourceText: "Excel",
+    icon: ExcelIcon,
+    actionButtonIcon: Upload,
+    actionButtonText: "Excel",
+    sidebarStateSetterName: null,
+    formField: "uploadedFiles",
+    canReindex: false,
+    canEdit: false,
+    requiresIntegrationCheck: false,
+    hasPrivacyToggle: true,
+    actionHandlerName: "onUploadExcelClick",
+    filterValue: "excel"
+  },
   YOUTUBE: {
     id: "youtube",
     apiType: "YOUTUBE",
@@ -53,8 +71,8 @@ const baseSourceTypesConfig = {
   PDF: {
     id: "pdf",
     apiType: "PDF",
-    displayName: "Files",
-    displaySourceText: "File",
+    displayName: "PDF",
+    displaySourceText: "PDF",
     icon: SolarFileTextBold,
     actionButtonIcon: Upload,
     actionButtonText: "PDFs",

@@ -34,7 +34,7 @@ from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
 from dataclasses import dataclass
-from typing import Optional, Generator, Union, Dict
+from typing import List, Optional, Generator, Union
 from django.db.models import Model, Q
 from django.core.cache import caches
 import hashlib
@@ -277,7 +277,7 @@ def prepare_contexts(contexts, reranked_scores):
                 'question': reference_key,
                 'link': reference_link
             }
-        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE']:
+        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE', 'EXCEL']:
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],
@@ -286,7 +286,7 @@ def prepare_contexts(contexts, reranked_scores):
             }
             
             # Remove link from metadata if it's a private PDF
-            if metadata['type'] == 'PDF' and metadata['link'] in private_pdf_links:
+            if metadata['type'] in ['PDF', 'EXCEL'] and metadata['link'] in private_pdf_links:
                 metadata['link'] = None
 
             context_parts = [
@@ -2424,6 +2424,67 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
 
     return answer, None, usages, question_obj
 
+# TODO: Define a new helper for excel text splitting. The file is already turned into markdown. An example:
+## Sheet1\n| 0 | First Name | Last Name | Gender | Country | Age | Date | Id |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| 1 | Dulce | Abril | Female | United States | 32 | 15/10/2017 | 1562 |\n| 2 | Mara | Hashimoto | Female | Great Britain | 25 | 16/08/2016 | 1582 |\n| 3 | Philip | Gent | Male | France | 36 | 21/05/2015 | 2587 |\n| 4 | Kathleen | Hanner | Female | United States | 25 | 15/10/2017 | 3549 |\n| 5 | Nereida | Magwood | Female | United States | 58 | 16/08/2016 | 2468 |\n| 6 | Gaston | Brumm | Male | United States | 24 | 21/05/2015 | 2554 |\n| 7 | Etta | Hurn | Female | Great Britain | 56 | 15/10/2017 | 3598 |\n| 8 | Earlean | Melgar | Female | United States | 27 | 16/08/2016 | 2456 |\n| 9 | Vincenza | Weiland | Female | United States | 40 | 21/05/2015 | 6548 |\n| 10 | Fallon | Winward | Female | Great Britain | 28 | 16/08/2016 | 5486 |\n| 11 | Arcelia | Bouska | Female | Great Britain | 39 | 21/05/2015 | 1258 |\n
+# The helper will first get the header row. Then it will merge multiple (maybe 1) rows into chunks. And it will add the header row to the beginning of each chunk.
+# It will consider the header length in the split length as well
+def split_excel_content(content: str, chunk_size: int = 1000) -> List[str]:
+    """
+    Split Excel content (in markdown format) into chunks while preserving headers.
+    
+    Args:
+        content: Excel content in markdown format
+        chunk_size: Maximum size of each chunk in characters
+        
+    Returns:
+        List of chunks, each containing the header row followed by data rows
+    """
+    chunks = []
+    
+    # Split content into sheets
+    sheets = content.split('\n## ')
+    for i, sheet in enumerate(sheets):
+        if not sheet.startswith('## '):
+            sheets[i] = '## ' + sheet
+    
+    for sheet in sheets:
+        # Split sheet into lines
+        lines = sheet.strip().split('\n')
+        if not lines:
+            continue
+            
+        # Extract header row (first line after sheet name)
+        header_row = lines[1] if len(lines) > 1 else ''
+        header_length = len(header_row)
+        
+        # Get data rows (skip sheet name and header)
+        data_rows = lines[2:]
+        
+        current_chunk = []
+        current_chunk_size = header_length  # Start with header length
+        
+        for row in data_rows:
+            row_length = len(row)
+            
+            # If adding this row would exceed chunk size, save current chunk and start new one
+            if current_chunk_size + row_length > chunk_size and current_chunk:
+                # Add header to the beginning of the chunk
+                chunk_content = f"{lines[0]}\n{header_row}\n" + '\n'.join(current_chunk)
+                chunks.append(chunk_content)
+                
+                # Start new chunk
+                current_chunk = [row]
+                current_chunk_size = header_length + row_length
+            else:
+                current_chunk.append(row)
+                current_chunk_size += row_length
+        
+        # Add remaining rows as final chunk
+        if current_chunk:
+            chunk_content = f"{lines[0]}\n{header_row}\n" + '\n'.join(current_chunk)
+            chunks.append(chunk_content)
+    
+    return chunks
     
 def split_text(text, max_length, min_length, overlap, separators=None):
     def merge_small_chunks(chunks, min_size=1000):
@@ -3208,18 +3269,19 @@ def format_references(references: list, api: bool = False) -> list:
         processed_references.append(processed_reference)
 
     # Find all pdf files in references
-    pdf_files = [reference['link'] for reference in processed_references if reference['link'].endswith('.pdf')]
-    pdf_data_sources = DataSource.objects.filter(url__in=pdf_files)
-    for pdf_data_source in pdf_data_sources:
-        if pdf_data_source.private:
+    files = [reference['link'] for reference in processed_references if (reference['link'].endswith('.pdf') or reference['link'].endswith('.xlsx') or reference['link'].endswith('.xls'))]
+
+    file_data_sources = DataSource.objects.filter(url__in=files)
+    for file_data_source in file_data_sources:
+        if file_data_source.private:
             for reference in processed_references:
-                if reference['link'] == pdf_data_source.url:
+                if reference['link'] == file_data_source.url:
                     # del reference['link']
                     reference['link'] = None
         else:
             if settings.ENV == 'selfhosted':
                 for reference in processed_references:
-                    if reference['link'] == pdf_data_source.url:
+                    if reference['link'] == file_data_source.url:
                         reference['link'] = replace_media_root_with_base_url(reference['link'])
                     
 

@@ -57,7 +57,8 @@ def format_filter_name_for_display(name):
         'pdf': 'PDF',
         'website': 'Website',
         'youtube': 'YouTube',
-        'widget question': 'Widget'
+        'widget question': 'Widget',
+        'excel': 'Excel'
     }
     
     return name_mapping.get(name.lower(), name.lower().replace('_', ' ').title())
