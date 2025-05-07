@@ -96,7 +96,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Jira",
     icon: JiraIcon,
     actionButtonIcon: JiraIcon,
-    actionButtonText: "Jira Issues",
+    actionButtonText: "Jira",
     sidebarStateSetterName: "setIsJiraSidebarOpen",
     formField: "jiraIssues",
     canReindex: true,
@@ -115,7 +115,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Confluence",
     icon: ConfluenceIcon,
     actionButtonIcon: ConfluenceIcon,
-    actionButtonText: "Confluence Pages",
+    actionButtonText: "Confluence",
     sidebarStateSetterName: "setIsConfluenceSidebarOpen",
     formField: "confluencePages",
     canReindex: true,
@@ -134,7 +134,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Zendesk",
     icon: ZendeskIcon, // Placeholder
     actionButtonIcon: ZendeskIcon, // Placeholder
-    actionButtonText: "Zendesk Data",
+    actionButtonText: "Zendesk",
     sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
     formField: "zendeskTickets", // Assuming a form field name
     canReindex: true,
