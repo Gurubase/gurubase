@@ -3260,6 +3260,8 @@ def format_references(references: list, api: bool = False) -> list:
             processed_reference['icon'] = "https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/youtube_dfa3f7b5b9.svg"
         elif processed_reference['link'].endswith('.pdf'):
             processed_reference['icon'] = settings.PDF_ICON_URL
+        elif processed_reference['link'].endswith('.xlsx') or processed_reference['link'].endswith('.xls'):
+            processed_reference['icon'] = settings.EXCEL_ICON_URL
         else:
             domain = urlparse(processed_reference['link']).netloc
             processed_reference['icon'] = get_website_icon(domain)
