@@ -449,16 +449,70 @@ def merge_splits(milvus_client, text_embedding, code_embedding, fetched_doc, col
             merged_text[split_num] = result['entity']['text']
             used_indices.add(split_num)
 
-    # Merge them in order with truncation indicators
-    sorted_indices = sorted(merged_text.keys())
-    merged_parts = []
-    
-    for i, idx in enumerate(sorted_indices):
-        if i > 0 and sorted_indices[i] - sorted_indices[i-1] > 1:
-            merged_parts.append("\n...truncated...\n")
-        merged_parts.append(merged_text[idx])
+    # Check if this is an Excel document
+    if fetched_doc['entity']['metadata'].get('type') == 'EXCEL':
+        # Group chunks by sheet
+        sheet_chunks = {}
+        for split_num, text in merged_text.items():
+            # Extract sheet name from the first line
+            lines = text.split('\n')
+            if lines and lines[0].startswith('## '):
+                sheet_name = lines[0][3:]  # Remove '## ' prefix
+                if sheet_name not in sheet_chunks:
+                    sheet_chunks[sheet_name] = []
+                sheet_chunks[sheet_name].append((split_num, text))
 
-    fetched_doc['entity']['text'] = '\n'.join(merged_parts)
+        # Sort chunks within each sheet by split_num
+        for sheet_name in sheet_chunks:
+            sheet_chunks[sheet_name].sort(key=lambda x: x[0])
+
+        # Merge chunks for each sheet
+        merged_sheets = []
+        for sheet_name, chunks in sheet_chunks.items():
+            sheet_parts = []
+            last_split_num = None
+            
+            for split_num, text in chunks:
+                lines = text.split('\n')
+                if last_split_num is None:
+                    # Start of a new sheet or non-adjacent chunk
+                    if last_split_num is not None:
+                        sheet_parts.append("\n...truncated...\n")
+                    # Add sheet name and header for new sheet
+                    
+                    sheet_parts.append(f"## {sheet_name}")
+                    if len(lines) > 1:
+                        sheet_parts.append(lines[1])  # Add header
+                    # Add data rows
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                elif split_num - last_split_num > 1:
+                    sheet_parts.append("\n...truncated...\n")
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                else:
+                    # Continue with existing sheet, only add data rows
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                
+                last_split_num = split_num
+            
+            merged_sheets.append('\n'.join(sheet_parts))
+
+        # Join all sheets
+        fetched_doc['entity']['text'] = '\n\n'.join(merged_sheets)
+    else:
+        # Original merging logic for non-Excel documents
+        sorted_indices = sorted(merged_text.keys())
+        merged_parts = []
+        
+        for i, idx in enumerate(sorted_indices):
+            if i > 0 and sorted_indices[i] - sorted_indices[i-1] > 1:
+                merged_parts.append("\n...truncated...\n")
+            merged_parts.append(merged_text[idx])
+
+        fetched_doc['entity']['text'] = '\n'.join(merged_parts)
+
     return fetched_doc
 
 
