@@ -1992,7 +1992,8 @@ def manage_channels(request, guru_type, integration_type):
                 processed_channels.append(channel)
         
         return Response({
-            'channels': processed_channels
+            'channels': processed_channels,
+            'allow_dm': integration.allow_dm
         })
     except Exception as e:
         logger.error(f"Error listing channels: {e}", exc_info=True)
