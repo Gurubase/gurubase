@@ -1091,23 +1091,6 @@ export default function NewGuru({
 
     const pdfSizeMb = (currentPdfSize + newPdfSize) / 1024 / 1024;
 
-    console.log(
-      "existing excel sources:",
-      sources.filter(
-        (s) =>
-          s.type?.toLowerCase() === "excel" && !s.deleted && !s.newAddedSource
-      )
-    );
-
-    console.log("dirtyChanges.sources", dirtyChanges.sources);
-    console.log(
-      "new excel sources:",
-      dirtyChanges.sources.filter(
-        (s) =>
-          s.type?.toLowerCase() === "excel" && s.newAddedSource && !s.deleted
-      )
-    );
-
     // Calculate Excel size
     let currentExcelSize = sources
       .filter(
@@ -1204,8 +1187,6 @@ export default function NewGuru({
       return false;
     }
 
-    console.log("excelSizeMb", excelSizeMb);
-    console.log("excelSizeLimitMb", excelSizeLimitMb);
     if (excelSizeMb > excelSizeLimitMb) {
       CustomToast({
         message: `You have exceeded the Excel size limit (${excelSizeLimitMb} MB).`,
