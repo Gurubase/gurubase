@@ -278,6 +278,7 @@ def prepare_contexts(contexts, reranked_scores):
                 'link': reference_link
             }
         elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE', 'EXCEL']:
+            from core.gcp import replace_media_root_with_base_url
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],
@@ -286,8 +287,11 @@ def prepare_contexts(contexts, reranked_scores):
             }
             
             # Remove link from metadata if it's a private PDF
-            if metadata['type'] in ['PDF', 'EXCEL'] and metadata['link'] in private_file_links:
-                metadata['link'] = None
+            if metadata['type'] in ['PDF', 'EXCEL']:
+                if metadata['link'] in private_file_links:
+                    metadata['link'] = None
+                else:
+                    metadata['link'] = replace_media_root_with_base_url(metadata['link'])
 
             context_parts = [
                 f"<{context['prefix']} context>\n",
