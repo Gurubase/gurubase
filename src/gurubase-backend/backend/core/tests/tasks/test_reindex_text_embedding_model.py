@@ -1,9 +1,7 @@
 from django.test import TestCase
 from unittest.mock import patch
-import traceback
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from accounts.models import User
 from core.models import GuruType, DataSource
 from core.tasks import reindex_text_embedding_model
 from core.utils import get_default_settings

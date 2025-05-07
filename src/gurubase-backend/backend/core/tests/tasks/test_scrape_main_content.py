@@ -1,9 +1,6 @@
 from django.test import TestCase
 from unittest.mock import patch, MagicMock
-import traceback
-from django.db import transaction
 
-from accounts.models import User
 from core.models import GuruType, DataSource
 from core.tasks import scrape_main_content
 from core.utils import get_default_settings

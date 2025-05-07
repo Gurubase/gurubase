@@ -1,16 +1,8 @@
 from django.test import TestCase, override_settings
-from django.utils import timezone
 from unittest.mock import patch, MagicMock
-import redis
-from accounts.models import User
-from core.models import Question, GuruType, DataSource, Integration, Settings, LLMEval, LLMEvalResult, SummaryQuestionGeneration, LinkReference, Favicon
-from core.tasks import fill_empty_og_images, update_question_as_the_question_content_h1, find_duplicate_question_titles, process_titles, data_source_retrieval, llm_eval, llm_eval_result, check_favicon_validity
+from core.models import Question, GuruType, LLMEval
+from core.tasks import llm_eval
 from core.utils import get_default_settings
-from core.tasks import rewrite_content_for_wrong_markdown_content
-from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
-from core.requester import FirecrawlScraper # For type checking
-import time
-from datetime import datetime
 
 @override_settings(
     GPT_MODEL='gpt-test-model',

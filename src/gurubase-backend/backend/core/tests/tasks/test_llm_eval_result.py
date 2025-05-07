@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.conf import settings
-from statistics import median, mean, stdev
+from statistics import median, mean
 from core.models import GuruType, Question, LLMEval, LLMEvalResult
 from core.tasks import llm_eval_result
 from core.utils import get_default_settings

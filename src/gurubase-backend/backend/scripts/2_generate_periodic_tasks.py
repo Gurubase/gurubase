@@ -22,62 +22,6 @@ MICROSECONDS = 'microseconds'
 
 
 periodic_tasks = {
-    'task_raw_questions_to_questions': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.task_raw_questions_to_questions',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_set_similarities': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.set_similarities',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_rewrite_content_for_wrong_markdown_content': {
-        'every': 20,
-        'period': MINUTES,
-        'task': 'core.tasks.rewrite_content_for_wrong_markdown_content',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_update_question_as_the_question_content_h1': {
-        'every': 30,
-        'period': MINUTES,
-        'task': 'core.tasks.update_question_as_the_question_content_h1',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-     'task_fill_empty_og_images': {
-        'every': 30,
-        'period': MINUTES,
-        'task': 'core.tasks.fill_empty_og_images',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_find_duplicate_question_titles': {
-        'every': 35,
-        'period': MINUTES,
-        'task': 'core.tasks.find_duplicate_question_titles',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_process_titles': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.process_titles',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
     'task_data_source_retrieval': {
         'every': 2,
         'period': MINUTES,
@@ -86,14 +30,6 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    # 'task_data_source_to_milvus': {
-    #     'every': 20,
-    #     'period': MINUTES,
-    #     'task': 'core.tasks.data_sources_to_milvus',
-    #     'enabled': True,
-    #     'last_run_at': datetime.utcnow() - timedelta(days=90),
-    #     'kwargs': {}
-    # },
     'task_llm_eval': {
         'every': 30,
         'period': DAYS,
@@ -112,67 +48,11 @@ periodic_tasks = {
         # Kwargs will be updated manually
         'kwargs': {"pairs": [("electrum", 1), ("refine", 1)]} # Pairs are (guru_slug, version)
     },
-    'task_get_content_links': {
-        'every': 10,
-        'period': MINUTES,
-        'task': 'core.tasks.get_content_links',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_check_link_validity': {
-        'every': 10,
-        'period': MINUTES,
-        'task': 'core.tasks.check_link_validity',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
     'task_check_favicon_validity': {
         'every': 1,
         'period': DAYS,
         'task': 'core.tasks.check_favicon_validity',
         'enabled': True,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_move_questions_to_milvus': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.move_questions_to_milvus',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_process_sitemap': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.process_sitemap',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
-    'task_summarize_data_sources': {
-        'every': 30,
-        'period': MINUTES,
-        'task': 'core.tasks.summarize_data_sources',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {'guru_type_slugs': ["*"]} # For more info on usage, visit implementation
-    },
-    'task_generate_questions_from_summaries': {
-        'every': 30,
-        'period': MINUTES,
-        'task': 'core.tasks.generate_questions_from_summaries',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {'guru_type_slugs': ["*"]} # For more info on usage, visit implementation
-    },
-    'task_process_summary_questions': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.process_summary_questions',
-        'enabled': False,
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
@@ -208,14 +88,6 @@ periodic_tasks = {
         'last_run_at': datetime.utcnow() - timedelta(days=90),
         'kwargs': {}
     },
-    'task_update_guru_type_sitemap_status': {
-        'every': 1,
-        'period': HOURS,
-        'task': 'core.tasks.update_guru_type_sitemap_status',
-        'enabled': False,
-        'last_run_at': datetime.utcnow() - timedelta(days=90),
-        'kwargs': {}
-    },
     'task_update_github_repositories_for_successful_repos': {
         'every': 12,
         'period': HOURS,
@@ -243,25 +115,10 @@ periodic_tasks = {
 }
 
 if settings.ENV == 'selfhosted':
-    periodic_tasks.pop('task_raw_questions_to_questions')
-    periodic_tasks.pop('task_set_similarities')
-    periodic_tasks.pop('task_move_questions_to_milvus')
-    periodic_tasks.pop('task_rewrite_content_for_wrong_markdown_content')
-    periodic_tasks.pop('task_update_question_as_the_question_content_h1')
-    periodic_tasks.pop('task_fill_empty_og_images')
-    periodic_tasks.pop('task_find_duplicate_question_titles')
-    periodic_tasks.pop('task_process_titles')
     periodic_tasks.pop('task_llm_eval')
     periodic_tasks.pop('task_llm_eval_result')
-    periodic_tasks.pop('task_get_content_links')
-    periodic_tasks.pop('task_check_link_validity')
-    periodic_tasks.pop('task_process_sitemap')
-    periodic_tasks.pop('task_summarize_data_sources')
-    periodic_tasks.pop('task_generate_questions_from_summaries')
-    periodic_tasks.pop('task_process_summary_questions')
     periodic_tasks.pop('task_check_datasource_in_milvus_false_and_success')
     periodic_tasks.pop('task_send_request_to_questions_for_cloudflare_cache')
-    periodic_tasks.pop('task_update_guru_type_sitemap_status')
 
 
 def get_interval_schedule(task_configuration):

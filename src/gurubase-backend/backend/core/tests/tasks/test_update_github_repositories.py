@@ -1,11 +1,10 @@
 from django.test import TestCase
 from django.utils import timezone
 from unittest.mock import patch, MagicMock
-import os
-from datetime import datetime, UTC, timedelta
+from datetime import timedelta
 from core.models import GuruType, DataSource, GithubFile
 from core.tasks import update_github_repositories
-from core.exceptions import GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError
+from core.exceptions import GithubInvalidRepoError
 from core.utils import get_default_settings
 
 
