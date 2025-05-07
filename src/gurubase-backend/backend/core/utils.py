@@ -223,19 +223,19 @@ def prepare_contexts(contexts, reranked_scores):
     # The contexts are already sorted by their trust score
     
     # Find the PDF files that need to be masked
-    pdf_links = []
+    file_links = []
     for context in contexts:
         if ('entity' in context and 
             'metadata' in context['entity'] and 
             'type' in context['entity']['metadata'] and 
-            context['entity']['metadata']['type'] == 'PDF' and 
+            context['entity']['metadata']['type'] in ['PDF', 'EXCEL'] and 
             'link' in context['entity']['metadata']):
-            pdf_links.append(context['entity']['metadata']['link'])
+            file_links.append(context['entity']['metadata']['link'])
     
-    private_pdf_links = set()
-    if pdf_links:
+    private_file_links = set()
+    if file_links:
         from core.models import DataSource
-        private_pdf_links = set(DataSource.objects.filter(url__in=pdf_links, private=True).values_list('url', flat=True))
+        private_file_links = set(DataSource.objects.filter(url__in=file_links, private=True).values_list('url', flat=True))
 
     for context_num, context in enumerate(contexts, start=1):
         if isinstance(context, dict) and 'question' in context and 'accepted_answer' in context:
@@ -286,7 +286,7 @@ def prepare_contexts(contexts, reranked_scores):
             }
             
             # Remove link from metadata if it's a private PDF
-            if metadata['type'] in ['PDF', 'EXCEL'] and metadata['link'] in private_pdf_links:
+            if metadata['type'] in ['PDF', 'EXCEL'] and metadata['link'] in private_file_links:
                 metadata['link'] = None
 
             context_parts = [
