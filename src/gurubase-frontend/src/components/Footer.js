@@ -11,6 +11,7 @@ import NotificationCard from "./NotificationCard/NotificationCard";
 export default function Footer({ guruType, slug, sidebarExists = false }) {
   const isSmallScreen = useIsSmallScreen();
   const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
   // Don't render footer on mobile screens
   if (isSmallScreen) {
@@ -38,7 +39,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
               width={0}
             />
 
-            {isBetaFeaturesEnabled && (
+            {isBetaFeaturesEnabled && isSelfHosted && (
               <>
                 <SocialMediaHeader isMobile={true} />
                 <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
@@ -46,7 +47,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
                 </p>
               </>
             )}
-            {!isBetaFeaturesEnabled && (
+            {(!isBetaFeaturesEnabled || !isSelfHosted) && (
               <>
                 <SocialMediaHeader isMobile={true} />
                 <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
