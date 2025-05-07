@@ -133,12 +133,13 @@ When answering the question, follow these guidelines:
 2. Contexts are not the exact answer, but they are relevant information to answer the question.
 3. Highlight critical information in bold for emphasis.
 4. Explain concepts whenever possible, being informative and helpful.
-5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable. However, for pdf files, only refer to the pdf title.
+5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable. However, for pdf and excel files, only refer to the title.
 6. Demonstrate concepts with examples when possible.
 7. Use code blocks for any code snippets.
 8. Use exact names from contexts for functions/classes/methods.
 9. Answer the question based on the user's intent: {user_intent}.
 10. If a code context is given (enclosed with <Code context>), make use of it as much as you can for answering the question as long as it is relevant. Try to make references to the given code.
+11. Excel files start with "## sheet name", then a row of headers, then rows of data.
 
 Based on this intent, provide a {answer_length} words answer to the user question and question that is the prettier version of the user question with the grammar fixed and more readable.
 
@@ -177,7 +178,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets/articles, Confluence pages, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, excels, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets/articles, Confluence pages, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.

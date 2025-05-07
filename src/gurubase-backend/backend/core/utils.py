@@ -34,7 +34,7 @@ from PIL import Image
 from core.models import DataSource, Binge
 from accounts.models import User
 from dataclasses import dataclass
-from typing import Optional, Generator, Union, Dict
+from typing import List, Optional, Generator, Union
 from django.db.models import Model, Q
 from django.core.cache import caches
 import hashlib
@@ -223,19 +223,19 @@ def prepare_contexts(contexts, reranked_scores):
     # The contexts are already sorted by their trust score
     
     # Find the PDF files that need to be masked
-    pdf_links = []
+    file_links = []
     for context in contexts:
         if ('entity' in context and 
             'metadata' in context['entity'] and 
             'type' in context['entity']['metadata'] and 
-            context['entity']['metadata']['type'] == 'PDF' and 
+            context['entity']['metadata']['type'] in ['PDF', 'EXCEL'] and 
             'link' in context['entity']['metadata']):
-            pdf_links.append(context['entity']['metadata']['link'])
+            file_links.append(context['entity']['metadata']['link'])
     
-    private_pdf_links = set()
-    if pdf_links:
+    private_file_links = set()
+    if file_links:
         from core.models import DataSource
-        private_pdf_links = set(DataSource.objects.filter(url__in=pdf_links, private=True).values_list('url', flat=True))
+        private_file_links = set(DataSource.objects.filter(url__in=file_links, private=True).values_list('url', flat=True))
 
     for context_num, context in enumerate(contexts, start=1):
         if isinstance(context, dict) and 'question' in context and 'accepted_answer' in context:
@@ -277,7 +277,8 @@ def prepare_contexts(contexts, reranked_scores):
                 'question': reference_key,
                 'link': reference_link
             }
-        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE']:
+        elif 'type' in context['entity']['metadata'] and context['entity']['metadata']['type'] in ['WEBSITE', 'PDF', 'YOUTUBE', 'JIRA', 'ZENDESK', 'CONFLUENCE', 'EXCEL']:
+            from core.gcp import replace_media_root_with_base_url
             # Data Sources except Github Repo (unchanged)
             metadata = {
                 'type': context['entity']['metadata']['type'],
@@ -286,8 +287,11 @@ def prepare_contexts(contexts, reranked_scores):
             }
             
             # Remove link from metadata if it's a private PDF
-            if metadata['type'] == 'PDF' and metadata['link'] in private_pdf_links:
-                metadata['link'] = None
+            if metadata['type'] in ['PDF', 'EXCEL']:
+                if metadata['link'] in private_file_links:
+                    metadata['link'] = None
+                else:
+                    metadata['link'] = replace_media_root_with_base_url(metadata['link'])
 
             context_parts = [
                 f"<{context['prefix']} context>\n",
@@ -445,16 +449,70 @@ def merge_splits(milvus_client, text_embedding, code_embedding, fetched_doc, col
             merged_text[split_num] = result['entity']['text']
             used_indices.add(split_num)
 
-    # Merge them in order with truncation indicators
-    sorted_indices = sorted(merged_text.keys())
-    merged_parts = []
-    
-    for i, idx in enumerate(sorted_indices):
-        if i > 0 and sorted_indices[i] - sorted_indices[i-1] > 1:
-            merged_parts.append("\n...truncated...\n")
-        merged_parts.append(merged_text[idx])
+    # Check if this is an Excel document
+    if fetched_doc['entity']['metadata'].get('type') == 'EXCEL':
+        # Group chunks by sheet
+        sheet_chunks = {}
+        for split_num, text in merged_text.items():
+            # Extract sheet name from the first line
+            lines = text.split('\n')
+            if lines and lines[0].startswith('## '):
+                sheet_name = lines[0][3:]  # Remove '## ' prefix
+                if sheet_name not in sheet_chunks:
+                    sheet_chunks[sheet_name] = []
+                sheet_chunks[sheet_name].append((split_num, text))
 
-    fetched_doc['entity']['text'] = '\n'.join(merged_parts)
+        # Sort chunks within each sheet by split_num
+        for sheet_name in sheet_chunks:
+            sheet_chunks[sheet_name].sort(key=lambda x: x[0])
+
+        # Merge chunks for each sheet
+        merged_sheets = []
+        for sheet_name, chunks in sheet_chunks.items():
+            sheet_parts = []
+            last_split_num = None
+            
+            for split_num, text in chunks:
+                lines = text.split('\n')
+                if last_split_num is None:
+                    # Start of a new sheet or non-adjacent chunk
+                    if last_split_num is not None:
+                        sheet_parts.append("\n...truncated...\n")
+                    # Add sheet name and header for new sheet
+                    
+                    sheet_parts.append(f"## {sheet_name}")
+                    if len(lines) > 1:
+                        sheet_parts.append(lines[1])  # Add header
+                    # Add data rows
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                elif split_num - last_split_num > 1:
+                    sheet_parts.append("\n...truncated...\n")
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                else:
+                    # Continue with existing sheet, only add data rows
+                    if len(lines) > 2:
+                        sheet_parts.append('\n'.join(lines[2:]))
+                
+                last_split_num = split_num
+            
+            merged_sheets.append('\n'.join(sheet_parts))
+
+        # Join all sheets
+        fetched_doc['entity']['text'] = '\n\n'.join(merged_sheets)
+    else:
+        # Original merging logic for non-Excel documents
+        sorted_indices = sorted(merged_text.keys())
+        merged_parts = []
+        
+        for i, idx in enumerate(sorted_indices):
+            if i > 0 and sorted_indices[i] - sorted_indices[i-1] > 1:
+                merged_parts.append("\n...truncated...\n")
+            merged_parts.append(merged_text[idx])
+
+        fetched_doc['entity']['text'] = '\n'.join(merged_parts)
+
     return fetched_doc
 
 
@@ -2424,6 +2482,67 @@ def simulate_summary_and_answer(question, guru_type, check_existence, save, sour
 
     return answer, None, usages, question_obj
 
+# TODO: Define a new helper for excel text splitting. The file is already turned into markdown. An example:
+## Sheet1\n| 0 | First Name | Last Name | Gender | Country | Age | Date | Id |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| 1 | Dulce | Abril | Female | United States | 32 | 15/10/2017 | 1562 |\n| 2 | Mara | Hashimoto | Female | Great Britain | 25 | 16/08/2016 | 1582 |\n| 3 | Philip | Gent | Male | France | 36 | 21/05/2015 | 2587 |\n| 4 | Kathleen | Hanner | Female | United States | 25 | 15/10/2017 | 3549 |\n| 5 | Nereida | Magwood | Female | United States | 58 | 16/08/2016 | 2468 |\n| 6 | Gaston | Brumm | Male | United States | 24 | 21/05/2015 | 2554 |\n| 7 | Etta | Hurn | Female | Great Britain | 56 | 15/10/2017 | 3598 |\n| 8 | Earlean | Melgar | Female | United States | 27 | 16/08/2016 | 2456 |\n| 9 | Vincenza | Weiland | Female | United States | 40 | 21/05/2015 | 6548 |\n| 10 | Fallon | Winward | Female | Great Britain | 28 | 16/08/2016 | 5486 |\n| 11 | Arcelia | Bouska | Female | Great Britain | 39 | 21/05/2015 | 1258 |\n
+# The helper will first get the header row. Then it will merge multiple (maybe 1) rows into chunks. And it will add the header row to the beginning of each chunk.
+# It will consider the header length in the split length as well
+def split_excel_content(content: str, chunk_size: int = 1000) -> List[str]:
+    """
+    Split Excel content (in markdown format) into chunks while preserving headers.
+    
+    Args:
+        content: Excel content in markdown format
+        chunk_size: Maximum size of each chunk in characters
+        
+    Returns:
+        List of chunks, each containing the header row followed by data rows
+    """
+    chunks = []
+    
+    # Split content into sheets
+    sheets = content.split('\n## ')
+    for i, sheet in enumerate(sheets):
+        if not sheet.startswith('## '):
+            sheets[i] = '## ' + sheet
+    
+    for sheet in sheets:
+        # Split sheet into lines
+        lines = sheet.strip().split('\n')
+        if not lines:
+            continue
+            
+        # Extract header row (first line after sheet name)
+        header_row = lines[1] if len(lines) > 1 else ''
+        header_length = len(header_row)
+        
+        # Get data rows (skip sheet name and header)
+        data_rows = lines[2:]
+        
+        current_chunk = []
+        current_chunk_size = header_length  # Start with header length
+        
+        for row in data_rows:
+            row_length = len(row)
+            
+            # If adding this row would exceed chunk size, save current chunk and start new one
+            if current_chunk_size + row_length > chunk_size and current_chunk:
+                # Add header to the beginning of the chunk
+                chunk_content = f"{lines[0]}\n{header_row}\n" + '\n'.join(current_chunk)
+                chunks.append(chunk_content)
+                
+                # Start new chunk
+                current_chunk = [row]
+                current_chunk_size = header_length + row_length
+            else:
+                current_chunk.append(row)
+                current_chunk_size += row_length
+        
+        # Add remaining rows as final chunk
+        if current_chunk:
+            chunk_content = f"{lines[0]}\n{header_row}\n" + '\n'.join(current_chunk)
+            chunks.append(chunk_content)
+    
+    return chunks
     
 def split_text(text, max_length, min_length, overlap, separators=None):
     def merge_small_chunks(chunks, min_size=1000):
@@ -3195,6 +3314,8 @@ def format_references(references: list, api: bool = False) -> list:
             processed_reference['icon'] = "https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/youtube_dfa3f7b5b9.svg"
         elif processed_reference['link'].endswith('.pdf'):
             processed_reference['icon'] = settings.PDF_ICON_URL
+        elif processed_reference['link'].endswith('.xlsx') or processed_reference['link'].endswith('.xls'):
+            processed_reference['icon'] = settings.EXCEL_ICON_URL
         else:
             domain = urlparse(processed_reference['link']).netloc
             processed_reference['icon'] = get_website_icon(domain)
@@ -3208,18 +3329,19 @@ def format_references(references: list, api: bool = False) -> list:
         processed_references.append(processed_reference)
 
     # Find all pdf files in references
-    pdf_files = [reference['link'] for reference in processed_references if reference['link'].endswith('.pdf')]
-    pdf_data_sources = DataSource.objects.filter(url__in=pdf_files)
-    for pdf_data_source in pdf_data_sources:
-        if pdf_data_source.private:
+    files = [reference['link'] for reference in processed_references if (reference['link'].endswith('.pdf') or reference['link'].endswith('.xlsx') or reference['link'].endswith('.xls'))]
+
+    file_data_sources = DataSource.objects.filter(url__in=files)
+    for file_data_source in file_data_sources:
+        if file_data_source.private:
             for reference in processed_references:
-                if reference['link'] == pdf_data_source.url:
+                if reference['link'] == file_data_source.url:
                     # del reference['link']
                     reference['link'] = None
         else:
             if settings.ENV == 'selfhosted':
                 for reference in processed_references:
-                    if reference['link'] == pdf_data_source.url:
+                    if reference['link'] == file_data_source.url:
                         reference['link'] = replace_media_root_with_base_url(reference['link'])
                     
 
