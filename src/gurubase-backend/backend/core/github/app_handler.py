@@ -375,7 +375,11 @@ class GithubAppHandler:
             for ref in references:
                 # Clean up the title by removing emojis and extra spaces
                 clean_title = cleanup_title(ref['title'])
-                references_section += f"\n* _[{clean_title}]({ref['link']})_"
+
+                if ref['link']:
+                    references_section += f"\n* _[{clean_title}]({ref['link']})_"
+                else:
+                    references_section += f"\n* _{clean_title}_"
         
         # Calculate frontend link section length
         question_url = answer.get('question_url')
