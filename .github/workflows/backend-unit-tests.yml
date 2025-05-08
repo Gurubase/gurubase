@@ -3,12 +3,8 @@ name: Backend Unit Tests
 on:
   push:
     branches: [ master, develop, unit-tests ]
-    paths:
-      - 'gurubase-backend/**'
   pull_request:
     branches: [ master, develop, unit-tests ]
-    paths:
-      - 'gurubase-backend/**'
 
 jobs:
   test:
