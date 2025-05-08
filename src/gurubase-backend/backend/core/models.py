@@ -291,6 +291,31 @@ class QuestionValidityCheckPricing(models.Model):
         return self.prompt_tokens + self.completion_tokens
 
 
+class Language(models.Model):
+    code = models.CharField(max_length=10, unique=True)  # e.g., "ENGLISH", "TURKISH"
+    name = models.CharField(max_length=50)  # e.g., "English", "Turkish"
+    iso_code = models.CharField(max_length=2, unique=True)  # e.g., "en", "tr"
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    def get_iso_code(self):
+        """Returns the ISO language code"""
+        return self.iso_code
+
+    class Meta:
+        ordering = ['name']
+
+
+def get_default_language():
+    return Language.objects.get_or_create(code='ENGLISH', defaults={
+        'name': 'English',
+        'iso_code': 'en'
+    })[0].id
+
+
 class GuruType(models.Model):
     class EmbeddingModel(models.TextChoices):
         IN_HOUSE = "IN_HOUSE", "In-house embedding model"
@@ -299,21 +324,11 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_SMALL = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
-
-    class Language(models.TextChoices):
-        ENGLISH = "ENGLISH", "English"
-        TURKISH = "TURKISH", "Turkish"
-        
-    # Language code mapping
-    LANGUAGE_CODES = {
-        'ENGLISH': 'en',
-        'TURKISH': 'tr',
-    }
     
     # Get language code helper method
     def get_language_code(self):
         """Returns the ISO language code for the selected language"""
-        return self.LANGUAGE_CODES.get(self.language, 'en')
+        return self.language.get_iso_code() if self.language else 'en'
 
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
@@ -367,11 +382,7 @@ class GuruType(models.Model):
     )
     send_notification = models.BooleanField(default=False)
     private = models.BooleanField(default=False)
-    language = models.CharField(
-        max_length=100,
-        choices=Language.choices,
-        default=Language.ENGLISH
-    )
+    language = models.ForeignKey(Language, on_delete=models.SET_DEFAULT, default=get_default_language)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
