@@ -17,7 +17,7 @@ from django.conf import settings
 import requests
 from integrations.bots.models import BotContext
 from core.milvus_utils import search_for_closest
-from core.guru_types import get_guru_type_prompt_map, get_guru_type_names
+from core.guru_types import get_guru_type_object, get_guru_type_prompt_map, get_guru_type_names
 from core import exceptions
 from pymilvus import MilvusClient
 from core.models import GuruType, Question, OutOfContextQuestion, Summarization, Settings, SummaryQuestionGeneration
@@ -1421,7 +1421,7 @@ def ask_question_with_stream(
         return None, None, None, None, None, None, None, None, None, times
 
     # Get GitHub details from data sources referenced in the context links
-    simplified_github_details = get_github_details_if_applicable(guru_type, links, processed_ctx_relevances)
+    simplified_github_details = get_github_details_if_applicable(guru_type_obj.slug, links, processed_ctx_relevances)
 
     guru_variables = guru_type_obj.prompt_map
     guru_variables['streaming_type']='streaming'
