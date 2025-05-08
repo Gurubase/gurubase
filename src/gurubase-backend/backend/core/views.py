@@ -2128,7 +2128,10 @@ def format_slack_response(content: str, trust_score: int, references: list, ques
             # First remove Slack-style emoji codes with adjacent spaces
             clean_title = cleanup_title(ref['title'])
             
-            formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
+            if ref['link']:
+                formatted_msg.append(f"\n• _<{ref['link']}|{clean_title}>_")
+            else:
+                formatted_msg.append(f"\n• _{clean_title}_")
     
     # Add frontend link if it exists
     if question_url:
