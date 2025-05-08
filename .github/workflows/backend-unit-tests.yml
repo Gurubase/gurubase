@@ -27,17 +27,17 @@ jobs:
         
     - name: Run tests with coverage
       run: |
-        cd src/gurubase-backend
+        cd src/gurubase-backend/backend
         coverage run manage.py test
         
     - name: Generate coverage report
       run: |
-        cd src/gurubase-backend
+        cd src/gurubase-backend/backend
         coverage report --sort=cover -m
         
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
-        path: src/gurubase-backend/.coverage
+        path: src/gurubase-backend/backend/.coverage
         if-no-files-found: error 
