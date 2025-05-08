@@ -10,6 +10,11 @@ omit =
     */asgi.py
     */settings.py
     */urls.py
+    */tests.py
+    */prompts.py
+    */exceptions.py
+    */sitemaps.py
+    */files/*
     manage.py
 
 [report]
