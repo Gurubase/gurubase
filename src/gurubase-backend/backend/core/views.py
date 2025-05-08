@@ -1492,6 +1492,7 @@ def api_answer(request, guru_type):
     if api_type in [APIType.GITHUB, APIType.SLACK, APIType.DISCORD]:
         assert request.integration is not None
         context_handler = get_context_handler(api_type, request.integration)
+        forum = False
         if context_handler:
             if api_type == APIType.SLACK:
                 # For Slack, combine channel_id and thread_ts into api_url
@@ -1513,10 +1514,11 @@ def api_answer(request, guru_type):
                     api_url = f"None:{thread_id}"
                 else:
                     api_url = None
+                forum = request.data.get('forum', False)
             elif api_type == APIType.GITHUB:
                 api_url = request.data.get('github_api_url')
                 
-            integration_context = context_handler.get_context(api_url, request.integration.external_id)
+            integration_context = context_handler.get_context(api_url, request.integration.external_id, forum=forum)
 
     # Get API response
     api_response = api_ask(
