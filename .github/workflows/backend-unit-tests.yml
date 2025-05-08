@@ -30,13 +30,13 @@ jobs:
     - name: Run tests with coverage
       run: |
         cd src/gurubase-backend/backend
-        coverage run manage.py test
+        coverage run --rcfile=.coveragerc manage.py test
         
     - name: Generate coverage report
       run: |
         cd src/gurubase-backend/backend
-        coverage report --sort=cover -m
-        coverage html
+        coverage report --rcfile=.coveragerc --sort=cover -m
+        coverage html --rcfile=.coveragerc
         
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
