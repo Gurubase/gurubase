@@ -1,5 +1,9 @@
 import { Link, ExternalLink } from "lucide-react";
-import { SolarFileTextBold, SolarVideoLibraryBold } from "@/components/Icons";
+import {
+  SolarFileTextBold,
+  SolarVideoLibraryBold,
+  ExcelIcon
+} from "@/components/Icons";
 import { Icon } from "@iconify/react";
 import { METRIC_TYPES } from "@/services/analyticsService";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +11,7 @@ import { getColors } from "@/lib/trustScoreColors";
 
 const sourceTypeIcons = {
   pdf: SolarFileTextBold,
+  excel: ExcelIcon,
   youtube: SolarVideoLibraryBold,
   website: Link,
   jira: () => <Icon icon="simple-icons:jira" className="h-4 w-4" />,

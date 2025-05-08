@@ -60,7 +60,8 @@ export function SourcesTableSection({
   isSubmitting,
   isLoadingIntegration,
   jiraIntegration,
-  fileInputRef,
+  pdfInputRef,
+  excelInputRef,
   handleEditSource,
   handleDeleteSource,
   handleReindexSource,
@@ -119,8 +120,14 @@ export function SourcesTableSection({
   };
 
   const handleUploadPdf = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    if (pdfInputRef.current) {
+      pdfInputRef.current.click();
+    }
+  };
+
+  const handleUploadExcel = () => {
+    if (excelInputRef.current) {
+      excelInputRef.current.click();
     }
   };
 
@@ -130,6 +137,7 @@ export function SourcesTableSection({
     jira: handleAddJira,
     confluence: handleAddConfluence,
     onUploadPdfClick: handleUploadPdf,
+    onUploadExcelClick: handleUploadExcel,
     zendesk: handleAddZendesk
   };
 
@@ -334,7 +342,9 @@ export function SourcesTableSection({
       source.type.toLowerCase() === "zendesk"
   );
   const fileSources = filteredSources.filter(
-    (source) => source.type.toLowerCase() === "pdf"
+    (source) =>
+      source.type.toLowerCase() === "pdf" ||
+      source.type.toLowerCase() === "excel"
   );
 
   const groupedSources = urlSources.reduce((acc, source) => {
@@ -438,7 +448,8 @@ export function SourcesTableSection({
                       </div>
                     ) : (
                       <span>
-                        {source?.type?.toLowerCase() === "pdf"
+                        {source?.type?.toLowerCase() === "pdf" ||
+                        source?.type?.toLowerCase() === "excel"
                           ? source?.name
                           : source?.domain}
                       </span>

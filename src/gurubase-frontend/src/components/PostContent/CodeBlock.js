@@ -38,13 +38,9 @@ const CodeBlock = ({ language, value }) => {
     }
   };
 
-  if (!isCopySupported) {
-    return null;
-  }
-
   return (
     <div className="relative not-prose">
-      {!isStreaming && (
+      {isCopySupported && !isStreaming && (
         <button
           aria-label="icon with copy"
           className="absolute top-2 right-2 bg-transparent p-1 text-sm rounded focus:outline-none focus:ring-1 focus:ring-gray-500 focus:ring-opacity-0"

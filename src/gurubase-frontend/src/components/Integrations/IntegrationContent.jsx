@@ -808,7 +808,8 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
           selfhosted ||
             type === "jira" ||
             type === "confluence" ||
-            type === "zendesk"
+            type === "zendesk" ||
+            (type === "github" && selfhosted)
             ? "flex-col"
             : "flex-row items-center justify-between guru-xs:flex-col guru-xs:items-start"
         )}>
@@ -824,17 +825,19 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
             selfhosted ||
               type === "jira" ||
               type === "confluence" ||
-              type === "zendesk"
+              type === "zendesk" ||
+              (type === "github" && selfhosted)
               ? "w-full md:"
               : "w-full md:w-auto"
           )}>
           {selfhosted ||
           type === "jira" ||
           type === "confluence" ||
-          type === "zendesk" ? (
+          type === "zendesk" ||
+          (type === "github" && selfhosted) ? (
             <>
               <div className="space-y-8">
-                {type === "github" ? (
+                {type === "github" && selfhosted ? (
                   <>
                     <p className="text-[#6D6D6D] font-inter text-[14px] font-normal mb-3">
                       {config.selfhostedDescription}
@@ -885,7 +888,7 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                         />
                       </div>
                     </div>
-                    {integrationData?.github_secret && (
+                    {
                       <div>
                         <div className="flex flex-col gap-2">
                           <h3 className="text-lg font-medium">
@@ -911,7 +914,25 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
                           />
                         </div>
                       </div>
-                    )}
+                    }
+                    {
+                      <div>
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-lg font-medium">Private Key</h3>
+                          <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+                            Make sure the newlines are included
+                          </p>
+                        </div>
+                        <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px] mt-4">
+                          <textarea
+                            className="h-32 w-full px-3 py-2 border border-[#E2E2E2] rounded-lg text-[14px] font-normal text-[#191919] bg-white resize-none"
+                            value={privateKey}
+                            onChange={(e) => setPrivateKey(e.target.value)}
+                            placeholder="Enter GitHub App private key..."
+                          />
+                        </div>
+                      </div>
+                    }
                   </>
                 ) : type === "jira" ? (
                   <>

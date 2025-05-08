@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
 from core.models import DataSource, GuruType, Integration
-from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, ConfluenceStrategy
+from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, ConfluenceStrategy, ExcelStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
 
@@ -19,7 +19,8 @@ class DataSourceService:
             'website': WebsiteStrategy(),
             'jira': JiraStrategy(),
             'zendesk': ZendeskStrategy(),
-            'confluence': ConfluenceStrategy()
+            'confluence': ConfluenceStrategy(),
+            'excel': ExcelStrategy()
         }
 
     def validate_pdf_files(self, pdf_files: List[UploadedFile], pdf_privacies: List[bool]) -> None:
@@ -36,10 +37,26 @@ class DataSourceService:
         if len(pdf_privacies) != len(pdf_files):
             raise ValueError('Number of privacy settings must match number of PDF files')
         
-        for pdf_file in pdf_files:
-            is_allowed, error_msg = self.guru_type_object.check_datasource_limits(self.user, file=pdf_file)
-            if not is_allowed:
-                raise ValueError(error_msg)
+        is_allowed, error_msg = self.guru_type_object.check_datasource_limits(self.user, pdf_files=pdf_files)
+        if not is_allowed:
+            raise ValueError(error_msg)
+
+    def validate_excel_files(self, excel_files: List[UploadedFile], excel_privacies: List[bool]) -> None:
+        """
+        Validates Excel files
+        
+        Args:
+            excel_files: List of uploaded Excel files
+            excel_privacies: List of privacy settings for Excel files
+        Raises:
+            ValueError: If validation fails
+        """
+        if len(excel_privacies) != len(excel_files):
+            raise ValueError('Number of privacy settings must match number of Excel files')
+
+        is_allowed, error_msg = self.guru_type_object.check_datasource_limits(self.user, excel_files=excel_files)
+        if not is_allowed:
+            raise ValueError(error_msg)            
 
     def validate_url_limits(self, urls: List[str], url_type: str) -> None:
         """
@@ -93,7 +110,9 @@ class DataSourceService:
         website_urls: List[str],
         jira_urls: List[str],
         zendesk_urls: List[str],
-        confluence_urls: List[str] = None
+        confluence_urls: List[str] = None,
+        excel_files: List[UploadedFile] = None,
+        excel_privacies: List[bool] = None
     ) -> List[Dict[str, Any]]:
         """
         Creates data sources of different types
@@ -106,6 +125,8 @@ class DataSourceService:
             jira_urls: List of Jira URLs
             zendesk_urls: List of Zendesk URLs
             confluence_urls: List of Confluence URLs
+            excel_files: List of uploaded Excel files
+            excel_privacies: List of privacy settings for Excel files
         Returns:
             List of created data source results
         """
@@ -140,6 +161,11 @@ class DataSourceService:
             clean_confluence_urls = clean_data_source_urls(confluence_urls)
             for url in clean_confluence_urls:
                 results.append(self.strategies['confluence'].create(self.guru_type_object, url))
+
+        # Process Excel files
+        if excel_files:
+            for i, excel_file in enumerate(excel_files):
+                results.append(self.strategies['excel'].create(self.guru_type_object, excel_file, excel_privacies[i]))
 
         # Trigger background task
         data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)

@@ -364,6 +364,7 @@ else:
 GS_BUCKET_NAME = 'gurubase-og-images'
 GS_DATA_SOURCES_BUCKET_NAME = 'gurubase-customguru-files'
 PDF_ICON_URL = 'https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/pdf_icon_9268153e39.svg'
+EXCEL_ICON_URL = 'https://upload.wikimedia.org/wikipedia/commons/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%29.svg'
 YOUTUBE_ICON_URL = 'https://s3.eu-central-1.amazonaws.com/anteon-strapi-cms-wuby8hpna3bdecoduzfibtrucp5x/youtube_dfa3f7b5b9.svg'
 STACKOVERFLOW_ICON_URL = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/stackoverflow/stackoverflow-original.svg'
 WEBSITE_ICON_URL = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/chrome/chrome-original.svg'

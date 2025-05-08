@@ -120,3 +120,7 @@ class JiraAuthenticationError(JiraError):
 class IntegrityError(Exception):
     """Exception raised for integrity errors."""
     pass
+
+class ExcelContentExtractionError(Exception):
+    """Exception raised for Excel content extraction errors."""
+    pass

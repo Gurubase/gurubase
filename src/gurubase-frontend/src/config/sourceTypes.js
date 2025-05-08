@@ -7,12 +7,13 @@ import {
 
 import {
   ConfluenceIcon,
+  ExcelIcon,
   JiraIcon,
   LogosYoutubeIcon,
   SolarFileTextBold,
   // SolarTrashBinTrashBold, // Keep for potential future use if needed directly
   SolarVideoLibraryBold,
-  ZendeskIcon // Placeholder Icon
+  ZendeskIcon
 } from "@/components/Icons"; // Assuming Icons barrel file exists or adjust path
 
 // Check if beta features are enabled via environment variable
@@ -35,6 +36,23 @@ const baseSourceTypesConfig = {
     requiresIntegrationCheck: false, // Does adding require an integration check?
     filterValue: "website" // Value used in the filter dropdown
   },
+  EXCEL: {
+    id: "excel",
+    apiType: "EXCEL",
+    displayName: "Excel",
+    displaySourceText: "Excel",
+    icon: ExcelIcon,
+    actionButtonIcon: ExcelIcon,
+    actionButtonText: "Excel",
+    sidebarStateSetterName: null,
+    formField: "uploadedFiles",
+    canReindex: false,
+    canEdit: false,
+    requiresIntegrationCheck: false,
+    hasPrivacyToggle: true,
+    actionHandlerName: "onUploadExcelClick",
+    filterValue: "excel"
+  },
   YOUTUBE: {
     id: "youtube",
     apiType: "YOUTUBE",
@@ -53,8 +71,8 @@ const baseSourceTypesConfig = {
   PDF: {
     id: "pdf",
     apiType: "PDF",
-    displayName: "Files",
-    displaySourceText: "File",
+    displayName: "PDF",
+    displaySourceText: "PDF",
     icon: SolarFileTextBold,
     actionButtonIcon: Upload,
     actionButtonText: "PDFs",
@@ -78,7 +96,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Jira",
     icon: JiraIcon,
     actionButtonIcon: JiraIcon,
-    actionButtonText: "Jira Issues",
+    actionButtonText: "Jira",
     sidebarStateSetterName: "setIsJiraSidebarOpen",
     formField: "jiraIssues",
     canReindex: true,
@@ -97,7 +115,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Confluence",
     icon: ConfluenceIcon,
     actionButtonIcon: ConfluenceIcon,
-    actionButtonText: "Confluence Pages",
+    actionButtonText: "Confluence",
     sidebarStateSetterName: "setIsConfluenceSidebarOpen",
     formField: "confluencePages",
     canReindex: true,
@@ -116,7 +134,7 @@ if (isBetaFeaturesEnabled) {
     displaySourceText: "Zendesk",
     icon: ZendeskIcon, // Placeholder
     actionButtonIcon: ZendeskIcon, // Placeholder
-    actionButtonText: "Zendesk Data",
+    actionButtonText: "Zendesk",
     sidebarStateSetterName: "setIsZendeskSidebarOpen", // Assuming a similar pattern
     formField: "zendeskTickets", // Assuming a form field name
     canReindex: true,

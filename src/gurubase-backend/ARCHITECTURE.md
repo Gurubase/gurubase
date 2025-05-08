@@ -129,7 +129,7 @@ Creating and updating guru types also syncs their Milvus collection accordingly 
 
 ### Managing Data Sources
 
-Four types of data sources are supported:
+These data sources are supported:
 - YouTube videos
 - Websites
 - PDFs
@@ -137,6 +137,7 @@ Four types of data sources are supported:
 - Jira Issues
 - ZenDesk Tickets/Articles
 - Confluence Pages
+- Excel files (.xls, .xlsx)
 
 #### YouTube videos
 
@@ -159,6 +160,10 @@ The system uses ZenDesk Web API to fetch tickets and articles based on the integ
 #### Confluence Pages
 
 The system uses Atlassian Python SDK to fetch pages based on the integration configuration.
+
+#### Excel Files
+
+The system parses each sheet in the given Excel file, splits the sheets by appending the header in each split.
 
 #### PDFs
 

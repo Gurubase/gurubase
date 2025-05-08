@@ -518,6 +518,7 @@ def my_gurus(request, guru_slug=None):
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
+                'excel_size_limit_mb': guru.excel_size_limit_mb,
                 'jira_limit': guru.jira_count_limit,
                 'zendesk_limit': guru.zendesk_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
@@ -817,6 +818,8 @@ def create_data_sources(request, guru_type):
     jira_urls = request.data.get('jira_urls', '[]')
     zendesk_urls = request.data.get('zendesk_urls', '[]')
     confluence_urls = request.data.get('confluence_urls', '[]')
+    excel_files = request.FILES.getlist('excel_files', [])
+    excel_privacies = request.data.get('excel_privacies', '[]')
     try:
         if type(youtube_urls) == str:
             youtube_urls = json.loads(youtube_urls)
@@ -832,6 +835,10 @@ def create_data_sources(request, guru_type):
             zendesk_urls = json.loads(zendesk_urls)
         if type(confluence_urls) == str:
             confluence_urls = json.loads(confluence_urls)
+        if type(excel_files) == str:
+            excel_files = json.loads(excel_files)
+        if type(excel_privacies) == str:
+            excel_privacies = json.loads(excel_privacies)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -841,7 +848,7 @@ def create_data_sources(request, guru_type):
         zendesk_urls = []
         confluence_urls = []
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls:
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls and not excel_files:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -849,6 +856,7 @@ def create_data_sources(request, guru_type):
     try:
         # Validate limits
         service.validate_pdf_files(pdf_files, pdf_privacies)
+        service.validate_excel_files(excel_files, excel_privacies)
         service.validate_url_limits(youtube_urls, 'youtube')
         service.validate_url_limits(website_urls, 'website')
         service.validate_url_limits(jira_urls, 'jira')
@@ -870,7 +878,9 @@ def create_data_sources(request, guru_type):
             website_urls=website_urls,
             jira_urls=jira_urls,
             zendesk_urls=zendesk_urls,
-            confluence_urls=confluence_urls
+            confluence_urls=confluence_urls,
+            excel_files=excel_files,
+            excel_privacies=excel_privacies
         )
         
         return Response({
@@ -947,14 +957,14 @@ def update_data_sources(request, guru_type):
         DataSource.objects.filter(
             id__in=private_ids,
             guru_type=guru_type_object,
-            type=DataSource.Type.PDF
+            type__in=[DataSource.Type.PDF, DataSource.Type.EXCEL]
         ).update(private=True)
 
     if non_private_ids:
         DataSource.objects.filter(
             id__in=non_private_ids,
             guru_type=guru_type_object,
-            type=DataSource.Type.PDF
+            type__in=[DataSource.Type.PDF, DataSource.Type.EXCEL]
         ).update(private=False)
 
     return Response({'msg': 'Data sources updated successfully'}, status=status.HTTP_200_OK)
@@ -983,10 +993,15 @@ def data_sources_frontend(request, guru_type):
         
         # Check PDF file limits
         pdf_files = request.FILES.getlist('pdf_files', [])
-        for pdf_file in pdf_files:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, file=pdf_file)
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, pdf_files=pdf_files)
+        if not is_allowed:
+            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check Excel file limits
+        excel_files = request.FILES.getlist('excel_files', [])
+        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, excel_files=excel_files)
+        if not is_allowed:
+            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
                 
         # Check website limits
         website_urls = json.loads(request.data.get('website_urls', '[]'))
@@ -1941,13 +1956,18 @@ def manage_channels(request, guru_type, integration_type):
         try:
             channels = request.data.get('channels', [])
             integration.channels = channels
+
+            if 'allow_dm' in request.data:
+                integration.allow_dm = request.data['allow_dm']
+
             integration.save()
-            
+
             return Response({
                 'id': integration.id,
                 'type': integration.type,
                 'guru_type': integration.guru_type.slug,
-                'channels': integration.channels
+                'channels': integration.channels,
+                'allow_dm': integration.allow_dm
             })
         except Exception as e:
             logger.error(f"Error updating channels: {e}", exc_info=True)
@@ -1987,7 +2007,8 @@ def manage_channels(request, guru_type, integration_type):
                 processed_channels.append(channel)
         
         return Response({
-            'channels': processed_channels
+            'channels': processed_channels,
+            'allow_dm': integration.allow_dm
         })
     except Exception as e:
         logger.error(f"Error listing channels: {e}", exc_info=True)
@@ -2422,17 +2443,25 @@ async def send_channel_unauthorized_message(
     client: WebClient,
     channel_id: str,
     thread_ts: str,
-    guru_slug: str
+    guru_slug: str,
+    dm: bool
 ) -> None:
     """Send a message explaining how to authorize the channel."""
     try:
         base_url = await sync_to_async(get_base_url)()
         settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/slack"
-        message = (
-            "❌ This channel is not authorized to use the bot.\n\n"
-            f"Please visit <{settings_url}|Gurubase Settings> to configure "
-            "the bot and add this channel to the allowed channels list."
-        )
+        if dm:
+            message = (
+                "❌ Bot direct messages are not enabled.\n\n"
+                f"Please visit <{settings_url}|Gurubase Settings> to configure "
+                "the bot and enable direct messages."
+            )
+        else:
+            message = (
+                "❌ This channel is not authorized to use the bot.\n\n"
+                f"Please visit <{settings_url}|Gurubase Settings> to configure "
+                "the bot and add this channel to the allowed channels list."
+            )
         client.chat_postMessage(
             channel=channel_id,
             thread_ts=thread_ts,
@@ -2465,12 +2494,17 @@ def slack_events(request):
                 
                 # Only proceed if it's a message event and not from a bot
                 if event["type"] == "message" and "subtype" not in event and event.get("user") != event.get("bot_id"):
+                    dm = False
+                    if event['channel_type'] == 'im':
+                        dm = True
                     # Get bot user ID from authorizations
                     bot_user_id = data.get("authorizations", [{}])[0].get("user_id")
                     user_message = event["text"]
                     
                     # First check if the bot is mentioned
-                    if not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                    if not dm and not (bot_user_id and f"<@{bot_user_id}>" in user_message):
+                        return
+                    elif dm and event['user'] == bot_user_id:
                         return
                         
                     team_id = data.get('team_id')
@@ -2500,12 +2534,15 @@ def slack_events(request):
                         channel_id = event["channel"]
                         
                         # Check if the current channel is allowed
-                        channels = integration.channels
-                        channel_allowed = False
-                        for channel in channels:
-                            if str(channel.get('id')) == channel_id and channel.get('allowed', False):
-                                channel_allowed = True
-                                break
+                        if not dm:
+                            channels = integration.channels
+                            channel_allowed = False
+                            for channel in channels:
+                                if str(channel.get('id')) == channel_id and channel.get('allowed', False):
+                                    channel_allowed = True
+                                    break
+                        else:
+                            channel_allowed = integration.allow_dm
 
                         # Get thread_ts if it exists (means we're in a thread)
                         thread_ts = event.get("thread_ts") or event.get("ts")
@@ -2519,7 +2556,8 @@ def slack_events(request):
                                     client=client,
                                     channel_id=channel_id,
                                     thread_ts=thread_ts,
-                                    guru_slug=integration.guru_type.slug
+                                    guru_slug=integration.guru_type.slug,
+                                    dm=dm
                                 ))
                             finally:
                                 loop.close()

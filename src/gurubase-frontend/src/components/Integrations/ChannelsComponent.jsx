@@ -42,6 +42,7 @@ const ChannelsComponent = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [open, setOpen] = useState(false);
+  const [directMessages, setDirectMessages] = useState(false);
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -60,6 +61,7 @@ const ChannelsComponent = ({
         } else {
           setChannels(channelsData?.channels || []);
           setOriginalChannels(channelsData?.channels || []);
+          setDirectMessages(channelsData?.allow_dm || false);
           setInternalError(null);
         }
       } catch (err) {
@@ -116,6 +118,23 @@ const ChannelsComponent = ({
       </div>
       {/* Allowed Channels */}
       <div className="space-y-4 guru-xs:mt-4 mt-5">
+        {type === "slack" && (
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              id="direct_messages"
+              checked={directMessages}
+              onChange={(e) => {
+                setDirectMessages(e.target.checked);
+                setHasChanges(true);
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="direct_messages" className="text-sm text-gray-700">
+              Enable Direct Messages
+            </label>
+          </div>
+        )}
         {channels
           .filter((c) => c.allowed)
           .map((channel) => (
@@ -272,7 +291,12 @@ const ChannelsComponent = ({
               const response = await saveIntegrationChannels(
                 guruData?.slug,
                 type.toUpperCase(),
-                channels.filter((c) => c.allowed)
+                type === "slack"
+                  ? {
+                      channels: channels.filter((c) => c.allowed),
+                      direct_messages: directMessages
+                    }
+                  : channels.filter((c) => c.allowed)
               );
               if (!response?.error) {
                 setHasChanges(false);

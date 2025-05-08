@@ -167,6 +167,7 @@ class AnalyticsService:
                 {'value': 'pdf', 'label': 'PDF'},
                 {'value': 'website', 'label': 'Website'},
                 {'value': 'youtube', 'label': 'YouTube'},
+                {'value': 'excel', 'label': 'Excel'},
             ]
 
             if settings.BETA_FEAT_ON:
