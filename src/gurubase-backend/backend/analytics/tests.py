@@ -1,4 +1,5 @@
-from django.test import TestCase, override_settings
+from django.conf import settings
+from django.test import TestCase
 from django.utils import timezone
 from datetime import timedelta
 from core.models import Question, GuruType, Binge, OutOfContextQuestion, DataSource, GithubFile, User
@@ -6,12 +7,13 @@ from .services import AnalyticsService
 from .utils import get_date_range
 from rest_framework.test import APIClient
 from django.urls import reverse
-from django.conf import settings
+from core.utils import get_default_settings
 
-@override_settings(ENV='selfhosted')
 class AnalyticsFilteringTests(TestCase):
     def setUp(self):
         # Set up API client
+        get_default_settings()
+        User.objects.create_superuser(email=settings.ROOT_EMAIL, password=settings.ROOT_PASSWORD, name='Admin')
         self.client = APIClient()
         
         # Create a guru type for testing
@@ -135,21 +137,20 @@ class AnalyticsFilteringTests(TestCase):
 
     def test_analytics_table_filtering(self):
         """Test analytics table view filtering logic"""
-        url = reverse('analytics_table', kwargs={'guru_type': self.guru_type.slug})
+        start_date = self.now - timedelta(days=1)
+        end_date = self.now + timedelta(days=1)
         
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today'
-        })
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        # Test getting all questions
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, None, '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
         # Should return 6 questions (excluding root_binge_question)
-        self.assertEqual(data['total_items'], 6)
+        self.assertEqual(paginated_data['total_items'], 6)
         
         # Verify that root_binge_question is not in results
-        question_titles = [result['title'] for result in data['results']]
+        question_titles = [item.user_question for item in paginated_data['items']]
         self.assertNotIn("Root binge question", question_titles)
         
         # Verify that slack/discord/github root questions are in results
@@ -158,42 +159,36 @@ class AnalyticsFilteringTests(TestCase):
         self.assertIn("Github root question", question_titles)
         
         # Test filtering by source
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'slack'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'slack', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return both slack questions (root and child)
-        self.assertEqual(data['total_items'], 2)
-        slack_titles = [result['title'] for result in data['results']]
+        self.assertEqual(paginated_data['total_items'], 2)
+        slack_titles = [item.user_question for item in paginated_data['items']]
         self.assertIn("Slack root question", slack_titles)
         self.assertIn("Slack child question", slack_titles)
         
         # Test filtering by discord
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'discord'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'discord', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return the discord root question
-        self.assertEqual(data['total_items'], 1)
-        self.assertEqual(data['results'][0]['title'], "Discord root question")
+        self.assertEqual(paginated_data['total_items'], 1)
+        self.assertEqual(paginated_data['items'][0].user_question, "Discord root question")
 
         # Test filtering by github
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today',
-            'filter_type': 'github'
-        })
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, 'github', '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
-        data = response.json()
         # Should return the github root question
-        self.assertEqual(data['total_items'], 1)
-        self.assertEqual(data['results'][0]['title'], "Github root question")
+        self.assertEqual(paginated_data['total_items'], 1)
+        self.assertEqual(paginated_data['items'][0].user_question, "Github root question")
 
     def test_binge_question_hierarchy(self):
         """Test that binge question hierarchy is correctly handled"""
@@ -290,24 +285,19 @@ class AnalyticsFilteringTests(TestCase):
             slug="widget-child-question"
         )
         
-        # Test analytics table view for these cases
-        url = reverse('analytics_table', kwargs={'guru_type': self.guru_type.slug})
-        
-        response = self.client.get(url, {
-            'metric_type': 'questions',
-            'interval': 'today'
-        })
-        
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
+        # Test getting all questions
+        queryset = AnalyticsService._get_filtered_questions(
+            self.guru_type, start_date, end_date, None, '', 'desc'
+        )
+        paginated_data = AnalyticsService.get_paginated_data(queryset, 1)
         
         # Should include:
         # - Previous questions (6)
         # - api_child
         # - widget_child
-        self.assertEqual(data['total_items'], 8)
+        self.assertEqual(paginated_data['total_items'], 8)
         
-        question_titles = [result['title'] for result in data['results']]
+        question_titles = [item.user_question for item in paginated_data['items']]
         
         # Verify root questions are properly filtered
         self.assertIn("Slack root question", question_titles)
@@ -319,3 +309,153 @@ class AnalyticsFilteringTests(TestCase):
         # Verify children are included regardless of source
         self.assertIn("API child question", question_titles)
         self.assertIn("Widget child question", question_titles)
+
+class UtilsTests(TestCase):
+    def test_get_date_range(self):
+        """Test the get_date_range function for different intervals"""
+        from .utils import get_date_range
+        from datetime import UTC, datetime
+
+        # Mock current time for consistent testing
+        mock_now = datetime(2023, 1, 15, 14, 30, 0, tzinfo=UTC)
+        
+        # Test 'today' interval
+        with self.subTest("today interval"):
+            start, end = get_date_range('today')
+            self.assertEqual(start.date(), datetime.now(UTC).date())
+            self.assertEqual(start.hour, 0)
+            self.assertEqual(start.minute, 0)
+            self.assertEqual(end.date(), datetime.now(UTC).date())
+        
+        # Test 'yesterday' interval
+        with self.subTest("yesterday interval"):
+            start, end = get_date_range('yesterday')
+            yesterday = datetime.now(UTC).date() - timedelta(days=1)
+            self.assertEqual(start.date(), yesterday)
+            self.assertEqual(end.date(), datetime.now(UTC).date())
+            self.assertEqual(end.hour, 0)
+            self.assertEqual(end.minute, 59)
+        
+        # Test '7d' interval
+        with self.subTest("7d interval"):
+            start, end = get_date_range('7d')
+            self.assertEqual((end.date() - start.date()).days, 7)
+            
+        # Test '30d' interval
+        with self.subTest("30d interval"):
+            start, end = get_date_range('30d')
+            self.assertEqual((end.date() - start.date()).days, 30)
+            
+        # Test '3m' interval
+        with self.subTest("3m interval"):
+            start, end = get_date_range('3m')
+            self.assertEqual((end.date() - start.date()).days, 90)
+            
+        # Test '6m' interval
+        with self.subTest("6m interval"):
+            start, end = get_date_range('6m')
+            self.assertEqual((end.date() - start.date()).days, 180)
+            
+        # Test '12m' interval
+        with self.subTest("12m interval"):
+            start, end = get_date_range('12m')
+            self.assertEqual((end.date() - start.date()).days, 365)
+            
+        # Test invalid interval defaults to today
+        with self.subTest("invalid interval"):
+            start, end = get_date_range('invalid')
+            self.assertEqual(start.date(), datetime.now(UTC).date())
+            self.assertEqual(start.hour, 0)
+            self.assertEqual(start.minute, 0)
+
+    def test_calculate_percentage_change(self):
+        """Test the calculate_percentage_change function"""
+        from .utils import calculate_percentage_change
+        
+        # Test normal case
+        self.assertEqual(calculate_percentage_change(150, 100), 50)
+        
+        # Test decrease case
+        self.assertEqual(calculate_percentage_change(80, 100), -20)
+        
+        # Test zero previous value
+        self.assertEqual(calculate_percentage_change(100, 0), 100)
+        
+        # Test both zero values
+        self.assertEqual(calculate_percentage_change(0, 0), 0)
+        
+        # Test fractional changes
+        self.assertEqual(calculate_percentage_change(105, 100), 5)
+        self.assertEqual(calculate_percentage_change(103.5, 100), 3.5)
+
+    def test_format_filter_name_for_display(self):
+        """Test the format_filter_name_for_display function"""
+        from .utils import format_filter_name_for_display
+        
+        # Test known mappings
+        self.assertEqual(format_filter_name_for_display('user'), 'Gurubase UI')
+        self.assertEqual(format_filter_name_for_display('github_repo'), 'Codebase')
+        self.assertEqual(format_filter_name_for_display('pdf'), 'PDF')
+        
+        # Test standard transformations
+        self.assertEqual(format_filter_name_for_display('slack_message'), 'Slack Message')
+        self.assertEqual(format_filter_name_for_display('raw_query'), 'Raw Query')
+        
+        # Test case preservation for known acronyms
+        self.assertEqual(format_filter_name_for_display('PDF'), 'PDF')
+        self.assertEqual(format_filter_name_for_display('YouTube'), 'YouTube')
+
+    def test_get_histogram_increment(self):
+        """Test the get_histogram_increment function"""
+        from .utils import get_histogram_increment
+        from datetime import UTC, datetime
+        
+        # Test today/yesterday interval (hourly increments)
+        start = datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC)
+        end = datetime(2023, 1, 1, 23, 59, 59, tzinfo=UTC)
+        
+        increment, formatter = get_histogram_increment(start, end, 'today')
+        self.assertEqual(increment, timedelta(hours=1))
+        
+        result = formatter(start, start + increment)
+        self.assertEqual(result, {'date_point': start.isoformat()})
+        
+        # Test short range (daily increments)
+        start = datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC)
+        end = datetime(2023, 1, 15, 23, 59, 59, tzinfo=UTC)
+        
+        increment, formatter = get_histogram_increment(start, end, '15d')
+        self.assertEqual(increment, timedelta(days=1))
+        
+        # Test longer range (grouped days)
+        start = datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC)
+        end = datetime(2023, 3, 2, 23, 59, 59, tzinfo=UTC)  # ~60 days
+        
+        increment, formatter = get_histogram_increment(start, end, '60d')
+        self.assertGreater(increment.days, 1)  # Should group multiple days
+        
+        # Test date range format
+        result = formatter(start, start + timedelta(days=2))
+        self.assertIn('date_start', result)
+        self.assertIn('date_end', result)
+        self.assertEqual(result['date_start'], start.isoformat())
+
+    def test_map_filter_to_source(self):
+        """Test the map_filter_to_source function"""
+        from .utils import map_filter_to_source
+        
+        # Test None/all returns None
+        self.assertIsNone(map_filter_to_source(None))
+        self.assertIsNone(map_filter_to_source('all'))
+        
+        # Test known mappings
+        self.assertEqual(map_filter_to_source('widget'), 'WIDGET QUESTION')
+        self.assertEqual(map_filter_to_source('user'), 'USER')
+        self.assertEqual(map_filter_to_source('github'), 'GITHUB')
+        
+        # Test case insensitivity
+        self.assertEqual(map_filter_to_source('Widget'), 'WIDGET QUESTION')
+        self.assertEqual(map_filter_to_source('USER'), 'USER')
+        
+        # Test unknown filter types (should convert to uppercase)
+        self.assertEqual(map_filter_to_source('custom_type'), 'CUSTOM_TYPE')

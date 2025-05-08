@@ -8,6 +8,7 @@ from core.utils import get_default_settings
 class TestReadRepository(TestCase):
     @classmethod
     def setUpClass(cls):
+        get_default_settings()
         super().setUpClass()
         # Create mock settings that will be used across all tests
         cls.mock_settings = MagicMock()

@@ -4,11 +4,23 @@ from pymilvus import DataType, MilvusClient
 import traceback
 logger = logging.getLogger(__name__)
 
-client = MilvusClient(
-    uri = f"http://{settings.MILVUS_HOST}:{settings.MILVUS_PORT}"
-)
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        if settings.MILVUS_HOST is None:
+            logger.warning("Milvus is not configured - running in test mode")
+            return None
+        _client = MilvusClient(
+            uri = f"http://{settings.MILVUS_HOST}:{settings.MILVUS_PORT}"
+        )
+    return _client
 
 def drop_collection(collection_name):
+    client = get_client()
+    if client is None:
+        return
     try:
         client.drop_collection(collection_name)
     except Exception as e:
@@ -17,6 +29,9 @@ def drop_collection(collection_name):
     logger.info(f'Dropped collection {collection_name}')
 
 def create_similarity_collection(collection_name):
+    client = get_client()
+    if client is None:
+        return
     # 1. Create schema
     schema = MilvusClient.create_schema(
         enable_dynamic_field=False,
@@ -80,6 +95,9 @@ def create_similarity_collection(collection_name):
 
 
 def create_context_collection(collection_name, dimension):
+    client = get_client()
+    if client is None:
+        return
     # 1. Create schema
     schema = MilvusClient.create_schema(
         auto_id=True,
@@ -121,6 +139,9 @@ def create_context_collection(collection_name, dimension):
     print(f'Created collection {collection_name}')
 
 def create_code_context_collection(collection_name, dimension):
+    client = get_client()
+    if client is None:
+        return
     if client.has_collection(collection_name):
         return
     # 1. Create schema
@@ -172,10 +193,16 @@ def create_code_context_collection(collection_name, dimension):
 
 
 def collection_exists(collection_name):
+    client = get_client()
+    if client is None:
+        return False
     return client.has_collection(collection_name=collection_name)
 
     
 def insert_vectors(collection_name, docs, code=False, dimension=None):
+    client = get_client()
+    if client is None:
+        return []
     assert dimension is not None, "Milvus insert_vectors: Dimension must be provided"
 
     if not client.has_collection(collection_name):
@@ -201,6 +228,10 @@ def insert_vectors(collection_name, docs, code=False, dimension=None):
 
 
 def delete_vectors(collection_name, ids):
+    client = get_client()
+    if client is None:
+        return
+
     if not client.has_collection(collection_name):
         return
 
@@ -216,6 +247,10 @@ def delete_vectors(collection_name, ids):
 
 
 def delete_vectors_by_filter(collection_name, filter):
+    client = get_client()
+    if client is None:
+        return
+
     if not client.has_collection(collection_name):
         return
 
@@ -231,6 +266,9 @@ def delete_vectors_by_filter(collection_name, filter):
 
 
 def search_for_closest(collection_name, vector, guru_type, sitemap_constraint, top_k=1, column='title'):
+    client = get_client()
+    if client is None:
+        return []
     if column not in ['title', 'description', 'content']:
         raise ValueError(f'Invalid column: {column}')
 
@@ -261,6 +299,9 @@ def search_for_closest(collection_name, vector, guru_type, sitemap_constraint, t
 
 
 def delete_non_positive_scores(collection_name):
+    client = get_client()
+    if client is None:
+        return
     filter = f'metadata["score"] <= 0'
     try:
         client.delete(
@@ -274,6 +315,9 @@ def delete_non_positive_scores(collection_name):
 
 
 def rename_collection(old_collection_name, new_collection_name):
+    client = get_client()
+    if client is None:
+        return
     try:
         client.rename_collection(old_collection_name, new_collection_name)
     except Exception as e:
@@ -283,6 +327,9 @@ def rename_collection(old_collection_name, new_collection_name):
 
         
 def upsert_vectors(collection_name, docs):
+    client = get_client()
+    if client is None:
+        return []
     if not client.has_collection(collection_name):
         create_context_collection(collection_name)
 
@@ -300,6 +347,9 @@ def upsert_vectors(collection_name, docs):
 
     
 def fetch_vectors(collection_name, filter, output_fields=None):
+    client = get_client()
+    if client is None:
+        return []
     if not client.has_collection(collection_name):
         return []
 

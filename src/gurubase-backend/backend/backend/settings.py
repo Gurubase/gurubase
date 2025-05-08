@@ -126,6 +126,9 @@ if 'test' in sys.argv:
             },
         }
     }
+    # Skip Milvus configuration during tests
+    MILVUS_HOST = None
+    MILVUS_PORT = None
 else:
     db_name = config('POSTGRES_DB_NAME', default="gurubase")
     host = config('POSTGRES_HOST', default="gurubase-postgres")
@@ -144,6 +147,8 @@ else:
             # },
         }
     }
+    MILVUS_HOST = config('MILVUS_HOST', default='gurubase-milvus-standalone')
+    MILVUS_PORT = config('MILVUS_PORT', default='19530', cast=int)
 
 
 # Password validation
@@ -256,8 +261,6 @@ BACKEND_URL = config('BACKEND_URL', default='http://localhost:8028')
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENAI_TEXT_EMBEDDING_MODEL = config('OPENAI_TEXT_EMBEDDING_MODEL', default='text-embedding-3-small')
 
-MILVUS_HOST = config('MILVUS_HOST', default='gurubase-milvus-standalone')
-MILVUS_PORT = config('MILVUS_PORT', default='19530', cast=int)
 AUTH_TOKEN = config('AUTH_TOKEN', default='0wu9L7xAWcKXgxwx0iBA7BchJ0r4W7') # hardcoded for selfhosted
 SITEMAP_LIMIT = config('SITEMAP_LIMIT', default=5000, cast=int)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv(), default='*')
