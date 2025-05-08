@@ -9,12 +9,13 @@ from celery import shared_task
 from django.db import models
 import redis
 import requests
+from integrations.models import Integration
 from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
 from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
-from core.guru_types import get_guru_type_names, get_guru_type_object
-from core.models import DataSource, Favicon, GuruType, Integration, LLMEval, LinkReference, LinkValidity, Question, Settings, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
+from core.guru_types import get_guru_type_names, get_guru_type_object_without_filters
+from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, Settings, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
@@ -260,7 +261,7 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
             # Wait for a bit for the data sources to be synced
             time.sleep(countdown)
 
-        guru_type_object = get_guru_type_object(guru_type_slug)
+        guru_type_object = get_guru_type_object_without_filters(guru_type_slug)
         if is_github:
             data_sources = DataSource.objects.filter(
                 status=DataSource.Status.NOT_PROCESSED,
@@ -366,16 +367,17 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
         jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
         zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
         confluence_integration = Integration.objects.filter(type=Integration.Type.CONFLUENCE, guru_type=guru_type_object).first()
+        language_code = guru_type_object.get_language_code()
         for data_source in sources_to_process:
             try:
                 if data_source.type == DataSource.Type.JIRA:
-                    data_source = fetch_data_source_content(jira_integration, data_source)
+                    data_source = fetch_data_source_content(jira_integration, data_source, language_code)
                 elif data_source.type == DataSource.Type.ZENDESK:
-                    data_source = fetch_data_source_content(zendesk_integration, data_source)
+                    data_source = fetch_data_source_content(zendesk_integration, data_source, language_code)
                 elif data_source.type == DataSource.Type.CONFLUENCE:
-                    data_source = fetch_data_source_content(confluence_integration, data_source)
+                    data_source = fetch_data_source_content(confluence_integration, data_source, language_code)
                 else:
-                    data_source = fetch_data_source_content(None, data_source)
+                    data_source = fetch_data_source_content(None, data_source, language_code)
                 data_source.status = DataSource.Status.SUCCESS
             except WebsiteContentExtractionThrottleError as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
@@ -484,7 +486,7 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
         questions = Question.objects.filter(llm_eval=True, guru_type__slug=guru_type).order_by('-date_created')
         
         logger.info(f'Will evaluate {questions.count()} questions for guru type {guru_type}')
-        guru_type_obj = get_guru_type_object(guru_type)
+        guru_type_obj = get_guru_type_object_without_filters(guru_type)
         collection_name = guru_type_obj.milvus_collection_name
 
         for q in questions:
@@ -1572,7 +1574,7 @@ def update_github_repositories(successful_repos=True, guru_type_slug=None, repo_
     logger.info("Completed GitHub repositories update task")
 
 @shared_task
-def crawl_website(url: str, crawl_state_id: int, link_limit: int):
+def crawl_website(url: str, crawl_state_id: int, link_limit: int, language_code: str):
     """
     Celery task to crawl a website and collect internal links.
     
@@ -1582,7 +1584,7 @@ def crawl_website(url: str, crawl_state_id: int, link_limit: int):
         link_limit (int): Maximum number of links to collect
     """
     try:
-        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit)
+        get_internal_links(url, crawl_state_id=crawl_state_id, link_limit=link_limit, language_code=language_code)
     except Exception as e:
         logger.error(f"Error in crawl_website task: {str(e)}", exc_info=True)
         # Update crawl state to failed

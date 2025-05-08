@@ -129,7 +129,7 @@ Creating and updating guru types also syncs their Milvus collection accordingly 
 
 ### Managing Data Sources
 
-Four types of data sources are supported:
+These data sources are supported:
 - YouTube videos
 - Websites
 - PDFs
@@ -137,6 +137,7 @@ Four types of data sources are supported:
 - Jira Issues
 - ZenDesk Tickets/Articles
 - Confluence Pages
+- Excel files (.xls, .xlsx)
 
 #### YouTube videos
 
@@ -159,6 +160,10 @@ The system uses ZenDesk Web API to fetch tickets and articles based on the integ
 #### Confluence Pages
 
 The system uses Atlassian Python SDK to fetch pages based on the integration configuration.
+
+#### Excel Files
+
+The system parses each sheet in the given Excel file, splits the sheets by appending the header in each split.
 
 #### PDFs
 
@@ -591,9 +596,15 @@ For more details on their usage, you can check the [API Reference](https://docs.
 Integrations allow users to use Gurubase in their own platforms. They are basically wrappers around the API framework. They can be managed in the `Integrations` page in the Guru dashboard.
 
 The following integrations are available:
-- Slack
-- Discord
-- Web Widget
+- Bots:
+  - Slack
+  - Discord
+  - Web Widget
+  - GitHub
+- Ingestion:
+  - Jira
+  - Confluence
+  - Zendesk
 
 - `helpers.py` file in the `integrations` folder keep some of the helpers used commonly in all integrations. These can be trust score emoji mappings, title cleanups, stripping the initial header etc.
 
@@ -630,7 +641,7 @@ Here are the functions used and their purposes:
 - `format_slack_response`: Formats the references, trust score, etc. of the final response.
 - `get_final_response`: Gets and sends the final formatted response.
 
-> Questions asked by the Slack bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+> Slack does not use binges. Instead, it fetches the thread history.
 
 ##### Installation
 
@@ -670,11 +681,10 @@ Here are the functions used and their purposes:
 - `get_guild_integration`: Gets the integration details of the workspace.
 - `get_trust_score_emoji`: Gets the trust score emoji.
 - `strip_first_header`: Removes the initial header from the message.
-- `format_response`: Formats the references, trust score, etc. of the final response.
 - `get_guru_type_slug`: Gets the guru type slug.
 - `get_api_key`: Gets the api key.
 
-> Questions asked by the Discord bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+> Discord does not use binges. Instead, it fetches the thread history.
 
 ##### Installation
 
@@ -710,12 +720,11 @@ Here are the classes/functions used and their purposes:
 - `GitHubEventHandler`: The class that handles the GitHub events and responds to them.
 - `GitHubStrategy`: The class that manages the `Integration` objects during OAuth creation and deletion.
 
-> Questions asked by the GitHub bot have an uuid at the end of their slugs. This is done to ensure that the same question can be asked again.
+> GitHub does not use binges. Instead, it fetches the thread history.
 
 ##### Installation
 
 > You can check the [GitHub Integration](https://docs.gurubase.ai/integrations/github-bot) documentation for the installation process.
-
 
 #### Web Widget
 

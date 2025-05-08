@@ -2,39 +2,6 @@ summary_short_answer_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
-github_base_template = """
-This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
-
-- COLLABORATOR: Author has been invited to collaborate on the repository.
-- CONTRIBUTOR: Author has previously committed to the repository.
-- FIRST_TIMER: Author has not previously committed to GitHub.
-- FIRST_TIME_CONTRIBUTOR: Author has not previously committed to the repository.
-- MANNEQUIN: Author is a placeholder for an unclaimed user.
-- MEMBER: Author is a member of the organization that owns the repository.
-- USER: Author is a user of the repository.
-- OWNER: Author is the owner of the repository.
-- YOU: Author is the bot.
-
-Here is the issue history:
-
-<Github contexts>
-{github_comments}
-</Github contexts>
-"""
-
-github_context_template = github_base_template + """
-
-Make sure you consider the github context while generating your answer. Treat this as a conversation history
-**Critical**: Unless user does not explicitly ask about GitHub, do not talk about it in your answer.
-"""
-
-github_summary_template = github_base_template + """
-Users asks questions to you on GitHub, the history of the conversation provided in <Github contexts> tag. When generating <question> and <enhanced_question>, take the conversation history into account as users may ask a follow-up question for the previous answer or ask about a new topic.
-
-**Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
-"""
-
-
 summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
 """
@@ -69,11 +36,13 @@ Return a structured summary of the user's question with the following fields:
 ### Context Handling Rules
 - **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
-- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to the last answer if exists, else {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+
+Answer in {language}.
 
 {binge_summary_prompt}
 
-{github_context}
+{bot_context}
 
 For any questions related to date, remember today's date is {date}. Here is the user's question:
 
@@ -123,7 +92,7 @@ First, carefully read and analyze the following contexts:
 {contexts}
 </contexts>
 
-{github_context}
+{bot_context}
 
 When answering the question, follow these guidelines:
 {custom_instruction_section}
@@ -131,12 +100,13 @@ When answering the question, follow these guidelines:
 2. Contexts are not the exact answer, but they are relevant information to answer the question.
 3. Highlight critical information in bold for emphasis.
 4. Explain concepts whenever possible, being informative and helpful.
-5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable. However, for pdf files, only refer to the pdf title.
+5. Provide references and links to sources mentioned in the context links and titles when applicable. Do not reference like "Context 1" or "Context 2". Add references like [Title](link) if applicable. However, for pdf and excel files, only refer to the title.
 6. Demonstrate concepts with examples when possible.
 7. Use code blocks for any code snippets.
 8. Use exact names from contexts for functions/classes/methods.
 9. Answer the question based on the user's intent: {user_intent}.
 10. If a code context is given (enclosed with <Code context>), make use of it as much as you can for answering the question as long as it is relevant. Try to make references to the given code.
+11. Excel files start with "## sheet name", then a row of headers, then rows of data.
 
 Based on this intent, provide a {answer_length} words answer to the user question and question that is the prettier version of the user question with the grammar fixed and more readable.
 
@@ -158,6 +128,8 @@ Handling Edge Cases:
 
 Use the markdown guide provided earlier for proper formatting.
 
+Answer in {language}.
+
 Remember, today's date is {date}. Use this information if any date-related questions arise.
 
 I will give you the user question and question.
@@ -173,7 +145,7 @@ context_relevance_prompt = """
 You are a {guru_type} Guru. You have sufficient knowledge about {domain_knowledge}. 
 You evaluate if the provided contexts are relevant to the question.
 
-You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets/articles, Confluence pages, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
+You will be given a QUESTION, a USER QUESTION, an ENHANCED QUESTION and a set of CONTEXTS fetched from different sources like Stack Overflow, text-based documents (PDFs, excels, txt, word, files, etc.), websites, YouTube videos, Jira issues, Zendesk tickets/articles, Confluence pages, or source code files. The QUESTION is the prettified version of the USER QUESTION. ENHANCED QUESTION is a rephrased version of the QUESTION that is more technical and specific. Source codes are marked with <Code context> tag, others are marked with <Text context> tag.
 
 Here is the grade criteria to follow:
 (1) Your goal is to identify how related the CONTEXTS are to the QUESTION and how helpful they are to answer the question.
@@ -602,12 +574,15 @@ Here are the relevant contexts that were used to answer the last question:
 </contexts>
 
 Generate up to {num_questions} new follow-up questions that:
+{custom_follow_up_section}
 1. Can be confidently answered using ONLY the provided contexts
 2. Are natural extensions of the conversation
 3. Help explore different aspects covered in the contexts
 4. Maintain appropriate technical depth based on the contexts
 5. Are specific and focused on information present in the contexts
 6. Do NOT overlap with or ask similar questions to those in the question history (neither question nor user_question)
+
+Answer in {language}.
 
 Here are some examples of question overlaps:
 

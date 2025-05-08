@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from core.models import GithubFile, WidgetId, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
+from integrations.models import WidgetId
+from core.models import GithubFile, Binge, DataSource, GuruType, Question, FeaturedDataSource, APIKey, Settings, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 from django.conf import settings
 
@@ -69,7 +70,6 @@ class WidgetIdSerializer(serializers.ModelSerializer):
         fields = ['key', 'domain_url']
 
 
-
 class DataSourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DataSource
@@ -78,7 +78,7 @@ class DataSourceSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
         repr = super().to_representation(instance)
-        if instance.type == DataSource.Type.PDF:
+        if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL]:
             del repr['url']
             repr['size'] = instance.file.size
 
@@ -102,7 +102,7 @@ class DataSourceAPISerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
         repr = super().to_representation(instance)
-        if instance.type == DataSource.Type.PDF:
+        if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL]:
             del repr['url']
 
         if instance.user_error:

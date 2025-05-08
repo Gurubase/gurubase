@@ -4,6 +4,7 @@ from accounts.models import User
 from core.exceptions import PermissionError, NotFoundError, GuruNotFoundError
 from django.conf import settings
 import logging
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +39,39 @@ def get_guru_type_names(only_active=True):
     return [guru_type.slug for guru_type in GuruType.objects.all()]
 
 
-def get_guru_types(only_active=True):
+def get_guru_types(only_active=True, user=None):
+    filters = Q()
     if only_active:
-        guru_types = GuruType.objects.filter(active=True).order_by('id')
-    else:
-        guru_types = GuruType.objects.all().order_by('id')
+        filters &= Q(active=True)
+    if user is None or user.is_anonymous:
+        filters &= Q(private=False)
+    elif not user.is_admin:
+        # For non-admin users, show public gurus OR gurus they maintain
+        filters &= (Q(private=False) | Q(maintainers=user))
+    
+    guru_types = GuruType.objects.filter(filters).distinct().order_by('id')
     serializer = GuruTypeInternalSerializer(guru_types, many=True)
     return serializer.data
 
 
-def get_guru_type_object(guru_type, only_active=True):
+def get_guru_type_object(guru_type, only_active=True, user=None):
+    filters = Q(slug=guru_type)
+    if only_active:
+        filters &= Q(active=True)
+    
+    if user is None or user.is_anonymous:
+        filters &= Q(private=False)
+    elif not user.is_admin:
+        # For non-admin users, only allow access to public gurus or gurus they maintain
+        filters &= (Q(private=False) | Q(maintainers=user))
+    
     try:
-        if only_active:
-            return GuruType.objects.get(slug=guru_type, active=True)
+        return GuruType.objects.filter(filters).distinct().first()
+    except GuruType.DoesNotExist:
+        raise GuruNotFoundError({'msg': f'Guru type {guru_type} is not found'})
+
+def get_guru_type_object_without_filters(guru_type):
+    try:
         return GuruType.objects.get(slug=guru_type)
     except GuruType.DoesNotExist:
         raise GuruNotFoundError({'msg': f'Guru type {guru_type} is not found'})

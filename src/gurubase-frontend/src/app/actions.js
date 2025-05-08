@@ -315,16 +315,28 @@ export async function getGurutypeResources(guruType) {
 
 export async function getGuruTypes() {
   try {
+    const session = await getUserSession();
     const cacheConfig = shouldUsePublicRequest()
       ? { cache: "no-store" }
       : { next: { revalidate: 3600 } };
 
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
-      cacheConfig
-    );
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
+        cacheConfig
+      );
 
-    return await response.json();
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/`,
+        cacheConfig
+      );
+
+      return await response.json();
+    }
   } catch (error) {
     return { error: true, message: error.message, status: error.status };
   }
@@ -332,16 +344,28 @@ export async function getGuruTypes() {
 
 export async function getGuruType(slug) {
   try {
+    const session = await getUserSession();
     const cacheConfig = shouldUsePublicRequest()
       ? { cache: "no-store" }
       : { next: { revalidate: 3600 } };
 
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
-      cacheConfig
-    );
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
+        cacheConfig
+      );
 
-    return await response.json();
+      return await response.json();
+    } else {
+      // Public request
+      const response = await makePublicRequest(
+        `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_type/${slug}/`,
+        cacheConfig
+      );
+
+      return await response.json();
+    }
   } catch (error) {
     return { error: true, message: error.message, status: error.status };
   }
@@ -349,13 +373,24 @@ export async function getGuruType(slug) {
 
 export async function checkGuruReadiness(guruName) {
   try {
-    const response = await makePublicRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/status/${guruName}/`,
-      { cache: "no-store" }
-    );
-    const data = await response.json();
+    const session = await getUserSession();
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/guru_types/status/${guruName}/`;
 
-    return data?.ready || false;
+    if (session?.user) {
+      // Authenticated request
+      const response = await makeAuthenticatedRequest(url, {
+        cache: "no-store"
+      });
+      if (!response) return false;
+      const data = await response.json();
+      return data?.ready || false;
+    } else {
+      // Public request
+      const response = await makePublicRequest(url, { cache: "no-store" });
+      if (!response) return false;
+      const data = await response.json();
+      return data?.ready || false;
+    }
   } catch (error) {
     return false;
   }
@@ -766,7 +801,7 @@ export async function getApiKeys() {
 export async function getIntegrationDetails(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -849,7 +884,7 @@ export async function deleteApiKey(formData) {
 export async function getIntegrationChannels(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/channels/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -883,12 +918,19 @@ export async function saveIntegrationChannels(
   channels
 ) {
   try {
+    const payload =
+      integrationType === "SLACK" &&
+      typeof channels === "object" &&
+      "direct_messages" in channels
+        ? { channels: channels.channels, allow_dm: channels.direct_messages }
+        : { channels };
+
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/channels/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channels })
+        body: JSON.stringify(payload)
       }
     );
 
@@ -982,7 +1024,7 @@ export async function sendIntegrationTestMessage(integrationId, channelId) {
 export async function deleteIntegration(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
@@ -1013,7 +1055,7 @@ export async function deleteIntegration(guruType, integrationType) {
 export async function getIntegrationsList(guruType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -1047,7 +1089,7 @@ export async function createSelfhostedIntegration(
 ) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1188,7 +1230,7 @@ export async function parseSitemapUrls(sitemapUrl) {
 export async function fetchJiraIssues(integrationId, jqlQuery) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/jira/issues/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/jira/issues/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "POST",
@@ -1227,7 +1269,7 @@ export async function fetchJiraIssues(integrationId, jqlQuery) {
 export async function fetchConfluencePages(integrationId, searchQuery) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/confluence/pages/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/confluence/pages/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "POST",
@@ -1266,7 +1308,7 @@ export async function fetchConfluencePages(integrationId, searchQuery) {
 export async function fetchZendeskTickets(integrationId) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/tickets/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/tickets/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "GET" // Assuming GET request as no body is needed
@@ -1301,7 +1343,7 @@ export async function fetchZendeskTickets(integrationId) {
 export async function fetchZendeskArticles(integrationId) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/articles/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/articles/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "GET" // Assuming GET request as no body is needed

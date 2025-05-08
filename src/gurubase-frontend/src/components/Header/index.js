@@ -88,6 +88,8 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width: 915px)");
 
+  const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+
   const renderNavigationItem = (item) => (
     <DropdownMenuItem key={item.id} className="p-0.5">
       <div className="w-full">
@@ -273,7 +275,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
           </div>
 
           <div className="flex items-center gap-4 guru-sm:hidden">
-            <SocialMediaHeader />
+            {(!isBetaFeaturesEnabled || !isSelfHosted) && <SocialMediaHeader />}
             {renderAuthButtons()}
           </div>
 

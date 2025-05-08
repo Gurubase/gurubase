@@ -90,8 +90,8 @@ const formSchema = z.object({
   youtubeLinks: z.array(z.string()).optional(),
   websiteUrls: z.array(z.string()).optional(),
   jiraIssues: z.array(z.string()).optional(),
-  zendeskTickets: z.array(z.string()).optional(), // <-- Add Zendesk
-  confluencePages: z.array(z.string()).optional() // <-- Add Confluence
+  zendeskTickets: z.array(z.string()).optional(),
+  confluencePages: z.array(z.string()).optional()
 });
 
 export default function NewGuru({
@@ -256,7 +256,8 @@ export default function NewGuru({
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
 
   const [sources, setSources] = useState([]);
-  const fileInputRef = useRef(null);
+  const pdfInputRef = useRef(null);
+  const excelInputRef = useRef(null);
   const [isSourcesProcessing, setIsSourcesProcessing] = useState(isProcessing);
   const [clickedSource, setClickedSource] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -389,8 +390,8 @@ export default function NewGuru({
       youtubeLinks: [],
       websiteUrls: [],
       jiraIssues: [],
-      zendeskTickets: [], // <-- Initialize Zendesk tickets
-      confluencePages: [] // <-- Initialize Confluence pages
+      zendeskTickets: [],
+      confluencePages: []
     }
   });
 
@@ -558,14 +559,14 @@ export default function NewGuru({
           id: source.id,
           name: source.title, // Use title for PDF, domain/repo name for others
           type: source.type.toLowerCase(),
-          size: source.type === "PDF" ? source.size : "N/A",
+          size: source.type === "PDF" || source.type === "EXCEL" ? source.size : "N/A",
           url: source.url || "",
           status: source.status,
           in_milvus: source.in_milvus,
           file_count: source.file_count, // Add file_count
           last_reindex_date: source.last_reindex_date || "",
           error: source.error || "",
-          private: source.type === "PDF" ? !!source.private : undefined
+          private: source.type === "PDF" || source.type === "EXCEL" ? !!source.private : undefined
         };
 
         // Adjust name for non-PDF types
@@ -635,7 +636,7 @@ export default function NewGuru({
       form.setValue(
         "uploadedFiles",
         newSources
-          .filter((s) => s.type === "pdf")
+          .filter((s) => s.type === "pdf" || s.type === "excel")
           .map((s) => ({
             file: null,
             name: s.name,
@@ -673,7 +674,11 @@ export default function NewGuru({
         id: Date.now() + Math.random(),
         sources: "File",
         name: file.name,
-        type: "pdf",
+        type:
+          file.name.toLowerCase().endsWith(".xlsx") ||
+          file.name.toLowerCase().endsWith(".xls")
+            ? "excel"
+            : "pdf",
         size: file.size,
         file: file,
         newAddedSource: true
@@ -687,7 +692,7 @@ export default function NewGuru({
         ...prev.sources,
         ...newSources.map((source) => ({
           id: source.id,
-          type: "pdf",
+          type: source.type,
           file: source.file,
           name: source.name,
           size: source.size,
@@ -915,7 +920,10 @@ export default function NewGuru({
           if (latestSources?.results) {
             // Create a map of existing privacy settings
             const existingPrivacySettings = sources.reduce((acc, source) => {
-              if (source.type?.toLowerCase() === "pdf") {
+              if (
+                source.type?.toLowerCase() === "pdf" ||
+                source.type?.toLowerCase() === "excel"
+              ) {
                 acc[source.id] = source.private;
               }
 
@@ -932,14 +940,17 @@ export default function NewGuru({
                     ? source.title
                     : getNormalizedDomain(source.url),
               type: source.type.toLowerCase(),
-              size: source.type === "PDF" ? source.size : "N/A",
+              size:
+                source.type === "PDF" || source.type === "EXCEL"
+                  ? source.size
+                  : "N/A",
               url: source.url || "",
               status: source.status,
               in_milvus: source.in_milvus,
               file_count: source.file_count,
               last_reindex_date: source.last_reindex_date || "",
               error: source.error || "",
-              private: source.type === "PDF" ? !!source.private : undefined,
+              private: source.type === "PDF" || source.type === "EXCEL" ? !!source.private : undefined,
               glob_pattern: source.github_glob_pattern || "",
               include_glob: source.github_include_glob || false
             }));
@@ -966,7 +977,7 @@ export default function NewGuru({
                 .filter((s) => s.type === "confluence")
                 .map((s) => s.url),
               uploadedFiles: updatedSources
-                .filter((s) => s.type === "pdf")
+                .filter((s) => s.type === "pdf" || s.type === "excel")
                 .map((s) => ({
                   file: null,
                   name: s.name,
@@ -1047,16 +1058,36 @@ export default function NewGuru({
     // Calculate PDF size
     let currentPdfSize = sources
       .filter(
-        (s) => s.type.toLowerCase() === "pdf" && !s.deleted && !s.newAddedSource
+        (s) =>
+          s.type?.toLowerCase() === "pdf" && !s.deleted && !s.newAddedSource
       )
       .reduce((total, pdf) => total + (pdf.size || 0), 0);
 
     // Add new PDF sizes
     const newPdfSize = dirtyChanges.sources
-      .filter((s) => s.type === "pdf" && s.newAddedSource && !s.deleted)
+      .filter(
+        (s) => s.type?.toLowerCase() === "pdf" && s.newAddedSource && !s.deleted
+      )
       .reduce((total, pdf) => total + (pdf.size || 0), 0);
 
     const pdfSizeMb = (currentPdfSize + newPdfSize) / 1024 / 1024;
+
+    // Calculate Excel size
+    let currentExcelSize = sources
+      .filter(
+        (s) =>
+          s.type?.toLowerCase() === "excel" && !s.deleted && !s.newAddedSource
+      )
+      .reduce((total, excel) => total + (excel.size || 0), 0);
+
+    const newExcelSize = dirtyChanges.sources
+      .filter(
+        (s) =>
+          s.type?.toLowerCase() === "excel" && s.newAddedSource && !s.deleted
+      )
+      .reduce((total, excel) => total + (excel.size || 0), 0);
+
+    const excelSizeMb = (currentExcelSize + newExcelSize) / 1024 / 1024;
 
     // Check against limits
     const youtubeLimit =
@@ -1087,6 +1118,10 @@ export default function NewGuru({
       customGuruData.pdf_size_limit_mb === undefined
         ? Infinity
         : customGuruData.pdf_size_limit_mb;
+    const excelSizeLimitMb =
+      customGuruData.excel_size_limit_mb === undefined
+        ? Infinity
+        : customGuruData.excel_size_limit_mb;
 
     // Validate limits
     if (youtubeCount > youtubeLimit) {
@@ -1145,6 +1180,13 @@ export default function NewGuru({
       return false;
     }
 
+    if (excelSizeMb > excelSizeLimitMb) {
+      CustomToast({
+        message: `You have exceeded the Excel size limit (${excelSizeLimitMb} MB).`,
+        variant: "error"
+      });
+      return false;
+    }
     return true;
   };
 
@@ -1158,7 +1200,9 @@ export default function NewGuru({
       // Only validate files if there are new files being added
       const newFiles = dirtyChanges.sources.filter(
         (source) =>
-          source.type === "pdf" && source.newAddedSource && !source.deleted
+          (source.type === "pdf" || source.type === "excel") &&
+          source.newAddedSource &&
+          !source.deleted
       );
 
       if (newFiles.length > 0) {
@@ -1253,10 +1297,10 @@ export default function NewGuru({
       }
 
       // Handle privacy changes
-      const existingPdfPrivacyChanges = dirtyChanges.sources
+      const existingPrivacyChanges = dirtyChanges.sources
         .filter(
           (source) =>
-            source.type === "pdf" &&
+            (source.type === "pdf" || source.type === "excel") &&
             source.privacyToggled &&
             !source.newAddedSource
         )
@@ -1265,10 +1309,10 @@ export default function NewGuru({
           private: source.private
         }));
 
-      if (existingPdfPrivacyChanges.length > 0) {
+      if (existingPrivacyChanges.length > 0) {
         hasChanges = true;
         await updateGuruDataSourcesPrivacy(guruSlug, {
-          data_sources: existingPdfPrivacyChanges
+          data_sources: existingPrivacyChanges
         });
 
         // Fetch updated sources after privacy changes
@@ -1327,6 +1371,30 @@ export default function NewGuru({
         newSourcesFormData.append(
           "pdf_privacies",
           JSON.stringify(pdfPrivacies)
+        );
+      }
+
+      // Add Excel files from dirtyChanges
+      const excelSources = dirtyChanges.sources.filter(
+        (source) =>
+          source.type === "excel" && source.newAddedSource && !source.deleted
+      );
+
+      if (excelSources.length > 0) {
+        excelSources.forEach((source) => {
+          if (source.file instanceof File) {
+            newSourcesFormData.append("excel_files", source.file);
+            hasNewSources = true;
+          }
+        });
+
+        const excelPrivacies = excelSources.map(
+          (source) => source.private || false
+        );
+
+        newSourcesFormData.append(
+          "excel_privacies",
+          JSON.stringify(excelPrivacies)
         );
       }
 
@@ -1506,15 +1574,18 @@ export default function NewGuru({
       const url = source.url;
       const id = source.id;
       const isDeleted = dirtyChanges.sources.some(
-        (s) => s.deleted && (s.type === "pdf" ? s.id === id : s.url === url)
+        (s) =>
+          s.deleted &&
+          (s.type === "pdf" || s.type === "excel" ? s.id === id : s.url === url)
       );
       const isAdded = dirtyChanges.sources.some(
         (s) =>
-          s.newAddedSource && (s.type === "pdf" ? s.id === id : s.url === url)
+          s.newAddedSource &&
+          (s.type === "pdf" || s.type === "excel" ? s.id === id : s.url === url)
       );
 
       if (isDeleted && isAdded) {
-        if (source.type === "pdf") {
+        if (source.type === "pdf" || source.type === "excel") {
           acc.add(id);
         } else {
           acc.add(url);
@@ -1529,7 +1600,7 @@ export default function NewGuru({
       setDirtyChanges((prev) => ({
         ...prev,
         sources: prev.sources.filter((source) => {
-          if (source.type === "pdf") {
+          if (source.type === "pdf" || source.type === "excel") {
             return !duplicateUrls.has(source.id);
           } else {
             return !duplicateUrls.has(source.url);
@@ -1543,7 +1614,8 @@ export default function NewGuru({
     // Only deduplicate URL sources, keep all PDF sources
     const uniqueSources = dirtyChanges.sources.filter(
       (source, index, self) =>
-        source.type?.toLowerCase() === "pdf"
+        source.type?.toLowerCase() === "pdf" ||
+        source.type?.toLowerCase() === "excel"
           ? true // Keep all PDF sources
           : index === self.findIndex((t) => t.url === source.url) // Deduplicate URLs
     );
@@ -1661,7 +1733,10 @@ export default function NewGuru({
             include_glob: s.github_include_glob === true // Ensure boolean
           })),
         uploadedFiles: dataSources.results
-          .filter((s) => s.type.toLowerCase() === "pdf")
+          .filter(
+            (s) =>
+              s.type.toLowerCase() === "pdf" || s.type.toLowerCase() === "excel"
+          )
           .map((s) => ({ name: s.title })),
         youtubeLinks: dataSources.results
           .filter((s) => s.type.toLowerCase() === "youtube")
@@ -2053,7 +2128,7 @@ export default function NewGuru({
           ...prev.sources,
           {
             id: source.id,
-            type: "pdf",
+            type: source.type,
             privacyToggled: true,
             private: !source.private,
             name: source.name,
@@ -2443,7 +2518,8 @@ export default function NewGuru({
               isSubmitting={form.formState.isSubmitting}
               isLoadingIntegration={isLoadingIntegration}
               jiraIntegration={jiraIntegration}
-              fileInputRef={fileInputRef}
+              pdfInputRef={pdfInputRef}
+              excelInputRef={excelInputRef}
               handleEditSource={handleEditSource}
               handleDeleteSource={handleDeleteSource}
               handleReindexSource={handleReindexSource}
@@ -2560,9 +2636,17 @@ export default function NewGuru({
         </Form>
       </div>
       <input
-        ref={fileInputRef}
+        ref={pdfInputRef}
         multiple
         accept=".pdf"
+        className="hidden"
+        type="file"
+        onChange={handleFileUpload}
+      />
+      <input
+        ref={excelInputRef}
+        multiple
+        accept=".xlsx,.xls"
         className="hidden"
         type="file"
         onChange={handleFileUpload}

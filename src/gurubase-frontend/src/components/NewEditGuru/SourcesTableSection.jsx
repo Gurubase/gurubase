@@ -64,7 +64,8 @@ export function SourcesTableSection({
   isSubmitting,
   isLoadingIntegration,
   jiraIntegration,
-  fileInputRef,
+  pdfInputRef,
+  excelInputRef,
   handleEditSource,
   handleDeleteSource,
   handleReindexSource,
@@ -139,8 +140,14 @@ export function SourcesTableSection({
   };
 
   const handleUploadPdf = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    if (pdfInputRef.current) {
+      pdfInputRef.current.click();
+    }
+  };
+
+  const handleUploadExcel = () => {
+    if (excelInputRef.current) {
+      excelInputRef.current.click();
     }
   };
 
@@ -150,6 +157,7 @@ export function SourcesTableSection({
     jira: handleAddJira,
     confluence: handleAddConfluence,
     onUploadPdfClick: handleUploadPdf,
+    onUploadExcelClick: handleUploadExcel,
     zendesk: handleAddZendesk,
     github_repo: handleAddGithub
   };
@@ -367,7 +375,12 @@ export function SourcesTableSection({
                 <div className="relative flex items-center">
                   <TooltipProvider>
                     <Tooltip delayDuration={0}>
-                      <TooltipTrigger className="cursor-pointer hover:text-gray-600 transition-colors flex items-center">
+                      <TooltipTrigger
+                        className="cursor-pointer hover:text-gray-600 transition-colors flex items-center"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}>
                         <Info className="h-3.5 w-3.5 text-gray-400" />
                       </TooltipTrigger>
                       <TooltipContent
@@ -615,7 +628,7 @@ export function SourcesTableSection({
                     ) : (
                       <span>
                         {source.domain || source.name}
-                        {source.type === "pdf" && source.size && (
+                        {source.type === "pdf" || source.type === "excel" && source.size && (
                           <span className="ml-2 text-xs text-gray-400">
                             ({formatFileSize(source.size)})
                           </span>

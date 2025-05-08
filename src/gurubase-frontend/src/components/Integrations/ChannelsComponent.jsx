@@ -28,6 +28,14 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover";
 import { CustomToast } from "@/components/CustomToast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
 
 const ChannelsComponent = ({
   guruData,
@@ -42,6 +50,21 @@ const ChannelsComponent = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [open, setOpen] = useState(false);
+  const [directMessages, setDirectMessages] = useState(false);
+
+  useEffect(() => {
+    // Compare current repositories with initial repositories to determine if there are changes
+    const channelsChanged = channels.some((channel) => {
+      const originalChannel = originalChannels.find((c) => c.id === channel.id);
+      return (
+        !originalChannel ||
+        channel.allowed !== originalChannel.allowed ||
+        channel.mode !== originalChannel.mode
+      );
+    });
+
+    setHasChanges(channelsChanged);
+  }, [channels, originalChannels]);
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -58,8 +81,14 @@ const ChannelsComponent = ({
                 : "Failed to fetch channels.")
           );
         } else {
-          setChannels(channelsData?.channels || []);
-          setOriginalChannels(channelsData?.channels || []);
+          const channelsWithMode =
+            channelsData?.channels?.map((channel) => ({
+              ...channel,
+              mode: channel.mode || "auto"
+            })) || [];
+          setChannels(channelsWithMode);
+          setOriginalChannels(channelsWithMode);
+          setDirectMessages(channelsData?.allow_dm || false);
           setInternalError(null);
         }
       } catch (err) {
@@ -96,6 +125,13 @@ const ChannelsComponent = ({
           <strong>Send test message</strong>, and call the bot with{" "}
           <strong>@Gurubase.io</strong>.
         </p>
+        <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
+          In <strong>Auto</strong> mode, the bot replies to new messages
+          automatically, but follow-up messages require a mention.
+          <br />
+          In <strong>Manual</strong> mode, all replies require mentioning the
+          bot.
+        </p>
         {type === "slack" && (
           <p className="text-[#6D6D6D] font-inter text-[14px] font-normal">
             To subscribe to a <strong>private channel</strong> and send test
@@ -116,6 +152,23 @@ const ChannelsComponent = ({
       </div>
       {/* Allowed Channels */}
       <div className="space-y-4 guru-xs:mt-4 mt-5">
+        {type === "slack" && (
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              id="direct_messages"
+              checked={directMessages}
+              onChange={(e) => {
+                setDirectMessages(e.target.checked);
+                setHasChanges(true);
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <label htmlFor="direct_messages" className="text-sm text-gray-700">
+              Enable Direct Messages
+            </label>
+          </div>
+        )}
         {channels
           .filter((c) => c.allowed)
           .map((channel) => (
@@ -131,6 +184,26 @@ const ChannelsComponent = ({
                   className="bg-gray-50 pt-8 pb-2"
                   value={channel.name}
                 />
+              </div>
+              <div className="flex items-center gap-3">
+                <Select
+                  value={channel.mode || "manual"}
+                  onValueChange={(value) => {
+                    setChannels(
+                      channels.map((c) =>
+                        c.id === channel.id ? { ...c, mode: value } : c
+                      )
+                    );
+                  }}>
+                  <SelectTrigger className="w-[100px] flex items-center justify-center">
+                    <SelectValue placeholder="Mode" className="text-center" />
+                    <ChevronDownIcon className="h-4 w-4 opacity-50 ml-2" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-row gap-3 w-full md:w-auto">
                 <Button
@@ -183,7 +256,6 @@ const ChannelsComponent = ({
                           c.id === channel.id ? { ...c, allowed: false } : c
                         )
                       );
-                      setHasChanges(true);
                     }}>
                     <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
                   </button>
@@ -247,7 +319,6 @@ const ChannelsComponent = ({
                                 { ...channel, allowed: true }
                               ];
                               setChannels(updatedChannels);
-                              setHasChanges(true);
                               setOpen(false);
                             }}
                             className="px-3 py-2 text-[14px] hover:bg-[#F3F4F6] cursor-pointer rounded-md">
@@ -272,7 +343,12 @@ const ChannelsComponent = ({
               const response = await saveIntegrationChannels(
                 guruData?.slug,
                 type.toUpperCase(),
-                channels.filter((c) => c.allowed)
+                type === "slack"
+                  ? {
+                      channels: channels.filter((c) => c.allowed),
+                      direct_messages: directMessages
+                    }
+                  : channels.filter((c) => c.allowed)
               );
               if (!response?.error) {
                 setHasChanges(false);

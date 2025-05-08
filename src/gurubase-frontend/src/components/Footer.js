@@ -10,6 +10,8 @@ import NotificationCard from "./NotificationCard/NotificationCard";
 
 export default function Footer({ guruType, slug, sidebarExists = false }) {
   const isSmallScreen = useIsSmallScreen();
+  const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
 
   // Don't render footer on mobile screens
   if (isSmallScreen) {
@@ -36,23 +38,36 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
               style={{ width: "120px", height: "auto" }}
               width={0}
             />
-            <SocialMediaHeader isMobile={true} />
 
-            <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
-              AI-powered Q&A assistants for any topic
-            </p>
-            <div className="flex justify-end items-center guru-sm:gap-2 gap-4">
-              <Link href="/privacy-policy" prefetch={false}>
-                <span className="text-gray-400">Privacy Policy</span>
-              </Link>
-              <Link href="/terms-of-use" prefetch={false}>
-                <span className="text-gray-400">Terms of Use</span>
-              </Link>
-            </div>
+            {isBetaFeaturesEnabled && isSelfHosted && (
+              <>
+                <SocialMediaHeader isMobile={true} />
+                <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
+                  AI-powered Q&A assistants for any topic
+                </p>
+              </>
+            )}
+            {(!isBetaFeaturesEnabled || !isSelfHosted) && (
+              <>
+                <SocialMediaHeader isMobile={true} />
+                <p className="text-gray-400 guru-sm:hidden italic text-base font-medium">
+                  AI-powered Q&A assistants for any topic
+                </p>
+                <div className="flex justify-end items-center guru-sm:gap-2 gap-4">
+                  <Link href="/privacy-policy" prefetch={false}>
+                    <span className="text-gray-400">Privacy Policy</span>
+                  </Link>
+                  <Link href="/terms-of-use" prefetch={false}>
+                    <span className="text-gray-400">Terms of Use</span>
+                  </Link>
+                </div>
+              </>
+            )}
           </section>
         </article>
       </section>
-      <NotificationCard />
+
+      {isBetaFeaturesEnabled && <NotificationCard />}
     </main>
   );
 }

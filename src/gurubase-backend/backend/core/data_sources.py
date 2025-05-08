@@ -7,9 +7,11 @@ import traceback
 from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
+
+from markitdown import MarkItDown
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
+from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
@@ -25,15 +27,19 @@ from core.utils import get_default_settings
 from youtube_transcript_api import NoTranscriptFound
 
 logger = logging.getLogger(__name__)
+md = MarkItDown(enable_plugins=False)  # Set to True to enable plugins
 
 
-def youtube_content_extraction(youtube_url):
+def youtube_content_extraction(youtube_url, language_code='en'):
+    transctipt_langs = ["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'] # The top 5 most spoken languages
+    if language_code not in transctipt_langs:
+        transctipt_langs.append(language_code)
     try:
         loader = YoutubeLoader.from_youtube_url(
             youtube_url, 
             add_video_info=True,
-            language=["en", 'hi', 'es', 'zh-Hans', 'zh-Hant', 'ar'], # The top 5 most spoken languages
-            translation="en",
+            language=transctipt_langs,
+            translation=language_code,
             chunk_size_seconds=30,
         )
     except Exception as e:
@@ -123,6 +129,25 @@ def pdf_content_extraction(pdf_path):
         raise PDFContentExtractionError(error_message)
     
     content = '\n'.join([page.page_content for page in pages])
+    sanitized_content = content.replace('\x00', '')
+    return sanitized_content
+
+def excel_content_extraction(excel_path):
+    try:
+        excel_path = replace_media_root_with_nginx_base_url(excel_path)
+        result = md.convert(excel_path)
+        content = result.text_content
+    except Exception as e:
+        logger.error(f"Error extracting content from Excel {excel_path}: {traceback.format_exc()}")
+        try:
+            error_message = e.args[0]
+            if excel_path in error_message:
+                # Replace the actual path with a placeholder
+                error_message = error_message.replace(excel_path, 'excel_path')
+        except Exception as e:
+            error_message = 'Unknown error'
+        raise ExcelContentExtractionError(error_message)
+    
     sanitized_content = content.replace('\x00', '')
     return sanitized_content
 
@@ -305,19 +330,22 @@ def sanitize_filename(filename):
     return clean_filename
 
 
-def fetch_data_source_content(integration, data_source):
+def fetch_data_source_content(integration, data_source, language_code):
     from core.models import DataSource
 
     if data_source.type == DataSource.Type.PDF:
         data_source.content = pdf_content_extraction(data_source.url)
         data_source.scrape_tool = 'pdf'
+    elif data_source.type == DataSource.Type.EXCEL:
+        data_source.content = excel_content_extraction(data_source.url)
+        data_source.scrape_tool = 'excel'
     elif data_source.type == DataSource.Type.WEBSITE:
         title, content, scrape_tool = website_content_extraction(data_source.url)
         data_source.title = title
         data_source.content = content
         data_source.scrape_tool = scrape_tool
     elif data_source.type == DataSource.Type.YOUTUBE:
-        content = youtube_content_extraction(data_source.url)
+        content = youtube_content_extraction(data_source.url, language_code)
         data_source.title = content['metadata']['title']
         data_source.content = content['content']
         data_source.scrape_tool = 'youtube'
@@ -389,6 +417,40 @@ class PDFStrategy(DataSourceStrategy):
                 'message': str(e)
             }
 
+class ExcelStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, excel_file, private=False):
+        try:
+            excel_file.name = sanitize_filename(excel_file.name)
+            
+            data_source = DataSource.objects.create(
+                type=DataSource.Type.EXCEL,
+                guru_type=guru_type_object,
+                file=excel_file,
+                private=private
+            )
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'success',
+                'id': data_source.id,
+                'title': data_source.title
+            }
+        except DataSourceExists as e:
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'exists',
+                'id': e.args[0]['id'],
+                'title': e.args[0]['title']
+            }
+        except Exception as e:
+            logger.error(f'Error processing Excel {excel_file.name}: {traceback.format_exc()}')
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'error',
+                'message': str(e)
+            }
 
 class YouTubeStrategy(DataSourceStrategy):
     def create(self, guru_type_object, youtube_url):
@@ -563,7 +625,7 @@ class GitHubStrategy(DataSourceStrategy):
             }
 
 
-def run_spider_process(url, crawl_state_id, link_limit):
+def run_spider_process(url, crawl_state_id, link_limit, language_code):
     """Run spider in a separate process"""
     try:
         settings = {
@@ -586,7 +648,8 @@ def run_spider_process(url, crawl_state_id, link_limit):
             start_urls=[url],
             original_url=url,
             crawl_state_id=crawl_state_id,
-            link_limit=link_limit
+            link_limit=link_limit,
+            language_code=language_code
         )
         process.start()
     except Exception as e:
@@ -594,14 +657,14 @@ def run_spider_process(url, crawl_state_id, link_limit):
         logger.error(traceback.format_exc())
 
 
-def get_internal_links(url: str, crawl_state_id: int, link_limit: int) -> List[str]:
+def get_internal_links(url: str, crawl_state_id: int, link_limit: int, language_code: str) -> List[str]:
     """
     Crawls a website starting from the given URL and returns a list of all internal links found.
     The crawler only follows links that start with the same domain as the initial URL.
     """
     try:
         # Start the spider in a separate process
-        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit))
+        crawler_process = Process(target=run_spider_process, args=(url, crawl_state_id, link_limit, language_code))
         crawler_process.start()
         
     except Exception as e:
@@ -628,6 +691,7 @@ class InternalLinkSpider(scrapy.Spider):
             super().__init__(*args, **kwargs)
             self.start_url = self.start_urls[0]
             self.original_url = kwargs.get('original_url')
+            self.language_code = kwargs.get('language_code')
             self.internal_links: Set[str] = set()
             self.crawl_state_id = kwargs.get('crawl_state_id')
             self.link_limit = kwargs.get('link_limit', 1500)
@@ -670,13 +734,13 @@ class InternalLinkSpider(scrapy.Spider):
             content_lang = response.headers.get('Content-Language', b'')
             content_lang = content_lang.decode('utf-8').strip() if content_lang else None
 
-            is_english = (
+            language_valid = (
                 not html_lang and not content_lang or
-                (html_lang and html_lang.lower().startswith('en')) or
-                (content_lang and content_lang.lower().startswith('en'))
+                (html_lang and html_lang.lower().startswith(self.language_code)) or
+                (content_lang and content_lang.lower().startswith(self.language_code))
             )
             
-            if response.status == 200 and is_english:
+            if response.status == 200 and language_valid:
                 if response.url.startswith(self.start_url) or response.url.startswith(self.original_url):
                     self.internal_links.add(response.url)
                     if self.crawl_state_id:
@@ -800,15 +864,17 @@ class CrawlService:
         user = CrawlService.get_user(user)
         try:
             guru_type = CrawlService.validate_and_get_guru_type(guru_slug, user)
+            language_code = guru_type.get_language_code()
             link_limit = guru_type.website_count_limit
         except NotFoundError as e:
             if source == CrawlState.Source.UI:
+                # Defaults
                 guru_type = None
                 link_limit = 1500
+                language_code = 'en'
             else:
                 raise e
         
-        # Existing crawl start logic
         if guru_type:
             existing_crawl = CrawlState.objects.filter(
                 guru_type=guru_type, 
@@ -825,7 +891,7 @@ class CrawlService:
             user=user,
             source=source
         )
-        crawl_website.delay(url, crawl_state.id, link_limit)
+        crawl_website.delay(url, crawl_state.id, link_limit, language_code)
         return CrawlStateSerializer(crawl_state).data, 200
 
     @staticmethod

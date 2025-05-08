@@ -2,7 +2,9 @@ import logging
 from django.conf import settings
 import requests
 
-from core.integrations.strategy import IntegrationStrategy
+from integrations.bots.models import BotContext
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from .app_handler import SlackAppHandler
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,9 @@ class SlackStrategy(IntegrationStrategy):
                     {
                         'id': c['id'],
                         'name': c['name'],
-                        'allowed': False
+                        'allowed': False,
+                        'mode': 'manual',
+                        'direct_messages': False
                     }
                     for c in data.get('channels', [])
                 ])
@@ -129,3 +133,35 @@ class SlackStrategy(IntegrationStrategy):
             'workspace_name': data['team']
         }
 
+
+class SlackContextHandler(IntegrationContextHandler):
+    """Handler for Slack integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        try:
+            # Get channel_id and thread_ts from api_url
+            # api_url format: channel_id:thread_ts
+            channel_id, thread_ts = api_url.split(':')
+            
+            # Initialize Slack app handler
+            slack_handler = SlackAppHandler(self.integration)
+            
+            # First get thread messages if in a thread
+            if thread_ts:
+                thread_messages = slack_handler.get_thread_messages(channel_id, thread_ts)
+            
+            # # If we haven't exceeded the limit, get channel messages
+            # length = sum(len(msg) for msg in thread_messages)
+            # if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+            #     channel_messages = slack_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            # else:
+            #     channel_messages = []
+            
+            return BotContext(
+                type=BotContext.Type.SLACK,
+                data={'thread_messages': list(reversed(thread_messages))}
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting Slack context: {e}", exc_info=True)
+            return None

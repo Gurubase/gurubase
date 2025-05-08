@@ -381,9 +381,17 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
       "Content-Type": "application/json"
     };
 
+    const csrfToken = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("csrftoken="))
+      ?.split("=")[1];
+
     response = await fetch(url, {
       method: "POST",
-      headers,
+      headers: {
+        ...headers,
+        ...(csrfToken && { "X-CSRFToken": csrfToken })
+      },
       body: JSON.stringify({
         interval,
         filters,
@@ -456,10 +464,10 @@ export async function exportAnalytics(guruType, interval, filters, exportType) {
   // Get filename from Content-Disposition or create a default one
   let filename = contentDisposition
     ? contentDisposition
-        .split("filename=")[1]
-        ?.trim()
-        .replace(/^"(.+)"$/, "$1") ||
-      `analytics_${guruType}_${interval}.${defaultExtension}`
+      .split("filename=")[1]
+      ?.trim()
+      .replace(/^"(.+)"$/, "$1") ||
+    `analytics_${guruType}_${interval}.${defaultExtension}`
     : `analytics_${guruType}_${interval}.${defaultExtension}`;
 
   a.download = filename;

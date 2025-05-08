@@ -15,60 +15,60 @@ from PIL import ImageColor
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from urllib.parse import urlparse
-import secrets
-from .models import Integration, APIKey, GuruCreationForm, OutOfContextQuestion, Settings
+from .models import APIKey, GuruCreationForm, OutOfContextQuestion, Settings
+from integrations.models import Integration
 from .requester import MailgunRequester
 
 logger = logging.getLogger(__name__)
 
-@receiver(post_save, sender=Question)
-def save_question_to_typesense(sender, instance: Question, **kwargs):
-    if settings.ENV == 'selfhosted':
-        return
+# @receiver(post_save, sender=Question)
+# def save_question_to_typesense(sender, instance: Question, **kwargs):
+#     if settings.ENV == 'selfhosted':
+#         return
 
-    if settings.TYPESENSE_API_KEY == "xxx":
-        return
-    curr_sitemap = instance.add_to_sitemap
-    try:
-        guru_type = instance.guru_type.slug
-    except Exception as e:
-        logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.", exc_info=True)
-        return
+#     if settings.TYPESENSE_API_KEY == "xxx":
+#         return
+#     curr_sitemap = instance.add_to_sitemap
+#     try:
+#         guru_type = instance.guru_type.slug
+#     except Exception as e:
+#         logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.", exc_info=True)
+#         return
     
-    if not guru_type:
-        logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.")
-        return
+#     if not guru_type:
+#         logger.error(f"Question {instance.id} does not have a guru_type. Writing/deleting to/from TypeSense skipped.")
+#         return
 
-    from core.typesense_utils import TypeSenseClient
-    from typesense.exceptions import ObjectNotFound
-    typesense_client = TypeSenseClient(guru_type)
-    if curr_sitemap:
-        # Question is in sitemap
-        # Upsert the question to TypeSense
-        doc = {
-            'id': str(instance.id),
-            'slug': instance.slug,
-            'question': instance.question,
-            # 'content': instance.content,
-            # 'description': instance.description,
-            # 'change_count': instance.change_count,
-        }
-        try:
-            response = typesense_client.import_documents([doc])
-            logger.info(f"Upserted question {instance.id} to Typesense")
-        except Exception as e:
-            logger.error(f"Error writing question {instance.id} to Typesense: {e}", exc_info=True)
+#     from core.typesense_utils import TypeSenseClient
+#     from typesense.exceptions import ObjectNotFound
+#     typesense_client = TypeSenseClient(guru_type)
+#     if curr_sitemap:
+#         # Question is in sitemap
+#         # Upsert the question to TypeSense
+#         doc = {
+#             'id': str(instance.id),
+#             'slug': instance.slug,
+#             'question': instance.question,
+#             # 'content': instance.content,
+#             # 'description': instance.description,
+#             # 'change_count': instance.change_count,
+#         }
+#         try:
+#             response = typesense_client.import_documents([doc])
+#             logger.info(f"Upserted question {instance.id} to Typesense")
+#         except Exception as e:
+#             logger.error(f"Error writing question {instance.id} to Typesense: {e}", exc_info=True)
 
-    else:
-        # Question is not in sitemap
-        # Delete it from TypeSense
-        try:
-            response = typesense_client.delete_document(str(instance.id))
-            logger.info(f"Deleted question {instance.id} from Typesense")
-        except ObjectNotFound:
-            pass
-        except Exception as e:
-            logger.error(f"Error deleting question {instance.id} from Typesense: {e}", exc_info=True)
+#     else:
+#         # Question is not in sitemap
+#         # Delete it from TypeSense
+#         try:
+#             response = typesense_client.delete_document(str(instance.id))
+#             logger.info(f"Deleted question {instance.id} from Typesense")
+#         except ObjectNotFound:
+#             pass
+#         except Exception as e:
+#             logger.error(f"Error deleting question {instance.id} from Typesense: {e}", exc_info=True)
 
 @receiver(post_save, sender=Question)
 def generate_og_image_for_new_question(sender, instance, **kwargs):
@@ -547,7 +547,7 @@ def delete_question_from_milvus(sender, instance: Question, **kwargs):
 @receiver(pre_delete, sender=DataSource)
 def clear_data_source(sender, instance: DataSource, **kwargs):
     logger.info(f"Clearing data source: {instance.id}")
-    if instance.type == DataSource.Type.PDF and instance.url:
+    if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL] and instance.url:
         if settings.STORAGE_TYPE == 'gcloud':
             from core.gcp import DATA_SOURCES_GCP
             endpoint = instance.url.split('/', 4)[-1]
@@ -882,7 +882,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
     if settings.ENV != 'selfhosted':
         if instance.type == Integration.Type.DISCORD:
             try:
-                from core.integrations.factory import IntegrationFactory
+                from integrations.factory import IntegrationFactory
                 discord_strategy = IntegrationFactory.get_strategy('DISCORD', instance)
                 
                 def leave_guild():
@@ -903,7 +903,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
 
         # Step 2: Revoke access token
         try:
-            from core.integrations.factory import IntegrationFactory
+            from integrations.factory import IntegrationFactory
             strategy = IntegrationFactory.get_strategy(instance.type, instance)
             strategy.revoke_access_token()
         except Exception as e:
@@ -914,7 +914,7 @@ def handle_integration_deletion(sender, instance, **kwargs):
             instance.api_key.delete()
 
     if instance.type == Integration.Type.GITHUB:
-        from .github.app_handler import GithubAppHandler
+        from integrations.bots.github.app_handler import GithubAppHandler
         GithubAppHandler(instance).clear_redis_cache()
 
 @receiver(post_save, sender=GuruCreationForm)

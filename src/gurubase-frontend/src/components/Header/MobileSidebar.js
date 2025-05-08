@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import GuruBaseLogo from "@/components/GuruBaseLogo";
 import { Link } from "@/components/Link";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+
 import { getNavigationItems } from "./navigationConfig";
 
 const MobileSidebar = ({ isOpen, onClose, user }) => {
@@ -23,6 +24,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
   }, [isOpen]);
 
   const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+  const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
 
   const renderNavigationItem = (item) => (
     <div key={item.id} className="w-full">
@@ -93,53 +95,57 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
           </div>
 
           {/* Footer Section */}
-          <div className="w-full space-y-6 mt-auto pt-6 border-t border-[#E2E2E2]">
-            {/* Social Links */}
-            <div className="space-y-2">
-              <Link
-                className="flex h-8 px-2 justify-center items-center gap-2 rounded 
+          {(!isBetaFeaturesEnabled || !isSelfHosted) && (
+            <>
+              <div className="w-full space-y-6 mt-auto pt-6 border-t border-[#E2E2E2]">
+                {/* Social Links */}
+                <div className="space-y-2">
+                  <Link
+                    className="flex h-8 px-2 justify-center items-center gap-2 rounded 
                   bg-[#5865F2] text-white text-sm w-full 
                   hover:bg-[#4752C4] active:bg-[#3C45B2] 
                   transition-all duration-200"
-                href="https://discord.gg/9CMRSQPqx6"
-                prefetch={false}
-                target="_blank">
-                <Icon className="w-5 h-5" icon="simple-icons:discord" />
-                Join Discord
-              </Link>
-              <Link
-                className="flex h-8 px-2 justify-center items-center gap-2 rounded 
+                    href="https://discord.gg/9CMRSQPqx6"
+                    prefetch={false}
+                    target="_blank">
+                    <Icon className="w-5 h-5" icon="simple-icons:discord" />
+                    Join Discord
+                  </Link>
+                  <Link
+                    className="flex h-8 px-2 justify-center items-center gap-2 rounded 
                   border border-[#E2E2E2] bg-white text-[#191919] text-sm w-full
                   hover:bg-[#F5F5F5] active:bg-[#EAEAEA]
                   transition-all duration-200"
-                href="https://github.com/Gurubase/gurubase?utm_source=gurubase&utm_medium=mobile_menu&utm_campaign=social"
-                prefetch={false}
-                target="_blank">
-                <Icon
-                  className="w-5 h-5 text-[#191919]"
-                  icon="simple-icons:github"
-                />
-                Star Us
-              </Link>
-            </div>
+                    href="https://github.com/Gurubase/gurubase?utm_source=gurubase&utm_medium=mobile_menu&utm_campaign=social"
+                    prefetch={false}
+                    target="_blank">
+                    <Icon
+                      className="w-5 h-5 text-[#191919]"
+                      icon="simple-icons:github"
+                    />
+                    Star Us
+                  </Link>
+                </div>
 
-            {/* Legal Links */}
-            <div className="flex items-center justify-center gap-2 text-xs text-[#6D6D6D]">
-              <Link
-                className="hover:text-gray-800 transition-colors"
-                href="/privacy-policy"
-                prefetch={false}>
-                Privacy Policy
-              </Link>
-              <span>•</span>
-              <Link
-                className="hover:text-gray-800 transition-colors"
-                href="/terms-of-use"
-                prefetch={false}>
-                Terms of Use
-              </Link>
-            </div>
-          </div>
+                {/* Legal Links */}
+                <div className="flex items-center justify-center gap-2 text-xs text-[#6D6D6D]">
+                  <Link
+                    className="hover:text-gray-800 transition-colors"
+                    href="/privacy-policy"
+                    prefetch={false}>
+                    Privacy Policy
+                  </Link>
+                  <span>•</span>
+                  <Link
+                    className="hover:text-gray-800 transition-colors"
+                    href="/terms-of-use"
+                    prefetch={false}>
+                    Terms of Use
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

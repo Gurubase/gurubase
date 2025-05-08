@@ -2,7 +2,10 @@ import logging
 from django.conf import settings
 import requests
 
-from core.integrations.strategy import IntegrationStrategy
+from integrations.bots.models import BotContext
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from integrations.bots.discord.app_handler import DiscordAppHandler
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +57,8 @@ class DiscordStrategy(IntegrationStrategy):
                     'id': c['id'],
                     'name': c['name'],
                     'allowed': False,
-                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown'
+                    'type': 'text' if c['type'] == 0 else 'forum' if c['type'] == 15 else 'unknown',
+                    'mode': 'manual'
                 }
                 for c in channels
                 if c['type'] in [0, 15]  # 0 is text channel, 15 is forum
@@ -162,3 +166,47 @@ class DiscordStrategy(IntegrationStrategy):
             'external_id': guild['id'],
             'workspace_name': guild['name']
         }
+
+class DiscordContextHandler(IntegrationContextHandler):
+    """Handler for Discord integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        try:
+            # Get channel_id and thread_id from api_url
+            # api_url format: channel_id:thread_id
+            channel_id, thread_id = api_url.split(':')
+            if channel_id == 'None':
+                channel_id = None
+            if thread_id == 'None':
+                thread_id = None
+            
+            # Initialize Discord app handler
+            discord_handler = DiscordAppHandler(self.integration)
+            
+            # First get thread messages if in a thread
+            if thread_id:
+                thread_messages = discord_handler.get_thread_messages(thread_id)
+                # Get the initial message that started the thread
+                length = sum(len(msg) for msg in thread_messages)
+                if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:
+                    initial_message = discord_handler.get_initial_thread_message(channel_id, thread_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+                    if initial_message:
+                        thread_messages.append(initial_message)
+            else:
+                thread_messages = []
+            
+            # # If we haven't exceeded the limit, get channel messages
+            # length = sum(len(msg) for msg in thread_messages)
+            # if channel_id and length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+            #     channel_messages = discord_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            # else:
+            #     channel_messages = []
+            
+            return BotContext(
+                type=BotContext.Type.DISCORD,
+                data={'thread_messages': list(reversed(thread_messages))}
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting Discord context: {e}", exc_info=True)
+            return None
