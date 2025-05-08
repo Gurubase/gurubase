@@ -1098,6 +1098,12 @@ def get_contexts(
         logger.error(f'Error while fetching the context from the vector database: {e}', exc_info=True)
         contexts = []
         reranked_scores = []
+        trust_score = 0
+        processed_ctx_relevances = {
+            'removed': [],
+            'kept': []
+        }
+        ctx_rel_usage = {}
 
     # if contexts == [] and settings.ENV == 'production':
     #     raise exceptions.InvalidRequestError({'msg': 'No context found for the question.'})
