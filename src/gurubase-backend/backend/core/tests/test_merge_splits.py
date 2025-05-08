@@ -544,6 +544,257 @@ class TestMergeSplits(TestCase):
         self.assertEqual(result['entity']['text'], expected_text)
         self.assertEqual(self.milvus_client_mock.search.call_count, 1)
 
+    def test_excel_single_sheet_continuous(self):
+        """Test merging Excel document with a single sheet and continuous splits"""
+        # Setup
+        fetched_doc = {
+            'entity': {
+                'metadata': {'type': 'EXCEL', 'split_num': 1},
+                'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |'''
+            }
+        }
+        
+        # Mock the search for adjacent splits
+        adjacent_result = [{
+            'entity': {
+                'metadata': {'type': 'EXCEL', 'split_num': 2},
+                'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| 2025-04-09 08:41 | Codebase | utils.py | 3 |
+| 2025-04-09 08:41 | Codebase | README.md | 2 |'''
+            }
+        }]
+        self.milvus_client_mock.search.return_value = [adjacent_result]
+        
+        # Execute
+        result = self.merge_splits(
+            self.milvus_client_mock,
+            self.text_embedding_mock,
+            self.code_embedding_mock,
+            fetched_doc,
+            'test_collection',
+            'link_key',
+            'link1',
+            code=False,
+            merge_limit=4
+        )
+        
+        # Assert
+        expected_text = '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |
+| 2025-04-09 08:41 | Codebase | utils.py | 3 |
+| 2025-04-09 08:41 | Codebase | README.md | 2 |'''
+        self.assertEqual(result['entity']['text'], expected_text)
+
+    def test_excel_multiple_sheets_continuous(self):
+        """Test merging Excel document with multiple sheets and continuous splits"""
+        # Setup
+        fetched_doc = {
+            'entity': {
+                'metadata': {'type': 'EXCEL', 'split_num': 1},
+                'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |'''
+            }
+        }
+        
+        # Mock the search for adjacent splits
+        adjacent_result = [
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 2},
+                    'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |'''
+                }
+            },
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 3},
+                    'text': '''## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+                }
+            }
+        ]
+        self.milvus_client_mock.search.return_value = [adjacent_result]
+        
+        # Execute
+        result = self.merge_splits(
+            self.milvus_client_mock,
+            self.text_embedding_mock,
+            self.code_embedding_mock,
+            fetched_doc,
+            'test_collection',
+            'link_key',
+            'link1',
+            code=False,
+            merge_limit=4
+        )
+        
+        # Assert
+        expected_text = '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |
+
+## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+        self.assertEqual(result['entity']['text'], expected_text)
+
+    def test_excel_multiple_sheets_with_gaps(self):
+        """Test merging Excel document with multiple sheets and non-adjacent splits"""
+        # Setup
+        fetched_doc = {
+            'entity': {
+                'metadata': {'type': 'EXCEL', 'split_num': 1},
+                'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |'''
+            }
+        }
+        
+        # Mock the search for adjacent splits
+        adjacent_result = [
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 3},
+                    'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |'''
+                }
+            },
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 4},
+                    'text': '''## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+                }
+            }
+        ]
+        self.milvus_client_mock.search.return_value = [adjacent_result]
+        
+        # Execute
+        result = self.merge_splits(
+            self.milvus_client_mock,
+            self.text_embedding_mock,
+            self.code_embedding_mock,
+            fetched_doc,
+            'test_collection',
+            'link_key',
+            'link1',
+            code=False,
+            merge_limit=4
+        )
+        
+        # Assert
+        expected_text = '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |
+
+...truncated...
+
+| 2025-04-09 08:41 | Codebase | views.py | 4 |
+
+## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+        self.assertEqual(result['entity']['text'], expected_text)
+
+    def test_excel_multiple_sheets_with_gaps_and_new_sheet(self):
+        """Test merging Excel document with multiple sheets, gaps, and new sheet in the middle"""
+        # Setup
+        fetched_doc = {
+            'entity': {
+                'metadata': {'type': 'EXCEL', 'split_num': 1},
+                'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |'''
+            }
+        }
+        
+        # Mock the search for adjacent splits
+        adjacent_result = [
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 3},
+                    'text': '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| 2025-04-09 08:41 | Codebase | views.py | 4 |'''
+                }
+            },
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 4},
+                    'text': '''## Unable to Answer
+| Datetime | Source | Question |
+| --- | --- | --- |
+| 2025-04-09 07:08 | Github | in more detail |'''
+                }
+            },
+            {
+                'entity': {
+                    'metadata': {'type': 'EXCEL', 'split_num': 5},
+                    'text': '''## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+                }
+            }
+        ]
+        self.milvus_client_mock.search.return_value = [adjacent_result]
+        
+        # Execute
+        result = self.merge_splits(
+            self.milvus_client_mock,
+            self.text_embedding_mock,
+            self.code_embedding_mock,
+            fetched_doc,
+            'test_collection',
+            'link_key',
+            'link1',
+            code=False,
+            merge_limit=4
+        )
+        
+        # Assert
+        expected_text = '''## References
+| Last Update Date | Data Source Type | Data Source Title | Referenced Count |
+| --- | --- | --- | --- |
+| 2025-04-09 08:41 | Codebase | ARCHITECTURE.md | 59 |
+
+...truncated...
+
+| 2025-04-09 08:41 | Codebase | views.py | 4 |
+
+## Unable to Answer
+| Datetime | Source | Question |
+| --- | --- | --- |
+| 2025-04-09 07:08 | Github | in more detail |
+
+## Questions
+| Datetime | Source | Question | Trust Score | Follow-up |
+| --- | --- | --- | --- | --- |
+| 2025-04-06 08:31 | Widget | how does gurubase work? | 0.90 | False |'''
+        self.assertEqual(result['entity']['text'], expected_text)
 
 if __name__ == '__main__':
     unittest.main()

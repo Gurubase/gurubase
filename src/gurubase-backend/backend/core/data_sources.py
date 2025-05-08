@@ -7,9 +7,11 @@ import traceback
 from django.conf import settings
 from langchain_community.document_loaders import YoutubeLoader, PyPDFLoader
 from abc import ABC, abstractmethod
+
+from markitdown import MarkItDown
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError, ConfluenceContentExtractionError
+from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError, ConfluenceContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
@@ -25,6 +27,7 @@ from core.utils import get_default_settings
 from youtube_transcript_api import NoTranscriptFound
 
 logger = logging.getLogger(__name__)
+md = MarkItDown(enable_plugins=False)  # Set to True to enable plugins
 
 
 def youtube_content_extraction(youtube_url, language_code='en'):
@@ -126,6 +129,25 @@ def pdf_content_extraction(pdf_path):
         raise PDFContentExtractionError(error_message)
     
     content = '\n'.join([page.page_content for page in pages])
+    sanitized_content = content.replace('\x00', '')
+    return sanitized_content
+
+def excel_content_extraction(excel_path):
+    try:
+        excel_path = replace_media_root_with_nginx_base_url(excel_path)
+        result = md.convert(excel_path)
+        content = result.text_content
+    except Exception as e:
+        logger.error(f"Error extracting content from Excel {excel_path}: {traceback.format_exc()}")
+        try:
+            error_message = e.args[0]
+            if excel_path in error_message:
+                # Replace the actual path with a placeholder
+                error_message = error_message.replace(excel_path, 'excel_path')
+        except Exception as e:
+            error_message = 'Unknown error'
+        raise ExcelContentExtractionError(error_message)
+    
     sanitized_content = content.replace('\x00', '')
     return sanitized_content
 
@@ -314,6 +336,9 @@ def fetch_data_source_content(integration, data_source, language_code):
     if data_source.type == DataSource.Type.PDF:
         data_source.content = pdf_content_extraction(data_source.url)
         data_source.scrape_tool = 'pdf'
+    elif data_source.type == DataSource.Type.EXCEL:
+        data_source.content = excel_content_extraction(data_source.url)
+        data_source.scrape_tool = 'excel'
     elif data_source.type == DataSource.Type.WEBSITE:
         title, content, scrape_tool = website_content_extraction(data_source.url)
         data_source.title = title
@@ -392,6 +417,40 @@ class PDFStrategy(DataSourceStrategy):
                 'message': str(e)
             }
 
+class ExcelStrategy(DataSourceStrategy):
+    def create(self, guru_type_object, excel_file, private=False):
+        try:
+            excel_file.name = sanitize_filename(excel_file.name)
+            
+            data_source = DataSource.objects.create(
+                type=DataSource.Type.EXCEL,
+                guru_type=guru_type_object,
+                file=excel_file,
+                private=private
+            )
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'success',
+                'id': data_source.id,
+                'title': data_source.title
+            }
+        except DataSourceExists as e:
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'exists',
+                'id': e.args[0]['id'],
+                'title': e.args[0]['title']
+            }
+        except Exception as e:
+            logger.error(f'Error processing Excel {excel_file.name}: {traceback.format_exc()}')
+            return {
+                'type': 'Excel',
+                'file': excel_file.name,
+                'status': 'error',
+                'message': str(e)
+            }
 
 class YouTubeStrategy(DataSourceStrategy):
     def create(self, guru_type_object, youtube_url):

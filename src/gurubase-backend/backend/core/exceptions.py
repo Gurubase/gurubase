@@ -123,3 +123,8 @@ class IntegrityError(Exception):
 
 class ConfluenceContentExtractionError(Exception):
     pass
+
+
+class ExcelContentExtractionError(Exception):
+    """Exception raised for Excel content extraction errors."""
+    pass

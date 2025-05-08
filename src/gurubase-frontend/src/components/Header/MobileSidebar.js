@@ -95,7 +95,7 @@ const MobileSidebar = ({ isOpen, onClose, user }) => {
           </div>
 
           {/* Footer Section */}
-          {!isBetaFeaturesEnabled && (
+          {(!isBetaFeaturesEnabled || !isSelfHosted) && (
             <>
               <div className="w-full space-y-6 mt-auto pt-6 border-t border-[#E2E2E2]">
                 {/* Social Links */}

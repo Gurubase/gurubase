@@ -275,7 +275,7 @@ const Header = memo(({ guruType, allGuruTypes, sidebarExists = false }) => {
           </div>
 
           <div className="flex items-center gap-4 guru-sm:hidden">
-            {!isBetaFeaturesEnabled && <SocialMediaHeader />}
+            {(!isBetaFeaturesEnabled || !isSelfHosted) && <SocialMediaHeader />}
             {renderAuthButtons()}
           </div>
 
