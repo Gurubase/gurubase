@@ -230,7 +230,8 @@ class DiscordListener:
     ) -> None:
         """Send a message explaining how to authorize the channel."""
         try:
-            base_url = await sync_to_async(get_base_url)()
+            # Get base URL using sync_to_async with the current event loop
+            base_url = await sync_to_async(get_base_url, thread_sensitive=True)()            
             settings_url = f"{base_url.rstrip('/')}/guru/{guru_slug}/integrations/discord"
             
             # Create embed for better formatting
@@ -455,7 +456,10 @@ class DiscordListener:
                             for ref in response['references']:
                                 # Remove both Slack-style emoji codes and Unicode emojis along with adjacent spaces
                                 clean_title = cleanup_title(ref['title'])
-                                metadata += f"\n• [*{clean_title}*](<{ref['link']}>)"
+                                if ref['link']:
+                                    metadata += f"\n• [*{clean_title}*](<{ref['link']}>)"
+                                else:
+                                    metadata += f"\n• _{clean_title}_"                                
                         
                         metadata += f"\n:eyes: [_View on Gurubase for a better UX_](<{response['question_url']}>)"
                         
