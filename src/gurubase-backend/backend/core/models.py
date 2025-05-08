@@ -324,18 +324,6 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_SMALL = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
-
-    # class Language(models.TextChoices):
-    #     ENGLISH = "ENGLISH", "English"
-    #     TURKISH = "TURKISH", "Turkish"
-    #     DUTCH = "DUTCH", "Dutch"
-        
-    # # Language code mapping
-    # LANGUAGE_CODES = {
-    #     'ENGLISH': 'en',
-    #     'TURKISH': 'tr',
-    #     'DUTCH': 'nl',
-    # }
     
     # Get language code helper method
     def get_language_code(self):
@@ -394,11 +382,6 @@ class GuruType(models.Model):
     )
     send_notification = models.BooleanField(default=False)
     private = models.BooleanField(default=False)
-    # language = models.CharField(
-    #     max_length=100,
-    #     choices=Language.choices,
-    #     default=Language.ENGLISH
-    # )
     language = models.ForeignKey(Language, on_delete=models.SET_DEFAULT, default=get_default_language)
 
     date_created = models.DateTimeField(auto_now_add=True)
