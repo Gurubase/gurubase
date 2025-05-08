@@ -1,10 +1,9 @@
-import requests
 import logging
 
+from integrations.bots.helpers import IntegrationError
+from integrations.models import Integration
+from integrations.strategy import IntegrationStrategy
 from core.exceptions import ZendeskAuthenticationError, ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
-from .strategy import IntegrationStrategy
-from .helpers import IntegrationError
-from core.models import Integration
 from core.requester import ZendeskRequester
 
 logger = logging.getLogger(__name__)

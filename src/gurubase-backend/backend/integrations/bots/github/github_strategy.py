@@ -1,14 +1,23 @@
 import logging
-from core.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
-from core.integrations.helpers import IntegrationError
-from core.integrations.strategy import IntegrationStrategy
-from core.models import GuruType, Integration
+from integrations.bots.models import BotContext
+from integrations.bots.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
+from integrations.bots.helpers import IntegrationError
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from integrations.models import Integration
+from core.models import GuruType
+from typing import List, Optional
+
+from integrations.bots.helpers import IntegrationError
+from integrations.models import Integration
+from core.models import GuruType
+
+import logging
 
 logger = logging.getLogger(__name__)
 
 class GitHubStrategy(IntegrationStrategy):
     def __init__(self, integration: 'Integration' = None):
-        from core.github.app_handler import GithubAppHandler
+        from integrations.bots.github.app_handler import GithubAppHandler
         super().__init__(integration)
         self.github_handler = GithubAppHandler(integration)
 
@@ -107,3 +116,33 @@ class GitHubStrategy(IntegrationStrategy):
         except Exception as e:
             logger.error(f"Error creating GitHub integration: {e}", exc_info=True)
             raise IntegrationError(f"Error creating GitHub integration. Please try again. If the problem persists, please contact support.")
+
+class GithubContextHandler(IntegrationContextHandler):
+    """Handler for GitHub integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        from .app_handler import GithubAppHandler
+        
+        try:
+            github_handler = GithubAppHandler(self.integration)
+            github_issue = github_handler.get_issue(api_url, external_id)
+            github_comments = github_handler.get_issue_comments(api_url, external_id)
+            
+            # Add issue as last comment since helper reverses comments
+            github_comments.insert(0, github_issue)
+            
+            # Process and format comments
+            github_comments = github_handler.strip_and_format_issue_comments(
+                github_comments, 
+                self.integration.github_bot_name
+            )
+            
+            # Limit comments by length
+            return BotContext(
+                type=BotContext.Type.GITHUB,
+                data={'comments': github_handler.limit_issue_comments_by_length(github_comments)}
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting GitHub context: {e}", exc_info=True)
+            return None

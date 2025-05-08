@@ -801,7 +801,7 @@ export async function getApiKeys() {
 export async function getIntegrationDetails(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -884,7 +884,7 @@ export async function deleteApiKey(formData) {
 export async function getIntegrationChannels(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/channels/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -926,7 +926,7 @@ export async function saveIntegrationChannels(
         : { channels };
 
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/channels/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/channels/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1024,7 +1024,7 @@ export async function sendIntegrationTestMessage(integrationId, channelId) {
 export async function deleteIntegration(guruType, integrationType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" }
@@ -1055,7 +1055,7 @@ export async function deleteIntegration(guruType, integrationType) {
 export async function getIntegrationsList(guruType) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" }
@@ -1089,7 +1089,7 @@ export async function createSelfhostedIntegration(
 ) {
   try {
     const response = await makeAuthenticatedRequest(
-      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/${guruType}/integrations/${integrationType}/`,
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/${guruType}/${integrationType}/`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1230,7 +1230,7 @@ export async function parseSitemapUrls(sitemapUrl) {
 export async function fetchJiraIssues(integrationId, jqlQuery) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/jira/issues/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/jira/issues/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "POST",
@@ -1269,7 +1269,7 @@ export async function fetchJiraIssues(integrationId, jqlQuery) {
 export async function fetchConfluencePages(integrationId, searchQuery) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/confluence/pages/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/confluence/pages/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "POST",
@@ -1308,7 +1308,7 @@ export async function fetchConfluencePages(integrationId, searchQuery) {
 export async function fetchZendeskTickets(integrationId) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/tickets/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/tickets/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "GET" // Assuming GET request as no body is needed
@@ -1344,7 +1344,7 @@ export async function fetchZendeskTickets(integrationId) {
 export async function fetchZendeskArticles(integrationId) {
   try {
     // Construct the endpoint URL using the integrationId
-    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/zendesk/articles/${integrationId}/`;
+    const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/articles/${integrationId}/`;
 
     const response = await makeAuthenticatedRequest(endpointUrl, {
       method: "GET" // Assuming GET request as no body is needed

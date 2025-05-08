@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
 from django.conf import settings
+from typing import List, Optional, Dict, Any
+from core.utils import APIType
 
-from core.integrations.helpers import IntegrationError
+from integrations.bots.helpers import IntegrationError
+from integrations.models import Integration
+from core.models import GuruType
 
 import logging
-from core.models import Integration, GuruType
 
 logger = logging.getLogger(__name__)
-
-
 
 class IntegrationStrategy(ABC):
     def __init__(self, integration: 'Integration' = None):
@@ -134,5 +135,51 @@ class IntegrationStrategy(ABC):
                     logger.error(f"Error refreshing token: {refresh_error}", exc_info=True)
                     raise
             raise
+
+class IntegrationContextHandler(ABC):
+    """Abstract base class for handling integration-specific context gathering."""
+    
+    def __init__(self, integration: Any):
+        self.integration = integration
+    
+    @abstractmethod
+    def get_context(self, api_url: str, external_id: str) -> Optional[List[str]]:
+        """
+        Get context from the integration.
+        
+        Args:
+            api_url: The API URL for the integration
+            external_id: The external ID (e.g. issue number, thread ID)
+            
+        Returns:
+            List of context strings or None if no context available
+        """
+        pass
+
+
+def get_context_handler(api_type: APIType, integration: Any) -> Optional[IntegrationContextHandler]:
+    """
+    Factory function to get the appropriate context handler.
+    
+    Args:
+        api_type: The type of API (e.g. APIType.GITHUB, APIType.SLACK, APIType.DISCORD)
+        integration: The integration object
+        
+    Returns:
+        An instance of the appropriate IntegrationContextHandler or None
+    """
+    from integrations.bots.discord.discord_strategy import DiscordContextHandler
+    from integrations.bots.github.github_strategy import GithubContextHandler
+    from integrations.bots.slack.slack_strategy import SlackContextHandler
+    handlers = {
+        APIType.GITHUB: GithubContextHandler,
+        APIType.SLACK: SlackContextHandler,
+        APIType.DISCORD: DiscordContextHandler
+    }
+    
+    handler_class = handlers.get(api_type)
+    if handler_class:
+        return handler_class(integration)
+    return None
 
 

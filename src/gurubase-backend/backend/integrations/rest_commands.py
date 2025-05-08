@@ -4,11 +4,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
 import logging
+from integrations.bots.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
+from integrations.bots.helpers import IntegrationError
 from core.exceptions import ConfluenceAuthenticationError, ConfluenceError, ConfluenceInvalidDomainError, JiraAuthenticationError, JiraError, JiraInvalidDomainError, ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
-from core.models import Integration, GuruType
-from .helpers import IntegrationError
+from integrations.models import Integration
+from core.models import GuruType
 from .factory import IntegrationFactory
-from core.github.exceptions import GithubAPIError, GithubInvalidInstallationError, GithubPrivateKeyError
 
 logger = logging.getLogger(__name__)
 

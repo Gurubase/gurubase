@@ -2,39 +2,6 @@ summary_short_answer_addition = """
 This should be no more than {widget_answer_max_length} words.
 """
 
-github_base_template = """
-This question is asked on a GitHub issue. Make sure you place importance on the author association. Here are the possible values for author association:
-
-- COLLABORATOR: Author has been invited to collaborate on the repository.
-- CONTRIBUTOR: Author has previously committed to the repository.
-- FIRST_TIMER: Author has not previously committed to GitHub.
-- FIRST_TIME_CONTRIBUTOR: Author has not previously committed to the repository.
-- MANNEQUIN: Author is a placeholder for an unclaimed user.
-- MEMBER: Author is a member of the organization that owns the repository.
-- USER: Author is a user of the repository.
-- OWNER: Author is the owner of the repository.
-- YOU: Author is the bot.
-
-Here is the issue history:
-
-<Github contexts>
-{github_comments}
-</Github contexts>
-"""
-
-github_context_template = github_base_template + """
-
-Make sure you consider the github context while generating your answer. Treat this as a conversation history
-**Critical**: Unless user does not explicitly ask about GitHub, do not talk about it in your answer.
-"""
-
-github_summary_template = github_base_template + """
-Users asks questions to you on GitHub, the history of the conversation provided in <Github contexts> tag. When generating <question> and <enhanced_question>, take the conversation history into account as users may ask a follow-up question for the previous answer or ask about a new topic.
-
-**Critical**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
-"""
-
-
 summary_addition = """
 Short answer is simple and up to 100 words, the others are larger, between 100-1200 words but can be anything based on the user's intent.
 """
@@ -69,13 +36,13 @@ Return a structured summary of the user's question with the following fields:
 ### Context Handling Rules
 - **Follow-up Questions**: Assume abbreviated questions refer to the last discussed topic.
 - **Conversation History**: Use prior questions/answers to disambiguate and maintain context.
-- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
+- **Validation**: If the user's question is coherent and valid but implicit, assume it refers to the last answer if exists, else {guru_type}. But if it is incoherent, unrelated to {guru_type}, or not a question, set `"valid_question": false`.
 
 Answer in {language}.
 
 {binge_summary_prompt}
 
-{github_context}
+{bot_context}
 
 For any questions related to date, remember today's date is {date}. Here is the user's question:
 
@@ -125,7 +92,7 @@ First, carefully read and analyze the following contexts:
 {contexts}
 </contexts>
 
-{github_context}
+{bot_context}
 
 When answering the question, follow these guidelines:
 {custom_instruction_section}
