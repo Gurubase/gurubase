@@ -1,0 +1,47 @@
+name: Backend Unit Tests
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'gurubase-backend/**'
+  pull_request:
+    branches: [ master, develop ]
+    paths:
+      - 'gurubase-backend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        cd gurubase-backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install coverage
+        
+    - name: Run tests with coverage
+      run: |
+        cd gurubase-backend
+        coverage run manage.py test
+        
+    - name: Generate coverage report
+      run: |
+        cd gurubase-backend
+        coverage report --sort=cover -m
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: gurubase-backend/.coverage
+        if-no-files-found: error 
