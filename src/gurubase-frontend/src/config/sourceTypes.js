@@ -42,7 +42,7 @@ const baseSourceTypesConfig = {
     displayName: "Excel",
     displaySourceText: "Excel",
     icon: ExcelIcon,
-    actionButtonIcon: Upload,
+    actionButtonIcon: ExcelIcon,
     actionButtonText: "Excel",
     sidebarStateSetterName: null,
     formField: "uploadedFiles",
