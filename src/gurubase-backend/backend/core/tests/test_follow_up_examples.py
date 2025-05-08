@@ -1,10 +1,11 @@
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 from core.models import Question, GuruType
 from django.contrib.auth import get_user_model
 from core.utils import get_default_settings
+from unittest.mock import patch
 
 class FollowUpExamplesTests(TestCase):
     def setUp(self):
@@ -47,8 +48,13 @@ class FollowUpExamplesTests(TestCase):
                 ]
             }
         )
+
+    @override_settings(ENV='dev')
+    @patch('core.requester.GeminiRequester.generate_follow_up_questions')
+    def test_follow_up_examples_generation_cloud(self, mock_generate):
+        # Mock the Gemini response
+        mock_generate.return_value = ["What are the key features of Test Guru?", "How does Test Guru help with testing?"]
         
-    def test_follow_up_examples_generation(self):
         response = self.client.post(
             reverse('follow_up_examples', kwargs={'guru_type': self.guru_type.slug}),
             {'question_slug': self.question.slug}
@@ -56,7 +62,40 @@ class FollowUpExamplesTests(TestCase):
         
         self.assertEqual(response.status_code, 200)
         self.assertTrue(isinstance(response.data, list))
-        self.assertGreater(len(response.data), 0)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data, ["What are the key features of Test Guru?", "How does Test Guru help with testing?"])
+        
+        # Verify the mock was called with correct arguments
+        mock_generate.assert_called_once()
+        call_args = mock_generate.call_args[1]
+        self.assertEqual(len(call_args['questions']), 1)  # Only one question in history
+        self.assertEqual(call_args['last_content'], "Test Guru is a testing framework.")
+        self.assertEqual(call_args['guru_type'], self.guru_type)
+        self.assertEqual(len(call_args['contexts']), 2)  # Two contexts from processed_ctx_relevances
+
+    @override_settings(ENV='selfhosted')
+    @patch('core.requester.OpenAIRequester.generate_follow_up_questions')
+    def test_follow_up_examples_generation_selfhosted(self, mock_generate):
+        # Mock the OpenAI response
+        mock_generate.return_value = ["Can you explain more about Test Guru's testing capabilities?", "What makes Test Guru different from other testing frameworks?"]
+        
+        response = self.client.post(
+            reverse('follow_up_examples', kwargs={'guru_type': self.guru_type.slug}),
+            {'question_slug': self.question.slug}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(response.data, list))
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data, ["Can you explain more about Test Guru's testing capabilities?", "What makes Test Guru different from other testing frameworks?"])
+        
+        # Verify the mock was called with correct arguments
+        mock_generate.assert_called_once()
+        call_args = mock_generate.call_args[1]
+        self.assertEqual(len(call_args['questions']), 1)  # Only one question in history
+        self.assertEqual(call_args['last_content'], "Test Guru is a testing framework.")
+        self.assertEqual(call_args['guru_type'], self.guru_type)
+        self.assertEqual(len(call_args['contexts']), 2)  # Two contexts from processed_ctx_relevances
 
     def test_follow_up_examples_no_contexts(self):
         # Create a question without contexts
