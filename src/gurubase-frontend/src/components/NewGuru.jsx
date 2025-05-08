@@ -375,7 +375,7 @@ export default function NewGuru({
       return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
     }
 
-    // For single sources (PDF), check its own status
+    // For single sources (PDF, Excel), check its own status
     return source.status === "NOT_PROCESSED";
   };
 
@@ -559,14 +559,20 @@ export default function NewGuru({
           id: source.id,
           name: source.title, // Use title for PDF, domain/repo name for others
           type: source.type.toLowerCase(),
-          size: source.type === "PDF" || source.type === "EXCEL" ? source.size : "N/A",
+          size:
+            source.type === "PDF" || source.type === "EXCEL"
+              ? source.size
+              : "N/A",
           url: source.url || "",
           status: source.status,
           in_milvus: source.in_milvus,
           file_count: source.file_count, // Add file_count
           last_reindex_date: source.last_reindex_date || "",
           error: source.error || "",
-          private: source.type === "PDF" || source.type === "EXCEL" ? !!source.private : undefined
+          private:
+            source.type === "PDF" || source.type === "EXCEL"
+              ? !!source.private
+              : undefined
         };
 
         // Adjust name for non-PDF types
@@ -950,7 +956,10 @@ export default function NewGuru({
               file_count: source.file_count,
               last_reindex_date: source.last_reindex_date || "",
               error: source.error || "",
-              private: source.type === "PDF" || source.type === "EXCEL" ? !!source.private : undefined,
+              private:
+                source.type === "PDF" || source.type === "EXCEL"
+                  ? !!source.private
+                  : undefined,
               glob_pattern: source.github_glob_pattern || "",
               include_glob: source.github_include_glob || false
             }));
