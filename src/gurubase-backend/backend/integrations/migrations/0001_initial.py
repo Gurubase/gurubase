@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('core', '0082_gurutype_private'),
+        ('core', '0089_alter_gurutype_language'),
     ]
 
     operations = [
