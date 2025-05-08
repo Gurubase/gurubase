@@ -2361,7 +2361,6 @@ class GetQuestionSummaryTests(TestCase):
             name="Test Guru",
             slug="test-guru",
             domain_knowledge="Test domain knowledge",
-            language=GuruType.Language.ENGLISH
         )
         
         # Create a binge
