@@ -37,10 +37,15 @@ jobs:
         cd src/gurubase-backend/backend
         coverage report --rcfile=.coveragerc --sort=cover -m
         coverage html --rcfile=.coveragerc
-        
+
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: src/gurubase-backend/backend/htmlcov/
-        if-no-files-found: error 
+        if-no-files-found: error         
+        
+    - name: Check coverage threshold
+      run: |
+        cd src/gurubase-backend/backend
+        coverage report --rcfile=.coveragerc --fail-under=30
