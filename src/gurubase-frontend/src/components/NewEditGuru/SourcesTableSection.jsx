@@ -209,7 +209,12 @@ export function SourcesTableSection({
                 <div className="relative flex items-center">
                   <TooltipProvider>
                     <Tooltip delayDuration={0}>
-                      <TooltipTrigger className="cursor-pointer hover:text-gray-600 transition-colors flex items-center">
+                      <TooltipTrigger
+                        className="cursor-pointer hover:text-gray-600 transition-colors flex items-center"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}>
                         <Info className="h-3.5 w-3.5 text-gray-400" />
                       </TooltipTrigger>
                       <TooltipContent
