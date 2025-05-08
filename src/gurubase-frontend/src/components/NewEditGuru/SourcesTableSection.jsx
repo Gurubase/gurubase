@@ -628,7 +628,7 @@ export function SourcesTableSection({
                     ) : (
                       <span>
                         {source.domain || source.name}
-                        {source.type === "pdf" || source.type === "excel" && source.size && (
+                        {source.size && typeof source.size === "number" && (
                           <span className="ml-2 text-xs text-gray-400">
                             ({formatFileSize(source.size)})
                           </span>
