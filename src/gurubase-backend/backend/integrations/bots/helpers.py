@@ -43,5 +43,6 @@ def cleanup_title(title: str) -> str:
     ).strip()
 
     clean_title = ' '.join(clean_title.split())
+    clean_title = clean_title.replace('_', '-')
 
     return clean_title

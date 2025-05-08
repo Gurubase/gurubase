@@ -129,7 +129,7 @@ Creating and updating guru types also syncs their Milvus collection accordingly 
 
 ### Managing Data Sources
 
-Four types of data sources are supported:
+These data sources are supported:
 - YouTube videos
 - Websites
 - PDFs
@@ -137,6 +137,7 @@ Four types of data sources are supported:
 - Jira Issues
 - ZenDesk Tickets/Articles
 - Confluence Pages
+- Excel files (.xls, .xlsx)
 
 #### YouTube videos
 
@@ -159,6 +160,10 @@ The system uses ZenDesk Web API to fetch tickets and articles based on the integ
 #### Confluence Pages
 
 The system uses Atlassian Python SDK to fetch pages based on the integration configuration.
+
+#### Excel Files
+
+The system parses each sheet in the given Excel file, splits the sheets by appending the header in each split.
 
 #### PDFs
 
@@ -676,7 +681,6 @@ Here are the functions used and their purposes:
 - `get_guild_integration`: Gets the integration details of the workspace.
 - `get_trust_score_emoji`: Gets the trust score emoji.
 - `strip_first_header`: Removes the initial header from the message.
-- `format_response`: Formats the references, trust score, etc. of the final response.
 - `get_guru_type_slug`: Gets the guru type slug.
 - `get_api_key`: Gets the api key.
 

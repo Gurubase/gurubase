@@ -78,7 +78,7 @@ class DataSourceSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
         repr = super().to_representation(instance)
-        if instance.type == DataSource.Type.PDF:
+        if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL]:
             del repr['url']
             repr['size'] = instance.file.size
 
@@ -99,7 +99,7 @@ class DataSourceAPISerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         from core.utils import format_github_repo_error
         repr = super().to_representation(instance)
-        if instance.type == DataSource.Type.PDF:
+        if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL]:
             del repr['url']
 
         if instance.user_error:

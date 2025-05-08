@@ -547,7 +547,7 @@ def delete_question_from_milvus(sender, instance: Question, **kwargs):
 @receiver(pre_delete, sender=DataSource)
 def clear_data_source(sender, instance: DataSource, **kwargs):
     logger.info(f"Clearing data source: {instance.id}")
-    if instance.type == DataSource.Type.PDF and instance.url:
+    if instance.type in [DataSource.Type.PDF, DataSource.Type.EXCEL] and instance.url:
         if settings.STORAGE_TYPE == 'gcloud':
             from core.gcp import DATA_SOURCES_GCP
             endpoint = instance.url.split('/', 4)[-1]

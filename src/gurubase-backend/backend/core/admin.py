@@ -20,7 +20,8 @@ from core.models import (APIKey,
                          Settings, 
                          LLMEvalResult, 
                          GithubFile,
-                         GuruCreationForm)
+                         GuruCreationForm,
+                         Language)
 from django.utils.html import format_html
 import logging
 from django.contrib.admin import SimpleListFilter
@@ -451,3 +452,10 @@ class GuruCreationFormAdmin(admin.ModelAdmin):
     search_fields = ['id', 'name', 'email', 'github_repo', 'docs_url', 'use_case']
     list_filter = ('notified', 'source')
     ordering = ('-id',)
+
+@admin.register(Language)
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'iso_code', 'date_created', 'date_updated']
+    search_fields = ['code', 'name', 'iso_code']
+    ordering = ['name']
+    readonly_fields = ['date_created', 'date_updated']

@@ -442,6 +442,7 @@ def my_gurus(request, guru_slug=None):
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
+                'excel_size_limit_mb': guru.excel_size_limit_mb,
                 'jira_limit': guru.jira_count_limit,
                 'zendesk_limit': guru.zendesk_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
@@ -741,6 +742,8 @@ def create_data_sources(request, guru_type):
     jira_urls = request.data.get('jira_urls', '[]')
     zendesk_urls = request.data.get('zendesk_urls', '[]')
     confluence_urls = request.data.get('confluence_urls', '[]')
+    excel_files = request.FILES.getlist('excel_files', [])
+    excel_privacies = request.data.get('excel_privacies', '[]')
     try:
         if type(youtube_urls) == str:
             youtube_urls = json.loads(youtube_urls)
@@ -756,6 +759,10 @@ def create_data_sources(request, guru_type):
             zendesk_urls = json.loads(zendesk_urls)
         if type(confluence_urls) == str:
             confluence_urls = json.loads(confluence_urls)
+        if type(excel_files) == str:
+            excel_files = json.loads(excel_files)
+        if type(excel_privacies) == str:
+            excel_privacies = json.loads(excel_privacies)
     except Exception as e:
         logger.error(f'Error while parsing urls: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -765,7 +772,7 @@ def create_data_sources(request, guru_type):
         zendesk_urls = []
         confluence_urls = []
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls:
+    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls and not excel_files:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
@@ -773,6 +780,7 @@ def create_data_sources(request, guru_type):
     try:
         # Validate limits
         service.validate_pdf_files(pdf_files, pdf_privacies)
+        service.validate_excel_files(excel_files, excel_privacies)
         service.validate_url_limits(youtube_urls, 'youtube')
         service.validate_url_limits(website_urls, 'website')
         service.validate_url_limits(jira_urls, 'jira')
@@ -794,7 +802,9 @@ def create_data_sources(request, guru_type):
             website_urls=website_urls,
             jira_urls=jira_urls,
             zendesk_urls=zendesk_urls,
-            confluence_urls=confluence_urls
+            confluence_urls=confluence_urls,
+            excel_files=excel_files,
+            excel_privacies=excel_privacies
         )
         
         return Response({
@@ -871,14 +881,14 @@ def update_data_sources(request, guru_type):
         DataSource.objects.filter(
             id__in=private_ids,
             guru_type=guru_type_object,
-            type=DataSource.Type.PDF
+            type__in=[DataSource.Type.PDF, DataSource.Type.EXCEL]
         ).update(private=True)
 
     if non_private_ids:
         DataSource.objects.filter(
             id__in=non_private_ids,
             guru_type=guru_type_object,
-            type=DataSource.Type.PDF
+            type__in=[DataSource.Type.PDF, DataSource.Type.EXCEL]
         ).update(private=False)
 
     return Response({'msg': 'Data sources updated successfully'}, status=status.HTTP_200_OK)
@@ -907,10 +917,15 @@ def data_sources_frontend(request, guru_type):
         
         # Check PDF file limits
         pdf_files = request.FILES.getlist('pdf_files', [])
-        for pdf_file in pdf_files:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, file=pdf_file)
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, pdf_files=pdf_files)
+        if not is_allowed:
+            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check Excel file limits
+        excel_files = request.FILES.getlist('excel_files', [])
+        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, excel_files=excel_files)
+        if not is_allowed:
+            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
                 
         # Check website limits
         website_urls = json.loads(request.data.get('website_urls', '[]'))
