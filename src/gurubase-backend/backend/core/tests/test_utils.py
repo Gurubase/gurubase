@@ -1,10 +1,9 @@
 from django.conf import settings
 from django.test import TestCase, override_settings
-from backend.settings import SECRET_KEY
-from core.models import Favicon, Question, GuruType
+from core.models import Binge, Favicon, Question, GuruType
 from accounts.models import User
 from django.db.models import Q
-from core.utils import APIAskResponse, APIType, adjust_color, create_custom_guru_type_slug, decode_guru_slug, decode_jwt, encode_guru_slug, format_references, generate_jwt, get_links, get_llm_usage, get_question_history, get_tokens_from_openai_response, get_website_icon, has_sufficient_contrast, lighten_color, prepare_contexts, prepare_contexts_for_context_relevance, rgb_to_hex, search_question, split_text, string_to_boolean, validate_image, validate_slug
+from core.utils import APIAskResponse, APIType, adjust_color, ask_question_with_stream, create_custom_guru_type_slug, decode_guru_slug, decode_jwt, encode_guru_slug, format_references, generate_jwt, get_contexts, get_links, get_llm_usage, get_question_history, get_question_summary, get_summary, get_tokens_from_openai_response, get_website_icon, has_sufficient_contrast, lighten_color, prepare_contexts, prepare_contexts_for_context_relevance, rgb_to_hex, search_question, split_text, stream_and_save, stream_question_answer, string_to_boolean, validate_image, validate_slug
 from core.utils import get_default_settings
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
@@ -1682,8 +1681,6 @@ class GetQuestionHistoryTests(TestCase):
         # Should return an empty list
         self.assertEqual(history, [])
 
-
-
 class APIAskResponseTests(TestCase):
     """Tests for the APIAskResponse class methods."""
     
@@ -1739,7 +1736,6 @@ class APIAskResponseTests(TestCase):
         self.assertFalse(response.is_existing)
         self.assertIsNone(response.question)
 
-
 class APITypeTests(TestCase):
     """Tests for the APIType class methods."""
     
@@ -1769,3 +1765,773 @@ class APITypeTests(TestCase):
         # Invalid API type should raise ValueError
         with self.assertRaises(KeyError):
             APIType.get_question_source("INVALID") 
+
+class StreamQuestionAnswerTests(TestCase):
+    """Tests for stream_question_answer and ask_question_with_stream utility functions."""
+    
+    def setUp(self):
+        """Set up test data for all tests."""
+        # Create a test guru type
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru",
+            domain_knowledge="Test domain knowledge",
+            milvus_collection_name="test_guru_collection"
+        )
+        
+        # Create a test user
+        self.user = User.objects.create_user(
+            name="testuser",
+            email="test@example.com",
+            password="testpassword"
+        )
+        
+        # Create mock Milvus client
+        self.milvus_client_mock = MagicMock()
+        
+        # Mock question and parameters
+        self.question = "What is the meaning of life?"
+        self.user_question = "Tell me about life's meaning"
+        self.enhanced_question = "Explain the philosophical meaning of life"
+        self.source = Question.Source.USER.value
+        
+    @patch('core.utils.get_milvus_client')
+    @patch('core.utils.ask_question_with_stream')
+    def test_stream_question_answer_success(self, mock_ask_question_with_stream, mock_get_milvus_client):
+        """Test successful streaming of question answer."""
+        # Configure mocks
+        mock_get_milvus_client.return_value = self.milvus_client_mock
+        mock_response = MagicMock()
+        mock_prompt = "Test prompt"
+        mock_links = {"example.com": "Example Link"}
+        mock_context_vals = ["Test context"]
+        mock_context_distances = [{"context_id": "1", "distance": 0.1}]
+        mock_reranked_scores = [{"index": 0, "score": 0.9}]
+        mock_trust_score = 0.85
+        mock_processed_ctx_relevances = {"context1": 0.9}
+        mock_ctx_rel_usage = {"prompt_tokens": 100}
+        mock_times = {"total": 1.0}
+        
+        mock_ask_question_with_stream.return_value = (
+            mock_response, mock_prompt, mock_links, mock_context_vals, 
+            mock_context_distances, mock_reranked_scores, mock_trust_score, 
+            mock_processed_ctx_relevances, mock_ctx_rel_usage, mock_times
+        )
+        
+        # Call the function under test
+        result = stream_question_answer(
+            self.question, self.guru_type, "answer", "medium",
+            self.user_question, self.source, self.enhanced_question,
+            user=self.user
+        )
+        
+        # Verify expected results
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        self.assertEqual(response, mock_response)
+        self.assertEqual(prompt, mock_prompt)
+        self.assertEqual(links, mock_links)
+        self.assertEqual(context_vals, mock_context_vals)
+        self.assertEqual(context_distances, mock_context_distances)
+        self.assertEqual(reranked_scores, mock_reranked_scores)
+        self.assertEqual(trust_score, mock_trust_score)
+        self.assertEqual(processed_ctx_relevances, mock_processed_ctx_relevances)
+        self.assertEqual(ctx_rel_usage, mock_ctx_rel_usage)
+        self.assertEqual(times, mock_times)
+        
+        # Verify correct parameters were passed
+        mock_ask_question_with_stream.assert_called_once_with(
+            self.milvus_client_mock, "test_guru_collection", self.question, self.guru_type,
+            "answer", "medium", self.user_question, None, self.source, 
+            self.enhanced_question, self.user, None
+        )
+    
+    @patch('core.utils.get_milvus_client')
+    @patch('core.utils.ask_question_with_stream')
+    def test_stream_question_answer_no_response(self, mock_ask_question_with_stream, mock_get_milvus_client):
+        """Test streaming with no response returned."""
+        # Configure mocks
+        mock_get_milvus_client.return_value = self.milvus_client_mock
+        mock_times = {"total": 0.5}
+        
+        # Return None for response and other values
+        mock_ask_question_with_stream.return_value = (
+            None, None, None, None, None, None, None, None, None, mock_times
+        )
+        
+        # Call the function under test
+        result = stream_question_answer(
+            self.question, self.guru_type, "answer", "medium",
+            self.user_question, self.source, self.enhanced_question
+        )
+        
+        # Verify expected results - should just return the times
+        self.assertEqual(result, (None, None, None, None, None, None, None, None, None, mock_times))
+    
+    @patch('core.utils.get_milvus_client')
+    @patch('core.utils.get_contexts')
+    @patch('core.utils.get_github_details_if_applicable')
+    @patch('core.utils.get_question_history')
+    @patch('core.utils.prepare_chat_messages')
+    @patch('core.utils.get_openai_requester')
+    @patch('core.utils.OutOfContextQuestion')
+    def test_ask_question_with_stream_success(self, mock_out_of_context, mock_get_openai_requester, 
+                                              mock_prepare_chat_messages, mock_get_question_history,
+                                              mock_get_github_details, mock_get_contexts, mock_get_milvus_client):
+        """Test successful ask_question_with_stream flow."""
+        # Configure mocks
+        mock_get_milvus_client.return_value = self.milvus_client_mock
+        
+        mock_context_vals = ["Test context"]
+        mock_links = {"example.com": "Example Link"}
+        mock_context_distances = [{"context_id": "1", "distance": 0.1}]
+        mock_reranked_scores = [{"index": 0, "score": 0.9}]
+        mock_trust_score = 0.85
+        mock_processed_ctx_relevances = {"context1": 0.9}
+        mock_ctx_rel_usage = {"prompt_tokens": 100}
+        mock_get_contexts_times = {"total": 0.5}
+        
+        mock_get_contexts.return_value = (
+            mock_context_vals, mock_links, mock_context_distances, mock_reranked_scores,
+            mock_trust_score, mock_processed_ctx_relevances, mock_ctx_rel_usage, mock_get_contexts_times
+        )
+        
+        mock_get_github_details.return_value = "GitHub details"
+        mock_get_question_history.return_value = []
+        
+        mock_messages = [{"role": "system", "content": "You are a helpful assistant"}]
+        mock_prepare_chat_messages.return_value = mock_messages
+        
+        mock_openai_requester = MagicMock()
+        mock_response = MagicMock()
+        mock_openai_requester.ask_question_with_stream.return_value = mock_response
+        mock_get_openai_requester.return_value = mock_openai_requester
+        
+        # Call the function under test
+        result = ask_question_with_stream(
+            self.milvus_client_mock, "test_collection", self.question, self.guru_type,
+            "answer", "medium", self.user_question, None, self.source, 
+            self.enhanced_question, self.user
+        )
+        
+        # Unpack the result
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        # Verify expected results
+        self.assertEqual(response, mock_response)
+        self.assertEqual(prompt, mock_messages[0]['content'])
+        self.assertEqual(links, mock_links)
+        self.assertEqual(context_vals, mock_context_vals)
+        self.assertEqual(context_distances, mock_context_distances)
+        self.assertEqual(reranked_scores, mock_reranked_scores)
+        self.assertEqual(trust_score, mock_trust_score)
+        self.assertEqual(processed_ctx_relevances, mock_processed_ctx_relevances)
+        self.assertEqual(ctx_rel_usage, mock_ctx_rel_usage)
+        self.assertTrue('total' in times)
+        
+        # Verify OutOfContextQuestion was not created
+        mock_out_of_context.objects.create.assert_not_called()
+    
+    @patch('core.utils.get_milvus_client')
+    @patch('core.utils.get_contexts')
+    @patch('core.utils.get_default_settings')
+    @patch('core.utils.OutOfContextQuestion')
+    def test_ask_question_with_stream_no_contexts(self, mock_out_of_context, mock_get_default_settings,
+                                                mock_get_contexts, mock_get_milvus_client):
+        """Test ask_question_with_stream when no contexts are found."""
+        # Configure mocks
+        mock_get_milvus_client.return_value = self.milvus_client_mock
+        
+        mock_context_vals = []
+        mock_links = {}
+        mock_context_distances = []
+        mock_reranked_scores = []  # Empty reranked_scores triggers the early return
+        mock_trust_score = 0.0
+        mock_processed_ctx_relevances = {}
+        mock_ctx_rel_usage = {}
+        mock_get_contexts_times = {"total": 0.1}
+        
+        mock_get_contexts.return_value = (
+            mock_context_vals, mock_links, mock_context_distances, mock_reranked_scores,
+            mock_trust_score, mock_processed_ctx_relevances, mock_ctx_rel_usage, mock_get_contexts_times
+        )
+        
+        # Mock default settings
+        mock_settings = MagicMock()
+        mock_settings.rerank_threshold = 0.01
+        mock_settings.trust_score_threshold = 0.0
+        mock_get_default_settings.return_value = mock_settings
+        
+        # Call the function under test
+        result = ask_question_with_stream(
+            self.milvus_client_mock, "test_collection", self.question, self.guru_type,
+            "answer", "medium", self.user_question, None, self.source, 
+            self.enhanced_question
+        )
+        
+        # Verify OutOfContextQuestion was created
+        mock_out_of_context.objects.create.assert_called_once()
+        
+        # Verify function returns expected values when no contexts found
+        response, prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        self.assertIsNone(response)
+        self.assertIsNone(prompt)
+        self.assertIsNone(links)
+        self.assertIsNone(context_vals)
+        self.assertIsNone(context_distances)
+        self.assertIsNone(reranked_scores)
+        self.assertIsNone(trust_score)
+        self.assertIsNone(processed_ctx_relevances)
+        self.assertIsNone(ctx_rel_usage)
+        self.assertIsNotNone(times)
+
+
+class GetContextsTests(TestCase):
+    """Tests for get_contexts and vector_db_fetch utility functions."""
+    
+    def setUp(self):
+        """Set up test data for all tests."""
+        # Create a test guru type
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru",
+            domain_knowledge="Test domain knowledge",
+            milvus_collection_name="test_guru_collection"
+        )
+        
+        # Create mock Milvus client
+        self.milvus_client_mock = MagicMock()
+        
+        # Mock question parameters
+        self.question = "What is the meaning of life?"
+        self.user_question = "Tell me about life's meaning"
+        self.enhanced_question = "Explain the philosophical meaning of life"
+    
+    @patch('core.utils.vector_db_fetch')
+    @patch('core.utils.prepare_contexts')
+    def test_get_contexts_success(self, mock_prepare_contexts, mock_vector_db_fetch):
+        """Test successful retrieval of contexts."""
+        # Configure mocks
+        mock_contexts = [{"id": "1", "text": "Context 1", "distance": 0.1}]
+        mock_reranked_scores = [{"index": 0, "score": 0.9}]
+        mock_trust_score = 0.85
+        mock_processed_ctx_relevances = {"context1": 0.9}
+        mock_ctx_rel_usage = {"prompt_tokens": 100}
+        mock_vector_db_times = {"total": 0.5}
+        
+        mock_vector_db_fetch.return_value = (
+            mock_contexts, mock_reranked_scores, mock_trust_score, 
+            mock_processed_ctx_relevances, mock_ctx_rel_usage, mock_vector_db_times
+        )
+        
+        mock_context_vals = ["Formatted context"]
+        mock_links = {"example.com": "Example Link"}
+        mock_prepare_contexts.return_value = (mock_context_vals, mock_links)
+        
+        # Call the function under test
+        result = get_contexts(
+            self.milvus_client_mock, self.guru_type.milvus_collection_name,
+            self.question, self.guru_type.slug, self.user_question, self.enhanced_question
+        )
+        
+        # Unpack the result
+        context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        # Verify expected results
+        self.assertEqual(context_vals, mock_context_vals)
+        self.assertEqual(links, mock_links)
+        self.assertEqual(reranked_scores, mock_reranked_scores)
+        self.assertEqual(trust_score, mock_trust_score)
+        self.assertEqual(processed_ctx_relevances, mock_processed_ctx_relevances)
+        self.assertEqual(ctx_rel_usage, mock_ctx_rel_usage)
+        self.assertTrue('vector_db_fetch' in times)
+        
+        # Verify the correct calls were made
+        mock_vector_db_fetch.assert_called_once_with(
+            self.milvus_client_mock, self.guru_type.milvus_collection_name,
+            self.question, self.guru_type.slug, self.user_question, self.enhanced_question
+        )
+        mock_prepare_contexts.assert_called_once_with(mock_contexts, mock_reranked_scores)
+    
+    @patch('core.utils.vector_db_fetch')
+    @patch('core.utils.prepare_contexts')
+    def test_get_contexts_stackoverflow(self, mock_prepare_contexts, mock_vector_db_fetch):
+        """Test get_contexts with StackOverflow contexts."""
+        # Configure mocks with StackOverflow context structure
+        mock_contexts = [{
+            "question": {
+                "id": "1",
+                "distance": 0.1,
+                "entity": {
+                    "text": "How to center a div?",
+                    "metadata": {
+                        "question": "Center div",
+                        "link": "https://stackoverflow.com/q/1"
+                    }
+                }
+            },
+            "accepted_answer": {
+                "id": "2",
+                "distance": 0.2,
+                "entity": {"text": "Use flexbox"}
+            },
+            "other_answers": [
+                {
+                    "id": "3",
+                    "distance": 0.3,
+                    "entity": {"text": "Use grid"}
+                }
+            ],
+            "prefix": "stackoverflow"
+        }]
+        mock_reranked_scores = [{"index": 0, "score": 0.9}]
+        mock_trust_score = 0.85
+        mock_processed_ctx_relevances = {"context1": 0.9}
+        mock_ctx_rel_usage = {"prompt_tokens": 100}
+        mock_vector_db_times = {"total": 0.5}
+        
+        mock_vector_db_fetch.return_value = (
+            mock_contexts, mock_reranked_scores, mock_trust_score, 
+            mock_processed_ctx_relevances, mock_ctx_rel_usage, mock_vector_db_times
+        )
+        
+        mock_context_vals = ["Formatted context"]
+        mock_links = {"stackoverflow.com/q/1": "Center div"}
+        mock_prepare_contexts.return_value = (mock_context_vals, mock_links)
+        
+        # Call the function under test
+        result = get_contexts(
+            self.milvus_client_mock, self.guru_type.milvus_collection_name,
+            self.question, self.guru_type.slug, self.user_question, self.enhanced_question
+        )
+        
+        # Unpack the result
+        context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        # Verify expected results - especially context_distances handling for StackOverflow
+        self.assertEqual(len(context_distances), 3)  # Question + accepted answer + other answer
+        self.assertEqual(context_distances[0], {'context_id': '1', 'distance': 0.1})
+        self.assertEqual(context_distances[1], {'context_id': '2', 'distance': 0.2})
+        self.assertEqual(context_distances[2], {'context_id': '3', 'distance': 0.3})
+    
+    @patch('core.utils.vector_db_fetch')
+    def test_get_contexts_error(self, mock_vector_db_fetch):
+        """Test get_contexts when vector_db_fetch raises an exception."""
+        # Configure mock to raise exception
+        mock_vector_db_fetch.side_effect = Exception("Database error")
+        
+        # Call the function under test
+        result = get_contexts(
+            self.milvus_client_mock, self.guru_type.milvus_collection_name,
+            self.question, self.guru_type.slug, self.user_question, self.enhanced_question
+        )
+        
+        # Unpack the result
+        context_vals, links, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times = result
+        
+        # Verify default empty values when error occurs
+        self.assertEqual(context_vals, {'contexts': ''})
+        self.assertEqual(links, [])
+        self.assertEqual(context_distances, [])
+        self.assertEqual(reranked_scores, [])
+        self.assertEqual(trust_score, 0.0)
+        self.assertEqual(processed_ctx_relevances, {'removed': [], 'kept': []})
+        self.assertEqual(ctx_rel_usage, {})
+
+
+class StreamAndSaveTests(TestCase):
+    """Tests for stream_and_save utility function."""
+    
+    def setUp(self):
+        """Set up test data for all tests."""
+        # Create test guru type
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru",
+            domain_knowledge="Test domain knowledge"
+        )
+        
+        # Create test user
+        self.user = User.objects.create_user(
+            name="testuser",
+            email="test@example.com",
+            password="testpassword"
+        )
+        
+        # Mock question parameters
+        self.question = "What is the meaning of life?"
+        self.user_question = "Tell me about life's meaning"
+        self.question_slug = "what-is-the-meaning-of-life"
+        self.description = "A question about life's meaning"
+        self.enhanced_question = "Explain the philosophical meaning of life"
+        self.source = Question.Source.USER.value
+        
+        # Mock response data
+        self.links = {"example.com": "Example link"}
+        self.context_vals = ["Example context"]
+        self.context_distances = [{"context_id": "1", "distance": 0.1}]
+        self.reranked_scores = [{"index": 0, "score": 0.9}]
+        self.trust_score = 0.85
+        self.processed_ctx_relevances = {"context1": 0.9}
+        self.ctx_rel_usage = {"prompt_tokens": 50, "completion_tokens": 30, "cost_dollars": 0.001}
+        
+        # Mock summary tokens
+        self.summary_prompt_tokens = 100
+        self.summary_completion_tokens = 50
+        self.summary_cached_tokens = 20
+        
+        # Mock times
+        self.times = {
+            "summary": {"total": 0.2},
+            "before_stream": {"total": 0.1}
+        }
+        
+        # Create mock stream response
+        self.mock_response = MagicMock()
+        self.mock_chunk = MagicMock()
+        self.mock_response.__iter__ = MagicMock(return_value=iter([self.mock_chunk]))
+        self.mock_chunk.choices = [MagicMock()]
+        self.mock_chunk.choices[0].delta.content = "Test response"
+        
+        # Mock for tokens
+        self.prompt_tokens = 150
+        self.completion_tokens = 75
+        self.cached_prompt_tokens = 30
+    
+    @patch('core.utils.get_tokens_from_openai_response')
+    @patch('core.utils.get_llm_usage')
+    @patch('core.utils.get_cloudflare_requester')
+    def test_stream_and_save_new_question(self, mock_get_cloudflare_requester, mock_get_llm_usage, mock_get_tokens):
+        """Test stream_and_save creating a new Question."""
+        # Configure mocks
+        mock_get_tokens.return_value = (self.prompt_tokens, self.completion_tokens, self.cached_prompt_tokens)
+        mock_get_llm_usage.return_value = 0.05  # Cost in dollars
+        
+        # Make the response iterable and set up content
+        response_chunks = [
+            self.mock_chunk,
+            self.mock_chunk  # Multiple chunks to test aggregation
+        ]
+        response_iter = MagicMock()
+        response_iter.__iter__.return_value = iter(response_chunks)
+        
+        # Set up the test prompt
+        test_prompt = "Test system prompt"
+        
+        # Execute the generator function and collect yielded values
+        generator = stream_and_save(
+            self.user_question, self.question, self.guru_type, self.question_slug,
+            self.description, response_iter, test_prompt, self.links,
+            self.summary_completion_tokens, self.summary_prompt_tokens, self.summary_cached_tokens,
+            self.context_vals, self.context_distances, self.times, self.reranked_scores,
+            self.trust_score, self.processed_ctx_relevances, self.ctx_rel_usage,
+            self.enhanced_question, self.user, source=self.source
+        )
+        
+        # Collect all yielded values
+        yielded_values = list(generator)
+        
+        # Check that the yielded values match the expected content
+        self.assertEqual(yielded_values, ["Test response", "Test response"])
+        
+        # Verify a new Question was created
+        saved_question = Question.objects.get(slug=self.question_slug)
+        self.assertEqual(saved_question.question, self.question)
+        self.assertEqual(saved_question.user_question, self.user_question)
+        self.assertEqual(saved_question.enhanced_question, self.enhanced_question)
+        self.assertEqual(saved_question.content, "Test responseTest response")  # Combined chunks
+        self.assertEqual(saved_question.guru_type, self.guru_type)
+        self.assertEqual(saved_question.prompt, test_prompt)
+        self.assertEqual(saved_question.references, self.links)
+        self.assertEqual(saved_question.context_distances, self.context_distances)
+        self.assertEqual(saved_question.reranked_scores, self.reranked_scores)
+        self.assertEqual(saved_question.trust_score, self.trust_score)
+        self.assertEqual(saved_question.user, self.user)
+        self.assertEqual(saved_question.processed_ctx_relevances, self.processed_ctx_relevances)
+    
+    @patch('core.utils.get_tokens_from_openai_response')
+    @patch('core.utils.get_llm_usage')
+    @patch('core.utils.get_cloudflare_requester')
+    def test_stream_and_save_existing_question(self, mock_get_cloudflare_requester, mock_get_llm_usage, mock_get_tokens):
+        """Test stream_and_save updating an existing Question."""
+        # Create an existing question
+        existing_question = Question.objects.create(
+            slug=self.question_slug,
+            question="Old question",
+            user_question="Old user question",
+            content="Old content",
+            description="Old description",
+            guru_type=self.guru_type,
+            change_count=0
+        )
+        
+        # Configure mocks
+        mock_get_tokens.return_value = (self.prompt_tokens, self.completion_tokens, self.cached_prompt_tokens)
+        mock_get_llm_usage.return_value = 0.05  # Cost in dollars
+        
+        # Mock Cloudflare requester
+        mock_cloudflare = MagicMock()
+        mock_get_cloudflare_requester.return_value = mock_cloudflare
+        
+        # Make the response iterable and set up content
+        response_chunks = [self.mock_chunk]
+        response_iter = MagicMock()
+        response_iter.__iter__.return_value = iter(response_chunks)
+        
+        # Set up the test prompt
+        test_prompt = "Test system prompt"
+        
+        # Execute the generator function
+        generator = stream_and_save(
+            self.user_question, self.question, self.guru_type, self.question_slug,
+            self.description, response_iter, test_prompt, self.links,
+            self.summary_completion_tokens, self.summary_prompt_tokens, self.summary_cached_tokens,
+            self.context_vals, self.context_distances, self.times, self.reranked_scores,
+            self.trust_score, self.processed_ctx_relevances, self.ctx_rel_usage,
+            self.enhanced_question, self.user, source=self.source
+        )
+        
+        # Consume the generator
+        list(generator)
+        
+        # Refresh the question from the database
+        updated_question = Question.objects.get(id=existing_question.id)
+        
+        # Verify the question was updated
+        self.assertEqual(updated_question.question, self.question)
+        self.assertEqual(updated_question.user_question, self.user_question)
+        self.assertEqual(updated_question.content, "Test response")
+        self.assertEqual(updated_question.change_count, 1)  # Incremented
+        self.assertEqual(updated_question.enhanced_question, self.enhanced_question)
+        
+        # Verify Cloudflare cache was purged
+        mock_cloudflare.purge_cache.assert_called_once_with(self.guru_type.slug, self.question_slug)
+    
+    @patch('core.utils.get_tokens_from_openai_response')
+    @patch('core.utils.get_llm_usage')
+    def test_stream_and_save_with_binge(self, mock_get_llm_usage, mock_get_tokens):
+        """Test stream_and_save with a Binge instance."""
+        # Create a binge
+        binge = Binge.objects.create(
+            guru_type=self.guru_type
+        )
+        
+        # Configure mocks
+        mock_get_tokens.return_value = (self.prompt_tokens, self.completion_tokens, self.cached_prompt_tokens)
+        mock_get_llm_usage.return_value = 0.05  # Cost in dollars
+        
+        # Make the response iterable
+        response_chunks = [self.mock_chunk]
+        response_iter = MagicMock()
+        response_iter.__iter__.return_value = iter(response_chunks)
+        
+        # Set up the test prompt
+        test_prompt = "Test system prompt"
+        
+        # Execute the generator function
+        generator = stream_and_save(
+            self.user_question, self.question, self.guru_type, self.question_slug,
+            self.description, response_iter, test_prompt, self.links,
+            self.summary_completion_tokens, self.summary_prompt_tokens, self.summary_cached_tokens,
+            self.context_vals, self.context_distances, self.times, self.reranked_scores,
+            self.trust_score, self.processed_ctx_relevances, self.ctx_rel_usage,
+            self.enhanced_question, self.user, binge=binge, source=self.source
+        )
+        
+        # Consume the generator
+        list(generator)
+        
+        # Verify a Question was created with the binge
+        saved_question = Question.objects.get(slug=self.question_slug)
+        self.assertEqual(saved_question.binge, binge)
+        
+        # Refresh binge to verify last_used is updated
+        binge.refresh_from_db()
+        self.assertIsNotNone(binge.last_used)
+
+
+class GetQuestionSummaryTests(TestCase):
+    """Tests for get_question_summary and get_summary utility functions."""
+    
+    def setUp(self):
+        """Set up test data for all tests."""
+        # Create a test guru type
+        self.guru_type = GuruType.objects.create(
+            name="Test Guru",
+            slug="test-guru",
+            domain_knowledge="Test domain knowledge",
+            language=GuruType.Language.ENGLISH
+        )
+        
+        # Create a binge
+        self.binge = Binge.objects.create(
+            guru_type=self.guru_type
+        )
+        
+        # Mock question parameters
+        self.question = "What is the meaning of life?"
+    
+    @patch('core.utils.get_summary')
+    @patch('core.utils.parse_summary_response')
+    def test_get_question_summary_success(self, mock_parse_summary_response, mock_get_summary):
+        """Test successful question summary generation."""
+        # Configure mocks
+        mock_response = MagicMock()
+        mock_get_summary_times = {"total": 0.5}
+        mock_get_summary.return_value = (mock_response, mock_get_summary_times)
+        
+        mock_parsed_response = {
+            'question': 'Meaning of life?',
+            'user_question': self.question,
+            'question_slug': 'meaning-of-life',
+            'description': 'A philosophical question',
+            'valid_question': True,
+            'completion_tokens': 50,
+            'prompt_tokens': 100,
+            'cached_prompt_tokens': 20,
+            'user_intent': 'answer',
+            'answer_length': 'medium',
+            'enhanced_question': 'What is the philosophical meaning of life?',
+            'jwt': 'test-jwt'
+        }
+        mock_parse_summary_response.return_value = mock_parsed_response
+        
+        # Call the function under test
+        result, times = get_question_summary(
+            self.question, self.guru_type.slug, self.binge
+        )
+        
+        # Verify expected results
+        self.assertEqual(result['question'], 'Meaning of life?')
+        self.assertEqual(result['user_question'], self.question)
+        self.assertIn('meaning-of-life-', result['question_slug'])  # Check UUID was appended
+        self.assertEqual(result['description'], 'A philosophical question')
+        self.assertEqual(result['valid_question'], True)
+        self.assertEqual(result['jwt'], 'test-jwt')
+        
+        # Verify times were correctly tracked
+        self.assertTrue('total' in times)
+        self.assertTrue('get_summary' in times)
+        self.assertTrue('parse_summary_response' in times)
+    
+    @patch('core.utils.get_summary')
+    @patch('core.utils.parse_summary_response')
+    def test_get_question_summary_with_parent(self, mock_parse_summary_response, mock_get_summary):
+        """Test question summary generation with a parent question."""
+        # Create a parent question
+        parent_question = Question.objects.create(
+            slug="parent-question",
+            question="Parent question",
+            content="Parent answer",
+            guru_type=self.guru_type
+        )
+        
+        # Configure mocks
+        mock_response = MagicMock()
+        mock_get_summary_times = {"total": 0.5}
+        mock_get_summary.return_value = (mock_response, mock_get_summary_times)
+        
+        mock_parsed_response = {
+            'question': 'Follow-up question',
+            'user_question': self.question,
+            'question_slug': 'follow-up-question',
+            'description': 'A follow-up',
+            'valid_question': True,
+            'completion_tokens': 50,
+            'prompt_tokens': 100,
+            'cached_prompt_tokens': 20,
+            'enhanced_question': 'What is the follow-up?',
+            'jwt': 'test-jwt'
+        }
+        mock_parse_summary_response.return_value = mock_parsed_response
+        
+        # Call the function under test with parent_question
+        result, times = get_question_summary(
+            self.question, self.guru_type.slug, self.binge, 
+            parent_question=parent_question
+        )
+        
+        # Verify parent question was passed to get_summary
+        mock_get_summary.assert_called_once_with(
+            self.question, self.guru_type.slug, False, None, parent_question
+        )
+    
+    @patch('core.utils.get_openai_requester')
+    @patch('core.utils.get_guru_type_prompt_map')
+    def test_get_summary_success(self, mock_get_guru_type_prompt_map, mock_get_openai_requester):
+        """Test successful summary generation."""
+        # Configure mocks
+        prompt_map = {
+            'guru_type': 'Test Guru',
+            'domain_knowledge': 'Test knowledge',
+            'language': 'English'
+        }
+        mock_get_guru_type_prompt_map.return_value = prompt_map
+        
+        mock_openai_requester = MagicMock()
+        mock_response = MagicMock()
+        mock_openai_requester.get_summary.return_value = mock_response
+        mock_get_openai_requester.return_value = mock_openai_requester
+        
+        # Call the function under test
+        response, times = get_summary(self.question, self.guru_type.slug)
+        
+        # Verify expected results
+        self.assertEqual(response, mock_response)
+        self.assertTrue('total' in times)
+        self.assertTrue('prompt_prep' in times)
+        self.assertTrue('response_await' in times)
+        
+        # Verify the right prompt was built and passed
+        mock_openai_requester.get_summary.assert_called_once()
+    
+    @patch('core.utils.get_openai_requester')
+    @patch('core.utils.get_guru_type_prompt_map')
+    def test_get_summary_with_short_answer(self, mock_get_guru_type_prompt_map, mock_get_openai_requester):
+        """Test summary generation with short answer flag."""
+        # Configure mocks
+        prompt_map = {
+            'guru_type': 'Test Guru',
+            'domain_knowledge': 'Test knowledge',
+            'language': 'English'
+        }
+        mock_get_guru_type_prompt_map.return_value = prompt_map
+        
+        mock_openai_requester = MagicMock()
+        mock_response = MagicMock()
+        mock_openai_requester.get_summary.return_value = mock_response
+        mock_get_openai_requester.return_value = mock_openai_requester
+        
+        # Call the function under test with short_answer=True
+        response, times = get_summary(self.question, self.guru_type.slug, short_answer=True)
+        
+        # Verify expected results
+        self.assertEqual(response, mock_response)
+        
+        # The short answer flag should affect the prompt template used
+        # Since we're mocking the implementation, we just verify the right parameters were passed
+        mock_openai_requester.get_summary.assert_called_once()
+    
+    @patch('core.utils.get_openai_requester')
+    @patch('core.utils.get_guru_type_prompt_map')
+    def test_get_summary_error(self, mock_get_guru_type_prompt_map, mock_get_openai_requester):
+        """Test summary generation when an error occurs."""
+        # Configure mocks
+        prompt_map = {
+            'guru_type': 'Test Guru',
+            'domain_knowledge': 'Test knowledge',
+            'language': 'English'
+        }
+        mock_get_guru_type_prompt_map.return_value = prompt_map
+        
+        mock_openai_requester = MagicMock()
+        mock_openai_requester.get_summary.side_effect = Exception("API error")
+        mock_get_openai_requester.return_value = mock_openai_requester
+        
+        # Call the function under test
+        response, times = get_summary(self.question, self.guru_type.slug)
+        
+        # Verify expected results
+        self.assertIsNone(response)  # Should return None on error
+        self.assertTrue('total' in times)
