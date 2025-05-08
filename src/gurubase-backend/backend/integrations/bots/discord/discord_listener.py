@@ -332,9 +332,18 @@ class DiscordListener:
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
-                        if client.user not in message.mentions:
-                            # Regardless of channel mode, if the bot is not mentioned, return
-                            return
+
+                        if not forum:
+                            # Expect mention in non-forum threads
+                            if client.user not in message.mentions:
+                                return
+                        else:
+                            if channel_mode == 'manual' and client.user not in message.mentions:
+                                # Expect mention in forum threads in manual mode
+                                return
+                            elif channel_mode == 'auto' and not message.thread and client.user not in message.mentions:
+                                # Expect mention in comments to forum threads regardless
+                                return
 
                         thread = message.channel
                         if not question:
