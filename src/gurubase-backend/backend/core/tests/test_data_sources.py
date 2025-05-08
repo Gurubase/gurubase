@@ -1077,17 +1077,23 @@ class PDFStrategyTest(StrategyTestCase):
         # Call the strategy create method
         result = self.strategy.create(self.guru_type, pdf_file)
         
+        uploaded_file_name = result['file']
+        if '-' in uploaded_file_name:
+            uploaded_file_name = uploaded_file_name.split('-')[0] + '.pdf'
         # Verify the result
         self.assertEqual(result['type'], 'PDF')
-        self.assertEqual(result['file'].split('-')[0], 'test_doc')
+        self.assertEqual(uploaded_file_name, 'test_doc.pdf')
         self.assertEqual(result['status'], 'success')
         self.assertTrue('id' in result)
         
         # Verify the data source was created in the database
         data_source = DataSource.objects.get(id=result['id'])
+        data_source_file_name = data_source.file.name.split('/')[-1]
+        if '-' in data_source_file_name:
+            data_source_file_name = data_source_file_name.split('-')[0] + '.pdf'
         self.assertEqual(data_source.type, DataSource.Type.PDF)
         self.assertEqual(data_source.guru_type, self.guru_type)
-        self.assertEqual(data_source.file.name.split('/')[-1].split('-')[0], 'test_doc')
+        self.assertEqual(data_source_file_name, uploaded_file_name)
 
     @patch('core.models.DataSource.objects.create')
     def test_create_pdf_exists(self, mock_create):
