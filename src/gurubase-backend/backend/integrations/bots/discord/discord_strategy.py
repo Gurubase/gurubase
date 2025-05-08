@@ -170,7 +170,7 @@ class DiscordStrategy(IntegrationStrategy):
 class DiscordContextHandler(IntegrationContextHandler):
     """Handler for Discord integration context."""
     
-    def get_context(self, api_url: str, external_id: str) -> BotContext:
+    def get_context(self, api_url: str, external_id: str, forum=False) -> BotContext:
         try:
             # Get channel_id and thread_id from api_url
             # api_url format: channel_id:thread_id
@@ -188,7 +188,7 @@ class DiscordContextHandler(IntegrationContextHandler):
                 thread_messages = discord_handler.get_thread_messages(thread_id)
                 # Get the initial message that started the thread
                 length = sum(len(msg) for msg in thread_messages)
-                if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:
+                if not forum and length < settings.GITHUB_CONTEXT_CHAR_LIMIT:
                     initial_message = discord_handler.get_initial_thread_message(channel_id, thread_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
                     if initial_message:
                         thread_messages.append(initial_message)

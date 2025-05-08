@@ -3276,7 +3276,7 @@ def api_ask(question: str,
     summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, integration_context=integration_context, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
-        if guru_type.language == GuruType.Language.TURKISH:
+        if guru_type.language.iso_code == 'tr':
             msg = f"Bu soru {guru_type.name} ile ilgili değildir."
         else:
             msg = f"This question is not related to {guru_type.name}."
@@ -3319,7 +3319,7 @@ def api_ask(question: str,
         )
 
         if not response:
-            if guru_type.language == GuruType.Language.TURKISH:
+            if guru_type.language.iso_code == 'tr':
                 msg = f"{guru_type.name} Guru bu soru için yeterli veriye sahip değildir."
             else:
                 msg = f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question."
@@ -3356,7 +3356,7 @@ def api_ask(question: str,
         )
     except Exception as e:
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
-        if guru_type.language == GuruType.Language.TURKISH:
+        if guru_type.language.iso_code == 'tr':
             msg = "Soruyu yanıtlayamadık. Lütfen daha sonra tekrar deneyiniz."
         else:
             msg = "There was an error in the stream. We are investigating the issue. Please try again later."

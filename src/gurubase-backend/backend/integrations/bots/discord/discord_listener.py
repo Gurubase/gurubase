@@ -129,7 +129,7 @@ class DiscordListener:
         #     )
         #     return binge
 
-    async def stream_answer(self, guru_type, question, api_key, channel_id, thread_id, binge_id=None):
+    async def stream_answer(self, guru_type, question, api_key, channel_id, thread_id, binge_id=None, forum=False):
         # Create request using APIRequestFactory
         factory = APIRequestFactory()
         
@@ -146,6 +146,8 @@ class DiscordListener:
 
         if binge_id:
             request_data['session_id'] = str(binge_id)
+
+        request_data['forum'] = forum
             
         request = factory.post(
             f'/api/v1/{guru_type}/answer/',
@@ -321,6 +323,7 @@ class DiscordListener:
                     return
 
                 # Get guru type slug and API key
+                forum = channel.get('type', 'forum') == 'forum'
                 guru_type_slug = await self.get_guru_type_slug(integration)
                 api_key = await self.get_api_key(integration)
                 guru_type_object = await sync_to_async(lambda: integration.guru_type)()
@@ -329,9 +332,18 @@ class DiscordListener:
                 try:
                     if message.channel.type == discord.ChannelType.public_thread:
                         # If in thread, send thinking message directly to thread
-                        if client.user not in message.mentions:
-                            # Regardless of channel mode, if the bot is not mentioned, return
-                            return
+
+                        if not forum:
+                            # Expect mention in non-forum threads
+                            if client.user not in message.mentions:
+                                return
+                        else:
+                            if channel_mode == 'manual' and client.user not in message.mentions:
+                                # Expect mention in forum threads in manual mode
+                                return
+                            elif channel_mode == 'auto' and not message.thread and client.user not in message.mentions:
+                                # Expect mention in comments to forum threads regardless
+                                return
 
                         thread = message.channel
                         if not question:
@@ -384,7 +396,8 @@ class DiscordListener:
                         api_key,
                         channel_id,
                         thread.id,
-                        binge_id
+                        binge_id,
+                        forum
                     ):
                         current_time = time.time()
                         if current_time - last_update >= update_interval:
