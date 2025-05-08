@@ -20,24 +20,24 @@ jobs:
         
     - name: Install dependencies
       run: |
-        cd gurubase-backend
+        cd src/gurubase-backend
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install coverage
         
     - name: Run tests with coverage
       run: |
-        cd gurubase-backend
+        cd src/gurubase-backend
         coverage run manage.py test
         
     - name: Generate coverage report
       run: |
-        cd gurubase-backend
+        cd src/gurubase-backend
         coverage report --sort=cover -m
         
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
-        path: gurubase-backend/.coverage
+        path: src/gurubase-backend/.coverage
         if-no-files-found: error 
