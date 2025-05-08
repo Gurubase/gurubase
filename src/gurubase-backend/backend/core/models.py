@@ -303,11 +303,13 @@ class GuruType(models.Model):
     class Language(models.TextChoices):
         ENGLISH = "ENGLISH", "English"
         TURKISH = "TURKISH", "Turkish"
+        DUTCH = "DUTCH", "Dutch"
         
     # Language code mapping
     LANGUAGE_CODES = {
         'ENGLISH': 'en',
         'TURKISH': 'tr',
+        'DUTCH': 'nl',
     }
     
     # Get language code helper method
