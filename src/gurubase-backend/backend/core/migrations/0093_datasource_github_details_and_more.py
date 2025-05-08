@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0081_remove_gurutype_github_repos_and_more'),
+        ('core', '0092_remove_gurutype_github_repos_and_more'),
     ]
 
     operations = [
