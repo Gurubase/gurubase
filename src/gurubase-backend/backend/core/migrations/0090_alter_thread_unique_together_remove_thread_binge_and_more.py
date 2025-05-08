@@ -79,7 +79,7 @@ def reverse_migrate_integration_data(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('core', '0084_remove_settings_rerank_gurutype_rerank'),
+        ('core', '0089_alter_gurutype_language'),
         ('integrations', '0001_initial'),
     ]
 
