@@ -108,6 +108,8 @@ const MonacoUrlEditor = ({
   const [loadingType, setLoadingType] = useState(null);
   const [confluenceQuery, setConfluenceQuery] = useState("");
   const [showConfluenceInput, setShowConfluenceInput] = useState(true);
+  const [zendeskStartTime, setZendeskStartTime] = useState("");
+  const [zendeskEndTime, setZendeskEndTime] = useState("");
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
@@ -356,7 +358,11 @@ const MonacoUrlEditor = ({
     try {
       onSitemapLoadingChange(true);
       setLoadingType("tickets");
-      const response = await fetchZendeskTickets(integrationId);
+      const response = await fetchZendeskTickets(
+        integrationId,
+        zendeskStartTime,
+        zendeskEndTime
+      );
 
       if (!isLoadingSitemapRef.current) {
         return;
@@ -409,7 +415,11 @@ const MonacoUrlEditor = ({
     try {
       onSitemapLoadingChange(true);
       setLoadingType("articles");
-      const response = await fetchZendeskArticles(integrationId);
+      const response = await fetchZendeskArticles(
+        integrationId,
+        zendeskStartTime,
+        zendeskEndTime
+      );
 
       if (!isLoadingSitemapRef.current) {
         return;
@@ -743,7 +753,7 @@ const MonacoUrlEditor = ({
     <div className="flex flex-col h-full">
       <div className="flex-none">
         <div
-          className={`flex items-center justify-between h-8 mb-3 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton || showConfluenceInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
+          className={`flex items-center justify-between h-8 mb-4 guru-sm:flex-col guru-sm:h-auto guru-sm:items-start gap-2 ${showSitemapInput || showCrawlInput || showYoutubeInput || showJiraInput || showZendeskButton || showConfluenceInput ? "guru-sm:flex-col guru-sm:h-auto guru-sm:gap-2" : ""}`}>
           <div className="flex items-center space-x-1">
             <h3 className="text-sm font-semibold">{title}</h3>
             <TooltipProvider>
@@ -1074,28 +1084,83 @@ const MonacoUrlEditor = ({
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
               {showZendeskButton && (
                 <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        {zendeskTicketsButtonContent()}
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Fetch tickets from your connected Zendesk account</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        {zendeskArticlesButtonContent()}
-                      </TooltipTrigger>
-                      <TooltipContent side="right">
-                        <p>
-                          Fetch articles from your connected Zendesk account
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex items-center gap-2 w-full p-2 rounded-lg">
+                    <div className="flex items-center gap-2 w-full">
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-gray-500 font-medium">
+                          Start Date
+                        </label>
+                        <Input
+                          type="date"
+                          className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                          value={zendeskStartTime}
+                          onChange={(e) => setZendeskStartTime(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1 flex-1">
+                        <label className="text-xs text-gray-500 font-medium">
+                          End Date
+                        </label>
+                        <Input
+                          type="date"
+                          className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                          value={zendeskEndTime}
+                          onChange={(e) => setZendeskEndTime(e.target.value)}
+                        />
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1">
+                              <p>
+                                • Start and end dates are excluded from the
+                                results
+                              </p>
+                              <p>
+                                • Up to 1000 records in the given interval are
+                                supported
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex-1">
+                            {zendeskTicketsButtonContent()}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            Fetch tickets from your connected Zendesk account
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex-1">
+                            {zendeskArticlesButtonContent()}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>
+                            Fetch articles from your connected Zendesk account
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
               )}
             </div>

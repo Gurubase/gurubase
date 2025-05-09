@@ -1305,12 +1305,21 @@ export async function fetchConfluencePages(integrationId, searchQuery) {
   }
 }
 
-export async function fetchZendeskTickets(integrationId) {
+export async function fetchZendeskTickets(integrationId, startTime, endTime) {
   try {
     // Construct the endpoint URL using the integrationId
     const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/tickets/${integrationId}/`;
 
-    const response = await makeAuthenticatedRequest(endpointUrl, {
+    // Add query parameters for time range if provided
+    const queryParams = new URLSearchParams();
+    if (startTime) queryParams.append("start_time", startTime);
+    if (endTime) queryParams.append("end_time", endTime);
+
+    const url = queryParams.toString()
+      ? `${endpointUrl}?${queryParams.toString()}`
+      : endpointUrl;
+
+    const response = await makeAuthenticatedRequest(url, {
       method: "GET" // Assuming GET request as no body is needed
     });
 
@@ -1320,6 +1329,7 @@ export async function fetchZendeskTickets(integrationId) {
 
     // Check for backend errors indicated in the response data
     if (!response.ok) {
+      const data = await response.json();
       return {
         error: true,
         message: data.msg || data.detail || "Failed to fetch Zendesk tickets",
@@ -1335,17 +1345,28 @@ export async function fetchZendeskTickets(integrationId) {
     // Handle network or other unexpected errors
     return handleRequestError(error, {
       context: "fetchZendeskTickets",
-      integrationId
+      integrationId,
+      startTime,
+      endTime
     });
   }
 }
 
-export async function fetchZendeskArticles(integrationId) {
+export async function fetchZendeskArticles(integrationId, startTime, endTime) {
   try {
     // Construct the endpoint URL using the integrationId
     const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/zendesk/articles/${integrationId}/`;
 
-    const response = await makeAuthenticatedRequest(endpointUrl, {
+    // Add query parameters for time range if provided
+    const queryParams = new URLSearchParams();
+    if (startTime) queryParams.append("start_time", startTime);
+    if (endTime) queryParams.append("end_time", endTime);
+
+    const url = queryParams.toString()
+      ? `${endpointUrl}?${queryParams.toString()}`
+      : endpointUrl;
+
+    const response = await makeAuthenticatedRequest(url, {
       method: "GET" // Assuming GET request as no body is needed
     });
 
@@ -1355,6 +1376,7 @@ export async function fetchZendeskArticles(integrationId) {
 
     // Check for backend errors indicated in the response data
     if (!response.ok) {
+      const data = await response.json();
       return {
         error: true,
         message: data.msg || data.detail || "Failed to fetch Zendesk articles",
@@ -1370,7 +1392,9 @@ export async function fetchZendeskArticles(integrationId) {
     // Handle network or other unexpected errors
     return handleRequestError(error, {
       context: "fetchZendeskArticles",
-      integrationId
+      integrationId,
+      startTime,
+      endTime
     });
   }
 }

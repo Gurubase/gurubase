@@ -1075,9 +1075,9 @@ class ZendeskRequester():
         self.base_url = f"https://{self.domain}/api/v2"
         self.auth = (f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
 
-    def list_tickets(self, batch_size=100):
+    def list_tickets(self, batch_size=100, start_time=None, end_time=None):
         """
-        List solved Zendesk tickets with pagination.
+        List solved Zendesk tickets with pagination using the search endpoint.
         Args:
             batch_size (int): Number of tickets to fetch per request
         Returns:
@@ -1086,7 +1086,22 @@ class ZendeskRequester():
             ValueError: If API request fails
         """
         all_tickets = []
-        url = f"{self.base_url}/tickets.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
+        # Use search endpoint with type:ticket filter and date range
+        query = "type:ticket"
+        if start_time:
+            query += f" created>{start_time}"
+        if end_time:
+            query += f" created<{end_time}"
+        url = f"{self.base_url}/search.json?query={query}&per_page={batch_size}&sort_by=created_at&sort_order=desc"
+        # An example
+        # curl https://your_subdomain.zendesk.com/api/v2/search.json \
+        # -G \
+        # --data-urlencode "query=type:article created>2025-05-01T12:00:00Z created<2025-05-02T12:00:00Z" \
+        # --data-urlencode "per_page=50" \
+        # -u your_email/token:your_api_token        
+        # In https://developer.zendesk.com/api-reference/ticketing/ticket-management/search/#results-limit
+        # Also, this search is limited to 1000 results. If the date interval includes more, they will not be returned.
+
         max_retries = 3
         base_delay = 1
 
@@ -1108,7 +1123,7 @@ class ZendeskRequester():
                             
                         response.raise_for_status()
                         data = response.json()
-                        tickets_batch = data.get('tickets', [])
+                        tickets_batch = data.get('results', [])
 
                         # Filter for solved tickets and format
                         for ticket in tickets_batch:
@@ -1116,9 +1131,8 @@ class ZendeskRequester():
                                 all_tickets.append(self._format_ticket(ticket))
 
                         # Check for cursor-based pagination meta data
-                        if data.get('meta', {}).get('has_more'):
-                            url = data.get('links', {}).get('next')
-
+                        if data.get('next_page'):
+                            url = data.get('next_page')
                             time.sleep(0.5)
                         else:
                             url = None  # Exit loop if no more pages
@@ -1193,7 +1207,6 @@ class ZendeskRequester():
         except Exception as e:
             logger.error(f"Unexpected error listing Zendesk tickets: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred: {str(e)}")
-
 
     def get_ticket(self, ticket_id):
         """
@@ -1401,18 +1414,39 @@ class ZendeskRequester():
             'content': content
         }
 
-    def list_articles(self, batch_size=100):
+    def list_articles(self, batch_size=100, start_time=None, end_time=None):
         """
         List Zendesk help center articles (non-draft) with pagination.
         Args:
             batch_size (int): Number of articles to fetch per request
+            start_time (str): Start time in format YYYY-MM-DD
+            end_time (str): End time in format YYYY-MM-DD
         Returns:
             list: List of formatted, non-draft Zendesk articles
         Raises:
             ValueError: If API request fails
         """
         all_articles = []
-        url = f"{self.base_url}/help_center/articles.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
+        # Use help center search endpoint with date filters
+        url = f"{self.base_url}/help_center/articles/search.json?per_page={batch_size}&query=type:article&sort_by=created_at&sort_order=desc"
+        
+        # Add date filters if provided
+        if start_time:
+            url += f"&created_after={start_time}"
+        if end_time:
+            url += f"&created_before={end_time}"
+
+        # An example
+        # curl https://domain.zendesk.com/api/v2/help_center/articles/search.json \
+        # -G \
+        # --data-urlencode "query=type:article" \
+        # --data-urlencode "per_page=100" \
+        # --data-urlencode "created_after=2025-05-09" \
+        # --data-urlencode "created_before=2025-05-10" \
+        # -u mail/token:api_token     
+        # Docs: https://developer.zendesk.com/api-reference/help_center/help-center-api/search/#search-articles
+        # Also, this search is limited to 1000 results. If the date interval includes more, they will not be returned.
+
         max_retries = 3
         base_delay = 1
 
@@ -1434,16 +1468,16 @@ class ZendeskRequester():
                             
                         response.raise_for_status()
                         data = response.json()
-                        articles_batch = data.get('articles', [])
+                        articles_batch = data.get('results', [])
 
                         # Filter out draft articles and format
                         for article in articles_batch:
                             if article.get('draft') is False:
                                 all_articles.append(self._format_article(article))
 
-                        # Check for cursor-based pagination meta data
-                        if data.get('meta', {}).get('has_more'):
-                            url = data.get('links', {}).get('next')
+                        # Check for next page
+                        if data.get('next_page'):
+                            url = data.get('next_page')
                             time.sleep(0.5)
                         else:
                             url = None  # Exit loop if no more pages
