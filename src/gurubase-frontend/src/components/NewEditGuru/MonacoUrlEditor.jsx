@@ -1117,10 +1117,7 @@ const MonacoUrlEditor = ({
                           </TooltipTrigger>
                           <TooltipContent>
                             <div className="space-y-1">
-                              <p>
-                                • Start and end dates are excluded from the
-                                results
-                              </p>
+                              <p>• Start and end dates are excluded</p>
                               <p>
                                 • Up to 1000 records in the given interval are
                                 supported
