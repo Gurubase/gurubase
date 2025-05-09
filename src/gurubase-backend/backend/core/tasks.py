@@ -10,7 +10,7 @@ from django.db import models
 import redis
 import requests
 from integrations.models import Integration
-from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
+from core.exceptions import ThrottleError, WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
 from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
@@ -379,7 +379,7 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
                 else:
                     data_source = fetch_data_source_content(None, data_source, language_code)
                 data_source.status = DataSource.Status.SUCCESS
-            except WebsiteContentExtractionThrottleError as e:
+            except (WebsiteContentExtractionThrottleError, ThrottleError) as e:
                 logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
                 data_source.status = DataSource.Status.NOT_PROCESSED
                 data_source.error = str(e)
