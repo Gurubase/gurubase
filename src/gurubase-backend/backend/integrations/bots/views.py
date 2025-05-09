@@ -138,6 +138,8 @@ def manage_channels(request, guru_type, integration_type):
             'allow_dm': integration.allow_dm            
         })
     except Exception as e:
+        if 'too many requests' in str(e).lower():
+            return Response({'msg': 'Listing channels encountered a rate limit. Please try again later.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
         logger.error(f"Error listing channels: {e}", exc_info=True)
         keyword = 'repositories' if integration_type == 'GITHUB' else 'channels'
         return Response({'msg': f'Error listing {keyword}. Please make sure the integration is valid.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
