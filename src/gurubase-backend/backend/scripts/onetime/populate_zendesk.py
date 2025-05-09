@@ -134,7 +134,7 @@ def create_zendesk_content():
             
         print(f"Found {len(sections)} sections")
     except Exception as e:
-        print(f"Error fetching sections: {str(e)}")
+        print(f"Error fetching sections: {str(e)}. It may be the case that you have not initiated articles yet. Please check https://<domain>.zendesk.com/knowledge/lists")
         return
 
     print("\nCreating help center articles...")
@@ -160,7 +160,9 @@ def create_zendesk_content():
                     'body': body,
                     'locale': 'en-us',
                     'user_segment_id': None,
-                    'permission_group_id': 19808837798684
+                    'permission_group_id': 27246575367197 # Get this from the curl:
+                    # curl https://<domain>.zendesk.com/api/v2/guide/permission_groups.json \
+                    # -u <email>/token:<api_token>
                 }
             }
             
