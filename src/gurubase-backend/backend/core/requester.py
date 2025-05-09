@@ -1127,6 +1127,47 @@ class ZendeskRequester():
             logger.error(f"Unexpected error listing Zendesk tickets: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred: {str(e)}")
 
+    def get_a_ticket(self):
+        """
+        Get a single Zendesk ticket.
+        Returns:
+            dict: Formatted Zendesk ticket
+        Raises:
+            ValueError: If API request fails
+        """
+        # Use the standard tickets endpoint and filter in Python
+        url = f"{self.base_url}/tickets.json?page[size]=1&sort_by=created_at&sort_order=desc"
+
+        try:
+            response = requests.get(url, auth=self.auth, timeout=20)
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+
+            data = response.json()
+            tickets_batch = data.get('tickets', [])
+
+            # Filter for solved tickets and format
+            for ticket in tickets_batch:
+                return self._format_ticket(ticket)
+
+        except requests.exceptions.RequestException as e:
+            status_code = e.response.status_code if e.response is not None else None
+            error_text = str(e)
+            if status_code == 401:
+                error_text = "Authentication failed. Check Zendesk email and API token."
+            elif status_code == 403:
+                error_text = "Permission denied. Ensure the API token has the required scopes."
+            elif status_code == 404:
+                 error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
+            elif status_code == 429:
+                error_text = "Zendesk API rate limit exceeded."
+
+            logger.error(f"Zendesk API error listing tickets: {error_text}", exc_info=True)
+            raise ValueError(f"Failed to list Zendesk tickets: {error_text}")
+        except Exception as e:
+            logger.error(f"Unexpected error listing Zendesk tickets: {e}", exc_info=True)
+            raise ValueError(f"An unexpected error occurred: {str(e)}")
+
+
     def get_ticket(self, ticket_id):
         """
         Get details and comments for a specific Zendesk ticket and format them.
