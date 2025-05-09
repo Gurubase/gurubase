@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from markitdown import MarkItDown
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
+from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, ThrottleError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
@@ -81,6 +81,8 @@ def jira_content_extraction(integration, jira_issue_link):
         jira_issue_key = jira_issue_link.split('/')[-1]
         issue = jira_requester.get_issue(jira_issue_key)
         return issue['title'], issue['content']
+    except ThrottleError as e:
+        raise e
     except Exception as e:
         logger.error(f"Error extracting content from Jira issue {jira_issue_key}: {traceback.format_exc()}")
         raise JiraContentExtractionError(traceback.format_exc()) from e
@@ -97,6 +99,8 @@ def zendesk_article_content_extraction(integration, article_url):
         article_id = article_url.split('/')[-1].split('-')[0]
         article = zendesk_requester.get_article(article_id)
         return article['title'], article['content']
+    except ThrottleError as e:
+        raise e
     except Exception as e:
         logger.error(f"Error extracting content from Zendesk article {article_url}: {traceback.format_exc()}")
         raise ZendeskContentExtractionError(traceback.format_exc()) from e
@@ -108,6 +112,8 @@ def zendesk_ticket_content_extraction(integration, ticket_url):
         ticket_id = ticket_url.split('/')[-1]
         ticket = zendesk_requester.get_ticket(ticket_id)
         return ticket['title'], ticket['content']
+    except ThrottleError as e:
+        raise e
     except Exception as e:
         logger.error(f"Error extracting content from Zendesk ticket {ticket_url}: {traceback.format_exc()}")
         raise ZendeskContentExtractionError(traceback.format_exc()) from e
@@ -1096,6 +1102,8 @@ def confluence_content_extraction(integration, confluence_page_url):
             page_id = confluence_page_url.split('/')[-2]
             page = confluence_requester.get_page_content(page_id)
             return page['title'], page['content']
+    except ThrottleError as e:
+        raise e
     except Exception as e:
         logger.error(f"Error extracting content from Confluence page {confluence_page_url}: {traceback.format_exc()}")
         raise ConfluenceContentExtractionError(traceback.format_exc()) from e
