@@ -41,7 +41,7 @@ def list_zendesk_tickets(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -57,11 +57,11 @@ def list_zendesk_tickets(request, integration_id):
         # Handle specific errors from ZendeskRequester
         error_str = str(e)
         if "Zendesk credentials" in error_str:
-             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Authentication failed" in error_str:
-             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Permission denied" in error_str:
-             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
             return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
         elif "rate limit exceeded" in error_str:
@@ -89,7 +89,7 @@ def list_zendesk_articles(request, integration_id):
     try:
         get_guru_type_object_by_maintainer(integration.guru_type.slug, request)
     except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_406_NOT_ACCEPTABLE)
     except NotFoundError:
         return Response({'msg': 'Associated Guru type not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -105,11 +105,11 @@ def list_zendesk_articles(request, integration_id):
         # Handle specific errors from ZendeskRequester
         error_str = str(e)
         if "Zendesk credentials" in error_str:
-             return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'msg': 'Missing or invalid Zendesk credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Authentication failed" in error_str:
-             return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'msg': 'Zendesk authentication failed. Check email and API token.'}, status=status.HTTP_401_UNAUTHORIZED)
         elif "Permission denied" in error_str:
-             return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'msg': 'Zendesk permission denied. Check API token scope.'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         elif "Resource not found" in error_str or "invalid Zendesk domain" in error_str:
             return Response({'msg': 'Zendesk resource not found or invalid domain.'}, status=status.HTTP_404_NOT_FOUND)
         elif "rate limit exceeded" in error_str:

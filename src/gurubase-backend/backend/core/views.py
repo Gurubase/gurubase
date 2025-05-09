@@ -437,16 +437,16 @@ def my_gurus(request, guru_slug=None):
                 'icon': icon_url,
                 'icon_url': icon_url,
                 'domain_knowledge': guru.domain_knowledge,
-                'github_repos': guru.github_repos,
-                'index_repo': guru.index_repo,
                 'youtube_limit': guru.youtube_count_limit,
                 'website_limit': guru.website_count_limit,
                 'pdf_size_limit_mb': guru.pdf_size_limit_mb,
                 'excel_size_limit_mb': guru.excel_size_limit_mb,
                 'jira_limit': guru.jira_count_limit,
                 'zendesk_limit': guru.zendesk_count_limit,
+                'confluence_limit': guru.confluence_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
-                'github_repo_limit': guru.github_repo_count_limit
+                'github_repo_limit': guru.github_repo_count_limit,
+                'ready': guru.ready
             })
         
         if guru_slug:
@@ -607,7 +607,7 @@ def get_guru_type_resources(request, guru_type):
         logger.error(f'Error while getting guru type resources: {e}', exc_info=True)
         return Response({'msg': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stackoverflow_source, github_repos, image, maintainer=None):
+def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stackoverflow_source, image, maintainer=None):
     """Utility function to handle guru type creation logic"""
     if not name or len(name) < 2:
         raise ValueError('Guru type name must be at least 2 characters')
@@ -638,15 +638,9 @@ def create_guru_type(name, domain_knowledge, intro_text, stackoverflow_tag, stac
         raise ValueError(f'Guru type {slug} already exists')
 
     try:
-        github_repos = json.loads(github_repos)
-    except Exception as e:
-        logger.error(f'Error while parsing github repos: {e}', exc_info=True)
-        raise ValueError('Github repos must be a list of strings')
-
-    try:
         guru_type_object = create_guru_type_object(
             slug, name, intro_text, domain_knowledge, icon_url, 
-            stackoverflow_tag, stackoverflow_source, github_repos, maintainer
+            stackoverflow_tag, stackoverflow_source, maintainer
         )
     except ValidationError as e:
         raise
@@ -667,7 +661,6 @@ def create_guru_type_internal(request):
             intro_text=data.get('intro_text'),
             stackoverflow_tag=data.get('stackoverflow_tag', ""),
             stackoverflow_source=data.get('stackoverflow_source', False),
-            github_repos=data.get('github_repos', ""),
             image=request.FILES.get('icon_image'),
         )
         return Response(GuruTypeSerializer(guru_type_object).data, status=status.HTTP_200_OK)
@@ -695,7 +688,6 @@ def create_guru_type_frontend(request):
             intro_text=data.get('intro_text'),
             stackoverflow_tag=data.get('stackoverflow_tag', ""),
             stackoverflow_source=data.get('stackoverflow_source', False),
-            github_repos=data.get('github_repos', ""),
             image=request.FILES.get('icon_image'),
             maintainer=user
         )
@@ -741,6 +733,7 @@ def create_data_sources(request, guru_type):
     pdf_privacies = request.data.get('pdf_privacies', '[]')
     jira_urls = request.data.get('jira_urls', '[]')
     zendesk_urls = request.data.get('zendesk_urls', '[]')
+    github_repos = request.data.get('github_repos', '[]')
     confluence_urls = request.data.get('confluence_urls', '[]')
     excel_files = request.FILES.getlist('excel_files', [])
     excel_privacies = request.data.get('excel_privacies', '[]')
@@ -757,6 +750,8 @@ def create_data_sources(request, guru_type):
             jira_urls = json.loads(jira_urls)
         if type(zendesk_urls) == str:
             zendesk_urls = json.loads(zendesk_urls)
+        if type(github_repos) == str:
+            github_repos = json.loads(github_repos)
         if type(confluence_urls) == str:
             confluence_urls = json.loads(confluence_urls)
         if type(excel_files) == str:
@@ -772,20 +767,29 @@ def create_data_sources(request, guru_type):
         zendesk_urls = []
         confluence_urls = []
 
-    if not pdf_files and not youtube_urls and not website_urls and not github_urls and not jira_urls and not zendesk_urls and not confluence_urls and not excel_files:
+    if not pdf_files and not youtube_urls and not website_urls and not github_repos and not jira_urls and not zendesk_urls and not confluence_urls and not excel_files:
         return Response({'msg': 'No data sources provided'}, status=status.HTTP_400_BAD_REQUEST)
 
     service = DataSourceService(guru_type_object, request.user)
     
     try:
         # Validate limits
+        
         service.validate_pdf_files(pdf_files, pdf_privacies)
         service.validate_excel_files(excel_files, excel_privacies)
-        service.validate_url_limits(youtube_urls, 'youtube')
-        service.validate_url_limits(website_urls, 'website')
-        service.validate_url_limits(jira_urls, 'jira')
-        service.validate_url_limits(zendesk_urls, 'zendesk')
-        service.validate_url_limits(confluence_urls, 'confluence')
+        service.validate_url_limits(
+            youtube_urls=youtube_urls,
+            website_urls=website_urls,
+            jira_urls=jira_urls,
+            zendesk_urls=zendesk_urls,
+            confluence_urls=confluence_urls
+        )
+        
+        # First identify new GitHub repos without modifying anything
+        new_github_repos = service.identify_new_github_repos(github_repos)
+        
+        # Validate limits for new GitHub repos
+        service.validate_github_repos_limits(new_github_repos)
 
         if jira_urls:
             service.validate_integration('jira')
@@ -793,6 +797,14 @@ def create_data_sources(request, guru_type):
             service.validate_integration('zendesk')
         if confluence_urls:
             service.validate_integration('confluence')
+
+        # Process GitHub repos - this will update existing ones
+        updated_repos = service.update_existing_github_repos(github_repos)
+        
+        # Reindex any updated repos
+        if updated_repos:
+            for repo in updated_repos:
+                repo.reindex()            
 
         # Create data sources
         results = service.create_data_sources(
@@ -802,6 +814,7 @@ def create_data_sources(request, guru_type):
             website_urls=website_urls,
             jira_urls=jira_urls,
             zendesk_urls=zendesk_urls,
+            github_repos=new_github_repos,
             confluence_urls=confluence_urls,
             excel_files=excel_files,
             excel_privacies=excel_privacies
@@ -910,65 +923,6 @@ def data_sources_frontend(request, guru_type):
         return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
     
     if request.method == 'POST':
-        if settings.ENV == 'selfhosted':
-            user = None
-        else:
-            user = request.user
-        
-        # Check PDF file limits
-        pdf_files = request.FILES.getlist('pdf_files', [])
-        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, pdf_files=pdf_files)
-        if not is_allowed:
-            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check Excel file limits
-        excel_files = request.FILES.getlist('excel_files', [])
-        is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, excel_files=excel_files)
-        if not is_allowed:
-            return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                
-        # Check website limits
-        website_urls = json.loads(request.data.get('website_urls', '[]'))
-        if website_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, website_urls_count=len(website_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-                
-        # Check YouTube limits
-        youtube_urls = json.loads(request.data.get('youtube_urls', '[]'))
-        if youtube_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, youtube_urls_count=len(youtube_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check GitHub repo limits
-        github_urls = json.loads(request.data.get('github_urls', '[]'))
-        if github_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, github_urls_count=len(github_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check Jira issue limits
-        jira_urls = json.loads(request.data.get('jira_urls', '[]'))
-        if jira_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, jira_urls_count=len(jira_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check Zendesk ticket limits
-        zendesk_urls = json.loads(request.data.get('zendesk_urls', '[]'))
-        if zendesk_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, zendesk_urls_count=len(zendesk_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check Confluence page limits
-        confluence_urls = json.loads(request.data.get('confluence_urls', '[]'))
-        if confluence_urls:
-            is_allowed, error_msg = guru_type_obj.check_datasource_limits(user, confluence_urls_count=len(confluence_urls))
-            if not is_allowed:
-                return Response({'msg': error_msg}, status=status.HTTP_400_BAD_REQUEST)                
-
         return create_data_sources(request, guru_type)
     elif request.method == 'DELETE':
         return delete_data_sources(request, guru_type)
@@ -1009,14 +963,7 @@ def update_guru_type(request, guru_type):
     data = request.data
     domain_knowledge = data.get('domain_knowledge', guru_type_object.prompt_map['domain_knowledge'])
     intro_text = data.get('intro_text', guru_type_object.intro_text)
-    github_repos = data.get('github_repos', guru_type_object.github_repos)
 
-    try:
-        github_repos = json.loads(github_repos)
-    except Exception as e:
-        logger.error(f'Error while parsing github repos: {e}', exc_info=True)
-        return Response({'msg': 'Github repos must be a list of strings'}, status=status.HTTP_400_BAD_REQUEST)
-    
     # Handle image upload if provided
     image = request.FILES.get('icon_image')
     if image:
@@ -1035,7 +982,6 @@ def update_guru_type(request, guru_type):
     # Update other fields
     guru_type_object.domain_knowledge = domain_knowledge
     guru_type_object.intro_text = intro_text
-    guru_type_object.github_repos = github_repos
     try:
         guru_type_object.save()
     except ValidationError as e:
@@ -1492,7 +1438,6 @@ def api_answer(request, guru_type):
     if api_type in [APIType.GITHUB, APIType.SLACK, APIType.DISCORD]:
         assert request.integration is not None
         context_handler = get_context_handler(api_type, request.integration)
-        forum = False
         if context_handler:
             if api_type == APIType.SLACK:
                 # For Slack, combine channel_id and thread_ts into api_url
@@ -1502,6 +1447,7 @@ def api_answer(request, guru_type):
                     api_url = f"{channel_id}:{thread_ts}"
                 else:
                     api_url = channel_id
+                integration_context = context_handler.get_context(api_url, request.integration.external_id)
             elif api_type == APIType.DISCORD:
                 # For Discord, combine channel_id and thread_id into api_url
                 channel_id = request.data.get('channel_id')
@@ -1515,11 +1461,11 @@ def api_answer(request, guru_type):
                 else:
                     api_url = None
                 forum = request.data.get('forum', False)
+                integration_context = context_handler.get_context(api_url, request.integration.external_id, forum=forum)
             elif api_type == APIType.GITHUB:
                 api_url = request.data.get('github_api_url')
-                
-            integration_context = context_handler.get_context(api_url, request.integration.external_id, forum=forum)
-
+                integration_context = context_handler.get_context(api_url, request.integration.external_id)
+            
     # Get API response
     api_response = api_ask(
         question=question,

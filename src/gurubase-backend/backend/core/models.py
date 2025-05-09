@@ -334,9 +334,6 @@ class GuruType(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repos = models.JSONField(default=list, blank=True)
-    github_details = models.JSONField(default=dict, blank=True, null=False)
-    github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
     icon_url = models.CharField(max_length=2000, default="", blank=True, null=True)
     ogimage_url = models.URLField(max_length=2000, default="", blank=True, null=True)  # question
@@ -351,7 +348,6 @@ class GuruType(models.Model):
     custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
     custom_follow_up_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
-    index_repo = models.BooleanField(default=True)
     # GitHub repository limits
     github_repo_count_limit = models.IntegerField(default=1)
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
@@ -422,18 +418,11 @@ class GuruType(models.Model):
         if self.slug == '':
             raise ValidationError({'msg': 'Guru type name cannot be empty'})
 
-        unique_github_repos = set(self.github_repos)
-
-        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
-            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
-
         if settings.ENV == 'selfhosted':
             if self.text_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
             if self.code_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
-
-        self.github_repos = list(unique_github_repos)
 
         super().save(*args, **kwargs)
 
@@ -520,7 +509,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, pdf_files=[], excel_files=[], website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0):
+    def check_datasource_limits(self, user, pdf_files=[], excel_files=[], website_urls_count=0, youtube_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0, github_repos_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -549,11 +538,6 @@ class GuruType(models.Model):
             type=DataSource.Type.YOUTUBE
         ).count()
 
-        github_count = DataSource.objects.filter(
-            guru_type=self,
-            type=DataSource.Type.GITHUB_REPO
-        ).count()
-
         jira_count = DataSource.objects.filter(
             guru_type=self,
             type=DataSource.Type.JIRA
@@ -574,6 +558,12 @@ class GuruType(models.Model):
             guru_type=self,
             type=DataSource.Type.PDF
         )
+
+        github_repo_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.GITHUB_REPO
+        ).count()
+
         excel_sources = DataSource.objects.filter(
             guru_type=self,
             type=DataSource.Type.EXCEL
@@ -598,7 +588,7 @@ class GuruType(models.Model):
             return False, f"YouTube video limit ({self.youtube_count_limit}) reached"
 
         # Check GitHub repo limit
-        if (github_count + github_urls_count) > self.github_repo_count_limit:
+        if (github_repo_count + github_repos_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
 
         # Check Jira issue limit
@@ -607,7 +597,7 @@ class GuruType(models.Model):
 
         # Check Zendesk ticket limit
         if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
-            return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
+            return False, f"Zendesk ticket/article limit ({self.zendesk_count_limit}) reached"
         
         # Check Confluence page limit
         if (confluence_count + confluence_urls_count) > self.confluence_count_limit:
@@ -705,7 +695,7 @@ class DataSource(models.Model):
         CONFLUENCE = "CONFLUENCE"
         EXCEL = "EXCEL" # xls, xlsx
 
-    class Status(models.TextChoices):
+    class Status(models.TextChoices): # This is the data retrieval status. It is not the readiness of the data source as it may not be written to milvus yet.
         NOT_PROCESSED = "NOT_PROCESSED"
         SUCCESS = "SUCCESS"
         FAIL = "FAIL"
@@ -746,14 +736,16 @@ class DataSource(models.Model):
     final_summarization_created = models.BooleanField(default=False)
 
     default_branch = models.CharField(max_length=100, null=True, blank=True)  # Only used for Github Repos
+    github_details = models.JSONField(default=dict, blank=True, null=True)  # For storing GitHub repository details
+    github_details_updated_date = models.DateTimeField(null=True, blank=True)  # When GitHub details were last updated
 
     private = models.BooleanField(default=False)
 
-    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True) # Set when reindex is manually done
     reindex_count = models.IntegerField(default=0)
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
-    last_successful_index_date = models.DateTimeField(null=True, blank=True)
+    last_successful_index_date = models.DateTimeField(null=True, blank=True) # Set when github repo is indexed/reindexed successfully
     github_glob_include = models.BooleanField(default=True)
     github_glob_pattern = models.CharField(max_length=100, null=True, blank=True)
 
@@ -1181,9 +1173,18 @@ class DataSource(models.Model):
 
         if self.type == DataSource.Type.GITHUB_REPO:
             self.content = ''
-
-        self.save()
-        self.delete_from_milvus()
+            self.save()
+            
+            # Import here to avoid circular imports
+            from core.tasks import update_github_repositories
+            # Delay the task to process this specific GitHub repository
+            update_github_repositories.delay(
+                guru_type_slug=self.guru_type.slug,
+                repo_url=self.url
+            )
+        else:
+            self.save()
+            self.delete_from_milvus()
 
 
 class FeaturedDataSource(models.Model):

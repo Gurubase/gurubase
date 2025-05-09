@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from django.core.files.uploadedfile import UploadedFile
 
 from core.models import DataSource, GuruType
-from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, ConfluenceStrategy, ExcelStrategy
+from core.data_sources import JiraStrategy, PDFStrategy, YouTubeStrategy, WebsiteStrategy, ZendeskStrategy, GitHubStrategy, ConfluenceStrategy, ExcelStrategy
 from core.utils import clean_data_source_urls
 from core.tasks import data_source_retrieval
 from integrations.models import Integration
@@ -19,6 +19,7 @@ class DataSourceService:
             'website': WebsiteStrategy(),
             'jira': JiraStrategy(),
             'zendesk': ZendeskStrategy(),
+            'github': GitHubStrategy(),
             'confluence': ConfluenceStrategy(),
             'excel': ExcelStrategy()
         }
@@ -56,27 +57,35 @@ class DataSourceService:
 
         is_allowed, error_msg = self.guru_type_object.check_datasource_limits(self.user, excel_files=excel_files)
         if not is_allowed:
-            raise ValueError(error_msg)            
+            raise ValueError(error_msg)                  
+          
 
-    def validate_url_limits(self, urls: List[str], url_type: str) -> None:
+    def validate_url_limits(self, youtube_urls=None, website_urls=None, jira_urls=None, zendesk_urls=None, confluence_urls=None) -> None:
         """
-        Validates URL count limits
+        Validates URL count limits for multiple URL types
         
         Args:
-            urls: List of URLs to validate
-            url_type: Type of URLs ('website' or 'youtube' or 'jira' or 'zendesk' or 'confluence')
-            
+            youtube_urls: List of YouTube URLs to validate
+            website_urls: List of website URLs to validate
+            jira_urls: List of Jira URLs to validate
+            zendesk_urls: List of Zendesk URLs to validate
+            confluence_urls: List of Confluence URLs to validate
         Raises:
             ValueError: If validation fails
         """
-        if urls:
+        youtube_urls = youtube_urls or []
+        website_urls = website_urls or []
+        jira_urls = jira_urls or []
+        zendesk_urls = zendesk_urls or []
+        confluence_urls = confluence_urls or []
+        if any([youtube_urls, website_urls, jira_urls, zendesk_urls, confluence_urls]):
             is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
                 self.user, 
-                website_urls_count=len(urls) if url_type == 'website' else 0,
-                youtube_urls_count=len(urls) if url_type == 'youtube' else 0,
-                jira_urls_count=len(urls) if url_type == 'jira' else 0,
-                zendesk_urls_count=len(urls) if url_type == 'zendesk' else 0,
-                confluence_urls_count=len(urls) if url_type == 'confluence' else 0
+                website_urls_count=len(website_urls),
+                youtube_urls_count=len(youtube_urls),
+                jira_urls_count=len(jira_urls),
+                zendesk_urls_count=len(zendesk_urls),
+                confluence_urls_count=len(confluence_urls)
             )
             if not is_allowed:
                 raise ValueError(error_msg)
@@ -102,6 +111,97 @@ class DataSourceService:
             if not confluence_integration:
                 raise ValueError('Confluence integration not found')
 
+    def validate_github_repos_limits(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Validates GitHub repos count limits for new repos only
+        
+        Args:
+            github_repos: List of GitHub repos to validate - should only contain new repos
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        if github_repos:
+            is_allowed, error_msg = self.guru_type_object.check_datasource_limits(
+                self.user,
+                github_repos_count=len(github_repos)
+            )
+            if not is_allowed:
+                raise ValueError(error_msg)
+
+    def identify_new_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Identify GitHub repos that don't exist in the system yet
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries
+            
+        Returns:
+            List of GitHub repos that don't exist and need to be created
+        """
+        new_repos = []
+        
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).exists()
+            
+            if not existing_repo:
+                # Add to list of new repos to create
+                new_repos.append(repo)
+                
+        return new_repos
+        
+    def update_existing_github_repos(self, github_repos: List[Dict[str, Any]]) -> None:
+        """
+        Update glob patterns for existing GitHub repos
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+        """
+        updated_repos = []
+        for repo in github_repos:
+            repo_url = repo.get('url', '')
+            
+            # Check if this repo already exists in this guru type
+            existing_repo = DataSource.objects.filter(
+                guru_type=self.guru_type_object, 
+                type=DataSource.Type.GITHUB_REPO,
+                url=repo_url
+            ).first()
+            
+            if existing_repo:
+                # Update glob patterns
+                existing_repo.github_glob_pattern = repo['glob_pattern']
+                existing_repo.github_glob_include = repo['include_glob']
+                existing_repo.save()
+                updated_repos.append(existing_repo)
+
+        return updated_repos
+
+    def process_github_repos(self, github_repos: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Process GitHub repos, updating existing ones and returning new ones to be created
+        
+        Args:
+            github_repos: List of GitHub repo dictionaries with 'url' and 'glob_patterns' fields
+            
+        Returns:
+            List of GitHub repos that need to be created (didn't exist before)
+        """
+        # Identify new repos
+        new_repos = self.identify_new_github_repos(github_repos)
+        
+        # Update existing repos
+        self.update_existing_github_repos(github_repos)
+                
+        return new_repos
+
     def create_data_sources(
         self, 
         pdf_files: List[UploadedFile], 
@@ -110,6 +210,7 @@ class DataSourceService:
         website_urls: List[str],
         jira_urls: List[str],
         zendesk_urls: List[str],
+        github_repos: List[Dict[str, Any]],
         confluence_urls: List[str] = None,
         excel_files: List[UploadedFile] = None,
         excel_privacies: List[bool] = None
@@ -124,6 +225,7 @@ class DataSourceService:
             website_urls: List of website URLs
             jira_urls: List of Jira URLs
             zendesk_urls: List of Zendesk URLs
+            github_repos: List of GitHub repos
             confluence_urls: List of Confluence URLs
             excel_files: List of uploaded Excel files
             excel_privacies: List of privacy settings for Excel files
@@ -166,6 +268,10 @@ class DataSourceService:
         if excel_files:
             for i, excel_file in enumerate(excel_files):
                 results.append(self.strategies['excel'].create(self.guru_type_object, excel_file, excel_privacies[i]))
+
+        # Process GitHub repos
+        for repo in github_repos:
+            results.append(self.strategies['github'].create(self.guru_type_object, repo))
 
         # Trigger background task
         data_source_retrieval.delay(guru_type_slug=self.guru_type_object.slug)

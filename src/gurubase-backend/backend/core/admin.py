@@ -164,7 +164,7 @@ class ContentPageStatisticsAdmin(admin.ModelAdmin):
   
 @admin.register(GuruType)
 class GuruTypeAdmin(admin.ModelAdmin):
-    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'github_repos', 'text_embedding_model', 'code_embedding_model', 'date_created', 'date_updated', 'github_details_updated_date']
+    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'text_embedding_model', 'code_embedding_model', 'date_created', 'date_updated']
     search_fields = ['id', 'slug', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'date_created', 'date_updated', 'maintainers__email']
     list_filter = ('active', 'custom', 'has_sitemap_added_questions', 'text_embedding_model', 'code_embedding_model')
     ordering = ('-id',)
