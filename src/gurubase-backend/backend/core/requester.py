@@ -1444,7 +1444,7 @@ class ZendeskRequester():
                         # Check for cursor-based pagination meta data
                         if data.get('meta', {}).get('has_more'):
                             url = data.get('links', {}).get('next')
-                            # time.sleep(0.5)
+                            time.sleep(0.5)
                         else:
                             url = None  # Exit loop if no more pages
                             
