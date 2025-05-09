@@ -3,6 +3,7 @@ import time
 from django.conf import settings
 import requests
 
+from core.exceptions import ThrottleError
 from integrations.bots.models import BotContext
 from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
 from .app_handler import SlackAppHandler
@@ -46,6 +47,7 @@ class SlackStrategy(IntegrationStrategy):
                     params['cursor'] = cursor
                 
                 retry_count = 0
+                data = None
                 while retry_count < max_retries:
                     try:
                         response = requests.get(
@@ -86,6 +88,9 @@ class SlackStrategy(IntegrationStrategy):
                         retry_count += 1
                         time.sleep(base_delay * (2 ** retry_count))
                         continue
+
+                if not data:
+                    raise ThrottleError("Slack API rate limit exceeded. Too many requests.")
                 
                 channels.extend([
                     {
@@ -97,7 +102,7 @@ class SlackStrategy(IntegrationStrategy):
                     }
                     for c in data.get('channels', [])
                 ])
-                
+            
                 cursor = data.get('response_metadata', {}).get('next_cursor')
                 if not cursor:
                     break
