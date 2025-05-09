@@ -15,7 +15,8 @@ sys.path.append('/workspace/backend')
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
 
-from core.models import Integration, GuruType
+from integrations.models import Integration
+from core.models import GuruType
 from core.requester import ZendeskRequester
 
 # Throttling settings
