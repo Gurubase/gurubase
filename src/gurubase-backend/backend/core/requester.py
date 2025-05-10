@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import time
 import logging
@@ -1075,35 +1076,39 @@ class ZendeskRequester():
         self.base_url = f"https://{self.domain}/api/v2"
         self.auth = (f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
 
-    def list_tickets(self, batch_size=100, start_time=None, end_time=None):
+    def list_tickets(self, batch_size=400, start_time=None, end_time=None):
         """
-        List solved Zendesk tickets with pagination using the search endpoint.
+        List Zendesk tickets using incremental export API with pagination and date filtering.
         Args:
             batch_size (int): Number of tickets to fetch per request
+            start_time (str): Start time in format YYYY-MM-DD
+            end_time (str): End time in format YYYY-MM-DD
         Returns:
-            list: List of formatted solved Zendesk tickets
+            list: List of formatted Zendesk tickets with unique links
         Raises:
             ValueError: If API request fails
         """
         all_tickets = []
-        # Use search endpoint with type:ticket filter and date range
-        query = "type:ticket"
+        seen_links = set()  # Track unique links
+        
+        # Convert date strings to UTC timestamps
+        start_timestamp = None
+        end_timestamp = None
         if start_time:
-            query += f" created>{start_time}"
+            start_timestamp = int(datetime.strptime(start_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
         if end_time:
-            query += f" created<{end_time}"
-        url = f"{self.base_url}/search.json?query={query}&per_page={batch_size}&sort_by=created_at&sort_order=desc"
-        # An example
-        # curl https://your_subdomain.zendesk.com/api/v2/search.json \
-        # -G \
-        # --data-urlencode "query=type:article created>2025-05-01T12:00:00Z created<2025-05-02T12:00:00Z" \
-        # --data-urlencode "per_page=50" \
-        # -u your_email/token:your_api_token        
-        # In https://developer.zendesk.com/api-reference/ticketing/ticket-management/search/#results-limit
-        # Also, this search is limited to 1000 results. If the date interval includes more, they will not be returned.
+            end_timestamp = int(datetime.strptime(end_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+
+        # Use incremental export endpoint
+        url = f"{self.base_url}/incremental/tickets.json"
+        params = {
+            "per_page": batch_size
+        }
+        if start_timestamp:
+            params["start_time"] = start_timestamp
 
         max_retries = 3
-        base_delay = 1
+        base_delay = 10  # 10 seconds delay between requests for rate limiting
 
         try:
             while url:
@@ -1111,7 +1116,7 @@ class ZendeskRequester():
                 data = None
                 while retry_count < max_retries:
                     try:
-                        response = requests.get(url, auth=self.auth, timeout=20)
+                        response = requests.get(url, auth=self.auth, params=params, timeout=20)
                         
                         # Check for rate limiting
                         if response.status_code == 429:
@@ -1123,17 +1128,30 @@ class ZendeskRequester():
                             
                         response.raise_for_status()
                         data = response.json()
-                        tickets_batch = data.get('results', [])
+                        tickets_batch = data.get('tickets', [])
 
-                        # Filter for solved tickets and format
+                        # Process tickets and check timestamps
                         for ticket in tickets_batch:
-                            if ticket.get('status') == 'solved':
-                                all_tickets.append(self._format_ticket(ticket))
+                            # Skip tickets after end_time
+                            if end_timestamp and ticket.get('generated_timestamp', 0) > end_timestamp:
+                                continue
+                                
+                            formatted_ticket = self._format_ticket(ticket)
+                            # Only add ticket if its link is unique
+                            if formatted_ticket['link'] and formatted_ticket['link'] not in seen_links:
+                                seen_links.add(formatted_ticket['link'])
+                                all_tickets.append(formatted_ticket)
 
-                        # Check for cursor-based pagination meta data
+                        # Check if we've reached the end of our time range
+                        if data.get('end_of_stream', False) or (end_timestamp and data.get('end_time', 0) > end_timestamp):
+                            url = None
+                            break
+
+                        # Check for next page
                         if data.get('next_page'):
                             url = data.get('next_page')
-                            time.sleep(0.5)
+                            params = {}  # Clear params as they're included in next_page URL
+                            time.sleep(base_delay)  # Rate limiting delay
                         else:
                             url = None  # Exit loop if no more pages
                             
@@ -1414,41 +1432,39 @@ class ZendeskRequester():
             'content': content
         }
 
-    def list_articles(self, batch_size=100, start_time=None, end_time=None):
+    def list_articles(self, batch_size=400, start_time=None, end_time=None):
         """
-        List Zendesk help center articles (non-draft) with pagination.
+        List Zendesk help center articles using incremental export API with pagination and date filtering.
         Args:
             batch_size (int): Number of articles to fetch per request
             start_time (str): Start time in format YYYY-MM-DD
             end_time (str): End time in format YYYY-MM-DD
         Returns:
-            list: List of formatted, non-draft Zendesk articles
+            list: List of formatted, non-draft Zendesk articles with unique links
         Raises:
             ValueError: If API request fails
         """
         all_articles = []
-        # Use help center search endpoint with date filters
-        url = f"{self.base_url}/help_center/articles/search.json?per_page={batch_size}&query=type:article&sort_by=created_at&sort_order=desc"
+        seen_links = set()  # Track unique links
         
-        # Add date filters if provided
+        # Convert date strings to UTC timestamps
+        start_timestamp = None
+        end_timestamp = None
         if start_time:
-            url += f"&created_after={start_time}"
+            start_timestamp = int(datetime.strptime(start_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
         if end_time:
-            url += f"&created_before={end_time}"
+            end_timestamp = int(datetime.strptime(end_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
 
-        # An example
-        # curl https://domain.zendesk.com/api/v2/help_center/articles/search.json \
-        # -G \
-        # --data-urlencode "query=type:article" \
-        # --data-urlencode "per_page=100" \
-        # --data-urlencode "created_after=2025-05-09" \
-        # --data-urlencode "created_before=2025-05-10" \
-        # -u mail/token:api_token     
-        # Docs: https://developer.zendesk.com/api-reference/help_center/help-center-api/search/#search-articles
-        # Also, this search is limited to 1000 results. If the date interval includes more, they will not be returned.
+        # Use incremental export endpoint
+        url = f"{self.base_url}/help_center/incremental/articles"
+        params = {
+            "per_page": batch_size
+        }
+        if start_timestamp:
+            params["start_time"] = start_timestamp
 
         max_retries = 3
-        base_delay = 1
+        base_delay = 10  # 10 seconds delay between requests for rate limiting
 
         try:
             while url:
@@ -1456,7 +1472,7 @@ class ZendeskRequester():
                 data = None
                 while retry_count < max_retries:
                     try:
-                        response = requests.get(url, auth=self.auth, timeout=20)
+                        response = requests.get(url, auth=self.auth, params=params, timeout=20)
                         
                         # Check for rate limiting
                         if response.status_code == 429:
@@ -1468,17 +1484,37 @@ class ZendeskRequester():
                             
                         response.raise_for_status()
                         data = response.json()
-                        articles_batch = data.get('results', [])
+                        articles_batch = data.get('articles', [])
 
-                        # Filter out draft articles and format
+                        # Process articles and check timestamps
                         for article in articles_batch:
-                            if article.get('draft') is False:
-                                all_articles.append(self._format_article(article))
+                            # Skip draft articles
+                            if article.get('draft', True):
+                                continue
+                                
+                            # Convert created_at to timestamp and check against end_time
+                            created_at = article.get('created_at')
+                            if created_at:
+                                article_timestamp = int(datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp())
+                                if end_timestamp and article_timestamp > end_timestamp:
+                                    continue
+                                    
+                            formatted_article = self._format_article(article)
+                            # Only add article if its link is unique
+                            if formatted_article['link'] and formatted_article['link'] not in seen_links:
+                                seen_links.add(formatted_article['link'])
+                                all_articles.append(formatted_article)
+
+                        # Check if we've reached the end of our time range
+                        if data.get('end_of_stream', False) or (end_timestamp and data.get('end_time', 0) > end_timestamp):
+                            url = None
+                            break
 
                         # Check for next page
                         if data.get('next_page'):
                             url = data.get('next_page')
-                            time.sleep(0.5)
+                            params = {}  # Clear params as they're included in next_page URL
+                            time.sleep(base_delay)  # Rate limiting delay
                         else:
                             url = None  # Exit loop if no more pages
                             
