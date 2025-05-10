@@ -49,9 +49,15 @@ def list_zendesk_tickets(request, integration_id):
     if integration.type != Integration.Type.ZENDESK:
         return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    start_time = request.query_params.get('start_time')
+    end_time = request.query_params.get('end_time')
+
+    if not start_time or not end_time:
+        return Response({'msg': 'Start and end times are required'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         zendesk_requester = ZendeskRequester(integration)
-        tickets = zendesk_requester.list_tickets()
+        tickets = zendesk_requester.list_tickets(start_time=start_time, end_time=end_time)
         return Response({'tickets': tickets, 'ticket_count': len(tickets)}, status=status.HTTP_200_OK)
     except ValueError as e:
         # Handle specific errors from ZendeskRequester
@@ -96,10 +102,16 @@ def list_zendesk_articles(request, integration_id):
     # Validate integration type
     if integration.type != Integration.Type.ZENDESK:
         return Response({'msg': 'This integration is not a Zendesk integration.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    start_time = request.query_params.get('start_time')
+    end_time = request.query_params.get('end_time')
+
+    if not start_time or not end_time:
+        return Response({'msg': 'Start and end times are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         zendesk_requester = ZendeskRequester(integration)
-        articles = zendesk_requester.list_articles()
+        articles = zendesk_requester.list_articles(start_time=start_time, end_time=end_time)
         return Response({'articles': articles, 'article_count': len(articles)}, status=status.HTTP_200_OK)
     except ValueError as e:
         # Handle specific errors from ZendeskRequester

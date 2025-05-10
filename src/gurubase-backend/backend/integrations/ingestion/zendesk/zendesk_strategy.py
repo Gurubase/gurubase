@@ -53,7 +53,7 @@ class ZendeskStrategy(IntegrationStrategy):
                  
             # Attempt a simple API call to validate credentials and connectivity
             # List tickets with a small batch size to check permissions
-            zendesk_requester.list_tickets(batch_size=1) 
+            zendesk_requester.get_a_ticket() 
 
             # If successful, return the domain as workspace name and external id
             return {
