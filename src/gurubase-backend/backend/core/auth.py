@@ -10,7 +10,8 @@ from rest_framework import status
 from jwt import PyJWKClient
 import jwt
 from core.utils import decode_jwt, APIType
-from core.models import APIKey, WidgetId, Integration
+from core.models import APIKey
+from integrations.models import WidgetId, Integration
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip";
 
-export const HeaderTooltip = ({ text }) => {
+export const HeaderTooltip = ({ text, html }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -54,7 +54,14 @@ export const HeaderTooltip = ({ text }) => {
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" align="center" className="z-50">
-            <p className="text-[12px] font-medium max-w-[400px]">{text}</p>
+            {html ? (
+              <div
+                className="text-[12px] font-medium max-w-[400px]"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            ) : (
+              <p className="text-[12px] font-medium max-w-[400px]">{text}</p>
+            )}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

@@ -75,6 +75,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_celery_beat',
     'django_celery_results',
+    'integrations.apps.IntegrationsConfig',
+    'analytics.apps.AnalyticsConfig',
 ]
 
 SITE_ID = 1

@@ -1,11 +1,11 @@
-from core.integrations.discord_strategy import DiscordStrategy
-from core.integrations.slack_strategy import SlackStrategy
-from core.integrations.github_strategy import GitHubStrategy
-from core.integrations.strategy import IntegrationStrategy
-from core.integrations.jira_strategy import JiraStrategy
-from core.integrations.zendesk_strategy import ZendeskStrategy
-from core.integrations.confluence_strategy import ConfluenceStrategy
-from core.models import Integration
+from integrations.bots.discord.discord_strategy import DiscordStrategy
+from integrations.bots.slack.slack_strategy import SlackStrategy
+from integrations.bots.github.github_strategy import GitHubStrategy
+from integrations.ingestion.jira.jira_strategy import JiraStrategy
+from integrations.ingestion.zendesk.zendesk_strategy import ZendeskStrategy
+from integrations.ingestion.confluence.confluence_strategy import ConfluenceStrategy
+from integrations.strategy import IntegrationStrategy
+from integrations.models import Integration
 
 
 class IntegrationFactory:

@@ -1,10 +1,9 @@
-import requests
 import logging
 
+from integrations.bots.helpers import IntegrationError
+from integrations.models import Integration
+from integrations.strategy import IntegrationStrategy
 from core.exceptions import ZendeskAuthenticationError, ZendeskError, ZendeskInvalidDomainError, ZendeskInvalidSubdomainError
-from .strategy import IntegrationStrategy
-from .helpers import IntegrationError
-from core.models import Integration
 from core.requester import ZendeskRequester
 
 logger = logging.getLogger(__name__)
@@ -54,7 +53,7 @@ class ZendeskStrategy(IntegrationStrategy):
                  
             # Attempt a simple API call to validate credentials and connectivity
             # List tickets with a small batch size to check permissions
-            zendesk_requester.list_tickets(batch_size=1) 
+            zendesk_requester.get_a_ticket() 
 
             # If successful, return the domain as workspace name and external id
             return {

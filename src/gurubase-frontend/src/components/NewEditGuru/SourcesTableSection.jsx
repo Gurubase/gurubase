@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/tooltip";
 import {
   AlertTriangle,
+  Check,
+  Clock,
   Edit,
   Info,
   LinkIcon,
@@ -50,8 +52,10 @@ import { getNormalizedDomain } from "@/utils/common";
 import { SourceActions } from "@/components/NewEditGuru/SourceActions";
 import {
   getSourceFilterItems,
-  getSourceTypeConfigById
+  getSourceTypeConfigById,
+  SOURCE_TYPES_CONFIG
 } from "@/config/sourceTypes";
+import { formatFileSize } from "@/utils/common";
 
 export function SourcesTableSection({
   sources,
@@ -78,7 +82,12 @@ export function SourcesTableSection({
   setShowConfluenceIntegrationModal,
   confluenceIntegration,
   isLoadingConfluenceIntegration,
-  isEditMode
+  isEditMode,
+  setIsGithubSidebarOpen,
+  handleEditGithubGlob,
+  setIsEditingRepo,
+  setEditingRepo,
+  deletingSources = []
 }) {
   const [filterType, setFilterType] = useState("all");
 
@@ -119,6 +128,17 @@ export function SourcesTableSection({
     }
   };
 
+  const handleAddGithub = () => {
+    setClickedSource([]);
+    if (typeof setIsEditingRepo === "function") {
+      setIsEditingRepo(false);
+    }
+    if (typeof setEditingRepo === "function") {
+      setEditingRepo(null);
+    }
+    setIsGithubSidebarOpen(true);
+  };
+
   const handleUploadPdf = () => {
     if (pdfInputRef.current) {
       pdfInputRef.current.click();
@@ -138,7 +158,8 @@ export function SourcesTableSection({
     confluence: handleAddConfluence,
     onUploadPdfClick: handleUploadPdf,
     onUploadExcelClick: handleUploadExcel,
-    zendesk: handleAddZendesk
+    zendesk: handleAddZendesk,
+    github_repo: handleAddGithub
   };
 
   const sourceLoadingStates = {
@@ -155,12 +176,157 @@ export function SourcesTableSection({
       return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
     }
 
-    return source.status === "NOT_PROCESSED";
+    return (
+      source.status === "NOT_PROCESSED" ||
+      (source.status === "SUCCESS" && !source.in_milvus)
+    );
+  };
+
+  const isSourceDeleting = (source) => {
+    return deletingSources.some(
+      (deletingSource) =>
+        deletingSource.id === source.id ||
+        (source.domains &&
+          source.domains.some((domain) => domain.id === deletingSource.id))
+    );
   };
 
   const renderBadges = (source) => {
     const config = getSourceTypeConfigById(source.type);
+    const isGithubSource =
+      source.type?.toLowerCase() === SOURCE_TYPES_CONFIG.GITHUB.id;
+    const isPdfSource =
+      source.type?.toLowerCase() === SOURCE_TYPES_CONFIG.PDF.id;
+
     if (!config) return null;
+
+    const sourceDone =
+      (source.status === "SUCCESS" && source.in_milvus) ||
+      source.status === "FAIL";
+
+    if (isGithubSource) {
+      let badgeProps = {
+        className:
+          "flex items-center rounded-full gap-1 px-2 py-0.5 text-xs font-medium pointer-events-none",
+        icon: Clock,
+        iconColor: "text-gray-500",
+        text: "Pending"
+      };
+
+      switch (source.status) {
+        case "SUCCESS":
+          badgeProps.icon = Check;
+          badgeProps.iconColor = "text-green-700";
+          badgeProps.text = `${source.file_count} files`;
+          badgeProps.className += " bg-green-50 text-green-700";
+          break;
+        case "FAIL":
+          badgeProps.icon = AlertTriangle;
+          badgeProps.iconColor = "text-red-700";
+          badgeProps.text = "Failed";
+          badgeProps.className += " bg-red-50 text-red-700";
+          break;
+        case "NOT_PROCESSED":
+        default:
+          badgeProps.icon = Clock;
+          badgeProps.iconColor = "text-yellow-700";
+          badgeProps.text = "Processing";
+          badgeProps.className += " bg-yellow-50 text-yellow-700";
+          break;
+      }
+
+      const badgeElement = sourceDone ? (
+        <Badge {...badgeProps}>
+          <badgeProps.icon
+            className={cn(
+              "h-3 w-3",
+              badgeProps.iconColor,
+              isSourcesProcessing && "pointer-events-none opacity-50"
+            )}
+          />
+          {badgeProps.text}
+        </Badge>
+      ) : null;
+
+      const lastIndexedDate = source.last_reindex_date
+        ? new Date(source.last_reindex_date).toLocaleString()
+        : null;
+
+      return (
+        <div className="flex items-center gap-2">
+          {source.status === "FAIL" && source.error ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      isSourcesProcessing && "pointer-events-none opacity-50"
+                    )}>
+                    {badgeElement}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  align="center"
+                  className="rounded-lg shadow-lg border p-3 bg-background max-w-xs"
+                  side="top"
+                  sideOffset={8}>
+                  <p className="text-center relative font-inter px-2 text-xs font-medium text-red-600">
+                    {source.error}
+                  </p>
+                  <div
+                    className="absolute w-3 h-3 border-l border-t bg-background"
+                    style={{
+                      bottom: "-6px",
+                      left: "50%",
+                      transform: "translateX(-50%) rotate(225deg)",
+                      borderColor: "inherit"
+                    }}
+                  />
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : source.last_reindex_date ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      isSourcesProcessing && "pointer-events-none opacity-50"
+                    )}>
+                    {badgeElement}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  align="center"
+                  className="rounded-lg shadow-lg border p-3 bg-background max-w-xs"
+                  side="top"
+                  sideOffset={8}>
+                  <p className="text-center relative font-inter px-2 text-xs font-medium text-green-700">
+                    Last indexed at {lastIndexedDate}
+                  </p>
+                  <div
+                    className="absolute w-3 h-3 border-l border-t bg-background"
+                    style={{
+                      bottom: "-6px",
+                      left: "50%",
+                      transform: "translateX(-50%) rotate(225deg)",
+                      borderColor: "inherit"
+                    }}
+                  />
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span
+              className={cn(
+                isSourcesProcessing && "pointer-events-none opacity-50"
+              )}>
+              {badgeElement}
+            </span>
+          )}
+        </div>
+      );
+    }
 
     if (config.hasPrivacyToggle) {
       return (
@@ -247,7 +413,7 @@ export function SourcesTableSection({
       );
     }
 
-    if (source.domains && config.canEdit) {
+    if (!isPdfSource && !isGithubSource && config.canEdit) {
       const statusGroups = source.domains.reduce((acc, domain) => {
         const status =
           domain.status === "NOT_PROCESSED"
@@ -338,21 +504,21 @@ export function SourcesTableSection({
           (source) => source.type.toLowerCase() === filterType.toLowerCase()
         );
 
-  const urlSources = filteredSources.filter(
-    (source) =>
-      source.type.toLowerCase() === "youtube" ||
-      source.type.toLowerCase() === "website" ||
-      source.type.toLowerCase() === "jira" ||
-      source.type.toLowerCase() === "confluence" ||
-      source.type.toLowerCase() === "zendesk"
-  );
-  const fileSources = filteredSources.filter(
-    (source) =>
-      source.type.toLowerCase() === "pdf" ||
-      source.type.toLowerCase() === "excel"
-  );
+  // Separate sources based on the willGroup flag from config
+  const sourcesToGroup = [];
+  const sourcesNotToGroup = [];
 
-  const groupedSources = urlSources.reduce((acc, source) => {
+  filteredSources.forEach((source) => {
+    const config = getSourceTypeConfigById(source.type);
+    if (config?.willGroup) {
+      sourcesToGroup.push(source);
+    } else {
+      sourcesNotToGroup.push(source);
+    }
+  });
+
+  // Group the sources marked for grouping
+  const groupedSources = sourcesToGroup.reduce((acc, source) => {
     const domain = getNormalizedDomain(source.url);
     if (!domain) return acc;
     const existingSource = acc.find(
@@ -372,7 +538,7 @@ export function SourcesTableSection({
     return acc;
   }, []);
 
-  const displaySources = [...groupedSources, ...fileSources];
+  const displaySources = [...groupedSources, ...sourcesNotToGroup];
   const sourceFilterItems = getSourceFilterItems();
 
   return (
@@ -388,7 +554,7 @@ export function SourcesTableSection({
       </div>
 
       <div className="flex items-center justify-between space-x-4 mb-3">
-        {sources.length > 0 && (
+        {sources.length > 0 ? (
           <Select
             disabled={isSourcesProcessing || isProcessing || isSubmitting}
             onValueChange={(value) => setFilterType(value)}
@@ -404,6 +570,9 @@ export function SourcesTableSection({
               ))}
             </SelectContent>
           </Select>
+        ) : (
+          // To preserve the layout when source selection is not available during initial loading and new guru creation
+          <div className="w-[180px]"></div>
         )}
         <SourceActions
           isProcessing={isProcessing}
@@ -418,8 +587,8 @@ export function SourcesTableSection({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[20%]">Type</TableHead>
-            <TableHead className="w-[50%]">Name</TableHead>
-            <TableHead className="w-[30%]"></TableHead>
+            <TableHead className="w-[60%]">Name</TableHead>
+            <TableHead className="w-[20%]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -439,24 +608,31 @@ export function SourcesTableSection({
                   <TableCell className="font-medium">
                     <div className="flex items-center">
                       {IconComponent && (
-                        <IconComponent className="mr-2 h-4 w-4" />
+                        <IconComponent className="mr-2 h-4 w-4 text-gray-600" />
                       )}
                       <span>{config?.displaySourceText || source.sources}</span>
                     </div>
                   </TableCell>
 
                   <TableCell>
-                    {isSourceProcessing(source) && isSourcesProcessing ? (
+                    {isSourceDeleting(source) ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Deleting source...</span>
+                      </div>
+                    ) : isSourceProcessing(source) && isSourcesProcessing ? (
                       <div className="flex items-center gap-2 text-gray-500">
                         <LoaderCircle className="h-4 w-4 animate-spin" />
                         <span className="text-sm">Processing source...</span>
                       </div>
                     ) : (
                       <span>
-                        {source?.type?.toLowerCase() === "pdf" ||
-                        source?.type?.toLowerCase() === "excel"
-                          ? source?.name
-                          : source?.domain}
+                        {source.domain || source.name}
+                        {source.size && typeof source.size === "number" && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            ({formatFileSize(source.size)})
+                          </span>
+                        )}
                       </span>
                     )}
                   </TableCell>
@@ -464,12 +640,15 @@ export function SourcesTableSection({
                   <TableCell className="">
                     <div className="flex items-center space-x-2 justify-end">
                       {renderBadges(source)}
+
                       <span>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               className="h-8 w-8 p-0"
-                              disabled={isSourcesProcessing}
+                              disabled={
+                                isSourcesProcessing || isSourceDeleting(source)
+                              }
                               size="icon"
                               variant="ghost">
                               <span className="sr-only">Open menu</span>
@@ -479,22 +658,41 @@ export function SourcesTableSection({
                           <DropdownMenuContent align="end">
                             {config?.canEdit && (
                               <DropdownMenuItem
-                                disabled={isSourcesProcessing}
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
                                 onClick={() => handleEditSource(source)}>
                                 <Edit className="mr-2 h-3 w-3" />
                                 Edit
                               </DropdownMenuItem>
                             )}
+                            {source.type === "github_repo" && (
+                              <DropdownMenuItem
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
+                                onClick={() => handleEditGithubGlob(source)}>
+                                <Edit className="mr-2 h-3 w-3" />
+                                Edit Glob
+                              </DropdownMenuItem>
+                            )}
                             {config?.canReindex && (
                               <DropdownMenuItem
-                                disabled={isSourcesProcessing}
+                                disabled={
+                                  isSourcesProcessing ||
+                                  isSourceDeleting(source)
+                                }
                                 onClick={() => handleReindexSource(source)}>
                                 <RotateCw className="mr-2 h-3 w-3" />
                                 Reindex
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              disabled={isSourcesProcessing}
+                              disabled={
+                                isSourcesProcessing || isSourceDeleting(source)
+                              }
                               onClick={() => handleDeleteSource(source)}>
                               <SolarTrashBinTrashBold className="mr-2 h-3 w-3" />
                               Delete

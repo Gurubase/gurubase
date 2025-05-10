@@ -5,6 +5,9 @@ from core import views as core_views
 from django.contrib.sitemaps import views
 from django.conf.urls import include
 from analytics import views as analytics_views
+from integrations.bots.github.views import github_webhook
+from integrations.bots.widget.views import ask_widget, widget_create_binge, get_guru_visuals
+from integrations.bots.slack.views import slack_events
 
 from django.conf.urls.static import static
 
@@ -52,44 +55,41 @@ urlpatterns += [
     path('api_keys/', core_views.api_keys, name='api_keys'),
     path('guru_types/create_frontend/', core_views.create_guru_type_frontend, name='create_guru_type_frontend'),
     path('health/', core_views.health_check, name='health_check'),
-    path('widget/ask/', core_views.ask_widget, name='ask_widget'),
-    path('widget/binge/', core_views.widget_create_binge, name='widget_create_binge'),
     path('<str:guru_type>/widget_ids/', core_views.manage_widget_ids, name='manage_widget_ids'),
-    path('widget/guru/', core_views.get_guru_visuals, name='get_guru_visuals'),
     path('parse_sitemap/', core_views.parse_sitemap, name='parse_sitemap'),  # New sitemap parsing endpoint
     
     # API v1 Endpoints
     path('api/v1/<str:guru_type>/answer/', core_views.api_answer, name='api-answer'),
     path('api/v1/<str:guru_type>/data-sources/', core_views.api_data_sources, name='api-data-sources'),
     path('api/v1/<str:guru_type>/data-sources/reindex/', core_views.api_reindex_data_sources, name='api-reindex-data-sources'),
-    # path('api/v1/<str:guru_type>/data-sources/privacy/', core_views.api_update_data_source_privacy, name='api-update-data-source-privacy'),
-    path('api/v1/<str:guru_slug>/crawl/start/', core_views.start_crawl_api, name='start_crawl_api'),
-    path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_api, name='stop_crawl_api'),
-    path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_api, name='get_crawl_status_api'),
-    path('api/v1/youtube/playlist/', core_views.fetch_youtube_playlist_api, name='fetch_youtube_playlist_api'),
-    path('api/v1/youtube/channel/', core_views.fetch_youtube_channel_api, name='fetch_youtube_channel_api'),
     path('api/v1/<str:guru_type>/analytics/export/', analytics_views.export_analytics_api, name='export_analytics_api'),
-
-    path('slack/events/', core_views.slack_events, name='slack_events'),
-    path('<str:guru_type>/integrations/', core_views.list_integrations, name='list_integrations'),
-    path('<str:guru_type>/integrations/<str:integration_type>/', core_views.manage_integration, name='manage_integration'),
-    path('integrations/test_message/', core_views.send_test_message, name='send_test_message'),
-    path('integrations/create/', core_views.create_integration, name='create_integration'),
-    path('<str:guru_type>/integrations/<str:integration_type>/channels/', core_views.manage_channels, name='manage_channels'),
     path('analytics/', include('analytics.urls')),
 
+    # Crawl
     path('<str:guru_slug>/crawl/start/', core_views.start_crawl_admin, name='start_crawl_admin'),
     path('crawl/<int:crawl_id>/stop/', core_views.stop_crawl_admin, name='stop_crawl_admin'),
     path('crawl/<int:crawl_id>/status/', core_views.get_crawl_status_admin, name='get_crawl_status_admin'),
 
+    path('api/v1/<str:guru_slug>/crawl/start/', core_views.start_crawl_api, name='start_crawl_api'),
+    path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/stop/', core_views.stop_crawl_api, name='stop_crawl_api'),
+    path('api/v1/<str:guru_slug>/crawl/<int:crawl_id>/status/', core_views.get_crawl_status_api, name='get_crawl_status_api'),
+
+    # Youtube
     path('youtube/playlist/', core_views.fetch_youtube_playlist_admin, name='fetch_youtube_playlist_admin'),
     path('youtube/channel/', core_views.fetch_youtube_channel_admin, name='fetch_youtube_channel_admin'),
 
-    path('github/', core_views.github_webhook, name='github_webhook'),
-    path('jira/issues/<int:integration_id>/', core_views.list_jira_issues, name='list_jira_issues'),
-    path('zendesk/tickets/<int:integration_id>/', core_views.list_zendesk_tickets, name='list_zendesk_tickets'),
-    path('zendesk/articles/<int:integration_id>/', core_views.list_zendesk_articles, name='list_zendesk_articles'),
-    path('confluence/pages/<int:integration_id>/', core_views.list_confluence_pages, name='list_confluence_pages'),
+    path('api/v1/youtube/playlist/', core_views.fetch_youtube_playlist_api, name='fetch_youtube_playlist_api'),
+    path('api/v1/youtube/channel/', core_views.fetch_youtube_channel_api, name='fetch_youtube_channel_api'),
+
+    # Integrations (Kept for backwards compatibility)
+    path('slack/events/', slack_events, name='slack_events'),
+    path('github/', github_webhook, name='github_webhook'),
+    path('widget/ask/', ask_widget, name='ask_widget'),
+    path('widget/binge/', widget_create_binge, name='widget_create_binge'),
+    path('widget/guru/', get_guru_visuals, name='get_guru_visuals'),
+
+    path('integrations/', include('integrations.urls')),
+
 ]
 
 if settings.STREAM_ENABLED:
@@ -102,14 +102,16 @@ if settings.STREAM_ENABLED:
             # Define the urls that are accessed by the selfhosted nginx proxy ('localhost:8029/api/')
             path('api/<str:guru_type>/answer/', core_views.answer, name="answer-api"),
             path('api/analytics/', include('analytics.urls')),
-            path('api/widget/ask/', core_views.ask_widget, name='ask_widget_api'),
-            path('api/widget/guru/', core_views.get_guru_visuals, name='get_guru_visuals_api'),
-            path('api/widget/binge/', core_views.widget_create_binge, name='widget_create_binge_api'),
             path('api/<str:guru_type>/follow_up/examples/', core_views.follow_up_examples, name='follow_up_examples_api'),
-            path('api/slack/events/', core_views.slack_events, name='slack_events_api'),
             path('settings/', core_views.manage_settings, name='manage_settings'),  # New settings endpoint
-            path('api/github/', core_views.github_webhook, name='github_webhook'),
             path('validate/ollama/', core_views.validate_ollama_url, name='validate_ollama_url'),  # New Ollama validation endpoint
+
+            # Integrations (Kept for backwards compatibility)
+            path('api/slack/events/', slack_events, name='slack_events_api'),
+            path('api/github/', github_webhook, name='github_webhook'),
+            path('api/widget/ask/', ask_widget, name='ask_widget_api'),
+            path('api/widget/guru/', get_guru_visuals, name='get_guru_visuals_api'),
+            path('api/widget/binge/', widget_create_binge, name='widget_create_binge_api'),
         ]
 
 if settings.ENV != 'selfhosted':

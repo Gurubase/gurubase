@@ -14,7 +14,8 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 django.setup()
 
-from core.models import Integration, GuruType
+from core.models import GuruType
+from integrations.models import Integration
 from core.requester import ConfluenceRequester
 from django.contrib.auth import get_user_model
 

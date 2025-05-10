@@ -1,7 +1,7 @@
 from corsheaders.signals import check_request_enabled
 from django.urls import resolve
 from urllib.parse import urlparse
-from core.models import WidgetId
+from integrations.models import WidgetId
 import logging
 
 logger = logging.getLogger(__name__)

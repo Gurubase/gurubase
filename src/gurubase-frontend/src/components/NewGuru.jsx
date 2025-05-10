@@ -43,11 +43,11 @@ import { useCrawler } from "@/hooks/useCrawler";
 import { DeleteConfirmationModal } from "@/components/NewEditGuru/DeleteConfirmationModal";
 import { LongUpdatesIndicator } from "@/components/NewEditGuru/LongUpdatesIndicator";
 import { PendingChangesIndicator } from "@/components/NewEditGuru/PendingChangesIndicator";
-import { GithubSourceSection } from "@/components/NewEditGuru/GithubSourceSection";
 import { GuruDetailsSection } from "@/components/NewEditGuru/GuruDetailsSection"; // Import new component
 import { SourcesTableSection } from "@/components/NewEditGuru/SourcesTableSection"; // Import new component
 import { IntegrationRequiredModal } from "@/components/NewEditGuru/IntegrationRequiredModal";
 import { JiraIcon, ZendeskIcon, ConfluenceIcon } from "@/components/Icons"; // Import icons
+import GitHubSourceDialog from "@/components/NewEditGuru/GitHubSourceDialog"; // Import GitHubSourceDialog
 
 const formSchema = z.object({
   guruName: z
@@ -65,11 +65,16 @@ const formSchema = z.object({
     .max(100, { message: "Guru context must not exceed 100 characters." }),
   githubRepos: z
     .array(
-      z
-        .string()
-        .refine((value) => !value || value.startsWith("https://github.com"), {
-          message: "Must be a valid GitHub repository URL."
-        })
+      z.object({
+        id: z.string().optional(),
+        url: z
+          .string()
+          .refine((value) => !value || value.startsWith("https://github.com"), {
+            message: "Must be a valid GitHub repository URL."
+          }),
+        glob_pattern: z.string().optional(),
+        include_glob: z.boolean().optional()
+      })
     )
     .default([])
     .optional(),
@@ -179,6 +184,8 @@ export default function NewGuru({
         redirect("/not-found");
       }
       setDataSources(sources);
+      // Reset deletingSources when new data is fetched
+      setDeletingSources([]);
       return sources;
     } catch (error) {
       // console.error("Error fetching data sources:", error);
@@ -247,9 +254,7 @@ export default function NewGuru({
   const isEditMode = !!customGuru;
   const [selectedFile, setSelectedFile] = useState(null);
   const [iconUrl, setIconUrl] = useState(customGuruData?.icon_url || null);
-  const [index_repo, setIndexRepo] = useState(
-    customGuruData?.index_repo || false
-  );
+
   const [sources, setSources] = useState([]);
   const pdfInputRef = useRef(null);
   const excelInputRef = useRef(null);
@@ -275,10 +280,8 @@ export default function NewGuru({
   const [confluenceEditorContent, setConfluenceEditorContent] = useState(""); // <-- New state for Confluence editor
   const [isZendeskSidebarOpen, setIsZendeskSidebarOpen] = useState(false); // <-- Add Zendesk sidebar state
   const [zendeskEditorContent, setZendeskEditorContent] = useState(""); // <-- Add Zendesk editor state
-
-  // First, add a state to track the GitHub repository source status
-  const [githubRepoStatuses, setGithubRepoStatuses] = useState({});
-  const [githubRepoErrors, setGithubRepoErrors] = useState({});
+  const [isGithubSidebarOpen, setIsGithubSidebarOpen] = useState(false); // Add state for potential future Github sidebar
+  const [githubEditorContent, setGithubEditorContent] = useState(""); // Add state for potential future Github editor
 
   const [jiraIntegration, setJiraIntegration] = useState(null); // <-- State for Jira integration details
   const [isLoadingIntegration, setIsLoadingIntegration] = useState(true); // <-- State for loading integration
@@ -298,6 +301,12 @@ export default function NewGuru({
     useState(false); // <-- Add Zendesk modal state
   const [showConfluenceIntegrationModal, setShowConfluenceIntegrationModal] =
     useState(false); // <-- Add Confluence modal state
+
+  const [repoUrl, setRepoUrl] = useState("");
+  const [globPattern, setGlobPattern] = useState("");
+  const [isEditingRepo, setIsEditingRepo] = useState(false);
+  const [editingRepo, setEditingRepo] = useState(null);
+  const [deletingSources, setDeletingSources] = useState([]);
 
   useEffect(() => {
     const fetchIntegration = async () => {
@@ -366,7 +375,7 @@ export default function NewGuru({
       return source.domains.some((domain) => domain.status === "NOT_PROCESSED");
     }
 
-    // For single sources (PDF), check its own status
+    // For single sources (PDF, Excel), check its own status
     return source.status === "NOT_PROCESSED";
   };
 
@@ -376,7 +385,7 @@ export default function NewGuru({
       guruName: customGuruData?.name || "",
       guruLogo: customGuruData?.icon_url || "",
       guruContext: customGuruData?.domain_knowledge || "",
-      githubRepos: customGuruData?.github_repos || [],
+      githubRepos: [],
       uploadedFiles: [],
       youtubeLinks: [],
       websiteUrls: [],
@@ -545,71 +554,74 @@ export default function NewGuru({
   // Update the useEffect where we process dataSources to find and set GitHub repo status
   useEffect(() => {
     if (customGuruData && dataSources?.results) {
-      const newSources = dataSources.results.map((source) => ({
-        id: source.id,
-        sources:
-          source.type === "YOUTUBE"
-            ? "Video"
-            : source.type === "PDF"
-              ? "PDF"
-              : source.type === "EXCEL"
-                ? "Excel"
-                : source.type === "JIRA"
-                  ? "Jira"
-                  : source.type === "ZENDESK"
-                    ? "Zendesk" // <-- Add Zendesk type display
-                    : source.type === "CONFLUENCE"
-                      ? "Confluence" // <-- Add Confluence type display
-                      : "Website",
-        name: source.title,
-        type: source.type.toLowerCase(),
-        size:
-          source.type === "PDF" || source.type === "EXCEL"
-            ? source.size
-            : "N/A",
-        url: source.url || "",
-        status: source.status,
-        last_reindex_date: source.last_reindex_date || "",
-        error: source.error || "",
-        private:
-          source.type === "PDF" || source.type === "EXCEL"
-            ? !!source.private
-            : undefined
-      }));
+      const newSources = dataSources.results.map((source) => {
+        const baseSource = {
+          id: source.id,
+          name: source.title, // Use title for PDF, domain/repo name for others
+          type: source.type.toLowerCase(),
+          size:
+            source.type === "PDF" || source.type === "EXCEL"
+              ? source.size
+              : "N/A",
+          url: source.url || "",
+          status: source.status,
+          in_milvus: source.in_milvus,
+          file_count: source.file_count, // Add file_count
+          last_reindex_date: source.last_reindex_date || "",
+          error: source.error || "",
+          private:
+            source.type === "PDF" || source.type === "EXCEL"
+              ? !!source.private
+              : undefined
+        };
 
-      // Find GitHub repository source status
-      if (customGuruData?.github_repos) {
-        const githubSources = dataSources.results.filter(
-          (source) => source.url && source.url.startsWith("https://github.com")
-        );
+        // Adjust name for non-PDF types
+        if (
+          source.type === "WEBSITE" ||
+          source.type === "YOUTUBE" ||
+          source.type === "JIRA" ||
+          source.type === "ZENDESK"
+        ) {
+          baseSource.name = getNormalizedDomain(source.url);
+        } else if (source.type === "GITHUB_REPO") {
+          // Extract repo name from URL for GitHub
+          const urlParts = (source.url || "").split("/");
+          baseSource.name = urlParts.slice(-2).join("/"); // e.g., username/repo
+          baseSource.glob_pattern = source.github_glob_pattern || "";
+          baseSource.include_glob = source.github_glob_include || false;
+        }
 
-        if (githubSources.length > 0) {
-          const newStatuses = {};
-          const newErrors = {};
-          let hasUnprocessed = false;
+        return baseSource;
+      });
 
-          githubSources.forEach((source) => {
-            newStatuses[source.url] = source.status;
-            newErrors[source.url] = source.error || null;
-            if (source.status === "NOT_PROCESSED") {
-              hasUnprocessed = true;
-            }
-          });
+      // Check for unprocessed sources (including GitHub)
+      const hasUnprocessedSources = newSources.some(
+        (source) => source.status === "NOT_PROCESSED"
+      );
 
-          setGithubRepoStatuses(newStatuses);
-          setGithubRepoErrors(newErrors);
-
-          if (hasUnprocessed) {
-            setIsSourcesProcessing(true);
-            pollForGuruReadiness(customGuru);
-          }
+      if (hasUnprocessedSources) {
+        setIsSourcesProcessing(true);
+        if (customGuru && !isPollingRef.current) {
+          pollForGuruReadiness(customGuru);
         }
       }
 
       setSources(newSources);
+      // Update form values for all source types, including github
       form.setValue(
         "youtubeLinks",
         newSources.filter((s) => s.type === "youtube").map((s) => s.url)
+      );
+      form.setValue(
+        "githubRepos",
+        newSources
+          .filter((s) => s.type === "github_repo")
+          .map((s) => ({
+            id: String(s.id), // Convert to string
+            url: s.url,
+            glob_pattern: s.glob_pattern || "", // Ensure string
+            include_glob: !!s.include_glob // Ensure boolean
+          }))
       );
       form.setValue(
         "websiteUrls",
@@ -644,13 +656,17 @@ export default function NewGuru({
   // const formValues = form.watch();
 
   useEffect(() => {
-    // if there is a error in the youtubeLinks or websiteUrls, then show the error message
-    if (
-      form.formState.errors.youtubeLinks ||
-      form.formState.errors.websiteUrls
-    ) {
+    // Check for any errors in the form and show an appropriate error message
+    const errorFields = Object.keys(form.formState.errors);
+    if (errorFields.length > 0) {
+      // Get the first error field and message
+      const firstErrorField = errorFields[0];
+      const errorMessage =
+        form.formState.errors[firstErrorField]?.message ||
+        `Please check the ${firstErrorField.replace("guru", "")} field.`;
+
       CustomToast({
-        message: `Please enter a valid ${form.formState.errors.youtubeLinks ? "YouTube" : "website"} link.`,
+        message: errorMessage,
         variant: "error"
       });
     }
@@ -812,6 +828,10 @@ export default function NewGuru({
       ? source.domains.map((domain) => domain.id)
       : [source.id];
 
+    // Add source to deletingSources
+    const sourcesToDelete = source.domains || [source];
+    setDeletingSources((prev) => [...prev, ...sourcesToDelete]);
+
     handleDeleteUrls({
       urlIds: sourceIds,
       sourceType: source.type.toLowerCase(),
@@ -904,31 +924,6 @@ export default function NewGuru({
           }
 
           if (latestSources?.results) {
-            // Check GitHub repository status if it exists
-            if (customGuruData?.github_repos) {
-              const githubSources = latestSources.results.filter(
-                (source) =>
-                  source.url && source.url.startsWith("https://github.com")
-              );
-
-              if (githubSources.length > 0) {
-                const newStatuses = {};
-                const newErrors = {};
-                let hasUnprocessed = false;
-
-                githubSources.forEach((source) => {
-                  newStatuses[source.url] = source.status;
-                  newErrors[source.url] = source.error || null;
-                  if (source.status === "NOT_PROCESSED") {
-                    hasUnprocessed = true;
-                  }
-                });
-
-                setGithubRepoStatuses(newStatuses);
-                setGithubRepoErrors(newErrors);
-              }
-            }
-
             // Create a map of existing privacy settings
             const existingPrivacySettings = sources.reduce((acc, source) => {
               if (
@@ -944,21 +939,12 @@ export default function NewGuru({
             // Update sources state while preserving privacy settings
             const updatedSources = latestSources.results.map((source) => ({
               id: source.id,
-              sources:
-                source.type === "YOUTUBE"
-                  ? "Video"
+              name:
+                source.type === "GITHUB"
+                  ? source.url.split("/").slice(-2).join("/")
                   : source.type === "PDF"
-                    ? "PDF"
-                    : source.type === "EXCEL"
-                      ? "Excel"
-                      : source.type === "JIRA"
-                        ? "Jira"
-                        : source.type === "ZENDESK"
-                          ? "Zendesk"
-                          : source.type === "CONFLUENCE"
-                            ? "Confluence"
-                            : "Website",
-              name: source.title,
+                    ? source.title
+                    : getNormalizedDomain(source.url),
               type: source.type.toLowerCase(),
               size:
                 source.type === "PDF" || source.type === "EXCEL"
@@ -966,21 +952,24 @@ export default function NewGuru({
                   : "N/A",
               url: source.url || "",
               status: source.status,
+              in_milvus: source.in_milvus,
+              file_count: source.file_count,
+              last_reindex_date: source.last_reindex_date || "",
               error: source.error || "",
-              // Preserve existing privacy setting or use the one from backend
               private:
                 source.type === "PDF" || source.type === "EXCEL"
-                  ? existingPrivacySettings[source.id] !== undefined
-                    ? existingPrivacySettings[source.id]
-                    : !!source.private
-                  : undefined
+                  ? !!source.private
+                  : undefined,
+              glob_pattern: source.github_glob_pattern || "",
+              include_glob: source.github_include_glob || false
             }));
 
             setSources(updatedSources);
 
             // Update form values and reset states
+            const currentFormValues = form.getValues();
             const newFormValues = {
-              ...form.getValues(),
+              ...currentFormValues,
               youtubeLinks: updatedSources
                 .filter((s) => s.type === "youtube")
                 .map((s) => s.url),
@@ -1011,7 +1000,6 @@ export default function NewGuru({
             setUrlEditorContent("");
             setYoutubeEditorContent("");
 
-            setIsSourcesProcessing(false);
             // Reset polling flag before returning
             isPollingRef.current = false;
             return true; // Indicate successful completion
@@ -1020,7 +1008,6 @@ export default function NewGuru({
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
           return await poll();
         } else {
-          setIsSourcesProcessing(false);
           CustomToast({
             message:
               "Sources are being processed in the background. You can continue using the guru.",
@@ -1069,6 +1056,9 @@ export default function NewGuru({
     ).length;
     const zendeskCount = sources.filter(
       (s) => s.type.toLowerCase() === "zendesk" && !s.deleted
+    ).length;
+    const githubRepoCount = sources.filter(
+      (s) => s.type.toLowerCase() === "github_repo" && !s.deleted
     ).length;
     const confluenceCount = sources.filter(
       (s) => s.type.toLowerCase() === "confluence" && !s.deleted
@@ -1125,6 +1115,10 @@ export default function NewGuru({
       customGuruData.zendesk_limit === undefined
         ? Infinity
         : customGuruData.zendesk_limit;
+    const githubRepoLimit =
+      customGuruData.github_repo_limit === undefined
+        ? Infinity
+        : customGuruData.github_repo_limit;
     const confluenceLimit =
       customGuruData.confluence_limit === undefined
         ? Infinity
@@ -1173,7 +1167,15 @@ export default function NewGuru({
 
     if (zendeskCount > zendeskLimit) {
       CustomToast({
-        message: `You have exceeded the Zendesk ticket limit (${zendeskLimit}).`,
+        message: `You have exceeded the Zendesk ticket/article limit (${zendeskLimit}).`,
+        variant: "error"
+      });
+      return false;
+    }
+
+    if (githubRepoCount > githubRepoLimit) {
+      CustomToast({
+        message: `You have exceeded the GitHub repository limit (${githubRepoLimit}).`,
         variant: "error"
       });
       return false;
@@ -1238,21 +1240,6 @@ export default function NewGuru({
       } else {
         setIsUpdating(true);
       }
-
-      // Find the hasResources check and update it like this:
-      const hasResources =
-        data.uploadedFiles?.length > 0 ||
-        data.youtubeLinks?.length > 0 ||
-        data.websiteUrls?.length > 0 ||
-        data.jiraIssues?.length > 0 ||
-        data.zendeskTickets?.length > 0 ||
-        data.confluencePages?.length > 0;
-
-      // Add check for GitHub repo changes
-      const hasGithubChanges = isEditMode
-        ? (data.githubRepos || []) !== (customGuruData?.github_repos || [])
-        : !!data.githubRepos;
-
       // Track if any changes were made that require polling
       let hasChanges = false;
 
@@ -1263,10 +1250,6 @@ export default function NewGuru({
         formData.append("name", data.guruName);
       }
       formData.append("domain_knowledge", data.guruContext);
-      formData.append(
-        "github_repos",
-        JSON.stringify(data.githubRepos.filter(Boolean))
-      );
 
       // Handle guruLogo
       if (data.guruLogo instanceof File) {
@@ -1277,6 +1260,8 @@ export default function NewGuru({
       ) {
         formData.append("existing_guru_logo", data.guruLogo);
       }
+
+      setIsSourcesProcessing(true);
 
       const guruResponse = isEditMode
         ? await updateGuru(customGuru, formData)
@@ -1295,12 +1280,6 @@ export default function NewGuru({
 
       // Fetch updated guru data after create/update
       await fetchGuruData(guruSlug);
-
-      // If there are GitHub-related changes, mark for polling
-      if (index_repo && hasGithubChanges) {
-        hasChanges = true;
-        await fetchDataSources(guruSlug);
-      }
 
       // Handle deleted sources
       if (isEditMode && dirtyChanges.sources.some((source) => source.deleted)) {
@@ -1513,47 +1492,25 @@ export default function NewGuru({
         hasNewSources = true;
       }
 
+      // Add GitHub Repos from dirtyChanges (newly added via input)
+      const githubSources = dirtyChanges.sources.filter(
+        (source) =>
+          source.type === "github_repo" &&
+          (source.newAddedSource || source.updated) &&
+          !source.deleted
+      );
+
+      if (githubSources.length > 0) {
+        // Add github_urls to the form data
+        newSourcesFormData.append(
+          "github_repos",
+          JSON.stringify(githubSources)
+        );
+        hasNewSources = true;
+      }
+
       if (hasNewSources) {
         hasChanges = true;
-        setIsSourcesProcessing(true);
-
-        // Get all source IDs including those from the same domain groups
-        const processingIds = sources.reduce((ids, source) => {
-          if (source.domains) {
-            // For grouped domains (website/youtube), add all domain IDs
-            const domainUrls = source.domains.map((d) => d.url);
-            const matchingNewSources = dirtyChanges.sources.some(
-              (newSource) =>
-                newSource.newAddedSource &&
-                !newSource.deleted &&
-                domainUrls.includes(newSource.url)
-            );
-
-            if (matchingNewSources) {
-              ids.push(source.id); // Add the group ID
-              source.domains.forEach((domain) => ids.push(domain.id)); // Add all domain IDs
-            }
-          } else if (
-            dirtyChanges.sources.some(
-              (newSource) =>
-                newSource.newAddedSource &&
-                !newSource.deleted &&
-                newSource.id === source.id
-            )
-          ) {
-            // For PDFs and Excel files, use the file name instead of the temporary ID
-            if (
-              source.type?.toLowerCase() === "pdf" ||
-              source.type?.toLowerCase() === "excel"
-            ) {
-              ids.push(source.name);
-            } else {
-              ids.push(source.id);
-            }
-          }
-
-          return ids;
-        }, []);
 
         const sourcesResponse = await addGuruSources(
           guruSlug,
@@ -1704,6 +1661,7 @@ export default function NewGuru({
       setHasFormChanged(false);
       return;
     }
+
     if (dirtyChanges.sources.length > 0) {
       setHasFormChanged(true);
       return;
@@ -1721,12 +1679,7 @@ export default function NewGuru({
     const currentValues = form.getValues();
     // Check for changes in basic fields
     const basicFieldsChanged =
-      currentValues.guruContext !== initialFormValues.guruContext ||
-      (currentValues.githubRepos || []).some(
-        (repo) => !initialFormValues.githubRepos.includes(repo)
-      ) ||
-      (currentValues.githubRepos || []).length !==
-        (initialFormValues.githubRepos || []).length;
+      currentValues.guruContext !== initialFormValues.guruContext;
 
     // Check for changes in arrays (files, links, urls)
     const compareArrays = (arr1 = [], arr2 = []) => {
@@ -1780,7 +1733,14 @@ export default function NewGuru({
         guruName: customGuruData.name || "",
         guruLogo: customGuruData.icon_url || "",
         guruContext: customGuruData.domain_knowledge || "",
-        githubRepos: customGuruData.github_repos || [],
+        githubRepos: dataSources.results
+          .filter((s) => s.type.toLowerCase() === "github_repo")
+          .map((s) => ({
+            id: String(s.id), // Convert id to string
+            url: s.url,
+            glob_pattern: s.github_glob_pattern || "", // Default to empty string
+            include_glob: s.github_include_glob === true // Ensure boolean
+          })),
         uploadedFiles: dataSources.results
           .filter(
             (s) =>
@@ -1930,6 +1890,16 @@ export default function NewGuru({
     },
     [form, jiraEditorContent, sources]
   );
+
+  // Add this effect to reset GitHub dialog state when opened
+  useEffect(() => {
+    if (isGithubSidebarOpen) {
+      if (!isEditingRepo) {
+        setRepoUrl("");
+        setGlobPattern("");
+      }
+    }
+  }, [isGithubSidebarOpen, isEditingRepo]);
 
   // <-- Add handler for Confluence URLs -->
   const handleAddConfluenceUrls = useCallback(
@@ -2350,6 +2320,148 @@ export default function NewGuru({
     isConfluenceSidebarOpen
   ]); // <-- Add isZendeskSidebarOpen dependency
 
+  // Add handler for GitHub repo URL changes
+  const handleRepoUrlChange = useCallback((value) => {
+    setRepoUrl(value);
+  }, []);
+
+  // Add handler for GitHub glob pattern changes
+  const handleGlobPatternChange = useCallback((value) => {
+    setGlobPattern(value);
+  }, []);
+
+  // Add handler for adding GitHub repositories
+  const handleAddGithubRepo = useCallback(
+    (repoUrl, globPattern, includeGlob, repoId) => {
+      if (!repoUrl) return;
+
+      // Get current GitHub repos from form
+      const githubRepos = form.getValues("githubRepos") || [];
+
+      if (isEditingRepo && repoId) {
+        // Update existing repo
+        const updatedRepos = githubRepos.map((repo) => {
+          if (repo.id === repoId || repo.url === repoUrl) {
+            return {
+              id: String(repo.id || repoId), // Ensure string
+              url: repoUrl,
+              glob_pattern: globPattern || "", // Ensure string
+              include_glob: !!includeGlob // Ensure boolean
+            };
+          }
+          return repo;
+        });
+
+        // Update form state
+        form.setValue("githubRepos", updatedRepos);
+
+        // Mark as dirty changes
+        setDirtyChanges((prev) => ({
+          ...prev,
+          sources: [
+            ...prev.sources.filter((s) => s.id !== repoId && s.url !== repoUrl),
+            {
+              id: String(repoId || `github-${Date.now()}`), // Ensure string
+              updated: true,
+              url: repoUrl,
+              newAddedSource: false,
+              deleted: false,
+              type: "github_repo",
+              glob_pattern: globPattern || "", // Ensure string
+              include_glob: !!includeGlob // Ensure boolean
+            }
+          ]
+        }));
+      } else {
+        // Check if the repository URL already exists in sources
+        const repoExists = sources.some(
+          (source) =>
+            source.type === "github_repo" &&
+            !source.deleted &&
+            source.url.toLowerCase() === repoUrl.toLowerCase()
+        );
+
+        if (repoExists) {
+          // Skip adding if the repository already exists
+          CustomToast({
+            message: "This GitHub repository has already been added.",
+            variant: "info"
+          });
+
+          // Reset the input fields
+          setRepoUrl("");
+          setGlobPattern("");
+          return;
+        }
+
+        // Create new repo
+        const urlParts = (repoUrl || "").split("/");
+        const newRepoId = `github-${Date.now()}`;
+        const newRepo = {
+          id: newRepoId, // Already a string
+          url: repoUrl,
+          glob_pattern: globPattern || "", // Ensure string
+          include_glob: !!includeGlob, // Ensure boolean
+          name: urlParts.slice(-2).join("/"),
+          type: "github_repo",
+          sources: "GitHub",
+          status: "NOT_PROCESSED",
+          error: null,
+          newAddedSource: true
+        };
+
+        // Update form state
+        form.setValue("githubRepos", [
+          ...githubRepos,
+          {
+            id: newRepoId,
+            url: repoUrl,
+            glob_pattern: globPattern || "", // Ensure string
+            include_glob: !!includeGlob // Ensure boolean
+          }
+        ]);
+
+        setSources((prevSources) => [...prevSources, newRepo]);
+
+        // Mark as dirty changes
+        setDirtyChanges((prev) => ({
+          ...prev,
+          sources: [
+            ...prev.sources,
+            {
+              id: newRepoId,
+              added: true,
+              url: repoUrl,
+              type: "github_repo",
+              glob_pattern: globPattern || "", // Ensure string
+              include_glob: !!includeGlob, // Ensure boolean
+              newAddedSource: true,
+              deleted: false
+            }
+          ]
+        }));
+      }
+
+      // Reset editing state
+      setIsEditingRepo(false);
+      setEditingRepo(null);
+
+      // Reset the input fields
+      setRepoUrl("");
+      setGlobPattern("");
+    },
+    [form, setDirtyChanges, isEditingRepo, sources]
+  );
+
+  // Add handler for editing GitHub repositories
+  const handleEditGithubGlob = useCallback((repo) => {
+    setIsEditingRepo(true);
+    setEditingRepo(repo);
+    setRepoUrl(repo.url);
+    setGlobPattern(repo.glob_pattern || "");
+    setIsGithubSidebarOpen(true);
+  }, []);
+
   // If still loading auth or no user, show loading state
   if (!isSelfHosted && (authLoading || (!user && !authLoading))) {
     return (
@@ -2407,20 +2519,6 @@ export default function NewGuru({
               setDirtyChanges={setDirtyChanges}
             />
 
-            <div className="max-w-3xl">
-              <div className="flex items-center space-x-4">
-                <GithubSourceSection
-                  index_repo={index_repo}
-                  isEditMode={isEditMode}
-                  githubRepoStatuses={githubRepoStatuses}
-                  githubRepoErrors={githubRepoErrors}
-                  isSourcesProcessing={isSourcesProcessing}
-                  isProcessing={isProcessing}
-                  customGuruData={customGuruData}
-                />
-              </div>
-            </div>
-
             {/* Use SourcesTableSection component */}
             <SourcesTableSection
               sources={sources}
@@ -2435,7 +2533,7 @@ export default function NewGuru({
               handleDeleteSource={handleDeleteSource}
               handleReindexSource={handleReindexSource}
               handlePrivacyBadgeClick={handlePrivacyBadgeClick}
-              setClickedSource={setClickedSource} // Pass needed setters
+              setClickedSource={setClickedSource}
               setIsYoutubeSidebarOpen={setIsYoutubeSidebarOpen}
               setIsJiraSidebarOpen={setIsJiraSidebarOpen}
               setIsUrlSidebarOpen={setIsUrlSidebarOpen}
@@ -2452,6 +2550,11 @@ export default function NewGuru({
                 setShowConfluenceIntegrationModal
               }
               isEditMode={isEditMode}
+              setIsGithubSidebarOpen={setIsGithubSidebarOpen}
+              handleEditGithubGlob={handleEditGithubGlob}
+              setIsEditingRepo={setIsEditingRepo}
+              setEditingRepo={setEditingRepo}
+              deletingSources={deletingSources}
             />
 
             <div className="w-full">
@@ -2688,6 +2791,20 @@ export default function NewGuru({
         integrationName="Zendesk"
         IntegrationIcon={ZendeskIcon}
         integrationId="zendesk"
+      />
+      {/* Add GitHubSourceDialog component */}
+      <GitHubSourceDialog
+        isOpen={isGithubSidebarOpen}
+        onOpenChange={setIsGithubSidebarOpen}
+        repoUrl={repoUrl}
+        globPattern={globPattern}
+        onRepoUrlChange={handleRepoUrlChange}
+        onGlobPatternChange={handleGlobPatternChange}
+        onAddGithubRepo={handleAddGithubRepo}
+        isMobile={isMobile}
+        isProcessing={isSourcesProcessing}
+        isEditingRepo={isEditingRepo}
+        editingRepo={editingRepo}
       />
       <IntegrationRequiredModal
         isOpen={showConfluenceIntegrationModal}

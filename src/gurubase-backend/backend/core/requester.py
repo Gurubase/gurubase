@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import time
 import logging
@@ -11,7 +12,7 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from abc import ABC, abstractmethod
 from firecrawl import FirecrawlApp
-from core.exceptions import WebsiteContentExtractionError, WebsiteContentExtractionThrottleError
+from core.exceptions import ThrottleError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError
 import asyncio
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
@@ -679,10 +680,6 @@ class OpenAIRequester():
                 {
                     'role': 'system',
                     'content': prompt
-                },
-                {
-                    'role': 'user',
-                    'content': question
                 }
             ],
             response_format=GptSummary
@@ -1079,40 +1076,138 @@ class ZendeskRequester():
         self.base_url = f"https://{self.domain}/api/v2"
         self.auth = (f"{integration.zendesk_user_email}/token", integration.zendesk_api_token)
 
-    def list_tickets(self, batch_size=100):
+    def list_tickets(self, batch_size=400, start_time=None, end_time=None):
         """
-        List solved Zendesk tickets with pagination.
+        List Zendesk tickets using incremental export API with pagination and date filtering.
         Args:
             batch_size (int): Number of tickets to fetch per request
+            start_time (str): Start time in format YYYY-MM-DD
+            end_time (str): End time in format YYYY-MM-DD
         Returns:
-            list: List of formatted solved Zendesk tickets
+            list: List of formatted Zendesk tickets with unique links
         Raises:
             ValueError: If API request fails
         """
         all_tickets = []
-        # Use the standard tickets endpoint and filter in Python
-        url = f"{self.base_url}/tickets.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
+        seen_links = set()  # Track unique links
+        
+        # Convert date strings to UTC timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_time:
+            start_timestamp = int(datetime.strptime(start_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+        if end_time:
+            end_timestamp = int(datetime.strptime(end_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+
+        # Use incremental export endpoint
+        url = f"{self.base_url}/incremental/tickets.json"
+        params = {
+            "per_page": batch_size
+        }
+        if start_timestamp:
+            params["start_time"] = start_timestamp
+
+        max_retries = 3
+        base_delay = 10  # 10 seconds delay between requests for rate limiting
 
         try:
             while url:
-                response = requests.get(url, auth=self.auth, timeout=20)
-                response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+                retry_count = 0
+                data = None
+                while retry_count < max_retries:
+                    try:
+                        response = requests.get(url, auth=self.auth, params=params, timeout=20)
+                        
+                        # Check for rate limiting
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                            logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                            time.sleep(retry_after)
+                            retry_count += 1
+                            continue
+                            
+                        response.raise_for_status()
+                        data = response.json()
+                        tickets_batch = data.get('tickets', [])
 
-                data = response.json()
-                tickets_batch = data.get('tickets', [])
+                        # Process tickets and check timestamps
+                        for ticket in tickets_batch:
+                            # Skip tickets after end_time
+                            if end_timestamp and ticket.get('generated_timestamp', 0) > end_timestamp:
+                                continue
+                                
+                            formatted_ticket = self._format_ticket(ticket)
+                            # Only add ticket if its link is unique
+                            if formatted_ticket['link'] and formatted_ticket['link'] not in seen_links:
+                                seen_links.add(formatted_ticket['link'])
+                                all_tickets.append(formatted_ticket)
 
-                # Filter for solved tickets and format
-                for ticket in tickets_batch:
-                    if ticket.get('status') == 'solved':
-                        all_tickets.append(self._format_ticket(ticket))
+                        # Check if we've reached the end of our time range
+                        if data.get('end_of_stream', False) or (end_timestamp and data.get('end_time', 0) > end_timestamp):
+                            url = None
+                            break
 
-                # Check for cursor-based pagination meta data
-                if data.get('meta', {}).get('has_more'):
-                    url = data.get('links', {}).get('next')
-                else:
-                    url = None # Exit loop if no more pages
+                        # Check for next page
+                        if data.get('next_page'):
+                            url = data.get('next_page')
+                            params = {}  # Clear params as they're included in next_page URL
+                            time.sleep(base_delay)  # Rate limiting delay
+                        else:
+                            url = None  # Exit loop if no more pages
+                            
+                        # If we get here, the request was successful
+                        break
+                        
+                    except requests.exceptions.RequestException as e:
+                        if retry_count == max_retries - 1:
+                            status_code = e.response.status_code if e.response is not None else None
+                            error_text = str(e)
+                            if status_code == 401:
+                                error_text = "Authentication failed. Check Zendesk email and API token."
+                            elif status_code == 403:
+                                error_text = "Permission denied. Ensure the API token has the required scopes."
+                            elif status_code == 404:
+                                error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
+                            elif status_code == 429:
+                                error_text = "Zendesk API rate limit exceeded."
+
+                            logger.error(f"Zendesk API error listing tickets: {error_text}", exc_info=True)
+                            raise ValueError(f"Failed to list Zendesk tickets: {error_text}")
+                        
+                        retry_count += 1
+                        time.sleep(base_delay * (2 ** retry_count))
+                        continue
+
+                if data is None:
+                    raise ThrottleError(f"Failed to list Zendesk tickets. Encountered a rate limit error.")
 
             return all_tickets
+        except Exception as e:
+            logger.error(f"Unexpected error listing Zendesk tickets: {e}", exc_info=True)
+            raise ValueError(f"An unexpected error occurred: {str(e)}")
+
+    def get_a_ticket(self):
+        """
+        Get a single Zendesk ticket.
+        Returns:
+            dict: Formatted Zendesk ticket
+        Raises:
+            ValueError: If API request fails
+        """
+        # Use the standard tickets endpoint and filter in Python
+        url = f"{self.base_url}/tickets.json?page[size]=1&sort_by=created_at&sort_order=desc"
+
+        try:
+            response = requests.get(url, auth=self.auth, timeout=20)
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+
+            data = response.json()
+            tickets_batch = data.get('tickets', [])
+
+            # Filter for solved tickets and format
+            for ticket in tickets_batch:
+                return self._format_ticket(ticket)
+
         except requests.exceptions.RequestException as e:
             status_code = e.response.status_code if e.response is not None else None
             error_text = str(e)
@@ -1141,49 +1236,72 @@ class ZendeskRequester():
         Raises:
             ValueError: If API request fails or ticket not found
         """
+        max_retries = 3
+        base_delay = 1
+
         try:
             # 1. Fetch ticket details
             ticket_url = f"{self.base_url}/tickets/{ticket_id}.json"
-            response = requests.get(ticket_url, auth=self.auth, timeout=15)
-            response.raise_for_status() # Raise HTTPError for bad status codes
-            ticket_data = response.json().get('ticket', {})
+            retry_count = 0
+            
+            while retry_count < max_retries:
+                try:
+                    response = requests.get(ticket_url, auth=self.auth, timeout=15)
+                    
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                        logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                        time.sleep(retry_after)
+                        retry_count += 1
+                        continue
+                        
+                    response.raise_for_status()
+                    ticket_data = response.json().get('ticket', {})
 
-            if not ticket_data:
-                raise ValueError(f"Ticket with ID {ticket_id} not found or invalid response.")
+                    if not ticket_data:
+                        raise ValueError(f"Ticket with ID {ticket_id} not found or invalid response.")
 
-            # 2. Format base ticket data using the helper method
-            formatted_ticket = self._format_ticket(ticket_data)
+                    # 2. Format base ticket data using the helper method
+                    formatted_ticket = self._format_ticket(ticket_data)
 
-            # 3. Fetch comments using the existing method
-            comments = self._get_ticket_comments(ticket_id)
+                    # 3. Fetch comments using the existing method
+                    comments = self._get_ticket_comments(ticket_id)
 
-            # 4. Append comment content to the existing formatted content
-            # formatted_ticket already contains the initial <Zendesk Ticket> block
-            for comment_data in comments:
-                formatted_ticket['content'] += f"\n\n{comment_data['content']}"
+                    # 4. Append comment content to the existing formatted content
+                    for comment_data in comments:
+                        formatted_ticket['content'] += f"\n\n{comment_data['content']}"
 
-            # 5. Return combined data
-            return formatted_ticket
+                    # 5. Return combined data
+                    return formatted_ticket
+                    
+                except requests.exceptions.RequestException as e:
+                    if retry_count == max_retries - 1:
+                        status_code = e.response.status_code if e.response is not None else None
+                        error_text = str(e)
+                        if status_code == 401:
+                            error_text = "Authentication failed. Check Zendesk email and API token."
+                        elif status_code == 403:
+                            error_text = "Permission denied. Ensure the API token has the required scopes."
+                        elif status_code == 404:
+                            error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
+                        elif status_code == 429:
+                            error_text = "Zendesk API rate limit exceeded."
 
-        except requests.exceptions.RequestException as e:
-            status_code = e.response.status_code if e.response is not None else None
-            error_text = str(e)
-            if status_code == 401:
-                error_text = "Authentication failed. Check Zendesk email and API token."
-            elif status_code == 403:
-                 error_text = "Permission denied. Ensure the API token has the required scopes."
-            elif status_code == 404:
-                 error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
-            elif status_code == 429:
-                error_text = "Zendesk API rate limit exceeded."
+                        logger.error(f"Zendesk API error getting ticket {ticket_id}: {error_text}", exc_info=True)
+                        raise ValueError(f"Failed to get ticket {ticket_id}: {error_text}")
+                    
+                    retry_count += 1
+                    time.sleep(base_delay * (2 ** retry_count))
+                    continue
 
-            logger.error(f"Zendesk API error getting ticket {ticket_id}: {error_text}", exc_info=True)
-            # Re-raise as ValueError consistent with other methods
-            raise ValueError(f"Failed to get ticket {ticket_id}: {error_text}")
+            raise ThrottleError(f"Failed to get ticket {ticket_id}. Encountered a rate limit error.")
+        except ThrottleError as e:
+            raise e
         except ValueError as e:
-             # Catch errors from get_ticket_comments and re-raise
-             logger.error(f"Error processing comments for ticket {ticket_id}: {e}", exc_info=True)
-             raise ValueError(f"Failed to get comments for ticket {ticket_id}: {str(e)}")
+            # Catch errors from get_ticket_comments and re-raise
+            logger.error(f"Error processing comments for ticket {ticket_id}: {e}", exc_info=True)
+            raise ValueError(f"Failed to get comments for ticket {ticket_id}: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error getting ticket {ticket_id}: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred while getting ticket {ticket_id}: {str(e)}")
@@ -1201,41 +1319,70 @@ class ZendeskRequester():
         """
         all_comments = []
         url = f"{self.base_url}/tickets/{ticket_id}/comments.json?page[size]={batch_size}&sort_by=created_at&sort_order=asc"
+        max_retries = 3
+        base_delay = 1
 
         try:
             while url:
-                response = requests.get(url, auth=self.auth, timeout=20)
-                response.raise_for_status()
+                retry_count = 0
+                data = None
+                while retry_count < max_retries:
+                    try:
+                        response = requests.get(url, auth=self.auth, timeout=20)
+                        
+                        # Check for rate limiting
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                            logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                            time.sleep(retry_after)
+                            retry_count += 1
+                            continue
+                            
+                        response.raise_for_status()
+                        data = response.json()
+                        comments = data.get('comments', [])
+                        all_comments.extend([self._format_comment(comment) for comment in comments])
 
-                data = response.json()
-                comments = data.get('comments', [])
-                all_comments.extend([self._format_comment(comment) for comment in comments])
+                        # Check for cursor-based pagination meta data
+                        if data.get('meta', {}).get('has_more'):
+                            url = data.get('links', {}).get('next')
 
-                # Check for cursor-based pagination meta data
-                if data.get('meta', {}).get('has_more'):
-                     url = data.get('links', {}).get('next')
-                else:
-                    url = None
+                            time.sleep(0.5)
+                        else:
+                            url = None
+                            
+                        # If we get here, the request was successful
+                        break
+                        
+                    except requests.exceptions.RequestException as e:
+                        if retry_count == max_retries - 1:
+                            status_code = e.response.status_code if e.response is not None else None
+                            error_text = str(e)
+                            if status_code == 401:
+                                error_text = "Authentication failed. Check Zendesk email and API token."
+                            elif status_code == 403:
+                                error_text = "Permission denied. Ensure the API token has the required scopes."
+                            elif status_code == 404:
+                                error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
+                            elif status_code == 429:
+                                error_text = "Zendesk API rate limit exceeded."
 
+                            logger.error(f"Zendesk API error getting comments for ticket {ticket_id}: {error_text}", exc_info=True)
+                            raise ValueError(f"Failed to get comments for ticket {ticket_id}: {error_text}")
+                        
+                        retry_count += 1
+                        time.sleep(base_delay * (2 ** retry_count))
+                        continue
+
+                if data is None:
+                    # Tried all retries, raise a ThrottleError
+                    raise ThrottleError(f"Failed to get comments for ticket {ticket_id}. Encountered a rate limit error.")
             return all_comments
-        except requests.exceptions.RequestException as e:
-            status_code = e.response.status_code if e.response is not None else None
-            error_text = str(e)
-            if status_code == 401:
-                error_text = "Authentication failed. Check Zendesk email and API token."
-            elif status_code == 403:
-                error_text = "Permission denied. Ensure the API token has the required scopes."
-            elif status_code == 404:
-                 error_text = f"Ticket with ID {ticket_id} not found or invalid Zendesk domain: {self.domain}"
-            elif status_code == 429:
-                error_text = "Zendesk API rate limit exceeded."
-
-            logger.error(f"Zendesk API error getting comments for ticket {ticket_id}: {error_text}", exc_info=True)
-            raise ValueError(f"Failed to get comments for ticket {ticket_id}: {error_text}")
+        except ThrottleError as e:
+            raise e
         except Exception as e:
             logger.error(f"Unexpected error getting comments for ticket {ticket_id}: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred while getting comments: {str(e)}")
-
 
     def _format_ticket(self, ticket):
         """
@@ -1285,47 +1432,119 @@ class ZendeskRequester():
             'content': content
         }
 
-    def list_articles(self, batch_size=100):
+    def list_articles(self, batch_size=400, start_time=None, end_time=None):
         """
-        List Zendesk help center articles (non-draft) with pagination.
+        List Zendesk help center articles using incremental export API with pagination and date filtering.
         Args:
             batch_size (int): Number of articles to fetch per request
+            start_time (str): Start time in format YYYY-MM-DD
+            end_time (str): End time in format YYYY-MM-DD
         Returns:
-            list: List of formatted, non-draft Zendesk articles
+            list: List of formatted, non-draft Zendesk articles with unique links
         Raises:
             ValueError: If API request fails
         """
         all_articles = []
-        url = f"{self.base_url}/help_center/articles.json?page[size]={batch_size}&sort_by=created_at&sort_order=desc"
+        seen_links = set()  # Track unique links
+        
+        # Convert date strings to UTC timestamps
+        start_timestamp = None
+        end_timestamp = None
+        if start_time:
+            start_timestamp = int(datetime.strptime(start_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+        if end_time:
+            end_timestamp = int(datetime.strptime(end_time, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp())
+
+        # Use incremental export endpoint
+        url = f"{self.base_url}/help_center/incremental/articles"
+        params = {
+            "per_page": batch_size
+        }
+        if start_timestamp:
+            params["start_time"] = start_timestamp
+
+        max_retries = 3
+        base_delay = 10  # 10 seconds delay between requests for rate limiting
 
         try:
             while url:
-                response = requests.get(url, auth=self.auth, timeout=20)
-                response.raise_for_status()
+                retry_count = 0
+                data = None
+                while retry_count < max_retries:
+                    try:
+                        response = requests.get(url, auth=self.auth, params=params, timeout=20)
+                        
+                        # Check for rate limiting
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                            logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                            time.sleep(retry_after)
+                            retry_count += 1
+                            continue
+                            
+                        response.raise_for_status()
+                        data = response.json()
+                        articles_batch = data.get('articles', [])
 
-                data = response.json()
-                articles_batch = data.get('articles', [])
+                        # Process articles and check timestamps
+                        for article in articles_batch:
+                            # Skip draft articles
+                            if article.get('draft', True):
+                                continue
+                                
+                            # Convert created_at to timestamp and check against end_time
+                            created_at = article.get('created_at')
+                            if created_at:
+                                article_timestamp = int(datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp())
+                                if end_timestamp and article_timestamp > end_timestamp:
+                                    continue
+                                    
+                            formatted_article = self._format_article(article)
+                            # Only add article if its link is unique
+                            if formatted_article['link'] and formatted_article['link'] not in seen_links:
+                                seen_links.add(formatted_article['link'])
+                                all_articles.append(formatted_article)
 
-                # Filter out draft articles and format
-                for article in articles_batch:
-                    if article.get('draft') is False:
-                        all_articles.append(self._format_article(article))
+                        # Check if we've reached the end of our time range
+                        if data.get('end_of_stream', False) or (end_timestamp and data.get('end_time', 0) > end_timestamp):
+                            url = None
+                            break
 
-                url = data.get('links', {}).get('next')
+                        # Check for next page
+                        if data.get('next_page'):
+                            url = data.get('next_page')
+                            params = {}  # Clear params as they're included in next_page URL
+                            time.sleep(base_delay)  # Rate limiting delay
+                        else:
+                            url = None  # Exit loop if no more pages
+                            
+                        # If we get here, the request was successful
+                        break
+                        
+                    except requests.exceptions.RequestException as e:
+                        if retry_count == max_retries - 1:
+                            status_code = e.response.status_code if e.response is not None else None
+                            error_text = str(e)
+                            if status_code == 401:
+                                error_text = "Authentication failed. Check Zendesk email and API token."
+                            elif status_code == 403:
+                                error_text = "Permission denied. Ensure the API token has the required scopes."
+                            elif status_code == 404:
+                                error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
+                            elif status_code == 429:
+                                error_text = "Zendesk API rate limit exceeded."
+
+                            logger.error(f"Zendesk API error listing articles: {error_text}", exc_info=True)
+                            raise ValueError(f"Failed to list Zendesk articles: {error_text}")
+                        
+                        retry_count += 1
+                        time.sleep(base_delay * (2 ** retry_count))
+                        continue
+
+                if data is None:
+                    raise ThrottleError(f"Failed to list Zendesk articles. Encountered a rate limit error.")
+
             return all_articles
-        except requests.exceptions.RequestException as e:
-            status_code = e.response.status_code if e.response is not None else None
-            error_text = str(e)
-            if status_code == 401:
-                error_text = "Authentication failed. Check Zendesk email and API token."
-            elif status_code == 403:
-                error_text = "Permission denied. Ensure the API token has the required scopes."
-            elif status_code == 404:
-                error_text = f"Resource not found or invalid Zendesk domain: {self.domain}"
-            elif status_code == 429:
-                error_text = "Zendesk API rate limit exceeded."
-            logger.error(f"Zendesk API error listing articles: {error_text}", exc_info=True)
-            raise ValueError(f"Failed to list Zendesk articles: {error_text}")
         except Exception as e:
             logger.error(f"Unexpected error listing Zendesk articles: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred: {str(e)}")
@@ -1341,38 +1560,70 @@ class ZendeskRequester():
         Raises:
             ValueError: If API request fails or article not found
         """
+        max_retries = 3
+        base_delay = 1
+
         try:
-            # Fetch article details
+            # 1. Fetch article details
             article_url = f"{self.base_url}/help_center/articles/{article_id}.json"
-            response = requests.get(article_url, auth=self.auth, timeout=15)
-            response.raise_for_status()
-            article_data = response.json().get('article', {})
+            retry_count = 0
+            
+            while retry_count < max_retries:
+                try:
+                    response = requests.get(article_url, auth=self.auth, timeout=15)
+                    
+                    # Check for rate limiting
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                        logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                        time.sleep(retry_after)
+                        retry_count += 1
+                        continue
+                        
+                    response.raise_for_status()
+                    article_data = response.json().get('article', {})
 
-            if not article_data:
-                raise ValueError(f"Article with ID {article_id} not found or invalid response.")
+                    if not article_data:
+                        raise ValueError(f"Article with ID {article_id} not found or invalid response.")
 
-            # Format article
-            formatted_article = self._format_article(article_data)
+                    # 2. Format article
+                    formatted_article = self._format_article(article_data)
 
-            # Fetch and format comments
-            comments = self._get_article_comments(article_id, batch_size=batch_size)
-            for comment_data in comments:
-                formatted_article['content'] += f"\n\n{comment_data['content']}"
+                    # 3. Fetch and format comments
+                    comments = self._get_article_comments(article_id, batch_size=batch_size)
+                    for comment_data in comments:
+                        formatted_article['content'] += f"\n\n{comment_data['content']}"
 
-            return formatted_article
-        except requests.exceptions.RequestException as e:
-            status_code = e.response.status_code if e.response is not None else None
-            error_text = str(e)
-            if status_code == 401:
-                error_text = "Authentication failed. Check Zendesk email and API token."
-            elif status_code == 403:
-                error_text = "Permission denied. Ensure the API token has the required scopes."
-            elif status_code == 404:
-                error_text = f"Article with ID {article_id} not found or invalid Zendesk domain: {self.domain}"
-            elif status_code == 429:
-                error_text = "Zendesk API rate limit exceeded."
-            logger.error(f"Zendesk API error getting article {article_id}: {error_text}", exc_info=True)
-            raise ValueError(f"Failed to get article {article_id}: {error_text}")
+                    # 4. Return combined data
+                    return formatted_article
+                    
+                except requests.exceptions.RequestException as e:
+                    if retry_count == max_retries - 1:
+                        status_code = e.response.status_code if e.response is not None else None
+                        error_text = str(e)
+                        if status_code == 401:
+                            error_text = "Authentication failed. Check Zendesk email and API token."
+                        elif status_code == 403:
+                            error_text = "Permission denied. Ensure the API token has the required scopes."
+                        elif status_code == 404:
+                            error_text = f"Article with ID {article_id} not found or invalid Zendesk domain: {self.domain}"
+                        elif status_code == 429:
+                            error_text = "Zendesk API rate limit exceeded."
+
+                        logger.error(f"Zendesk API error getting article {article_id}: {error_text}", exc_info=True)
+                        raise ValueError(f"Failed to get article {article_id}: {error_text}")
+                    
+                    retry_count += 1
+                    time.sleep(base_delay * (2 ** retry_count))
+                    continue
+
+            raise ThrottleError(f"Failed to get article {article_id}. Encountered a rate limit error.")
+        except ThrottleError as e:
+            raise e
+        except ValueError as e:
+            # Catch errors from get_article_comments and re-raise
+            logger.error(f"Error processing comments for article {article_id}: {e}", exc_info=True)
+            raise ValueError(f"Failed to get comments for article {article_id}: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error getting article {article_id}: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred while getting article {article_id}: {str(e)}")
@@ -1390,31 +1641,68 @@ class ZendeskRequester():
         """
         all_comments = []
         url = f"{self.base_url}/help_center/articles/{article_id}/comments.json?page[size]={batch_size}&sort_by=created_at&sort_order=asc"
+        max_retries = 3
+        base_delay = 1
 
         try:
             while url:
-                response = requests.get(url, auth=self.auth, timeout=20)
-                response.raise_for_status()
-                data = response.json()
-                comments = data.get('comments', [])
-                all_comments.extend([self._format_article_comment(comment) for comment in comments])
+                retry_count = 0
+                data = None
+                while retry_count < max_retries:
+                    try:
+                        response = requests.get(url, auth=self.auth, timeout=20)
+                        
+                        # Check for rate limiting
+                        if response.status_code == 429:
+                            retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                            logger.warning(f"Zendesk API rate limit exceeded. Waiting {retry_after} seconds before retry.")
+                            time.sleep(retry_after)
+                            retry_count += 1
+                            continue
+                            
+                        response.raise_for_status()
+                        data = response.json()
+                        comments = data.get('comments', [])
+                        all_comments.extend([self._format_article_comment(comment) for comment in comments])
 
-                url = data.get('links', {}).get('next')
+                        # Check for cursor-based pagination meta data
+                        if data.get('meta', {}).get('has_more'):
+                            url = data.get('links', {}).get('next')
+                            time.sleep(0.5)
+                        else:
+                            url = None
+                            
+                        # If we get here, the request was successful
+                        break
+                        
+                    except requests.exceptions.RequestException as e:
+                        if retry_count == max_retries - 1:
+                            status_code = e.response.status_code if e.response is not None else None
+                            error_text = str(e)
+                            if status_code == 401:
+                                error_text = "Authentication failed. Check Zendesk email and API token."
+                            elif status_code == 403:
+                                error_text = "Permission denied. Ensure the API token has the required scopes."
+                            elif status_code == 404:
+                                error_text = f"Article with ID {article_id} not found or invalid Zendesk domain: {self.domain}"
+                            elif status_code == 429:
+                                error_text = "Zendesk API rate limit exceeded."
+
+                            logger.error(f"Zendesk API error getting comments for article {article_id}: {error_text}", exc_info=True)
+                            raise ValueError(f"Failed to get comments for article {article_id}: {error_text}")
+                        
+                        retry_count += 1
+                        time.sleep(base_delay * (2 ** retry_count))
+                        continue
+
+                if data is None:
+                    # Tried all retries, raise a ThrottleError
+                    raise ThrottleError(f"Failed to get comments for article {article_id}. Encountered a rate limit error.")
+                    
             all_comments.sort(key=lambda x: x['created_at'])
             return all_comments
-        except requests.exceptions.RequestException as e:
-            status_code = e.response.status_code if e.response is not None else None
-            error_text = str(e)
-            if status_code == 401:
-                error_text = "Authentication failed. Check Zendesk email and API token."
-            elif status_code == 403:
-                error_text = "Permission denied. Ensure the API token has the required scopes."
-            elif status_code == 404:
-                error_text = f"Article with ID {article_id} not found or invalid Zendesk domain: {self.domain}"
-            elif status_code == 429:
-                error_text = "Zendesk API rate limit exceeded."
-            logger.error(f"Zendesk API error getting comments for article {article_id}: {error_text}", exc_info=True)
-            raise ValueError(f"Failed to get comments for article {article_id}: {error_text}")
+        except ThrottleError as e:
+            raise e
         except Exception as e:
             logger.error(f"Unexpected error getting comments for article {article_id}: {e}", exc_info=True)
             raise ValueError(f"An unexpected error occurred while getting comments: {str(e)}")
