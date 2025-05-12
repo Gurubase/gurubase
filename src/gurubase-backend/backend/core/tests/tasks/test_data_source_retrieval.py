@@ -1,7 +1,8 @@
 from django.test import TestCase, override_settings
 from unittest.mock import patch, MagicMock
 from accounts.models import User
-from core.models import GuruType, DataSource, Integration, Settings
+from core.models import GuruType, DataSource, Settings
+from integrations.models import Integration
 from core.tasks import data_source_retrieval
 from core.utils import get_default_settings
 from core.exceptions import WebsiteContentExtractionThrottleError, GithubRepoSizeLimitError, YouTubeContentExtractionError

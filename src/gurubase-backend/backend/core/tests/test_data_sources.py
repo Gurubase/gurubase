@@ -15,7 +15,8 @@ from datetime import UTC, datetime
 from multiprocessing import Process
 
 from accounts.models import User
-from core.models import GuruType, DataSource, CrawlState, Integration, DataSourceExists
+from core.models import GuruType, DataSource, CrawlState, DataSourceExists
+from integrations.models import Integration
 from core.data_sources import (
     # Content extraction functions
     youtube_content_extraction, 
@@ -38,7 +39,6 @@ from core.data_sources import (
     WebsiteStrategy,
     JiraStrategy,
     ZendeskStrategy,
-    GitHubRepoStrategy,
     ConfluenceStrategy,
     
     # Service classes
@@ -1438,68 +1438,6 @@ class ConfluenceStrategyTest(StrategyTestCase):
         # Verify the result
         self.assertEqual(result['type'], 'Confluence')
         self.assertEqual(result['url'], self.confluence_url)
-        self.assertEqual(result['status'], 'error')
-        self.assertEqual(result['message'], 'Test error')
-
-
-class GitHubRepoStrategyTest(StrategyTestCase):
-    """Tests for GitHubRepoStrategy class"""
-
-    def setUp(self):
-        super().setUp()
-        self.strategy = GitHubRepoStrategy()
-        self.github_url = "https://github.com/test-org/test-repo"
-    
-    @patch('core.data_sources.process_github_repository')
-    def test_create_github_repo_success(self, mock_process_repo):
-        """Test creating a new GitHub repository data source successfully"""
-        # Set up the mock to return a default branch
-        mock_process_repo.return_value = "main"
-        
-        # Call the strategy create method
-        result = self.strategy.create(self.guru_type, self.github_url)
-        
-        # Verify the result
-        self.assertEqual(result['type'], 'GITHUB_REPO')
-        self.assertEqual(result['url'], self.github_url)
-        self.assertEqual(result['status'], 'success')
-        self.assertTrue('id' in result)
-        
-        # Verify the data source was created in the database
-        data_source = DataSource.objects.get(id=result['id'])
-        self.assertEqual(data_source.type, DataSource.Type.GITHUB_REPO)
-        self.assertEqual(data_source.guru_type, self.guru_type)
-        self.assertEqual(data_source.url, self.github_url)
-            
-    @patch('core.models.DataSource.objects.create')
-    def test_create_github_repo_exists(self, mock_create):
-        """Test creating a GitHub repo data source that already exists"""
-        # Make the create method raise DataSourceExists
-        existing_data = {'id': 123, 'title': 'test-org/test-repo'}
-        mock_create.side_effect = DataSourceExists(existing_data)
-        
-        # Call the strategy create method
-        result = self.strategy.create(self.guru_type, self.github_url)
-        
-        # Verify the result
-        self.assertEqual(result['type'], 'GITHUB_REPO')
-        self.assertEqual(result['url'], self.github_url)
-        self.assertEqual(result['status'], 'exists')
-        self.assertEqual(result['id'], 123)
-        self.assertEqual(result['title'], 'test-org/test-repo')
-    
-    @patch('core.models.DataSource.objects.create')
-    def test_create_github_repo_error(self, mock_create):
-        """Test creating a GitHub repo data source with an error"""
-        # Make the create method raise an exception
-        mock_create.side_effect = Exception("Test error")
-        
-        # Call the strategy create method
-        result = self.strategy.create(self.guru_type, self.github_url)
-        
-        # Verify the result
-        self.assertEqual(result['type'], 'GITHUB_REPO')
-        self.assertEqual(result['url'], self.github_url)
         self.assertEqual(result['status'], 'error')
         self.assertEqual(result['message'], 'Test error')
 
