@@ -324,7 +324,7 @@ const ChannelsComponent = ({
                 <TooltipContent>
                   <p>
                     <a
-                      href="https://support.gurubase.io/hc/en-us/articles/18214574391195-How-to-find-the-channel-ID-for-Slack-and-Discord"
+                      href="https://docs.gurubase.io/integrations/slack-bot#finding-out-channel-ids"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:text-blue-600">
