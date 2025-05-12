@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from core.exceptions import ValidationError
 from core.models import (APIKey,
-                         Binge, CrawlState, Integration, 
+                         Binge, CrawlState, 
                          LLMEval, 
                          LinkReference, 
                          LinkValidity, 
@@ -19,10 +19,9 @@ from core.models import (APIKey,
                          SummaryQuestionGeneration, 
                          Settings, 
                          LLMEvalResult, 
-                         Thread, 
-                         WidgetId,
                          GithubFile,
-                         GuruCreationForm)
+                         GuruCreationForm,
+                         Language)
 from django.utils.html import format_html
 import logging
 from django.contrib.admin import SimpleListFilter
@@ -165,7 +164,7 @@ class ContentPageStatisticsAdmin(admin.ModelAdmin):
   
 @admin.register(GuruType)
 class GuruTypeAdmin(admin.ModelAdmin):
-    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'github_repos', 'text_embedding_model', 'code_embedding_model', 'date_created', 'date_updated', 'github_details_updated_date']
+    list_display = ['id', 'slug', 'active', 'has_sitemap_added_questions', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'colors', 'custom', 'maintainers_list', 'text_embedding_model', 'code_embedding_model', 'date_created', 'date_updated']
     search_fields = ['id', 'slug', 'icon_url', 'stackoverflow_tag', 'domain_knowledge', 'date_created', 'date_updated', 'maintainers__email']
     list_filter = ('active', 'custom', 'has_sitemap_added_questions', 'text_embedding_model', 'code_embedding_model')
     ordering = ('-id',)
@@ -413,14 +412,6 @@ class BingeAdmin(admin.ModelAdmin):
         return None
     owner_link.short_description = 'Owner'
 
-@admin.register(WidgetId)
-class WidgetIdAdmin(admin.ModelAdmin):
-    list_display = ['id', 'guru_type', 'key', 'domain_url', 'domain', 'date_created']
-    search_fields = ['id', 'guru_type__slug', 'key', 'domain_url']
-    list_filter = ('guru_type__slug', )
-    ordering = ('-id',)
-    raw_id_fields = ('guru_type',)
-
 
 @admin.register(GithubFile)
 class GitHubFileAdmin(admin.ModelAdmin):
@@ -447,22 +438,6 @@ class APIKeyAdmin(admin.ModelAdmin):
     raw_id_fields = ('user',)
 
 
-@admin.register(Integration)
-class IntegrationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'guru_type', 'type', 'workspace_name', 'date_created', 'date_updated']
-    list_filter = ('guru_type__slug', 'type')
-    search_fields = ['id', 'guru_type__slug', 'type']
-    ordering = ('-id',)
-    raw_id_fields = ('guru_type',)
-
-
-@admin.register(Thread)
-class ThreadAdmin(admin.ModelAdmin):
-    list_display = ['id', 'binge', 'integration', 'thread_id', 'date_created', 'date_updated']
-    search_fields = ['id', 'binge__id', 'integration__id', 'thread_id']
-    list_filter = ('binge__guru_type__slug', 'integration')
-    ordering = ('-id',)
-    raw_id_fields = ('binge', 'integration')
 
 @admin.register(CrawlState)
 class CrawlStateAdmin(admin.ModelAdmin):
@@ -477,3 +452,10 @@ class GuruCreationFormAdmin(admin.ModelAdmin):
     search_fields = ['id', 'name', 'email', 'github_repo', 'docs_url', 'use_case']
     list_filter = ('notified', 'source')
     ordering = ('-id',)
+
+@admin.register(Language)
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'iso_code', 'date_created', 'date_updated']
+    search_fields = ['code', 'name', 'iso_code']
+    ordering = ['name']
+    readonly_fields = ['date_created', 'date_updated']

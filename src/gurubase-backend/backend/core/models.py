@@ -292,6 +292,31 @@ class QuestionValidityCheckPricing(models.Model):
         return self.prompt_tokens + self.completion_tokens
 
 
+class Language(models.Model):
+    code = models.CharField(max_length=10, unique=True)  # e.g., "ENGLISH", "TURKISH"
+    name = models.CharField(max_length=50)  # e.g., "English", "Turkish"
+    iso_code = models.CharField(max_length=2, unique=True)  # e.g., "en", "tr"
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    def get_iso_code(self):
+        """Returns the ISO language code"""
+        return self.iso_code
+
+    class Meta:
+        ordering = ['name']
+
+
+def get_default_language():
+    return Language.objects.get_or_create(code='ENGLISH', defaults={
+        'name': 'English',
+        'iso_code': 'en'
+    })[0].id
+
+
 class GuruType(models.Model):
     class EmbeddingModel(models.TextChoices):
         IN_HOUSE = "IN_HOUSE", "In-house embedding model"
@@ -300,29 +325,16 @@ class GuruType(models.Model):
         OPENAI_TEXT_EMBEDDING_3_SMALL = "OPENAI_TEXT_EMBEDDING_3_SMALL", "OpenAI - text-embedding-3-small"
         OPENAI_TEXT_EMBEDDING_3_LARGE = "OPENAI_TEXT_EMBEDDING_3_LARGE", "OpenAI - text-embedding-3-large"
         OPENAI_TEXT_EMBEDDING_ADA_002 = "OPENAI_TEXT_EMBEDDING_ADA_002", "OpenAI - text-embedding-ada-002"
-
-    class Language(models.TextChoices):
-        ENGLISH = "ENGLISH", "English"
-        TURKISH = "TURKISH", "Turkish"
-        
-    # Language code mapping
-    LANGUAGE_CODES = {
-        'ENGLISH': 'en',
-        'TURKISH': 'tr',
-    }
     
     # Get language code helper method
     def get_language_code(self):
         """Returns the ISO language code for the selected language"""
-        return self.LANGUAGE_CODES.get(self.language, 'en')
+        return self.language.get_iso_code() if self.language else 'en'
 
     slug = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     maintainers = models.ManyToManyField(User, blank=True, related_name='maintained_guru_types')
     stackoverflow_tag = models.CharField(max_length=100, blank=True, null=True)
-    github_repos = models.JSONField(default=list, blank=True)
-    github_details = models.JSONField(default=dict, blank=True, null=False)
-    github_details_updated_date = models.DateTimeField(null=True, blank=True)
     colors = models.JSONField(default=dict, blank=True, null=False)
     icon_url = models.CharField(max_length=2000, default="", blank=True, null=True)
     ogimage_url = models.URLField(max_length=2000, default="", blank=True, null=True)  # question
@@ -337,7 +349,6 @@ class GuruType(models.Model):
     custom_instruction_prompt = models.TextField(default='', blank=True, null=True)
     custom_follow_up_prompt = models.TextField(default='', blank=True, null=True)
     has_sitemap_added_questions = models.BooleanField(default=False)
-    index_repo = models.BooleanField(default=True)
     # GitHub repository limits
     github_repo_count_limit = models.IntegerField(default=1)
     github_file_count_limit_per_repo_soft = models.IntegerField(default=1000)  # Warning threshold
@@ -368,11 +379,7 @@ class GuruType(models.Model):
     )
     send_notification = models.BooleanField(default=False)
     private = models.BooleanField(default=False)
-    language = models.CharField(
-        max_length=100,
-        choices=Language.choices,
-        default=Language.ENGLISH
-    )
+    language = models.ForeignKey(Language, on_delete=models.SET_DEFAULT, default=get_default_language)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -412,18 +419,11 @@ class GuruType(models.Model):
         if self.slug == '':
             raise ValidationError({'msg': 'Guru type name cannot be empty'})
 
-        unique_github_repos = set(self.github_repos)
-
-        if settings.ENV != 'selfhosted' and len(unique_github_repos) > self.github_repo_count_limit:
-            raise ValidationError({'msg': f'You have reached the maximum number ({self.github_repo_count_limit}) of GitHub repositories for this guru type.'})
-
         if settings.ENV == 'selfhosted':
             if self.text_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
             if self.code_embedding_model == GuruType.EmbeddingModel.IN_HOUSE:
                 raise ValidationError({'msg': 'In-house embedding model is not allowed in selfhosted environment.'})
-
-        self.github_repos = list(unique_github_repos)
 
         super().save(*args, **kwargs)
 
@@ -446,6 +446,7 @@ class GuruType(models.Model):
         - 'https://*.example.com' → Allow from any subdomain of example.com (app.example.com, api.example.com, etc.)
         - 'https://example.com' → Allow only from exact domain example.com
         """
+        from integrations.models import WidgetId
         if domain_url:
             # Normalize domain_url
             domain_url = domain_url.rstrip('/')
@@ -509,7 +510,7 @@ class GuruType(models.Model):
 
         return non_processed_count == 0 and non_written_count == 0
 
-    def check_datasource_limits(self, user, pdf_files=[], excel_files=[], website_urls_count=0, youtube_urls_count=0, github_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0):
+    def check_datasource_limits(self, user, pdf_files=[], excel_files=[], website_urls_count=0, youtube_urls_count=0, jira_urls_count=0, zendesk_urls_count=0, confluence_urls_count=0, github_repos_count=0):
         """
         Checks if adding a new datasource would exceed the limits for this guru type.
         Returns (bool, str) tuple - (is_allowed, error_message)
@@ -538,11 +539,6 @@ class GuruType(models.Model):
             type=DataSource.Type.YOUTUBE
         ).count()
 
-        github_count = DataSource.objects.filter(
-            guru_type=self,
-            type=DataSource.Type.GITHUB_REPO
-        ).count()
-
         jira_count = DataSource.objects.filter(
             guru_type=self,
             type=DataSource.Type.JIRA
@@ -563,6 +559,12 @@ class GuruType(models.Model):
             guru_type=self,
             type=DataSource.Type.PDF
         )
+
+        github_repo_count = DataSource.objects.filter(
+            guru_type=self,
+            type=DataSource.Type.GITHUB_REPO
+        ).count()
+
         excel_sources = DataSource.objects.filter(
             guru_type=self,
             type=DataSource.Type.EXCEL
@@ -587,7 +589,7 @@ class GuruType(models.Model):
             return False, f"YouTube video limit ({self.youtube_count_limit}) reached"
 
         # Check GitHub repo limit
-        if (github_count + github_urls_count) > self.github_repo_count_limit:
+        if (github_repo_count + github_repos_count) > self.github_repo_count_limit:
             return False, f"GitHub repository limit ({self.github_repo_count_limit}) reached"
 
         # Check Jira issue limit
@@ -596,7 +598,7 @@ class GuruType(models.Model):
 
         # Check Zendesk ticket limit
         if (zendesk_count + zendesk_urls_count) > self.zendesk_count_limit:
-            return False, f"Zendesk ticket limit ({self.zendesk_count_limit}) reached"
+            return False, f"Zendesk ticket/article limit ({self.zendesk_count_limit}) reached"
         
         # Check Confluence page limit
         if (confluence_count + confluence_urls_count) > self.confluence_count_limit:
@@ -694,7 +696,7 @@ class DataSource(models.Model):
         CONFLUENCE = "CONFLUENCE"
         EXCEL = "EXCEL" # xls, xlsx
 
-    class Status(models.TextChoices):
+    class Status(models.TextChoices): # This is the data retrieval status. It is not the readiness of the data source as it may not be written to milvus yet.
         NOT_PROCESSED = "NOT_PROCESSED"
         SUCCESS = "SUCCESS"
         FAIL = "FAIL"
@@ -735,14 +737,16 @@ class DataSource(models.Model):
     final_summarization_created = models.BooleanField(default=False)
 
     default_branch = models.CharField(max_length=100, null=True, blank=True)  # Only used for Github Repos
+    github_details = models.JSONField(default=dict, blank=True, null=True)  # For storing GitHub repository details
+    github_details_updated_date = models.DateTimeField(null=True, blank=True)  # When GitHub details were last updated
 
     private = models.BooleanField(default=False)
 
-    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    last_reindex_date = models.DateTimeField(auto_now_add=True, null=True, blank=True) # Set when reindex is manually done
     reindex_count = models.IntegerField(default=0)
 
     scrape_tool = models.CharField(max_length=100, null=True, blank=True)
-    last_successful_index_date = models.DateTimeField(null=True, blank=True)
+    last_successful_index_date = models.DateTimeField(null=True, blank=True) # Set when github repo is indexed/reindexed successfully
     github_glob_include = models.BooleanField(default=True)
     github_glob_pattern = models.CharField(max_length=100, null=True, blank=True)
 
@@ -1170,9 +1174,18 @@ class DataSource(models.Model):
 
         if self.type == DataSource.Type.GITHUB_REPO:
             self.content = ''
-
-        self.save()
-        self.delete_from_milvus()
+            self.save()
+            
+            # Import here to avoid circular imports
+            from core.tasks import update_github_repositories
+            # Delay the task to process this specific GitHub repository
+            update_github_repositories.delay(
+                guru_type_slug=self.guru_type.slug,
+                repo_url=self.url
+            )
+        else:
+            self.save()
+            self.delete_from_milvus()
 
 
 class FeaturedDataSource(models.Model):
@@ -1255,6 +1268,7 @@ class OutOfContextQuestion(models.Model):
     )
     processed_ctx_relevances = models.JSONField(default=dict, blank=True, null=False)
     enhanced_question = models.TextField(default='', blank=True, null=True)
+    bot_context = models.TextField(default='', blank=True, null=True)
 
     def __str__(self):
         return self.question
@@ -1724,142 +1738,6 @@ class Binge(models.Model):
         return f"{self.id} - {self.guru_type.slug}"
 
 
-class Thread(models.Model):
-    thread_id = models.CharField(max_length=100)  # Discord thread ID
-    binge = models.ForeignKey(Binge, on_delete=models.CASCADE)
-    integration = models.ForeignKey('Integration', on_delete=models.CASCADE)
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_updated = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ['thread_id', 'integration']
-
-    def __str__(self):
-        return f"{self.thread_id} - {self.integration.guru_type.slug}"
-
-
-class WidgetId(models.Model):
-    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE, related_name='widget_ids')
-    key = models.CharField(max_length=100, unique=True)
-    domain_url = models.URLField(max_length=2000)
-    domain = models.URLField(max_length=2000)  # New field to store the base domain
-    is_wildcard = models.BooleanField(default=False)  # Flag to indicate if this is a wildcard pattern
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_updated = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = 'Widget ID'
-        verbose_name_plural = 'Widget IDs'
-        unique_together = ['guru_type', 'domain_url']
-
-    def __str__(self):
-        return f"{self.guru_type.slug} - {self.domain_url}"
-
-    def clean(self):
-        if self.domain_url:
-            # Remove trailing slashes and normalize domain
-            self.domain_url = self.domain_url.rstrip('/')
-            
-            # Check if this is a wildcard pattern
-            self.is_wildcard = '*' in self.domain_url
-            
-            # For non-wildcard URLs, extract and store the domain
-            if not self.is_wildcard:
-                parsed_url = urlparse(self.domain_url)
-                self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}"
-            else:
-                # For wildcard patterns, store the pattern as is
-                self.domain = self.domain_url
-
-        # Ensure domain is unique per guru type if specified
-        if self.domain_url and WidgetId.objects.filter(
-            guru_type=self.guru_type,
-            domain_url=self.domain_url,
-        ).exclude(id=self.id).exists():
-            raise ValidationError('This domain is already registered for this guru type')
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
-
-    @classmethod
-    def validate_key(cls, widget_id):
-        """
-        Validates if a widget ID exists
-        Returns the WidgetId object if valid, None otherwise.
-        """
-        try:
-            return cls.objects.get(key=widget_id)
-        except cls.DoesNotExist:
-            return None
-            
-    @classmethod
-    def domain_matches_pattern(cls, domain, pattern):
-        """
-        Check if a domain matches a wildcard pattern.
-        
-        Supports patterns like:
-        * - Match any domain
-        http://localhost:* - Match localhost with any port
-        https://*.example.com - Match any subdomain of example.com
-        *example.com - Match any domain ending with example.com
-        example* - Match any domain starting with example
-        *example* - Match any domain containing example
-        
-        Matching is case insensitive.
-        """
-        import re
-        
-        # Convert both domain and pattern to lowercase for case-insensitive matching
-        if domain:
-            domain = domain.lower()
-        if pattern:
-            pattern = pattern.lower()
-        else:
-            return False
-            
-        # Exact match
-        if domain == pattern:
-            return True
-            
-        # Universal wildcard
-        if pattern == '*':
-            return True
-            
-        # Convert wildcard pattern to regex pattern
-        # Replace * with appropriate regex
-        regex_pattern = pattern.replace('.', r'\.').replace('*', '.*')
-        
-        # Add start/end anchors if not already wildcarded
-        if not pattern.startswith('*'):
-            regex_pattern = '^' + regex_pattern
-        if not pattern.endswith('*'):
-            regex_pattern = regex_pattern + '$'
-            
-        # Try to match using regex
-        try:
-            return bool(re.match(regex_pattern, domain))
-        except re.error:
-            # If regex fails, fall back to simpler checks
-            
-            # Port wildcard (e.g., http://localhost:*)
-            if pattern.endswith(':*'):
-                base_pattern = pattern[:-2]  # Remove :* from the end
-                return domain.startswith(base_pattern)
-                
-            # Subdomain wildcard (e.g., https://*.example.com)
-            if '*.' in pattern:
-                prefix, suffix = pattern.split('*.', 1)
-                return domain.endswith(suffix) and domain.startswith(prefix)
-                
-            # Contains wildcard
-            if '*' in pattern:
-                parts = pattern.split('*')
-                return all(part in domain for part in parts if part)
-                
-            return False
-
-
 class GithubFile(models.Model):
     data_source = models.ForeignKey(
         DataSource,
@@ -2023,107 +1901,6 @@ class APIKey(models.Model):
             return cls.objects.get(key=api_key)
         except cls.DoesNotExist:
             return None
-
-
-class Integration(models.Model):
-    class Type(models.TextChoices):
-        DISCORD = "DISCORD"
-        SLACK = "SLACK"
-        GITHUB = "GITHUB"
-        JIRA = "JIRA"
-        ZENDESK = "ZENDESK"
-        CONFLUENCE = "CONFLUENCE"
-
-    type = models.CharField(
-        max_length=50,
-        choices=[(tag.value, tag.value) for tag in Type],
-        default=Type.DISCORD.value,
-    )
-
-    workspace_name = models.TextField(null=True, blank=True)
-    external_id = models.TextField()
-    guru_type = models.ForeignKey(GuruType, on_delete=models.CASCADE)
-    code = models.TextField(null=True, blank=True)
-    api_key = models.OneToOneField(APIKey, on_delete=models.SET_NULL, null=True, blank=True, related_name='integration_owner')
-    access_token = models.TextField()
-    refresh_token = models.TextField(null=True, blank=True)
-    channels = models.JSONField(default=list, blank=True, null=False)
-    github_private_key = models.TextField(null=True, blank=True)
-    github_client_id = models.TextField(null=True, blank=True)
-    github_secret = models.TextField(null=True, blank=True)
-    github_bot_name = models.TextField(null=True, blank=True)
-    github_html_url = models.TextField(null=True, blank=True)
-
-    jira_api_key = models.TextField(null=True, blank=True)
-    jira_user_email = models.TextField(null=True, blank=True)
-    jira_domain = models.TextField(null=True, blank=True)
-
-    confluence_api_token = models.TextField(null=True, blank=True)
-    confluence_user_email = models.TextField(null=True, blank=True)
-    confluence_domain = models.TextField(null=True, blank=True)
-
-    zendesk_domain = models.TextField(null=True, blank=True)
-    zendesk_api_token = models.TextField(null=True, blank=True)
-    zendesk_user_email = models.TextField(null=True, blank=True)
-
-    allow_dm = models.BooleanField(default=False)
-
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_updated = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.type} - {self.guru_type.name}"
-
-    @property
-    def masked_access_token(self):
-        if settings.ENV == 'selfhosted':
-            if self.access_token:
-                return self.access_token[:10] + ('*' * len(self.access_token[10:]))
-            else:
-                return None
-        return None
-
-    @property
-    def masked_github_client_id(self):
-        if settings.ENV == 'selfhosted':
-            if self.github_client_id:
-                return self.github_client_id[:3] + ('*' * len(self.github_client_id[3:-3])) + self.github_client_id[-3:]
-            else:
-                return None
-        return None
-
-    @property
-    def masked_github_secret(self):
-        if settings.ENV == 'selfhosted':
-            if self.github_secret:
-                return self.github_secret[:3] + ('*' * len(self.github_secret[3:-3])) + self.github_secret[-3:]
-            else:
-                return None
-        return None
-
-    @property
-    def masked_jira_api_key(self):
-        if self.jira_api_key:
-            return self.jira_api_key[:3] + ('*' * len(self.jira_api_key[3:-3])) + self.jira_api_key[-3:]
-        else:
-            return None
-        
-    @property
-    def masked_zendesk_api_token(self):
-        if self.zendesk_api_token:
-            return self.zendesk_api_token[:3] + ('*' * len(self.zendesk_api_token[3:-3])) + self.zendesk_api_token[-3:]
-        else:
-            return None
-
-    @property
-    def masked_confluence_api_token(self):
-        if self.confluence_api_token:
-            return self.confluence_api_token[:3] + ('*' * len(self.confluence_api_token[3:-3])) + self.confluence_api_token[-3:]
-        else:
-            return None
-
-    class Meta:
-        unique_together = ['type', 'guru_type']
 
 
 class CrawlState(models.Model):

@@ -1,8 +1,12 @@
 import logging
+import time
 from django.conf import settings
 import requests
 
-from core.integrations.strategy import IntegrationStrategy
+from core.exceptions import ThrottleError
+from integrations.bots.models import BotContext
+from integrations.strategy import IntegrationContextHandler, IntegrationStrategy
+from .app_handler import SlackAppHandler
 
 logger = logging.getLogger(__name__)
 
@@ -29,41 +33,81 @@ class SlackStrategy(IntegrationStrategy):
             integration = self.get_integration()
             channels = []
             cursor = None
-            
+
+            max_retries = 3
+            base_delay = 1
+
             while True:
                 params = {
-                    'limit': 100,
+                    'limit': 200,
                     'types': 'public_channel,private_channel',  # Include both public and private channels
                     'exclude_archived': True
                 }
                 if cursor:
                     params['cursor'] = cursor
-                    
-                response = requests.get(
-                    'https://slack.com/api/conversations.list',
-                    headers={'Authorization': f"Bearer {integration.access_token}"},
-                    params=params
-                )
-                response.raise_for_status()
-                data = response.json()
                 
-                if not data.get('ok', False):
-                    logger.error(f"Slack API error: {data}")
-                    raise ValueError(f"Slack API error: {data.get('error')}")
-                    
+                retry_count = 0
+                data = None
+                while retry_count < max_retries:
+                    try:
+                        response = requests.get(
+                            'https://slack.com/api/conversations.list',
+                            headers={'Authorization': f"Bearer {integration.access_token}"},
+                            params=params
+                        )
+                        
+                        # Check for rate limiting
+                        if response.status_code in [429, 503]:
+                            retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                            logger.warning(f"Rate limited by Slack API. Waiting {retry_after} seconds before retry.")
+                            time.sleep(retry_after)
+                            retry_count += 1
+                            continue
+                            
+                        response.raise_for_status()
+                        data = response.json()
+                        
+                        if not data.get('ok', False):
+                            error = data.get('error')
+                            if error == 'ratelimited':
+                                retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** retry_count)))
+                                logger.warning(f"Rate limited by Slack API. Waiting {retry_after} seconds before retry.")
+                                time.sleep(retry_after)
+                                retry_count += 1
+                                continue
+                            else:
+                                logger.error(f"Slack API error: {data}")
+                                raise ValueError(f"Slack API error: {error}")
+                        
+                        # If we get here, the request was successful
+                        break
+                        
+                    except requests.exceptions.RequestException as e:
+                        if retry_count == max_retries - 1:
+                            raise
+                        retry_count += 1
+                        time.sleep(base_delay * (2 ** retry_count))
+                        continue
+
+                if not data:
+                    raise ThrottleError("Slack API rate limit exceeded. Too many requests.")
+                
                 channels.extend([
                     {
                         'id': c['id'],
                         'name': c['name'],
                         'allowed': False,
+                        'mode': 'manual',
                         'direct_messages': False
                     }
                     for c in data.get('channels', [])
                 ])
-                
+            
                 cursor = data.get('response_metadata', {}).get('next_cursor')
                 if not cursor:
                     break
+
+                time.sleep(3)
                     
             return sorted(channels, key=lambda x: x['name'])
 
@@ -130,3 +174,35 @@ class SlackStrategy(IntegrationStrategy):
             'workspace_name': data['team']
         }
 
+
+class SlackContextHandler(IntegrationContextHandler):
+    """Handler for Slack integration context."""
+    
+    def get_context(self, api_url: str, external_id: str) -> BotContext:
+        try:
+            # Get channel_id and thread_ts from api_url
+            # api_url format: channel_id:thread_ts
+            channel_id, thread_ts = api_url.split(':')
+            
+            # Initialize Slack app handler
+            slack_handler = SlackAppHandler(self.integration)
+            
+            # First get thread messages if in a thread
+            if thread_ts:
+                thread_messages = slack_handler.get_thread_messages(channel_id, thread_ts)
+            
+            # # If we haven't exceeded the limit, get channel messages
+            # length = sum(len(msg) for msg in thread_messages)
+            # if length < settings.GITHUB_CONTEXT_CHAR_LIMIT:  # If we got less than char limit
+            #     channel_messages = slack_handler.get_channel_messages(channel_id, max_length=settings.GITHUB_CONTEXT_CHAR_LIMIT - length)
+            # else:
+            #     channel_messages = []
+            
+            return BotContext(
+                type=BotContext.Type.SLACK,
+                data={'thread_messages': list(reversed(thread_messages))}
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting Slack context: {e}", exc_info=True)
+            return None

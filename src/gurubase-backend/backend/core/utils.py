@@ -16,11 +16,12 @@ from django.db.models.functions import Lower
 from openai import OpenAI
 from django.conf import settings
 import requests
+from integrations.bots.models import BotContext
 from core.milvus_utils import search_for_closest
 from core.guru_types import get_guru_type_object, get_guru_type_prompt_map, get_guru_type_names
 from core import exceptions
 from pymilvus import MilvusClient
-from core.models import GithubFile, GuruType, Question, OutOfContextQuestion, Summarization, Settings, SummaryQuestionGeneration
+from core.models import GuruType, Question, OutOfContextQuestion, Summarization, Settings, SummaryQuestionGeneration
 import json
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -36,7 +37,7 @@ from core.models import DataSource, Binge
 from accounts.models import User
 from dataclasses import dataclass
 from typing import List, Optional, Generator, Union
-from django.db.models import Model, Q
+from django.db.models import Q
 from django.core.cache import caches
 import hashlib
 import pickle
@@ -304,7 +305,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': context['entity']['metadata']['link']
             }
@@ -325,7 +326,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': context['entity']['metadata']['link']
             }
@@ -356,7 +357,7 @@ def prepare_contexts(contexts, reranked_scores):
             
             formatted_contexts.append('\n'.join(context_parts))
 
-            references[context['entity']['metadata']['title']] = {
+            references[context['entity']['metadata']['link']] = {
                 'question': context['entity']['metadata']['title'],
                 'link': link
             }
@@ -1011,6 +1012,7 @@ def vector_db_fetch(
         context_data = []
         for i, ctx in enumerate(context_relevance['contexts']):
             ctx['context'] = formatted_contexts[i]
+            ctx['link'] = contexts[i]['entity']['metadata'].get('link')
             # Filter using the final calculated threshold
             if ctx['score'] >= final_threshold:
                 context_data.append((contexts[i], reranked_scores[i], ctx['score']))
@@ -1231,33 +1233,78 @@ def create_custom_guru_type_slug(name):
     return slug
 
 
-def get_github_details_if_applicable(guru_type_obj):
-    response = ""
-    if guru_type_obj and guru_type_obj.github_details:
+def get_github_details_if_applicable(guru_type, context_links=None, processed_ctx_relevances=None):
+    # Get GitHub details from data sources referenced in the context links
+    if not context_links or not processed_ctx_relevances:
+        return ""
+    
+    # Extract all GitHub links from context links that were kept after relevance filtering
+    github_links = []
+    kept_links = set()
+    
+    # Get the links that were kept after relevance filtering
+    if processed_ctx_relevances and 'kept' in processed_ctx_relevances:
+        for kept_item in processed_ctx_relevances['kept']:
+            kept_links.add(kept_item['link'])
+    
+    # If we don't have kept links, return empty string
+    if not kept_links and context_links:
+        return ""
+    else:
+        # Only include links that were kept
+        for link in context_links:
+            if 'link' in link and link['link'] and link['link'] in kept_links and 'github.com' in link['link']:
+                github_links.append(link['link'])
+    
+    if not github_links:
+        return ""
+    
+    # Get all GitHub files that match these links in a single query
+    from core.models import GithubFile, DataSource
+    github_files = GithubFile.objects.filter(
+        link__in=github_links,
+        data_source__guru_type__slug=guru_type
+    ).select_related('data_source')
+    
+    # If no files found directly, return empty string
+    if not github_files.exists():
+        return ""
+    else:
+        # Extract unique data sources from GitHub files
+        data_sources = {github_file.data_source for github_file in github_files}
+    
+    # Extract GitHub details from data sources
+    repos_details = []
+    for data_source in data_sources:
         try:
-            simplified_github_details = {}
-            github_details = guru_type_obj.github_details
-            simplified_github_details['name'] = github_details.get('name', '')
-            simplified_github_details['description'] = github_details.get('description', '')
-            simplified_github_details['topics'] = github_details.get('topics', [])
-            simplified_github_details['language'] = github_details.get('language', '')
-            simplified_github_details['size'] = github_details.get('size', 0)
-            simplified_github_details['homepage'] = github_details.get('homepage', '')
-            simplified_github_details['stargazers_count'] = github_details.get('stargazers_count', 0)
-            simplified_github_details['forks_count'] = github_details.get('forks_count', 0)
-            # Handle null license case
-            license_info = github_details.get('license')
-            simplified_github_details['license_name'] = license_info.get('name', '') if license_info else ''
-            simplified_github_details['open_issues_count'] = github_details.get('open_issues_count', 0)
-            simplified_github_details['pushed_at'] = github_details.get('pushed_at', '')
-            simplified_github_details['created_at'] = github_details.get('created_at', '')
-            owner = github_details.get('owner', {})
-            simplified_github_details['owner_login'] = owner.get('login', '')
-            response = f"Here is the GitHub details for {guru_type_obj.name}: {simplified_github_details}"
+            if data_source.github_details:
+                github_details = data_source.github_details
+                simplified_github_details = {
+                    'name': github_details.get('name', ''),
+                    'description': github_details.get('description', ''),
+                    'topics': github_details.get('topics', []),
+                    'language': github_details.get('language', ''),
+                    'size': github_details.get('size', 0),
+                    'homepage': github_details.get('homepage', ''),
+                    'stargazers_count': github_details.get('stargazers_count', 0),
+                    'forks_count': github_details.get('forks_count', 0),
+                    'license_name': github_details.get('license', {}).get('name', '') if github_details.get('license') else '',
+                    'open_issues_count': github_details.get('open_issues_count', 0),
+                    'pushed_at': github_details.get('pushed_at', ''),
+                    'created_at': github_details.get('created_at', ''),
+                    'owner_login': github_details.get('owner', {}).get('login', ''),
+                    'repo_url': data_source.url
+                }
+                repos_details.append(simplified_github_details)
         except Exception as e:
-            logger.error(f"Error while processing GitHub details for guru type {guru_type_obj.name}: {str(e)}")
-            response = ""
-    return response
+            logger.error(f"Error while processing GitHub details for data source {data_source.id}: {str(e)}")
+    
+    if repos_details:
+        guru_type_obj = get_guru_type_object(guru_type)
+        guru_type_name = guru_type_obj.name if guru_type_obj else guru_type
+        return f"Here are the GitHub details for repositories related to {guru_type_name}: {repos_details}"
+    
+    return ""
 
 
 def format_history_for_prompt(history):
@@ -1329,9 +1376,11 @@ def ask_question_with_stream(
     source,
     enhanced_question,
     user=None,
-    github_comments: list | None = None):
-    from core.prompts import github_context_template
-    from core.github.app_handler import GithubAppHandler
+    bot_context: BotContext | None = None):
+    from integrations.bots.github.prompts import github_context_template
+    from integrations.bots.github.app_handler import GithubAppHandler
+    from integrations.bots.slack.prompts import slack_context_template
+    from integrations.bots.discord.prompts import discord_context_template
 
     start_total = time.perf_counter()
     times = {
@@ -1348,10 +1397,19 @@ def ask_question_with_stream(
     times['get_contexts'] = get_contexts_times
     times['get_contexts']['total'] = time.perf_counter() - start_get_contexts
 
-    github_context = ""
-    if github_comments:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
+    bot_context_prompt = ""
+    if bot_context:
+        if bot_context.type == BotContext.Type.GITHUB:
+            comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
+            bot_context_prompt = github_context_template.format(github_comments=comment_contexts, guru_type=guru_type_obj.name)
+        elif bot_context.type == BotContext.Type.SLACK:
+            thread_messages = ''.join(bot_context.data['thread_messages'])
+            # channel_messages = ''.join(bot_context.data['channel_messages'])
+            bot_context_prompt = slack_context_template.format(thread_messages=thread_messages)
+        elif bot_context.type == BotContext.Type.DISCORD:
+            thread_messages = ''.join(bot_context.data['thread_messages'])
+            # channel_messages = ''.join(bot_context.data['channel_messages'])
+            bot_context_prompt = discord_context_template.format(thread_messages=thread_messages)
 
     if not reranked_scores:
         OutOfContextQuestion.objects.create(
@@ -1362,13 +1420,15 @@ def ask_question_with_stream(
             trust_score_threshold=default_settings.trust_score_threshold,  # No need to use the dynamic trust score. Because we haven't found any valid contexts to update the trust score.
             processed_ctx_relevances=processed_ctx_relevances, 
             source=source,
-            enhanced_question=enhanced_question
+            enhanced_question=enhanced_question,
+            bot_context=bot_context_prompt
         )
 
         times['total'] = time.perf_counter() - start_total
         return None, None, None, None, None, None, None, None, None, times
 
-    simplified_github_details = get_github_details_if_applicable(guru_type_obj)
+    # Get GitHub details from data sources referenced in the context links
+    simplified_github_details = get_github_details_if_applicable(guru_type_obj.slug, links, processed_ctx_relevances)
 
     guru_variables = guru_type_obj.prompt_map
     guru_variables['streaming_type']='streaming'
@@ -1376,7 +1436,7 @@ def ask_question_with_stream(
     guru_variables['user_intent'] = user_intent
     guru_variables['answer_length'] = answer_length
     guru_variables['github_details_if_applicable'] = simplified_github_details
-    guru_variables['github_context'] = github_context
+    guru_variables['bot_context'] = bot_context_prompt
 
     start_history = time.perf_counter()
     history = get_question_history(parent_question)
@@ -1398,7 +1458,7 @@ def ask_question_with_stream(
 
     return response, used_prompt, links, context_vals, context_distances, reranked_scores, trust_score, processed_ctx_relevances, ctx_rel_usage, times
 
-def get_summary(question, guru_type, short_answer=False, github_comments: list | None = None, parent_question: Question | None = None):
+def get_summary(question, guru_type, short_answer=False, bot_context: BotContext | None = None, parent_question: Question | None = None):
     times = {
         'total': 0,
         'prompt_prep': 0,
@@ -1406,8 +1466,11 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     }
     start_total = time.perf_counter()
     start_prompt_prep = time.perf_counter()
-    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, github_summary_template, binge_summary_prompt
-    from core.github.app_handler import GithubAppHandler
+    from core.prompts import summary_template, summary_short_answer_addition, summary_addition, binge_summary_prompt
+    from integrations.bots.github.prompts import github_summary_template
+    from integrations.bots.github.app_handler import GithubAppHandler
+    from integrations.bots.slack.prompts import slack_summary_template
+    from integrations.bots.discord.prompts import discord_summary_template
     context_variables = get_guru_type_prompt_map(guru_type)
     context_variables['date'] = datetime.now().strftime("%Y-%m-%d")
     default_settings = get_default_settings()
@@ -1417,10 +1480,19 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     else:
         summary_addition = summary_addition
 
-    github_context = ""
-    if github_comments:
-        comment_contexts = GithubAppHandler().format_comments_for_prompt(github_comments)
-        github_context = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
+    bot_context_prompt = ""
+    if bot_context:
+        if bot_context.type == BotContext.Type.GITHUB:
+            comment_contexts = GithubAppHandler().format_comments_for_prompt(bot_context.data['comments'])
+            bot_context_prompt = github_summary_template.format(github_comments=comment_contexts, guru_type=guru_type)
+        elif bot_context.type == BotContext.Type.SLACK:
+            thread_messages = bot_context.data['thread_messages']
+            # channel_messages = bot_context.data['channel_messages']
+            bot_context_prompt = slack_summary_template.format(thread_messages=thread_messages, guru_type=guru_type)
+        elif bot_context.type == BotContext.Type.DISCORD:
+            thread_messages = bot_context.data['thread_messages']
+            # channel_messages = bot_context.data['channel_messages']
+            bot_context_prompt = discord_summary_template.format(thread_messages=thread_messages, guru_type=guru_type)
 
     if parent_question:
         history = get_question_history(parent_question)
@@ -1436,7 +1508,7 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     prompt = summary_template.format(
         **context_variables, 
         summary_addition=summary_addition,
-        github_context=github_context,
+        bot_context=bot_context_prompt,
         binge_summary_prompt=binge_summary_prompt,
         user_question=question
     )
@@ -1461,13 +1533,13 @@ def get_summary(question, guru_type, short_answer=False, github_comments: list |
     return response, times
 
 
-def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, github_comments: list | None = None, parent_question: Question | None = None):
+def get_question_summary(question: str, guru_type: str, binge: Binge, short_answer: bool = False, integration_context: BotContext | None = None, parent_question: Question | None = None):
     times = {
         'total': 0,
     }
     start_total = time.perf_counter()
 
-    response, get_summary_times = get_summary(question, guru_type, short_answer, github_comments, parent_question)
+    response, get_summary_times = get_summary(question, guru_type, short_answer, integration_context, parent_question)
     times['get_summary'] = get_summary_times
 
     start_parse_summary_response = time.perf_counter()
@@ -1491,7 +1563,7 @@ def stream_question_answer(
         enhanced_question,
         parent_question=None,
         user=None,
-        github_comments: list | None = None
+        integration_context: BotContext | None = None
     ):
     collection_name = guru_type_obj.milvus_collection_name
     milvus_client = get_milvus_client()
@@ -1508,7 +1580,7 @@ def stream_question_answer(
         source,
         enhanced_question,
         user,
-        github_comments
+        integration_context
     )
     if not response:
         return None, None, None, None, None, None, None, None, None, times
@@ -2080,7 +2152,7 @@ def lighten_color(hex_color):
     # Convert to 6-digit hex and return
     return '#{:02x}{:02x}{:02x}'.format(*lightened_rgb)
 
-def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, stackoverflow_tag, stackoverflow_source, github_repos, maintainer=None):
+def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, stackoverflow_tag, stackoverflow_source, maintainer=None):
     base_color = get_dominant_color(icon_url)
     light_color = lighten_color(base_color)
     colors = {"base_color": base_color, "light_color": light_color}
@@ -2097,7 +2169,6 @@ def create_guru_type_object(slug, name, intro_text, domain_knowledge, icon_url, 
         ogimage_url=ogimage_url,
         stackoverflow_tag=stackoverflow_tag,
         stackoverflow_source=stackoverflow_source,
-        github_repos=github_repos,
         active=active
     )
     if maintainer:
@@ -3211,7 +3282,7 @@ def api_ask(question: str,
             fetch_existing: bool, 
             api_type: APIType, 
             user: User | None,
-            github_comments: list | None = None) -> APIAskResponse:
+            integration_context: BotContext | None = None) -> APIAskResponse:
     """
     API ask endpoint.
     It either returns the existing answer or streams the new one
@@ -3224,7 +3295,7 @@ def api_ask(question: str,
         fetch_existing (bool): Whether to fetch the existing question data.
         api_type (APIType): The type of API call (WIDGET, API, DISCORD, SLACK, GITHUB).
         user (User): The user making the request.
-        github_comments (list): The comments for the GitHub issue.
+        integration_context (BotContext): The context for the integration (if exists).
 
     Returns:
         APIAskResponse: A dataclass containing all response information
@@ -3258,10 +3329,10 @@ def api_ask(question: str,
             logger.info(f"Found existing question with slug for {question} in guru type {guru_type.slug}")
             return APIAskResponse.from_existing(existing_question)
 
-    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, github_comments=github_comments, parent_question=parent)
+    summary_data, summary_times = get_question_summary(question, guru_type.slug, binge, short_answer=short_answer, integration_context=integration_context, parent_question=parent)
     
     if 'valid_question' not in summary_data or not summary_data['valid_question']:
-        if guru_type.language == GuruType.Language.TURKISH:
+        if guru_type.language.iso_code == 'tr':
             msg = f"Bu soru {guru_type.name} ile ilgili değildir."
         else:
             msg = f"This question is not related to {guru_type.name}."
@@ -3300,11 +3371,11 @@ def api_ask(question: str,
             enhanced_question,
             parent,
             user,
-            github_comments
+            integration_context
         )
 
         if not response:
-            if guru_type.language == GuruType.Language.TURKISH:
+            if guru_type.language.iso_code == 'tr':
                 msg = f"{guru_type.name} Guru bu soru için yeterli veriye sahip değildir."
             else:
                 msg = f"{guru_type.name} Guru doesn't have enough data as a source to generate a reliable answer for this question."
@@ -3341,7 +3412,7 @@ def api_ask(question: str,
         )
     except Exception as e:
         logger.error(f"Error in api_ask: {str(e)}", exc_info=True)
-        if guru_type.language == GuruType.Language.TURKISH:
+        if guru_type.language.iso_code == 'tr':
             msg = "Soruyu yanıtlayamadık. Lütfen daha sonra tekrar deneyiniz."
         else:
             msg = "There was an error in the stream. We are investigating the issue. Please try again later."

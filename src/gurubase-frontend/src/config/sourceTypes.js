@@ -7,6 +7,7 @@ import {
 
 import {
   ConfluenceIcon,
+  GitHubIcon,
   ExcelIcon,
   JiraIcon,
   LogosYoutubeIcon,
@@ -34,7 +35,8 @@ const baseSourceTypesConfig = {
     canReindex: true, // Can this source type be reindexed?
     canEdit: true, // Can this source type be edited (open sidebar)?
     requiresIntegrationCheck: false, // Does adding require an integration check?
-    filterValue: "website" // Value used in the filter dropdown
+    filterValue: "website", // Value used in the filter dropdown
+    willGroup: true // Group by domain
   },
   EXCEL: {
     id: "excel",
@@ -66,7 +68,8 @@ const baseSourceTypesConfig = {
     canReindex: false,
     canEdit: true,
     requiresIntegrationCheck: false,
-    filterValue: "youtube"
+    filterValue: "youtube",
+    willGroup: true // Group by domain
   },
   PDF: {
     id: "pdf",
@@ -83,7 +86,24 @@ const baseSourceTypesConfig = {
     requiresIntegrationCheck: false,
     hasPrivacyToggle: true, // Specific to PDF
     actionHandlerName: "onUploadPdfClick", // Specific handler for PDF upload trigger
+    willGroup: false, // Do not group PDFs
     filterValue: "pdf"
+  },
+  GITHUB: {
+    id: "github_repo",
+    apiType: "GITHUB_REPO",
+    displayName: "GitHub",
+    displaySourceText: "GitHub",
+    icon: GitHubIcon,
+    actionButtonIcon: GitHubIcon,
+    actionButtonText: "GitHub",
+    sidebarStateSetterName: "setIsGithubSidebarOpen",
+    formField: "githubRepos",
+    canReindex: true,
+    canEdit: false,
+    requiresIntegrationCheck: false,
+    filterValue: "github_repo",
+    willGroup: false // Do not group GitHub repos
   }
 };
 
@@ -105,7 +125,8 @@ if (isBetaFeaturesEnabled) {
     integrationCheckProp: "jiraIntegration", // Prop name in parent for integration status
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowJiraIntegrationModal", // State setter for the integration modal
-    filterValue: "jira"
+    filterValue: "jira",
+    willGroup: true // Group Jira issues by domain (project?)
   };
 
   baseSourceTypesConfig.CONFLUENCE = {
@@ -124,7 +145,8 @@ if (isBetaFeaturesEnabled) {
     integrationCheckProp: "confluenceIntegration",
     integrationLoadingProp: "isLoadingConfluenceIntegration",
     integrationModalSetterName: "setShowConfluenceIntegrationModal",
-    filterValue: "confluence"
+    filterValue: "confluence",
+    willGroup: true // Group Confluence pages by domain
   };
 
   baseSourceTypesConfig.ZENDESK = {
@@ -143,7 +165,8 @@ if (isBetaFeaturesEnabled) {
     integrationCheckProp: "zendeskIntegration", // Prop name for integration status
     integrationLoadingProp: "isLoadingIntegration", // Prop name for loading status
     integrationModalSetterName: "setShowZendeskIntegrationModal", // State setter for the integration modal
-    filterValue: "zendesk"
+    filterValue: "zendesk",
+    willGroup: true // Group Zendesk tickets by domain
   };
 }
 

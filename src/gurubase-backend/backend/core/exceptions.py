@@ -128,3 +128,7 @@ class ConfluenceContentExtractionError(Exception):
 class ExcelContentExtractionError(Exception):
     """Exception raised for Excel content extraction errors."""
     pass
+
+class ThrottleError(Exception):
+    """Exception raised for throttling errors."""
+    pass

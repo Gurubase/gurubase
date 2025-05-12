@@ -9,12 +9,13 @@ from celery import shared_task
 from django.db import models
 import redis
 import requests
-from core.exceptions import WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
+from integrations.models import Integration
+from core.exceptions import ThrottleError, WebsiteContentExtractionThrottleError, GithubInvalidRepoError, GithubRepoSizeLimitError, GithubRepoFileCountLimitError, YouTubeContentExtractionError
 from core import milvus_utils
 from core.data_sources import fetch_data_source_content, get_internal_links, process_website_data_sources_batch
 from core.requester import FirecrawlScraper, GuruRequester, OpenAIRequester, get_web_scraper
-from core.guru_types import get_guru_type_names, get_guru_type_object, get_guru_type_object_without_filters
-from core.models import DataSource, Favicon, GuruType, Integration, LLMEval, LinkReference, LinkValidity, Question, Settings, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
+from core.guru_types import get_guru_type_names, get_guru_type_object_without_filters
+from core.models import DataSource, Favicon, GuruType, LLMEval, LinkReference, LinkValidity, Question, Settings, Summarization, SummaryQuestionGeneration, LLMEvalResult, GuruType, GithubFile, CrawlState
 from core.utils import finalize_data_source_summarizations, embed_texts, generate_questions_from_summary, get_default_embedding_dimensions, get_links, get_llm_usage, get_milvus_client, get_more_seo_friendly_title, get_most_similar_questions, guru_type_has_enough_generated_questions, create_guru_type_summarization, simulate_summary_and_answer, validate_guru_type, vector_db_fetch, with_redis_lock, generate_og_image, get_default_settings, send_question_request_for_cloudflare_cache, send_guru_type_request_for_cloudflare_cache, get_embedding_model_config
 from django.conf import settings
 import time
@@ -167,7 +168,7 @@ def process_guru_type_data_sources(guru_type_slug, is_github=False, countdown=0)
             else:
                 data_source = fetch_data_source_content(None, data_source, language_code)
             data_source.status = DataSource.Status.SUCCESS
-        except WebsiteContentExtractionThrottleError as e:
+        except (WebsiteContentExtractionThrottleError, ThrottleError) as e:
             logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
             data_source.status = DataSource.Status.NOT_PROCESSED
             data_source.error = str(e)
@@ -743,10 +744,10 @@ def send_request_to_questions_for_cloudflare_cache():
 )
 def update_github_details():
     """
-    Updates GitHub details for guru types that haven't been updated in the last 24 hours.
-    Processes at most 200 guru types per hour to avoid overwhelming the GitHub API.
+    Updates GitHub details for data sources of type GITHUB_REPO that haven't been updated in the last 24 hours.
+    Processes at most 200 data sources per hour to avoid overwhelming the GitHub API.
     """
-    logger.info("Updating GitHub details for guru types")
+    logger.info("Updating GitHub details for GitHub repository data sources")
     
     from core.requester import GitHubRequester
     from django.utils import timezone
@@ -754,48 +755,91 @@ def update_github_details():
     
     github_requester = GitHubRequester()
     
-    # Get guru types that haven't been updated in the last 24 hours
+    # Get data sources that haven't been updated in the last 24 hours
     # Order by github_details_updated_date to prioritize oldest updates
     cutoff_time = timezone.now() - timedelta(days=1)
-    guru_types = GuruType.objects.filter(
+    data_sources = DataSource.objects.filter(
         models.Q(github_details_updated_date__isnull=True) | 
         models.Q(github_details_updated_date__lt=cutoff_time),
-        github_repos__isnull=False,
-        github_repos__len__gt=0,  # Has at least one repo
-        active=True
+        type=DataSource.Type.GITHUB_REPO,
+        status=DataSource.Status.SUCCESS
     ).order_by('github_details_updated_date')[:200]
-    logger.info(f'Guru types to update: {guru_types.count()} with cutoff time: {cutoff_time}')
+    logger.info(f'GitHub repos to update: {data_sources.count()} with cutoff time: {cutoff_time}')
     
     updated_count = 0
-    for guru_type in guru_types:
+    for data_source in data_sources:
         try:
-            # Get details for all repos
-            all_details = []
-            for repo_url in guru_type.github_repos:
-                try:
-                    details = github_requester.get_github_repo_details(repo_url)
-                    all_details.append(details)
-                except Exception as e:
-                    logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
-                    continue
-            
-            if all_details:  # Only update if we got at least one repo's details
-                guru_type.github_details = all_details
-                guru_type.github_details_updated_date = timezone.now()
-                guru_type.save()
-                updated_count += 1
-                logger.info(f'Updated GitHub details for {guru_type.slug}')
+            # Get details for the repo
+            repo_url = data_source.url
+            try:
+                details = github_requester.get_github_repo_details(repo_url)
+                
+                if details:
+                    # Store github details in a custom field
+                    data_source.github_details = details
+                    data_source.github_details_updated_date = timezone.now()
+                    data_source.save()
+                    updated_count += 1
+                    logger.info(f'Updated GitHub details for {repo_url}')
+            except Exception as e:
+                logger.error(f"Error getting GitHub details for {repo_url}: {traceback.format_exc()}")
+                # Still update the timestamp to avoid repeatedly trying failed updates
+                data_source.github_details_updated_date = timezone.now()
+                data_source.save()
+                continue
+                
         except Exception as e:
-            logger.error(f"Error updating GitHub details for {guru_type.slug}: {traceback.format_exc()}")
-            # Still update the timestamp to avoid repeatedly trying failed updates
-            guru_type.github_details_updated_date = timezone.now()
-            guru_type.save()
+            logger.error(f"Error updating GitHub details for data source {data_source.id}: {traceback.format_exc()}")
             continue
             
-    logger.info(f'Updated GitHub details for {updated_count} guru types')
+    logger.info(f'Updated GitHub details for {updated_count} GitHub repositories')
 
 @shared_task
-def update_github_repositories(successful_repos=True):
+@with_redis_lock(
+    redis_client,
+    'update_guru_type_sitemap_status_lock',
+    1800
+)
+def update_guru_type_sitemap_status():
+    """
+    Updates has_sitemap_added_questions field for all GuruTypes based on whether they have
+    any questions with add_to_sitemap=True. Uses efficient batch processing to handle large datasets.
+    """
+    logger.info("Updating GuruType sitemap status")
+    
+    # Create a subquery to check for questions with add_to_sitemap=True
+    questions_subquery = Question.objects.filter(
+        guru_type=OuterRef('pk'),
+        add_to_sitemap=True
+    )
+    
+    # Annotate GuruTypes with whether they have sitemap questions
+    guru_types = GuruType.objects.annotate(
+        has_sitemap_questions=Exists(questions_subquery)
+    )
+    
+    # Prepare bulk updates
+    to_update = []
+    batch_size = 1000
+    
+    for guru_type in guru_types.iterator(chunk_size=100):
+        if guru_type.has_sitemap_added_questions != guru_type.has_sitemap_questions:
+            guru_type.has_sitemap_added_questions = guru_type.has_sitemap_questions
+            to_update.append(guru_type)
+            
+            # Process in batches to avoid memory issues
+            if len(to_update) >= batch_size:
+                GuruType.objects.bulk_update(to_update, ['has_sitemap_added_questions'])
+                to_update = []
+    
+    # Update any remaining records
+    if to_update:
+        GuruType.objects.bulk_update(to_update, ['has_sitemap_added_questions'])
+    
+    logger.info("Completed updating GuruType sitemap status")
+
+@shared_task
+def update_github_repositories(successful_repos=True, guru_type_slug=None, repo_url=None):
     """
     Periodic task to update GitHub repositories:
     1. For each successfully synced GitHub repo data source, clone the repo again
@@ -803,9 +847,14 @@ def update_github_repositories(successful_repos=True):
     3. Update modified files in both DB and Milvus
     
     Uses per-guru-type locking to allow parallel processing of different guru types.
+    
+    Args:
+        successful_repos (bool): If True, process repos with SUCCESS status, otherwise process FAILED repos
+        guru_type_slug (str, optional): If provided, process only repos for this guru type
+        repo_url (str, optional): If provided with guru_type_slug, process only this specific repo
     """
 
-    def process_guru_type(guru_type):
+    def process_guru_type(guru_type, specific_repo_url=None):
         from core.github.data_source_handler import clone_repository, read_repository
         from django.db import transaction
         import os
@@ -814,14 +863,23 @@ def update_github_repositories(successful_repos=True):
         
         # Get all GitHub repo data sources for this guru type
         status = DataSource.Status.SUCCESS if successful_repos else DataSource.Status.FAIL
-        data_sources = DataSource.objects.filter(
+        data_sources_query = DataSource.objects.filter(
             type=DataSource.Type.GITHUB_REPO,
-            status=status,
             guru_type=guru_type
         )
         
+        # If specific repo URL is provided, filter to that repo only
+        if specific_repo_url:
+            data_sources_query = data_sources_query.filter(url=specific_repo_url)
+        else:
+            data_sources_query = data_sources_query.filter(status=status)
+            
+        data_sources = data_sources_query
+        
         for data_source in data_sources:
             try:
+                data_source.status = DataSource.Status.NOT_PROCESSED
+                data_source.save()
                 # Clone the repository
                 temp_dir, repo = clone_repository(data_source.url)
                 
@@ -994,18 +1052,28 @@ def update_github_repositories(successful_repos=True):
 
     logger.info("Starting GitHub repositories update task")
     
-    # Get unique guru types that have GitHub repo data sources
-    guru_types = GuruType.objects.filter(
-        datasource__type=DataSource.Type.GITHUB_REPO,
-        # datasource__status=DataSource.Status.SUCCESS,
-    ).distinct()
-
-    for guru_type in guru_types:
+    # If specific guru type is provided
+    if guru_type_slug:
         try:
-            process_guru_type(guru_type=guru_type)
+            guru_type = GuruType.objects.get(slug=guru_type_slug)
+            process_guru_type(guru_type=guru_type, specific_repo_url=repo_url)
+        except GuruType.DoesNotExist:
+            logger.error(f"Error: Guru type with slug {guru_type_slug} does not exist")
         except Exception as e:
-            logger.error(f"Error processing guru type {guru_type.slug}: {traceback.format_exc()}")
-            continue
+            logger.error(f"Error processing guru type {guru_type_slug}: {traceback.format_exc()}")
+    else:
+        # Get unique guru types that have GitHub repo data sources
+        guru_types = GuruType.objects.filter(
+            datasource__type=DataSource.Type.GITHUB_REPO,
+            # datasource__status=DataSource.Status.SUCCESS,
+        ).distinct()
+
+        for guru_type in guru_types:
+            try:
+                process_guru_type(guru_type=guru_type)
+            except Exception as e:
+                logger.error(f"Error processing guru type {guru_type.slug}: {traceback.format_exc()}")
+                continue
     
     logger.info("Completed GitHub repositories update task")
 

@@ -5,13 +5,13 @@ from rest_framework.response import Response
 import logging
 import redis
 
-from core.github.models import GithubEvent
-from core.github.app_handler import GithubAppHandler
-from core.github.exceptions import (
+from integrations.bots.github.models import GithubEvent
+from integrations.bots.github.app_handler import GithubAppHandler
+from integrations.bots.github.exceptions import (
     GithubEventError, GithubEventTypeError, GithubEventDataError,
     GithubEventHandlerError, GithubAPIError, GithubGraphQLError
 )
-from ..models import Integration
+from integrations.models import Integration
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
+from integrations.models import Integration
+from integrations.strategy import IntegrationStrategy
 from core.exceptions import ConfluenceAuthenticationError, ConfluenceError, ConfluenceInvalidDomainError
-from .strategy import IntegrationStrategy
-from .helpers import IntegrationError
-from core.models import Integration, GuruType
+from ...bots.helpers import IntegrationError
 from core.requester import ConfluenceRequester
 import logging
 
