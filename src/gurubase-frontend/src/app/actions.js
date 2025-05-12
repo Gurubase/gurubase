@@ -1578,3 +1578,35 @@ export async function validateOllamaUrlRequest(url) {
     });
   }
 }
+
+export async function addSlackChannels(guruType, channels) {
+  try {
+    const response = await makeAuthenticatedRequest(
+      `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/slack/add_channels/${guruType}/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channels })
+      }
+    );
+
+    if (!response) return { error: true, message: "No response from server" };
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return {
+        error: true,
+        message: errorData.msg || "Failed to add channels",
+        status: response.status
+      };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return handleRequestError(error, {
+      context: "addSlackChannels",
+      guruType,
+      channels
+    });
+  }
+}

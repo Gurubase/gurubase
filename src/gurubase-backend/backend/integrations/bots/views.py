@@ -120,6 +120,11 @@ def manage_channels(request, guru_type, integration_type):
             # Save the new channels, we save them in retrieval because it is set on GitHub settings. We only read what is set. We can't update them.
             integration.channels = processed_channels
             integration.save()
+        elif integration_type == 'SLACK':
+            return Response({
+                'channels': api_channels,
+                'allow_dm': integration.allow_dm
+            })
         else:
             # Create a map of channel IDs to their allowed status from DB
             db_channels_map = {
