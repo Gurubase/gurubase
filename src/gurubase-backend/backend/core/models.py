@@ -384,6 +384,7 @@ class GuruType(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     rerank = models.BooleanField(default=True)
+    allow_custom_prompt = models.BooleanField(default=False)
 
     def __str__(self):
         return self.slug
@@ -1345,6 +1346,8 @@ class Settings(models.Model):
     split_size = models.IntegerField(default=2000)
     split_overlap = models.IntegerField(default=300)
     split_min_length = models.IntegerField(default=500)
+
+    prompt_templates = models.JSONField(default=list, blank=True, null=True)
 
     @classmethod
     def get_default_embedding_model(cls):

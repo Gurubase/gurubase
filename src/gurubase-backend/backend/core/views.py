@@ -23,7 +23,7 @@ from core.models import CrawlState, FeaturedDataSource, Question, ContentPageSta
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    APIAskResponse, APIType, api_ask, check_binge_auth, validate_binge_follow_up,
+    APIAskResponse, APIType, api_ask, check_binge_auth, get_default_settings, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -446,7 +446,8 @@ def my_gurus(request, guru_slug=None):
                 'confluence_limit': guru.confluence_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit,
-                'ready': guru.ready
+                'ready': guru.ready,
+                'allow_custom_prompt': guru.allow_custom_prompt
             })
         
         if guru_slug:
@@ -963,7 +964,7 @@ def update_guru_type(request, guru_type):
     data = request.data
     domain_knowledge = data.get('domain_knowledge', guru_type_object.prompt_map['domain_knowledge'])
     intro_text = data.get('intro_text', guru_type_object.intro_text)
-
+    custom_instruction_prompt = data.get('custom_instruction_prompt', guru_type_object.custom_instruction_prompt)
     # Handle image upload if provided
     image = request.FILES.get('icon_image')
     if image:
@@ -982,6 +983,8 @@ def update_guru_type(request, guru_type):
     # Update other fields
     guru_type_object.domain_knowledge = domain_knowledge
     guru_type_object.intro_text = intro_text
+    if guru_type_object.allow_custom_prompt:
+        guru_type_object.custom_instruction_prompt = custom_instruction_prompt
     try:
         guru_type_object.save()
     except ValidationError as e:
@@ -1943,3 +1946,29 @@ def validate_ollama_url(request):
         'is_valid': True,
         'models': models
     })
+
+@api_view(['GET'])
+@jwt_auth
+def get_prompt_templates(request, guru_type):
+    """
+    Get all available prompt templates
+    """
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)    
+    guru_prompt = guru_type_object.custom_instruction_prompt
+    def_settings = get_default_settings()
+    prompts = def_settings.prompt_templates
+    prompts.append({
+        'id': 'current_prompt',
+        'name': 'Current Prompt',
+        'content': guru_prompt
+    })
+    
+    return Response({
+        'prompts': prompts
+    })
+
