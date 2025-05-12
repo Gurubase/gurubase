@@ -39,6 +39,7 @@ import {
 import Link from "next/link";
 import ChannelsComponent from "./ChannelsComponent";
 import RepositoriesComponent from "./RepositoriesComponent";
+import SlackChannelsComponent from "./SlackChannelsComponent";
 
 // Check if beta features are enabled via environment variable
 const isBetaFeaturesEnabled = process.env.NEXT_PUBLIC_BETA_FEAT_ON === "true";
@@ -713,8 +714,18 @@ const IntegrationContent = ({ type, guruData, error, selfhosted }) => {
               </div>
             </>
           ) : null}
-          {config.showChannels && type !== "github" && (
+          {config.showChannels && type !== "github" && type !== "slack" && (
             <ChannelsComponent
+              guruData={guruData}
+              type={type}
+              integrationData={integrationData}
+              selfhosted={selfhosted}
+              loading={loading}
+              setInternalError={setInternalError}
+            />
+          )}
+          {config.showChannels && type === "slack" && (
+            <SlackChannelsComponent
               guruData={guruData}
               type={type}
               integrationData={integrationData}
