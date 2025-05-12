@@ -40,386 +40,180 @@ redis_client = redis.Redis(
 guru_requester = GuruRequester()
 openai_requester = OpenAIRequester()
 
-@shared_task
-def set_similarities():
-    fetch_batch_size = settings.SIMILARITY_FETCH_BATCH_SIZE
-    save_batch_size = settings.SIMILARITY_SAVE_BATCH_SIZE
-
-    start_time = time.time()
-    # Update similar_questions for all questions
-    logger.info("Setting similar_questions for all questions")
-    bulk_save = {}
-
-    # Get the last processed question ID from Redis
-    last_processed_id = redis_client.get('set_similar_questions_last_processed_id')
-    last_processed_id = int(last_processed_id) if last_processed_id else 0
-    
-    # Get questions in batches, ordered by ID
-    questions = Question.objects.filter(
-        id__gt=last_processed_id
-    ).order_by('id')[:fetch_batch_size]
-    
-    if not questions.exists():
-        # If no questions found after last_processed_id, reset to start
-        redis_client.delete('set_similar_questions_last_processed_id')
-        questions = Question.objects.all().order_by('id')[:fetch_batch_size]
-    
-    for q in questions:
-        q.similar_questions = get_most_similar_questions(
-            q.slug, 
-            q.question, 
-            q.guru_type.slug, 
-            column='title', 
-            sitemap_constraint=True
-        )
-        bulk_save[q.id] = q
-        
-        # Save the last processed ID
-        redis_client.set('set_similar_questions_last_processed_id', q.id)
-        
-        if len(bulk_save) >= save_batch_size:
-            Question.objects.bulk_update(bulk_save.values(), ['similar_questions'])
-            bulk_save = {}
-    
-    if len(bulk_save) > 0:
-        Question.objects.bulk_update(bulk_save.values(), ['similar_questions'])
-    
-    processed_count = questions.count()
-    logger.info(f'Similarities set for {processed_count} questions in {time.time() - start_time} seconds')
-    
-
-@shared_task
-def rewrite_content_for_wrong_markdown_content():
-    logger.info('Rewriting content for wrong markdown content')
-    def correct_markdown_headings(content):
-        lines = content.split('\n')
-
-        corrected_lines = []
-        h1_corrected = False
-        in_code_block = False
-
-        for line in lines:
-            # Toggle in_code_block status when encountering ``` lines
-            if re.match(r'^\s*```', line):
-                corrected_lines.append(line)
-                in_code_block = not in_code_block
-                continue
-
-            # Process lines outside code blocks
-            if not in_code_block:
-                # Check if the document starts with an H2 and correct it to H1
-                if not h1_corrected and line.startswith('##'):
-                    corrected_line = '#' + line[2:]
-                    h1_corrected = True
-                elif h1_corrected and re.match(r'^(##+)', line):
-                    # Reduce the level of all other headings by one
-                    corrected_line = re.sub(r'^(##+)', lambda m: '#' * (len(m.group(1)) - 1), line)
-                else:
-                    corrected_line = line
-            else:
-                corrected_line = line
-
-            corrected_lines.append(corrected_line)
-
-        corrected_content = '\n'.join(corrected_lines)
-        return corrected_content
-
-    # questions = Question.objects.filter(add_to_sitemap=True)
-    questions = Question.objects.all()
-
-    for question in questions:
-        title = question.content.split("\n")[0]
-
-        if title.startswith("# "):
-            continue
-        
-        logger.fatal(f"Title not starting with '# ': {title}. ID: {question.id}")
-
-        # if question.content first line is empty, remove it
-        if title == "":
-            question.content = question.content[1:]
-            question.save()
-            continue
-
-        # if title is ```markdown, remove it. And remove the last line if it is ```
-        if title.startswith("```"):
-            question.content = question.content.split("\n")[1:-1]
-            question.save()
-            continue
-        
-        if title.startswith("## "):
-            corrected_content = correct_markdown_headings(question.content)
-            question.content = corrected_content
-            question.save()
-    logger.info('Rewritten content for wrong markdown content')
-
-@shared_task
-def fill_empty_og_images():
-    logger.info('Filling empty og images')
-    fetch_batch_size = settings.FILL_OG_IMAGES_FETCH_BATCH_SIZE
-    # generate og images for questions that does not have them
-    questions = Question.objects.filter(og_image_url='')
-    for question in questions.iterator(chunk_size=fetch_batch_size):
-        generate_og_image(question)
-    logger.info('Filled empty og images')
-
-@shared_task
-def update_question_as_the_question_content_h1():
-    logger.info('Updating question as the question content h1')
-    questions = Question.objects.all()
-
-    for question in questions:
-        title = question.content.split("\n")[0]
-
-        if not title.startswith("# "):
-            logger.fatal(f"Title not starting with '# ': {title}. ID: {question.id}")
-            continue
-
-        title = title.replace("# ", "")
-
-        # if title character length is greater than 150, log error and continue
-        if len(title) > 150:
-            # go to gpt and change
-            new_title = get_more_seo_friendly_title(title)
-            if new_title == "":
-                logger.fatal(f"Title length greater than 150, shortening attempt failed: {title}. ID: {question.id}")
-                continue
-            question.content = question.content.replace(title, new_title)
-            question.question = new_title
-            question.save()
-            return
-
-
-        if question.question != title:
-            logger.info(f"Updating question title: {question.question} to {title}")
-            question.question = title
-            question.save()
-    logger.info('Updated question as the question content h1')
-
-
-@shared_task
-def find_duplicate_question_titles():
-    logger.info('Finding duplicate question titles')
-    questions = Question.objects.filter(add_to_sitemap=True)
-    for question in questions:
-        questions_with_same_title = Question.objects.filter(question=question.question, add_to_sitemap=True).exclude(id=question.id)
-        if questions_with_same_title.exists():
-            logger.fatal(f"Question has duplicate title: {question.question}. ID: {question.id}")
-    logger.info('Found duplicate question titles')
-
-
-@shared_task
 @with_redis_lock(
     redis_client,
-    settings.TITLE_PROCESS_LOCK,
-    settings.TITLE_PROCESS_LOCK_DURATION_SECONDS,
+    lambda guru_type_slug, is_github: f'data_source_retrieval_lock_{guru_type_slug}_{"github" if is_github else "other"}',
+    settings.DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS,
 )
-def process_titles():
-    logger.info('Processing titles')
-    def process_title(title):
-        # Go to gpt mini, get a more seo friendly title
-        new_title = get_more_seo_friendly_title(title)
-        if new_title == "":
-            return title, False
+def process_guru_type_data_sources(guru_type_slug, is_github=False, countdown=0):
+    if not is_github and countdown > 0:
+        # Wait for a bit for the data sources to be synced
+        time.sleep(countdown)
+
+    guru_type_object = get_guru_type_object_without_filters(guru_type_slug)
+    if is_github:
+        data_sources = DataSource.objects.filter(
+            status=DataSource.Status.NOT_PROCESSED,
+            guru_type=guru_type_object,
+            type=DataSource.Type.GITHUB_REPO
+        )[:settings.DATA_SOURCE_FETCH_BATCH_SIZE]
+    else:
+        data_sources = DataSource.objects.exclude(
+            type=DataSource.Type.GITHUB_REPO
+        ).filter(
+            status=DataSource.Status.NOT_PROCESSED,
+            guru_type=guru_type_object
+        )[:settings.DATA_SOURCE_FETCH_BATCH_SIZE]
+
+    # Get the web scraper type
+    scraper, scrape_tool = get_web_scraper()
+    is_firecrawl = isinstance(scraper, FirecrawlScraper)
+
+    # Group data sources by type
+    website_sources = []
+    other_sources = []
+    for data_source in data_sources:
+        if data_source.type == DataSource.Type.WEBSITE:
+            website_sources.append(data_source)
+        else:
+            other_sources.append(data_source)
+
+    # Process website sources in batches if using Firecrawl
+    if website_sources and is_firecrawl:
+        batch_size = settings.FIRECRAWL_BATCH_SIZE
         
-        return new_title, True
+        for i in range(0, len(website_sources), batch_size):
+            batch = website_sources[i:i + batch_size]
+            try:
+                processed_sources = process_website_data_sources_batch(batch)
+                
+                # Group sources by status for bulk updates
+                success_sources = []
+                failed_sources = []
+                
+                with transaction.atomic():
+                    for data_source in processed_sources:
+                        if data_source.status == DataSource.Status.NOT_PROCESSED:
+                            raise WebsiteContentExtractionThrottleError(f'Throttle in batch. Stopping all subsequent extraction for guru type {guru_type_slug}')
+                        elif not data_source.error:
+                            data_source.status = DataSource.Status.SUCCESS
+                            success_sources.append(data_source)
+                        else:
+                            data_source.status = DataSource.Status.FAIL
+                            failed_sources.append(data_source)
+                    
+                    # Bulk update sources
+                    if success_sources:
+                        DataSource.objects.bulk_update(
+                            success_sources,
+                            ['status', 'error', 'user_error', 'title', 'content', 'scrape_tool']
+                        )
+                    if failed_sources:
+                        DataSource.objects.bulk_update(
+                            failed_sources,
+                            ['status', 'error', 'user_error']
+                        )
+                    
+                    # Write successful sources to Milvus
+                    for data_source in success_sources:
+                        try:
+                            data_source.write_to_milvus()
+                        except Exception as e:
+                            logger.error(f"Error writing to Milvus for data source {data_source.id}: {e}", exc_info=True)
+                            data_source.status = DataSource.Status.FAIL
+                            data_source.error = str(e)
+                            data_source.save()
+                            
+            except WebsiteContentExtractionThrottleError as e:
+                logger.warning(f"Throttled for batch Website URLs. Error: {e}")
+                # Mark all sources in batch as NOT_PROCESSED and stop processing
+                with transaction.atomic():
+                    for data_source in batch:
+                        data_source.status = DataSource.Status.NOT_PROCESSED
+                        data_source.error = str(e)
+                        data_source.user_error = str(e)
+                    DataSource.objects.bulk_update(
+                        batch,
+                        ['status', 'error', 'user_error']
+                    )
+                # Stop processing remaining batches if we hit rate limit
+                break
+                    
+            except Exception as e:
+                logger.error(f"Error while processing batch website sources: {e}", exc_info=True)
+                with transaction.atomic():
+                    for data_source in batch:
+                        data_source.status = DataSource.Status.FAIL
+                        data_source.error = str(e)
+                        data_source.user_error = str(e)
+                    DataSource.objects.bulk_update(
+                        batch,
+                        ['status', 'error', 'user_error']
+                    )
 
-    questions = Question.objects.filter(title_processed=False).filter(
-        Q(question__icontains='can you') |
-        Q(question__icontains='explain') |
-        Q(question__icontains='describe') |
-        Q(question__icontains='do you') |
-        Q(question__icontains='can i')
-    )
-
-    for q in questions.iterator(chunk_size=100):
-        old_title = q.question
-        new_title, success = process_title(old_title)
-        if not success:
+    # Process other sources (and website sources if not using Firecrawl) individually
+    sources_to_process = other_sources + (website_sources if not is_firecrawl else [])
+    jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
+    zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
+    confluence_integration = Integration.objects.filter(type=Integration.Type.CONFLUENCE, guru_type=guru_type_object).first()
+    language_code = guru_type_object.get_language_code()
+    for data_source in sources_to_process:
+        try:
+            if data_source.type == DataSource.Type.JIRA:
+                data_source = fetch_data_source_content(jira_integration, data_source, language_code)
+            elif data_source.type == DataSource.Type.ZENDESK:
+                data_source = fetch_data_source_content(zendesk_integration, data_source, language_code)
+            elif data_source.type == DataSource.Type.CONFLUENCE:
+                data_source = fetch_data_source_content(confluence_integration, data_source, language_code)
+            else:
+                data_source = fetch_data_source_content(None, data_source, language_code)
+            data_source.status = DataSource.Status.SUCCESS
+        except (WebsiteContentExtractionThrottleError, ThrottleError) as e:
+            logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
+            data_source.status = DataSource.Status.NOT_PROCESSED
+            data_source.error = str(e)
+            data_source.user_error = str(e)
+            data_source.save()
+            continue
+        except YouTubeContentExtractionError as e:
+            logger.warning(f"Error while fetching YouTube data source: {e}")
+            data_source.status = DataSource.Status.FAIL
+            data_source.error = str(e)
+            data_source.user_error = str(e)
+            data_source.save()
+            continue
+        except (GithubRepoFileCountLimitError, GithubRepoSizeLimitError) as e:
+            logger.warning(f"Error while fetching GitHub data source: {e}")
+            data_source.status = DataSource.Status.FAIL
+            data_source.error = str(e)
+            data_source.user_error = str(e)
+            data_source.save()
+            continue
+        except Exception as e:
+            logger.error(f"Error while fetching data source: {traceback.format_exc()}")
+            data_source.status = DataSource.Status.FAIL
+            data_source.error = str(e)
+            data_source.user_error = "Error while fetching data source"
+            data_source.save()
             continue
         
-        q.old_question = old_title
-        q.question = new_title
-        # update question content with new title
-        q.content = q.content.replace(old_title, new_title)
-        q.title_processed = True
-        q.save()
-        logger.info(f"Updated question: {q.id}")
-    logger.info('Processed titles')
+        data_source.status = DataSource.Status.SUCCESS
+        data_source.error = ''
+        data_source.user_error = ''
+        data_source.last_successful_index_date = datetime.now()
+        data_source.save()
+        try:
+            data_source.write_to_milvus()
+        except Exception as e:
+            logger.error(f"Error while writing to milvus: {e}", exc_info=True)
+            data_source.status = DataSource.Status.FAIL
+            data_source.error = str(e)
+            data_source.save()
+
 
 @shared_task
 def data_source_retrieval(guru_type_slug=None, countdown=0):
     logger.info('Data source retrieval')
-
-    @with_redis_lock(
-        redis_client,
-        lambda guru_type_slug, is_github: f'data_source_retrieval_lock_{guru_type_slug}_{"github" if is_github else "other"}',
-        settings.DATA_SOURCE_RETRIEVAL_LOCK_DURATION_SECONDS,
-    )
-    def process_guru_type_data_sources(guru_type_slug, is_github=False):
-        if not is_github and countdown > 0:
-            # Wait for a bit for the data sources to be synced
-            time.sleep(countdown)
-
-        guru_type_object = get_guru_type_object_without_filters(guru_type_slug)
-        if is_github:
-            data_sources = DataSource.objects.filter(
-                status=DataSource.Status.NOT_PROCESSED,
-                guru_type=guru_type_object,
-                type=DataSource.Type.GITHUB_REPO
-            )[:settings.DATA_SOURCE_FETCH_BATCH_SIZE]
-        else:
-            data_sources = DataSource.objects.exclude(
-                type=DataSource.Type.GITHUB_REPO
-            ).filter(
-                status=DataSource.Status.NOT_PROCESSED,
-                guru_type=guru_type_object
-            )[:settings.DATA_SOURCE_FETCH_BATCH_SIZE]
-
-        # Get the web scraper type
-        scraper, scrape_tool = get_web_scraper()
-        is_firecrawl = isinstance(scraper, FirecrawlScraper)
-
-        # Group data sources by type
-        website_sources = []
-        other_sources = []
-        for data_source in data_sources:
-            if data_source.type == DataSource.Type.WEBSITE:
-                website_sources.append(data_source)
-            else:
-                other_sources.append(data_source)
-
-        # Process website sources in batches if using Firecrawl
-        if website_sources and is_firecrawl:
-            batch_size = settings.FIRECRAWL_BATCH_SIZE
-            
-            for i in range(0, len(website_sources), batch_size):
-                batch = website_sources[i:i + batch_size]
-                try:
-                    processed_sources = process_website_data_sources_batch(batch)
-                    
-                    # Group sources by status for bulk updates
-                    success_sources = []
-                    failed_sources = []
-                    
-                    with transaction.atomic():
-                        for data_source in processed_sources:
-                            if data_source.status == DataSource.Status.NOT_PROCESSED:
-                                raise WebsiteContentExtractionThrottleError(f'Throttle in batch. Stopping all subsequent extraction for guru type {guru_type_slug}')
-                            elif not data_source.error:
-                                data_source.status = DataSource.Status.SUCCESS
-                                success_sources.append(data_source)
-                            else:
-                                data_source.status = DataSource.Status.FAIL
-                                failed_sources.append(data_source)
-                        
-                        # Bulk update sources
-                        if success_sources:
-                            DataSource.objects.bulk_update(
-                                success_sources,
-                                ['status', 'error', 'user_error', 'title', 'content', 'scrape_tool']
-                            )
-                        if failed_sources:
-                            DataSource.objects.bulk_update(
-                                failed_sources,
-                                ['status', 'error', 'user_error']
-                            )
-                        
-                        # Write successful sources to Milvus
-                        for data_source in success_sources:
-                            try:
-                                data_source.write_to_milvus()
-                            except Exception as e:
-                                logger.error(f"Error writing to Milvus for data source {data_source.id}: {e}", exc_info=True)
-                                data_source.status = DataSource.Status.FAIL
-                                data_source.error = str(e)
-                                data_source.save()
-                                
-                except WebsiteContentExtractionThrottleError as e:
-                    logger.warning(f"Throttled for batch Website URLs. Error: {e}")
-                    # Mark all sources in batch as NOT_PROCESSED and stop processing
-                    with transaction.atomic():
-                        for data_source in batch:
-                            data_source.status = DataSource.Status.NOT_PROCESSED
-                            data_source.error = str(e)
-                            data_source.user_error = str(e)
-                        DataSource.objects.bulk_update(
-                            batch,
-                            ['status', 'error', 'user_error']
-                        )
-                    # Stop processing remaining batches if we hit rate limit
-                    break
-                        
-                except Exception as e:
-                    logger.error(f"Error while processing batch website sources: {e}", exc_info=True)
-                    with transaction.atomic():
-                        for data_source in batch:
-                            data_source.status = DataSource.Status.FAIL
-                            data_source.error = str(e)
-                            data_source.user_error = str(e)
-                        DataSource.objects.bulk_update(
-                            batch,
-                            ['status', 'error', 'user_error']
-                        )
-
-        # Process other sources (and website sources if not using Firecrawl) individually
-        sources_to_process = other_sources + (website_sources if not is_firecrawl else [])
-        jira_integration = Integration.objects.filter(type=Integration.Type.JIRA, guru_type=guru_type_object).first()
-        zendesk_integration = Integration.objects.filter(type=Integration.Type.ZENDESK, guru_type=guru_type_object).first()
-        confluence_integration = Integration.objects.filter(type=Integration.Type.CONFLUENCE, guru_type=guru_type_object).first()
-        language_code = guru_type_object.get_language_code()
-        for data_source in sources_to_process:
-            try:
-                if data_source.type == DataSource.Type.JIRA:
-                    data_source = fetch_data_source_content(jira_integration, data_source, language_code)
-                elif data_source.type == DataSource.Type.ZENDESK:
-                    data_source = fetch_data_source_content(zendesk_integration, data_source, language_code)
-                elif data_source.type == DataSource.Type.CONFLUENCE:
-                    data_source = fetch_data_source_content(confluence_integration, data_source, language_code)
-                else:
-                    data_source = fetch_data_source_content(None, data_source, language_code)
-                data_source.status = DataSource.Status.SUCCESS
-            except (WebsiteContentExtractionThrottleError, ThrottleError) as e:
-                logger.warning(f"Throttled for URL {data_source.url}. Error: {e}")
-                data_source.status = DataSource.Status.NOT_PROCESSED
-                data_source.error = str(e)
-                data_source.user_error = str(e)
-                data_source.save()
-                continue
-            except YouTubeContentExtractionError as e:
-                logger.warning(f"Error while fetching YouTube data source: {e}")
-                data_source.status = DataSource.Status.FAIL
-                data_source.error = str(e)
-                data_source.user_error = str(e)
-                data_source.save()
-                continue
-            except (GithubRepoFileCountLimitError, GithubRepoSizeLimitError) as e:
-                logger.warning(f"Error while fetching GitHub data source: {e}")
-                data_source.status = DataSource.Status.FAIL
-                data_source.error = str(e)
-                data_source.user_error = str(e)
-                data_source.save()
-                continue
-            except Exception as e:
-                logger.error(f"Error while fetching data source: {traceback.format_exc()}")
-                data_source.status = DataSource.Status.FAIL
-                data_source.error = str(e)
-                data_source.user_error = "Error while fetching data source"
-                data_source.save()
-                continue
-            
-            data_source.status = DataSource.Status.SUCCESS
-            data_source.error = ''
-            data_source.user_error = ''
-            data_source.last_successful_index_date = datetime.now()
-            data_source.save()
-            try:
-                data_source.write_to_milvus()
-            except Exception as e:
-                logger.error(f"Error while writing to milvus: {e}", exc_info=True)
-                data_source.status = DataSource.Status.FAIL
-                data_source.error = str(e)
-                data_source.save()
 
     if settings.ENV == 'selfhosted':
         default_settings = get_default_settings()
@@ -435,14 +229,14 @@ def data_source_retrieval(guru_type_slug=None, countdown=0):
     # Main func
     if guru_type_slug:
         # Process both GitHub and non-GitHub sources in parallel
-        process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=True)
-        process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=False)
+        process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=True, countdown=countdown)
+        process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=False, countdown=countdown)
     else:
         guru_type_slugs = get_guru_type_names()
         for guru_type_slug in guru_type_slugs:
             # Process both GitHub and non-GitHub sources in parallel
-            process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=True)
-            process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=False)
+            process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=True, countdown=countdown)
+            process_guru_type_data_sources(guru_type_slug=guru_type_slug, is_github=False, countdown=countdown)
 
     logger.info("Data source retrieval completed for all guru types")
 
@@ -643,82 +437,6 @@ def llm_eval(guru_types, check_answer_relevance=True, check_context_relevance=Tr
     # After the evaluation is done for all guru types
     llm_eval_result.delay(pairs)
     logger.info('LLM eval result')
-
-
-@shared_task
-@with_redis_lock(
-    redis_client,
-    'content_links_lock',
-    1800
-)
-def get_content_links():
-    logger.info("Getting content links")
-    # Get the last question id 
-    try:
-        last_question_id = LinkReference.objects.all().order_by('-question__id').first().question.id
-    except:
-        last_question_id = 0
-
-    if not last_question_id:
-        last_question_id = 0
-
-    questions = Question.objects.filter(id__gt=last_question_id).order_by('-id')[:settings.TASK_FETCH_LIMIT]
-    bulk_save = []
-    for q in questions.iterator(chunk_size=100):
-        links = get_links(q.content)
-        for link in links:
-            bulk_save.append(LinkReference(question=q, url=link))
-
-        if len(bulk_save) >= 100:
-            LinkReference.objects.bulk_create(bulk_save)
-            bulk_save = []
-
-    if len(bulk_save) > 0:
-        LinkReference.objects.bulk_create(bulk_save)
-    logger.info('Got content links')
-
-
-@shared_task
-@with_redis_lock(
-    redis_client,
-    'link_validity_lock',
-    1800
-)
-def check_link_validity():
-    logger.info("Checking link validity")
-    link_refs = LinkReference.objects.filter(validity=None)[:settings.TASK_FETCH_LIMIT]
-    bulk_update = []
-    for link_ref in link_refs.iterator(chunk_size=100):
-        try:
-            existing_validity = LinkValidity.objects.filter(link=link_ref.link)
-            if existing_validity.exists():
-                link_ref.validity = existing_validity.first()
-            else:
-                try:
-                    response = requests.get(link_ref.link, timeout=15)
-                    status_code = response.status_code
-                    valid = status_code == 200
-                except Exception as e:
-                    logger.warning(f"Error accessing {link_ref.link}: {str(e)}")
-                    valid = False
-                    status_code = 0
-                link_ref.validity = LinkValidity.objects.create(link=link_ref, valid=valid, response_code=status_code)
-
-            bulk_update.append(link_ref)
-
-            if len(bulk_update) >= 100:
-                LinkReference.objects.bulk_update(bulk_update, ['validity'])
-                bulk_update = []
-        except Exception as e:
-            logger.error(f"Unexpected error while checking link validity: {traceback.format_exc()}")
-
-        # Sleep for 1 second to avoid being flagged as bot
-        time.sleep(1)
-
-    if len(bulk_update) > 0:
-        LinkReference.objects.bulk_update(bulk_update, ['validity'])
-    logger.info('Checked link validity')
-
 @shared_task
 def check_favicon_validity():
     logger.info("Checking favicon validity")
@@ -744,172 +462,83 @@ def check_favicon_validity():
             favicon.valid = False
             favicon.save()
     logger.info("Checked favicon validity")
+  
 
-@shared_task
-def summarize_data_sources(guru_type_slugs=["*"]):
+@with_redis_lock(
+    redis_client,
+    lambda guru_type_slug: f'generate_questions_from_summaries_lock_{guru_type_slug}',
+    1800
+)
+def generate_questions_from_summaries_for_guru_type(guru_type_slug, guru_type):
     """
-    Generate summarizes from data sources up until the final summarization for each guru type is created.
+    Generate questions from initial data source summarizations for a guru type.
+    A lock for each guru type is used to avoid race conditions.
 
     Args:
-        guru_type_slugs: A list of guru type slugs to summarize. If None, all guru types are summarized.
-            If None: process all guru types
-            If ["kubernetes", "javascript"]: process only these two guru types
-            If ["*"]: process all guru types
+        guru_type_slug: The slug of the guru type
+        guru_type: The guru type object
     """
-    logger.info("Summarizing data sources")
-
-    @with_redis_lock(
-        redis_client,
-        lambda guru_type_slug: f'summarize_data_sources_lock_{guru_type_slug}',
-        1800
-    )
-    def summarize_data_sources_for_guru_type(guru_type_slug, guru_type):
-        """
-        Generate initial and final summarizations for data sources for a guru type.
-        A lock for each guru type is used to avoid race conditions.
-        
-        Args:
-            guru_type_slug: The slug of the guru type
-            guru_type: The guru type object
-        """
-        # logger.info(f"Summarizing data sources for guru type: {guru_type_slug}")
-        data_sources = DataSource.objects.filter(status=DataSource.Status.SUCCESS, initial_summarizations_created=False, guru_type=guru_type)[:settings.TASK_FETCH_LIMIT]
-        for data_source in data_sources.iterator(chunk_size=100):
-            if len(data_source.content) > 1000:
-                data_source.create_initial_summarizations()
-            else:
-                logger.info(f"Data source {data_source.id} has less than 1000 characters, skipping")
-
-            try:
-                data_source.create_initial_summarizations()
-            except Exception as e:
-                logger.error(f"Error while creating initial summarizations for data source {data_source.id}: {str(e)}")
-                continue
-
-
-        data_sources = DataSource.objects.filter(initial_summarizations_created=True, status=DataSource.Status.SUCCESS, final_summarization_created=False, guru_type=guru_type)[:settings.TASK_FETCH_LIMIT]
-        for data_source in data_sources.iterator(chunk_size=100):
-            finalize_data_source_summarizations(data_source)
-
-        create_guru_type_summarization(guru_type)
-
-    if guru_type_slugs and guru_type_slugs != ["*"]:
-        for guru_type_slug in guru_type_slugs:
-            try:
-                guru_type = GuruType.objects.get(slug=guru_type_slug)
-            except GuruType.DoesNotExist:
-                logger.error(f"Guru type with slug {guru_type_slug} does not exist")
-                continue
-            summarize_data_sources_for_guru_type(guru_type_slug=guru_type_slug, guru_type=guru_type)
-    else:
-        for guru_type in GuruType.objects.all():
-            summarize_data_sources_for_guru_type(guru_type_slug=guru_type.slug, guru_type=guru_type)
-
-    logger.info("Summarized data sources")
-        
-
-@shared_task
-def generate_questions_from_summaries(guru_type_slugs=["*"]):
-    """
-    For all initial data source summarizations, generate questions and save them as SummaryQuestionGeneration objects.
-
-    Args:
-        guru_type_slugs: A list of guru type slugs to summarize. If None, all guru types are summarized.
-            If None: process all guru types
-            If ["kubernetes", "javascript"]: process only these two guru types
-            If ["*"]: process all guru types
-    """
-    logger.info(f"Generating questions from summaries for guru types: {guru_type_slugs}")
-
-    @with_redis_lock(
-        redis_client,
-        lambda guru_type_slug: f'generate_questions_from_summaries_lock_{guru_type_slug}',
-        1800
-    )
-    def generate_questions_from_summaries_for_guru_type(guru_type_slug, guru_type):
-        """
-        Generate questions from initial data source summarizations for a guru type.
-        A lock for each guru type is used to avoid race conditions.
-
-        Args:
-            guru_type_slug: The slug of the guru type
-            guru_type: The guru type object
-        """
-        enough_generated, total_generated = guru_type_has_enough_generated_questions(guru_type)
-        if enough_generated:
-            logger.info(f"Guru type {guru_type_slug} has enough generated questions, skipping")
-            return
-        
-        # Get total count of eligible summarizations
-        total_count = Summarization.objects.filter(
-            is_data_source_summarization=True,
-            initial=True,
-            question_generation_ref=None,
-            guru_type=guru_type,
-            summary_suitable=True
-        ).count()
-
-        # Calculate how many random records we want
-        required_question_count = settings.GENERATED_QUESTION_PER_GURU_LIMIT - total_generated
-        expected_sample_size = int(required_question_count / settings.QUESTION_GENERATION_COUNT)
-        sample_size = min(total_count, expected_sample_size)
-        
-        # Get random IDs
-        summarization_ids = Summarization.objects.filter(
-            is_data_source_summarization=True,
-            initial=True,
-            question_generation_ref=None,
-            guru_type=guru_type,
-            summary_suitable=True
-        ).values_list('id', flat=True)
-        
-        random_ids = sample(list(summarization_ids), sample_size)
-        
-        # Get the random summarizations
-        summarizations = Summarization.objects.filter(id__in=random_ids)
-
-        for summarization in summarizations.iterator(chunk_size=100):
-            if not summarization.guru_type:
-                logger.error(f"Summarization {summarization.id} has no guru type")
-                continue
-            
-            questions, model_name, usages = generate_questions_from_summary(
-                summarization.result_content, 
-                summarization.guru_type)
-            
-            summary_sufficient = questions['summary_sufficient']
-            questions = questions['questions']
-            question_generation = SummaryQuestionGeneration.objects.create(
-                summarization_ref=summarization, 
-                guru_type=summarization.guru_type, 
-                questions=questions,
-                summary_sufficient=summary_sufficient,
-                model=model_name,
-                usages=usages
-            )
-            
-            summarization.question_generation_ref = question_generation
-            summarization.save()
-            
-            total_generated += len(questions)
-            if total_generated >= settings.GENERATED_QUESTION_PER_GURU_LIMIT:
-                logger.info(f"Guru type {guru_type_slug} has reached the limit of {settings.GENERATED_QUESTION_PER_GURU_LIMIT} generated questions, stopping")
-                break
+    enough_generated, total_generated = guru_type_has_enough_generated_questions(guru_type)
+    if enough_generated:
+        logger.info(f"Guru type {guru_type_slug} has enough generated questions, skipping")
+        return
     
-    if guru_type_slugs and guru_type_slugs != ["*"]:
-        for guru_type_slug in guru_type_slugs:
-            try:
-                guru_type = GuruType.objects.get(slug=guru_type_slug)
-            except GuruType.DoesNotExist:
-                logger.error(f"Guru type with slug {guru_type_slug} does not exist")
-                continue
-            generate_questions_from_summaries_for_guru_type(guru_type_slug=guru_type_slug, guru_type=guru_type)
-    else:
-        for guru_type in GuruType.objects.all():
-            generate_questions_from_summaries_for_guru_type(guru_type_slug=guru_type.slug, guru_type=guru_type)
-    
-    logger.info("Generated questions from summaries")
+    # Get total count of eligible summarizations
+    total_count = Summarization.objects.filter(
+        is_data_source_summarization=True,
+        initial=True,
+        question_generation_ref=None,
+        guru_type=guru_type,
+        summary_suitable=True
+    ).count()
 
+    # Calculate how many random records we want
+    required_question_count = settings.GENERATED_QUESTION_PER_GURU_LIMIT - total_generated
+    expected_sample_size = int(required_question_count / settings.QUESTION_GENERATION_COUNT)
+    sample_size = min(total_count, expected_sample_size)
+    
+    # Get random IDs
+    summarization_ids = Summarization.objects.filter(
+        is_data_source_summarization=True,
+        initial=True,
+        question_generation_ref=None,
+        guru_type=guru_type,
+        summary_suitable=True
+    ).values_list('id', flat=True)
+    
+    random_ids = sample(list(summarization_ids), sample_size)
+    
+    # Get the random summarizations
+    summarizations = Summarization.objects.filter(id__in=random_ids)
+
+    for summarization in summarizations.iterator(chunk_size=100):
+        if not summarization.guru_type:
+            logger.error(f"Summarization {summarization.id} has no guru type")
+            continue
+        
+        questions, model_name, usages = generate_questions_from_summary(
+            summarization.result_content, 
+            summarization.guru_type)
+        
+        summary_sufficient = questions['summary_sufficient']
+        questions = questions['questions']
+        question_generation = SummaryQuestionGeneration.objects.create(
+            summarization_ref=summarization, 
+            guru_type=summarization.guru_type, 
+            questions=questions,
+            summary_sufficient=summary_sufficient,
+            model=model_name,
+            usages=usages
+        )
+        
+        summarization.question_generation_ref = question_generation
+        summarization.save()
+        
+        total_generated += len(questions)
+        if total_generated >= settings.GENERATED_QUESTION_PER_GURU_LIMIT:
+            logger.info(f"Guru type {guru_type_slug} has reached the limit of {settings.GENERATED_QUESTION_PER_GURU_LIMIT} generated questions, stopping")
+            break
+        
 @shared_task
 # def llm_eval_result(guru_types, version):
 def llm_eval_result(pairs):
@@ -999,205 +628,80 @@ def llm_eval_result(pairs):
 @shared_task
 @with_redis_lock(
     redis_client,
-    'process_summary_questions_lock',
-    5400  # 90 minutes
-)
-def process_summary_questions():
-    """
-    Process the questions generated from summaries that are not processed yet.
-    """
-    logger.info("Processing summary questions")
-    summary_questions = SummaryQuestionGeneration.objects.filter(processed=False)
-    for summary_question in summary_questions.iterator(chunk_size=100):
-        for question in summary_question.questions:
-            _, _, _, question_obj = simulate_summary_and_answer(
-                question,
-                summary_question.guru_type,
-                check_existence=True,
-                save=True,
-                source=Question.Source.SUMMARY_QUESTION
-            )
-        summary_question.processed = True
-        summary_question.question = question_obj
-        summary_question.save()
-    logger.info("Processed summary questions")
-
-@shared_task
-@with_redis_lock(
-    redis_client,
-    'move_questions_to_milvus_lock',
+    'update_guru_type_details_lock',
     1800
 )
-def move_questions_to_milvus():
+def update_guru_type_details():
     """
-    Move the questions to Milvus for similarity search
-    Does the embedding and the milvus insert in batches 
+    Updates GuruType details:
+    1. Adds github details if missing (only for the first GitHub repo)
+    2. Updates domain knowledge if it's the default value
     """
-
-    questions = Question.objects.filter(similarity_written_to_milvus=False, source=Question.Source.SUMMARY_QUESTION, binge=None)[:settings.TASK_FETCH_LIMIT]
-    questions_collection_name = settings.MILVUS_QUESTIONS_COLLECTION_NAME
-    if not milvus_utils.collection_exists(collection_name=questions_collection_name):
-        milvus_utils.create_similarity_collection(questions_collection_name)
-
-    batch = []
-    embed_batch = []
-    questions_batch = []
-    for q in questions.iterator(chunk_size=100):
-        # Check existence
-        if milvus_utils.fetch_vectors(questions_collection_name, f'id=={q.id}'):
-            q.similarity_written_to_milvus = True
-            questions_batch.append(q)
-            logger.warning(f'Question {q.id} already exists in Milvus. Skipping...')
-            continue
-
-        if q.question == '':
-            q.similarity_written_to_milvus = True
-            questions_batch.append(q)
-            logger.warning(f'Question {q.id} has an empty question. Skipping...')
-            continue
-        
-        # if q.description == '':
-        #     q.similarity_written_to_milvus = True
-        #     questions_batch.append(q)
-        #     logger.warning(f'Question {q.id} has an empty description. Skipping...')
-        #     continue
-        
-        if q.content == '':
-            q.similarity_written_to_milvus = True
-            questions_batch.append(q)
-            logger.warning(f'Question {q.id} has an empty content. Skipping...')
-            continue
-
-        doc = {
-            'title': q.question,
-            'slug': q.slug,
-            'id': q.id,
-            'on_sitemap': q.add_to_sitemap,
-            'guru_type': q.guru_type.name,
-        }
-        batch.append(doc)
-        q.similarity_written_to_milvus = True
-        questions_batch.append(q)
-        # embed_batch.append({'title': q.question, 'description': q.description, 'content': q.content})
-        embed_batch.append({'title': q.question, 'description': '', 'content': q.content})
+    logger.info("Updating guru type details")
     
-        # if len(batch) == 32:
-        if len(batch) > 1:
-            title_embeddings = embed_texts(list(map(lambda x: x['title'], embed_batch)))
-            # description_embeddings = embed_texts(list(map(lambda x: x['description'], embed_batch)))
-            content_embeddings = embed_texts(list(map(lambda x: x['content'], embed_batch)))
+    from core.utils import get_root_summarization_of_guru_type
+    from core.requester import GitHubRequester
+    
+    github_requester = GitHubRequester()
 
-            dimension = get_default_embedding_dimensions()
-            for i, doc in enumerate(batch):
-                # doc['description_vector'] = description_embeddings[i]
-                doc['description_vector'] = [0] * dimension
-                doc['title_vector'] = title_embeddings[i]
-                doc['content_vector'] = content_embeddings[i]
-            milvus_utils.insert_vectors(
-                collection_name=questions_collection_name,
-                docs=batch,
-                dimension=dimension
-            )
-            batch = []
-            embed_batch = []
-            
-            Question.objects.bulk_update(questions_batch, ['similarity_written_to_milvus'])
-            questions_batch = []
-            
-    if len(batch) > 0:
-        title_embeddings = embed_texts(list(map(lambda x: x['title'], embed_batch)))
-        # description_embeddings = embed_texts(list(map(lambda x: x['description'], embed_batch)))
-        content_embeddings = embed_texts(list(map(lambda x: x['content'], embed_batch)))
+    guru_types = GuruType.objects.filter(custom=True, active=True)
 
-        dimension = get_default_embedding_dimensions()
-        for i, doc in enumerate(batch):
-            # doc['description_vector'] = description_embeddings[i]
-            doc['description_vector'] = [0] * dimension
-            doc['title_vector'] = title_embeddings[i]
-            doc['content_vector'] = content_embeddings[i]
-        milvus_utils.insert_vectors(
-            collection_name=questions_collection_name,
-            docs=batch,
-            dimension=dimension
-        )
-        Question.objects.bulk_update(questions_batch, ['similarity_written_to_milvus'])
+    for guru_type in guru_types:
+        # Update GitHub details if missing
+        if not guru_type.github_details:
+            github_repos = guru_type.github_repos
+            if github_repos:
+                try:
+                    # Only fetch details for the first GitHub repo
+                    first_repo = github_repos[0]
+                    if not first_repo:
+                        continue
+                    try:
+                        github_details = github_requester.get_github_repo_details(first_repo)
+                        guru_type.github_details = github_details
+                        guru_type.save()
+                        logger.info(f'Updated github details for {guru_type.slug} (repo: {first_repo})')
+                    except Exception as e:
+                        logger.error(f"Error getting github details for repo {first_repo} in {guru_type.slug}: {traceback.format_exc()}")
+                except Exception as e:
+                    logger.error(f"Error getting github details for {guru_type.slug}: {traceback.format_exc()}")
+                    continue
 
-@shared_task
-@with_redis_lock(
-        redis_client,
-        'process_sitemap_lock',
-        1800
-    )
-def process_sitemap():
-    """
-    Processes questions across all guru types to add to sitemap,
-    with a gradual increase over time based on previous day's additions.
-    """
-    
-    logger.info('Processing sitemap for all guru types')
-    
-    # Get yesterday's sitemap additions count
-    today = timezone.now().date()
-    yesterday = today - timezone.timedelta(days=1)
-    yesterday_start = timezone.make_aware(datetime.combine(yesterday, datetime.min.time()))
-    yesterday_end = timezone.make_aware(datetime.combine(yesterday, datetime.max.time()))
-    logger.info(f'Yesterday start: {yesterday_start}, Yesterday end: {yesterday_end}')
-    yesterday_additions = Question.objects.filter(
-        add_to_sitemap=True,
-        sitemap_date__range=(yesterday_start, yesterday_end)
-    ).count()
+        # Update domain knowledge if it's default
+        if settings.ENV != 'selfhosted' and guru_type.domain_knowledge == settings.DEFAULT_DOMAIN_KNOWLEDGE:
+            from core.requester import GeminiRequester
+            gemini_requester = GeminiRequester(model_name="gemini-1.5-pro-002")
+            root_summarization = get_root_summarization_of_guru_type(guru_type.slug)
+            if not root_summarization:
+                logger.info(f'No root summarization found for {guru_type.slug}')
+                continue
 
-    # Get today's additions so far
-    today_start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-    today_end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
-    logger.info(f'Today start: {today_start}, Today end: {today_end}')
-    today_additions = Question.objects.filter(
-        add_to_sitemap=True,
-        sitemap_date__range=(today_start, today_end)
-    ).count()
-    
-    # If no questions were added yesterday, start with initial batch
-    # if yesterday_additions == 0:
-    #     daily_target = 100  # Day 1 target
-    # else:
-    #     # Calculate increase (10-20% random) based on yesterday's count
-    #     increase_percent = random.uniform(10, 20)
-    #     daily_target = int(yesterday_additions * (1 + (increase_percent/100)))
+            try:
+                # Get topics and description from github_details
+                github_topics = []
+                github_description = ""
+                
+                if guru_type.github_details:
+                    github_topics = guru_type.github_details.get('topics', [])
+                    github_description = guru_type.github_details.get('description', '')
+                
+                gemini_response = gemini_requester.generate_topics_from_summary(
+                    root_summarization.result_content, 
+                    guru_type.name,
+                    github_topics,
+                    github_description
+                )
+                
+                new_topics = gemini_response.get('topics', [])
+                if new_topics:
+                    guru_type.domain_knowledge = ', '.join(new_topics)
+                    guru_type.save()
+                    logger.info(f'Updated domain knowledge for {guru_type.slug}')
+            except Exception as e:
+                logger.error(f"Error updating domain knowledge for {guru_type.slug}: {traceback.format_exc()}")
+                continue
 
-    daily_target = 100
-        
-    logger.info(f'Yesterday additions: {yesterday_additions}, Daily target: {daily_target}, Added today: {today_additions}')
-    
-    # Calculate remaining questions for today
-    questions_to_add = max(0, daily_target - today_additions)
-    if questions_to_add <= 0:
-        logger.info("Daily sitemap quota reached")
-        return
-        
-    # Get random questions from all guru types
-    questions = Question.objects.filter(
-        id__gt=45000,
-        # guru_type__custom=True,
-        guru_type__active=True,
-        add_to_sitemap=False,
-        sitemap_reason="",
-        source__in=[Question.Source.SUMMARY_QUESTION.value, Question.Source.RAW_QUESTION.value]
-    ).order_by('?')[:questions_to_add * 2]  # Get 2x to ensure we have enough after filtering
-    
-    # Process questions
-    selected_questions = []
-    for q in questions:
-        add_to_sitemap, sitemap_reason = q.is_on_sitemap()
-        if add_to_sitemap:
-            selected_questions.append(q)
-            if len(selected_questions) >= questions_to_add:
-                break
-        q.add_to_sitemap = add_to_sitemap
-        q.sitemap_date = timezone.now()
-        q.sitemap_reason = sitemap_reason
-        q.save()
-    
-    logger.info('Processed sitemap for all guru types')
+    logger.info("Updated guru type details")
 
 @shared_task
 def check_datasource_in_milvus_false_and_success():
@@ -1631,6 +1135,7 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         new_model: New text embedding model name
     """
     logger.info(f"Starting text embedding model reindexing for guru type {guru_type_id}")
+    non_github_data_sources = None
     try:
         guru_type = GuruType.objects.get(id=guru_type_id)
         
@@ -1666,7 +1171,7 @@ def reindex_text_embedding_model(guru_type_id: int, old_model: str, new_model: s
         logger.info(f"Completed text embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during text embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
-        if non_github_data_sources.exists():
+        if non_github_data_sources is not None and non_github_data_sources.exists():
             non_github_data_sources.update(status=DataSource.Status.FAIL)
         raise
 
@@ -1682,6 +1187,7 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         new_model: New code embedding model name
     """
     logger.info(f"Starting code embedding model reindexing for guru type {guru_type_id}")
+    github_repos = None
     try:
         guru_type = GuruType.objects.get(id=guru_type_id)
         
@@ -1706,7 +1212,7 @@ def reindex_code_embedding_model(guru_type_id: int, old_model: str, new_model: s
         logger.info(f"Completed code embedding model reindexing for guru type {guru_type_id}")
     except Exception as e:
         logger.error(f"Error during code embedding model reindexing for guru type {guru_type_id}: {traceback.format_exc()}")
-        if github_repos.exists():
+        if github_repos is not None and github_repos.exists():
             github_repos.update(status=DataSource.Status.FAIL)
         raise
 

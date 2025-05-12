@@ -1,4 +1,5 @@
 import secrets
+import sys
 from django.db import transaction
 import traceback
 import logging
@@ -1615,6 +1616,9 @@ class LLMEvalResult(models.Model):
         from matplotlib import pyplot as plt
         import numpy as np
         from core.gcp import PLOTS_GCP
+
+        if 'test' in sys.argv:
+            return None
 
         # Fetch all LLMEval objects
         guru_type = self.guru_type
