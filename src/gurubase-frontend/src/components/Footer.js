@@ -6,7 +6,7 @@ import SocialMediaHeader from "@/components/Header/SocialMediaHeader";
 import { Link } from "@/components/Link";
 import useIsSmallScreen from "@/utils/hooks/useIsSmallScreen";
 
-import NotificationCard from "./NotificationCard/NotificationCard";
+// import NotificationCard from "./NotificationCard/NotificationCard";
 
 export default function Footer({ guruType, slug, sidebarExists = false }) {
   const isSmallScreen = useIsSmallScreen();
@@ -67,7 +67,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
         </article>
       </section>
 
-      {isBetaFeaturesEnabled && <NotificationCard />}
+      {/* {isBetaFeaturesEnabled && <NotificationCard />} */}
     </main>
   );
 }
