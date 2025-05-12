@@ -47,8 +47,7 @@ const ChannelsComponent = ({
   const [isSaving, setIsSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [directMessages, setDirectMessages] = useState(false);
-  const [newChannelId, setNewChannelId] = useState("");
-  const [newChannels, setNewChannels] = useState([]);
+  const [newChannelInputs, setNewChannelInputs] = useState([]);
   const [reFetch, setReFetch] = useState(false);
 
   useEffect(() => {
@@ -62,8 +61,8 @@ const ChannelsComponent = ({
       );
     });
 
-    setHasChanges(channelsChanged || newChannels.length > 0);
-  }, [channels, originalChannels, newChannels]);
+    setHasChanges(channelsChanged || newChannelInputs.length > 0);
+  }, [channels, originalChannels, newChannelInputs]);
 
   useEffect(() => {
     const fetchChannels = async () => {
@@ -118,37 +117,24 @@ const ChannelsComponent = ({
     );
   }
 
-  const handleAddNewChannel = () => {
-    if (newChannelId.trim()) {
-      const existingInNewChannels = newChannels.find(
-        (c) => c.id === newChannelId.trim()
-      );
-      const existingInChannels = channels.find(
-        (c) => c.id === newChannelId.trim()
-      );
-      if (existingInNewChannels) {
-        CustomToast({
-          message: "Channel already exists",
-          variant: "error"
-        });
-      } else if (existingInChannels) {
-        const channelName = existingInChannels.name;
-        CustomToast({
-          message: `Channel ${channelName} already exists`,
-          variant: "error"
-        });
-      } else {
-        setNewChannels([
-          ...newChannels,
-          { id: newChannelId.trim(), mode: "manual" }
-        ]);
-        setNewChannelId("");
-      }
-    }
+  const handleAddNewChannelInput = () => {
+    setNewChannelInputs([...newChannelInputs, { id: "", mode: "manual" }]);
   };
 
-  const handleRemoveNewChannel = (channelId) => {
-    setNewChannels(newChannels.filter((c) => c.id !== channelId));
+  const handleRemoveNewChannelInput = (index) => {
+    setNewChannelInputs(newChannelInputs.filter((_, i) => i !== index));
+  };
+
+  const handleNewChannelInputChange = (index, value) => {
+    const updatedInputs = [...newChannelInputs];
+    updatedInputs[index] = { ...updatedInputs[index], id: value };
+    setNewChannelInputs(updatedInputs);
+  };
+
+  const handleNewChannelModeChange = (index, value) => {
+    const updatedInputs = [...newChannelInputs];
+    updatedInputs[index] = { ...updatedInputs[index], mode: value };
+    setNewChannelInputs(updatedInputs);
   };
 
   return (
@@ -309,10 +295,10 @@ const ChannelsComponent = ({
             </div>
           ))}
 
-        {/* New Channels */}
-        {newChannels.map((channel) => (
+        {/* New Channel Inputs */}
+        {newChannelInputs.map((input, index) => (
           <div
-            key={channel.id}
+            key={index}
             className="flex md:items-center md:flex-row flex-col guru-xs:gap-4 gap-3 guru-xs:pt-1">
             <TooltipProvider>
               <Tooltip>
@@ -340,21 +326,20 @@ const ChannelsComponent = ({
                 New Channel ID
               </span>
               <Input
-                readOnly
-                className="bg-gray-50 pt-8 pb-2"
-                value={channel.id}
+                className="bg-white pt-8 pb-2"
+                placeholder="Enter channel ID..."
+                value={input.id}
+                onChange={(e) =>
+                  handleNewChannelInputChange(index, e.target.value)
+                }
               />
             </div>
             <div className="flex items-center gap-3">
               <Select
-                value={channel.mode}
-                onValueChange={(value) => {
-                  setNewChannels(
-                    newChannels.map((c) =>
-                      c.id === channel.id ? { ...c, mode: value } : c
-                    )
-                  );
-                }}>
+                value={input.mode}
+                onValueChange={(value) =>
+                  handleNewChannelModeChange(index, value)
+                }>
                 <SelectTrigger className="w-[100px] flex items-center justify-center">
                   <SelectValue placeholder="Mode" className="text-center" />
                   <ChevronDownIcon className="h-4 w-4 opacity-50 ml-2" />
@@ -365,61 +350,33 @@ const ChannelsComponent = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center md:justify-start justify-center">
-              <button
-                className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group"
-                onClick={() => handleRemoveNewChannel(channel.id)}>
-                <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
-              </button>
+            <div className="flex flex-row gap-3 w-full md:w-auto">
+              <Button
+                variant="outline"
+                disabled={true}
+                size="lgRounded"
+                className="flex gap-2 border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap transition-all opacity-50 cursor-not-allowed">
+                <SendTestMessageIcon />
+                Send Test Message
+              </Button>
+              <div className="flex items-center md:justify-start justify-center">
+                <button
+                  className="text-[#BABFC8] hover:text-[#DC2626] transition-colors group"
+                  onClick={() => handleRemoveNewChannelInput(index)}>
+                  <SolarTrashBinTrashBold className="h-6 w-6 text-[#BABFC8] group-hover:text-[#DC2626] transition-colors" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
 
-        {/* Add New Channel Input */}
+        {/* Add New Channel Button */}
         <div className="flex items-center gap-3">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  <a
-                    href="https://docs.gurubase.io/integrations/slack-bot#finding-out-channel-ids"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-600">
-                    Here
-                  </a>{" "}
-                  is a guide to find out how to get the channel ID.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <div className="relative w-full guru-xs:w-full guru-sm:w-[450px] guru-md:w-[300px] xl:w-[450px]">
-            <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-              Channel ID
-            </span>
-            <Input
-              className="pt-8 pb-2"
-              placeholder="Enter channel ID..."
-              value={newChannelId}
-              onChange={(e) => setNewChannelId(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAddNewChannel();
-                }
-              }}
-            />
-          </div>
           <Button
             variant="outline"
             size="lgRounded"
             className="flex gap-2 border border-[#E2E2E2] bg-white hover:bg-[#F3F4F6] active:bg-[#E2E2E2] text-[#191919] font-inter text-[14px] font-medium whitespace-nowrap transition-all"
-            onClick={handleAddNewChannel}>
+            onClick={handleAddNewChannelInput}>
             Add Channel
           </Button>
         </div>
@@ -432,7 +389,7 @@ const ChannelsComponent = ({
           onClick={async () => {
             setIsSaving(true);
             try {
-              // Handle updates
+              // Handle updates for existing channels
               const response = await saveIntegrationChannels(
                 guruData?.slug,
                 type.toUpperCase(),
@@ -444,11 +401,19 @@ const ChannelsComponent = ({
 
               const failed = [];
               const existing = [];
-              // Handle new channels
-              if (newChannels.length > 0) {
+
+              // Handle new channels - filter out empty inputs and get unique channel IDs
+              const uniqueNewChannels = newChannelInputs
+                .filter((input) => input.id.trim() !== "")
+                .filter(
+                  (input, index, self) =>
+                    index === self.findIndex((t) => t.id === input.id)
+                );
+
+              if (uniqueNewChannels.length > 0) {
                 const response = await addSlackChannels(
                   guruData?.slug,
-                  newChannels.map((c) => ({
+                  uniqueNewChannels.map((c) => ({
                     id: c.id,
                     mode: c.mode
                   }))
@@ -481,7 +446,7 @@ const ChannelsComponent = ({
                 });
               }
 
-              setNewChannels([]);
+              setNewChannelInputs([]);
             } catch (error) {
               setInternalError(error.message);
             } finally {
