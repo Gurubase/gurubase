@@ -1275,7 +1275,6 @@ export default function NewGuru({
 
       setIsSourcesProcessing(true);
 
-      console.log("formData", formData);
       const guruResponse = isEditMode
         ? await updateGuru(customGuru, formData)
         : await createGuru(formData);
