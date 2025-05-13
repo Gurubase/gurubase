@@ -91,7 +91,9 @@ const formSchema = z.object({
   websiteUrls: z.array(z.string()).optional(),
   jiraIssues: z.array(z.string()).optional(),
   zendeskTickets: z.array(z.string()).optional(),
-  confluencePages: z.array(z.string()).optional()
+  confluencePages: z.array(z.string()).optional(),
+  promptContent: z.string().optional(),
+  promptTemplateId: z.string().optional()
 });
 
 export default function NewGuru({
@@ -148,6 +150,8 @@ export default function NewGuru({
   const { user, isLoading: authLoading } = isSelfHosted
     ? { user: true, isLoading: false }
     : useUser();
+
+  const allowCustomPrompt = guruData?.allow_custom_prompt;
 
   const [dataSources, setDataSources] = useState(null);
   const [customGuruData, setCustomGuruData] = useState(guruData);
@@ -1251,6 +1255,14 @@ export default function NewGuru({
       }
       formData.append("domain_knowledge", data.guruContext);
 
+      // Add prompt data if it was modified
+      if (dirtyChanges.promptUpdated) {
+        formData.append(
+          "custom_instruction_prompt",
+          dirtyChanges.promptContent
+        );
+      }
+
       // Handle guruLogo
       if (data.guruLogo instanceof File) {
         formData.append("icon_image", data.guruLogo);
@@ -1564,7 +1576,11 @@ export default function NewGuru({
       });
 
       fetchDataSources(guruSlug);
-      setDirtyChanges({ sources: [], guruUpdated: false });
+      setDirtyChanges({
+        sources: [],
+        guruUpdated: false,
+        promptUpdated: false
+      });
     } catch (error) {
       CustomToast({
         message: `Error ${isEditMode ? "updating" : "creating"} guru: ${error.message}`,
@@ -1666,7 +1682,7 @@ export default function NewGuru({
       setHasFormChanged(true);
       return;
     }
-    if (dirtyChanges.guruUpdated) {
+    if (dirtyChanges.guruUpdated || dirtyChanges.promptUpdated) {
       setHasFormChanged(true);
       return;
     }
@@ -1761,7 +1777,9 @@ export default function NewGuru({
           .map((s) => s.url),
         confluencePages: dataSources.results
           .filter((s) => s.type.toLowerCase() === "confluence")
-          .map((s) => s.url)
+          .map((s) => s.url),
+        promptContent: customGuruData.prompt_content || "",
+        promptTemplateId: customGuruData.prompt_template_id || "current_prompt"
       };
 
       setInitialFormValues(initialValues);
@@ -2517,6 +2535,8 @@ export default function NewGuru({
               setSelectedFile={setSelectedFile}
               setIconUrl={setIconUrl}
               setDirtyChanges={setDirtyChanges}
+              allowCustomPrompt={allowCustomPrompt}
+              guruData={customGuruData}
             />
 
             {/* Use SourcesTableSection component */}

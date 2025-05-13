@@ -23,7 +23,7 @@ from core.models import CrawlState, FeaturedDataSource, Question, ContentPageSta
 from accounts.models import User
 from core.utils import (
     # Authentication & validation
-    APIAskResponse, APIType, api_ask, check_binge_auth, validate_binge_follow_up,
+    APIAskResponse, APIType, api_ask, check_binge_auth, get_default_settings, validate_binge_follow_up,
     validate_guru_type, validate_image, 
     
     # Question & answer handling
@@ -419,6 +419,9 @@ def my_gurus(request, guru_slug=None):
             user_gurus = sub_query.filter(active=True).order_by('-date_created')
         else:
             user_gurus = sub_query.filter(maintainers=user, active=True).order_by('-date_created')
+
+        default_settings = get_default_settings()
+        default_prompts = default_settings.prompt_templates
         
         gurus_data = []
         for guru in user_gurus:
@@ -428,9 +431,9 @@ def my_gurus(request, guru_slug=None):
             if settings.ENV == 'selfhosted':
                 icon_url = replace_media_root_with_nginx_base_url(guru.icon_url)
             else:
-                icon_url = guru.icon_url            
-
-            gurus_data.append({
+                icon_url = guru.icon_url     
+                   
+            data = {
                 'id': guru.id,
                 'name': guru.name,
                 'slug': guru.slug,
@@ -446,8 +449,24 @@ def my_gurus(request, guru_slug=None):
                 'confluence_limit': guru.confluence_count_limit,
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit,
-                'ready': guru.ready
-            })
+                'ready': guru.ready,
+                'allow_custom_prompt': guru.allow_custom_prompt,
+            }
+
+            if guru.allow_custom_prompt:
+                prompts = []
+                for prompt in default_prompts:
+                    prompts.append(prompt)
+
+                prompts.append({
+                    'id': 'current_prompt',
+                    'name': 'Current Prompt',
+                    'content': guru.custom_instruction_prompt
+                })                
+
+                data['prompts'] = prompts
+
+            gurus_data.append(data)
         
         if guru_slug:
             return Response(gurus_data[0], status=status.HTTP_200_OK)
@@ -963,7 +982,7 @@ def update_guru_type(request, guru_type):
     data = request.data
     domain_knowledge = data.get('domain_knowledge', guru_type_object.prompt_map['domain_knowledge'])
     intro_text = data.get('intro_text', guru_type_object.intro_text)
-
+    custom_instruction_prompt = data.get('custom_instruction_prompt', guru_type_object.custom_instruction_prompt)
     # Handle image upload if provided
     image = request.FILES.get('icon_image')
     if image:
@@ -982,6 +1001,8 @@ def update_guru_type(request, guru_type):
     # Update other fields
     guru_type_object.domain_knowledge = domain_knowledge
     guru_type_object.intro_text = intro_text
+    if guru_type_object.allow_custom_prompt:
+        guru_type_object.custom_instruction_prompt = custom_instruction_prompt
     try:
         guru_type_object.save()
     except ValidationError as e:

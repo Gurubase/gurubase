@@ -1579,6 +1579,27 @@ export async function validateOllamaUrlRequest(url) {
   }
 }
 
+export async function getPromptTemplates(guruType) {
+  try {
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/prompt_templates/${guruType}/`;
+    console.log("Fetching prompt templates for guruType:", guruType, url);
+    const response = await makeAuthenticatedRequest(url);
+
+    if (!response) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching prompt templates:", error);
+    return handleRequestError(error, {
+      context: "getPromptTemplates",
+      guruType
+    });
+  }
+}
+
 export async function addSlackChannels(guruType, channels) {
   try {
     const response = await makeAuthenticatedRequest(
