@@ -90,7 +90,6 @@ urlpatterns += [
 
     path('integrations/', include('integrations.urls')),
 
-
 ]
 
 if settings.STREAM_ENABLED:
