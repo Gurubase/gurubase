@@ -2255,7 +2255,7 @@ class ConfluenceRequester():
             query = "type=page"
             # If CQL is provided, use it directly to get pages
             if cql:
-                query += f" AND {cql}"
+                query += f" AND ({cql})"  # Enclose to prevent operator reordering
             
             if start_time:
                 query += f" AND created >= '{start_time}'"
