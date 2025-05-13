@@ -98,7 +98,7 @@ export default function CustomPromptEditor({
     <div>
       <div className="flex items-center space-x-2 mb-6">
         <h3 className="text-sm font-medium">Custom Prompt</h3>
-        <HeaderTooltip text="Customize the prompt instructions for your guru" />
+        <HeaderTooltip html="Customize the prompt instructions for your guru. <a href='https://docs.gurubase.com/guides/prompting-your-guru#how-to-write-prompts%3F' target='_blank' class='text-blue-500'>Here</a> is a guide to help you write a good prompt." />
       </div>
 
       <div className="space-y-6">
