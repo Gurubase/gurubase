@@ -2231,7 +2231,7 @@ class ConfluenceRequester():
             'url': f"{self.url}/wiki/spaces/{space.get('key')}/pages/{page.get('id')}"
         }
 
-    def list_pages(self, cql=None):
+    def list_pages(self, cql=None, start_time=None, end_time=None):
         """
         List Confluence pages using CQL or list all pages if no CQL is provided.
         This method combines the functionality of listing spaces and pages.
@@ -2242,6 +2242,8 @@ class ConfluenceRequester():
                                 - "type=page AND space=DEV"
                                 - "title ~ 'Project'"
                                 - "created > '2023-01-01'"
+            start_time (str, optional): Start time for filtering pages.
+            end_time (str, optional): End time for filtering pages.
         
         Returns:
             dict: Contains 'pages' list
@@ -2250,126 +2252,83 @@ class ConfluenceRequester():
             ValueError: If API request fails
         """
         try:
+            query = "type=page"
             # If CQL is provided, use it directly to get pages
             if cql:
-                cql += " AND type=page"
-                all_pages = []
-                seen_page_ids = set()  # Track unique page IDs
-                cql_limit = 100  # Fetch 100 results at a time
-                
-                # Initial request
-                url = f"{self.url}/wiki/rest/api/search"
-                params = {
-                    'cql': cql,
-                    'limit': cql_limit,
-                    'expand': 'space'
-                }
-                
-                while True:
-                    response = requests.get(
-                        url,
-                        auth=(self.confluence.username, self.confluence.password),
-                        params=params,
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 401:
-                        raise ValueError("Invalid Confluence credentials")
-                    elif response.status_code == 403:
-                        raise ValueError("Confluence API access forbidden")
-                    elif response.status_code != 200:
-                        if 'could not parse' in response.text.lower():
-                            raise ValueError(f"Invalid CQL query.")
-                        else:
-                            split = response.json().get('message', '').split(':', 1)
-                            if len(split) > 1:
-                                raise ValueError(split[1].strip())
-                            else:
-                                raise ValueError(f"Confluence API request failed with status {response.status_code}")
-                    
-                    cql_results = response.json()
-                    results = cql_results.get('results', [])
-                    
-                    if not results:
-                        break
-                        
-                    for result in results:
-                        content = result.get('content', {})
-                        page_id = content.get('id')
-                        
-                        # Skip if we've seen this page ID before
-                        if not page_id or page_id in seen_page_ids:
-                            continue
-                            
-                        seen_page_ids.add(page_id)
-                        
-                        # Get space info from the expanded result
-                        space = content.get('space', {})
-                        space_key = space.get('key')
-                        space_name = space.get('name', '')
-                        
-                        # Format and add the page
-                        formatted_page = self._format_page(content, space_key, space_name)
-                        all_pages.append(formatted_page)
-                    
-                    # Check if there's a next page
-                    next_link = cql_results.get('_links', {}).get('next')
-                    if not next_link:
-                        break
-                        
-                    # Update URL and params for next request
-                    url = f"{self.url}/wiki{next_link}"
-                    params = {}  # Clear params as they're included in the next_link
-                
-                return {
-                    'pages': all_pages,
-                    'page_count': len(all_pages)
-                }
+                query += f" AND {cql}"
             
-            # If no CQL, get all pages from all spaces
+            if start_time:
+                query += f" AND created >= '{start_time}'"
+            if end_time:
+                query += f" AND created < '{end_time}'"
+
             all_pages = []
             seen_page_ids = set()  # Track unique page IDs
+            cql_limit = 100  # Fetch 100 results at a time
             
-            spaces_data = self.confluence.get_all_spaces()
-            spaces = spaces_data.get('results', [])
+            # Initial request
+            url = f"{self.url}/wiki/rest/api/search"
+            params = {
+                'cql': query,
+                'limit': cql_limit,
+                'expand': 'space'
+            }
             
-            # For each space, get all pages with proper pagination
-            for space in spaces:
-                space_key = space.get('key')
-                space_name = space.get('name', '')
-                try:
-                    # Use pagination to get all pages from the space
-                    page_start = 0
-                    page_limit = 100  # Fetch 100 pages at a time
-                    while True:
-                        pages_batch = self.confluence.get_all_pages_from_space(
-                            space_key, 
-                            start=page_start, 
-                            limit=page_limit
-                        )
+            while True:
+                response = requests.get(
+                    url,
+                    auth=(self.confluence.username, self.confluence.password),
+                    params=params,
+                    timeout=30
+                )
+                
+                if response.status_code == 401:
+                    raise ValueError("Invalid Confluence credentials")
+                elif response.status_code == 403:
+                    raise ValueError("Confluence API access forbidden")
+                elif response.status_code != 200:
+                    if 'could not parse' in response.text.lower():
+                        raise ValueError(f"Invalid CQL query.")
+                    else:
+                        split = response.json().get('message', '').split(':', 1)
+                        if len(split) > 1:
+                            raise ValueError(split[1].strip())
+                        else:
+                            raise ValueError(f"Confluence API request failed with status {response.status_code}")
+                
+                cql_results = response.json()
+                results = cql_results.get('results', [])
+                
+                if not results:
+                    break
+                    
+                for result in results:
+                    content = result.get('content', {})
+                    page_id = content.get('id')
+                    
+                    # Skip if we've seen this page ID before
+                    if not page_id or page_id in seen_page_ids:
+                        continue
                         
-                        if not pages_batch:
-                            break
-                            
-                        for page in pages_batch:
-                            page_id = page.get('id')
-                            # Only add page if we haven't seen its ID before
-                            if page_id and page_id not in seen_page_ids:
-                                seen_page_ids.add(page_id)
-                                formatted_page = self._format_page(page, space_key, space_name)
-                                all_pages.append(formatted_page)
-                            
-                        # If we got fewer pages than requested, we've reached the end
-                        if len(pages_batch) < page_limit:
-                            break
-                            
-                        # Move to the next page
-                        page_start += page_limit
-                        
-                except Exception as e:
-                    # Continue to next space if there's an error with this one
-                    logger.warning(f"Error fetching pages from space {space_key}: {str(e)}")
-                    continue
+                    seen_page_ids.add(page_id)
+                    
+                    # Get space info from the expanded result
+                    space = content.get('space', {})
+                    space_key = space.get('key')
+                    space_name = space.get('name', '')
+                    
+                    # Format and add the page
+                    formatted_page = self._format_page(content, space_key, space_name)
+                    all_pages.append(formatted_page)
+                
+                # Check if there's a next page
+                next_link = cql_results.get('_links', {}).get('next')
+                if not next_link:
+                    break
+                    
+                # Update URL and params for next request
+                url = f"{self.url}/wiki{next_link}"
+                params = {}  # Clear params as they're included in the next_link
             
             return {
                 'pages': all_pages,
