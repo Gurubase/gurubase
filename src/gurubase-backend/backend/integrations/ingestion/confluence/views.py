@@ -47,13 +47,22 @@ def list_confluence_pages(request, integration_id):
     if integration.type != Integration.Type.CONFLUENCE:
         return Response({'msg': 'This integration is not a Confluence integration.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Expected as '2025/05/05'
+    start_time = request.data.get('start_time')
+    end_time = request.data.get('end_time')
+
+    if not start_time or not end_time:
+        return Response({'msg': 'Start and end time are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
     # Extract parameters from request data with defaults
     cql = request.data.get('query')
 
     try:
         confluence_requester = ConfluenceRequester(integration)
         result = confluence_requester.list_pages(
-            cql=cql 
+            cql=cql,
+            start_time=start_time,
+            end_time=end_time
         )
         return Response(result, status=status.HTTP_200_OK)
     except ValueError as e:

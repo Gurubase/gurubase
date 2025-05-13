@@ -108,8 +108,8 @@ const MonacoUrlEditor = ({
   const [loadingType, setLoadingType] = useState(null);
   const [confluenceQuery, setConfluenceQuery] = useState("");
   const [showConfluenceInput, setShowConfluenceInput] = useState(true);
-  const [zendeskStartTime, setZendeskStartTime] = useState("");
-  const [zendeskEndTime, setZendeskEndTime] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
 
   // Update editor options to include readOnly based on isCrawling state
   const currentEditorOptions = {
@@ -360,8 +360,8 @@ const MonacoUrlEditor = ({
       setLoadingType("tickets");
       const response = await fetchZendeskTickets(
         integrationId,
-        zendeskStartTime,
-        zendeskEndTime
+        startTime,
+        endTime
       );
 
       if (!isLoadingSitemapRef.current) {
@@ -417,8 +417,8 @@ const MonacoUrlEditor = ({
       setLoadingType("articles");
       const response = await fetchZendeskArticles(
         integrationId,
-        zendeskStartTime,
-        zendeskEndTime
+        startTime,
+        endTime
       );
 
       if (!isLoadingSitemapRef.current) {
@@ -473,7 +473,9 @@ const MonacoUrlEditor = ({
       onSitemapLoadingChange(true);
       const response = await fetchConfluencePages(
         integrationId,
-        confluenceQuery
+        confluenceQuery,
+        startTime,
+        endTime
       );
 
       if (!isLoadingSitemapRef.current) {
@@ -949,16 +951,66 @@ const MonacoUrlEditor = ({
               ) : (
                 <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
                   <div className="relative w-full">
-                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                      CQL
-                    </span>
-                    <Input
-                      className="w-[600px] h-10 guru-sm:w-full pt-6"
-                      placeholder="Enter CQL Query (Optional)"
-                      value={confluenceQuery}
-                      onChange={(e) => setConfluenceQuery(e.target.value)}
-                      disabled={isLoadingSitemapRef.current}
-                    />
+                    <div className="flex items-center gap-4 w-full">
+                      <div className="flex items-center gap-4">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs text-gray-500 font-medium">
+                            Start Date
+                          </label>
+                          <Input
+                            type="date"
+                            className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs text-gray-500 font-medium">
+                            End Date
+                          </label>
+                          <Input
+                            type="date"
+                            className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                          />
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="space-y-1">
+                                <p>
+                                  Start date is included and end date is
+                                  excluded
+                                </p>
+                                <p>
+                                  If time filtering is applied in the CQL as
+                                  well, it is AND'ed with the selected time
+                                  interval.
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <div className="min-w-[300px] relative">
+                        <span className="absolute top-2 text-xs font-normal text-gray-500 left-3">
+                          CQL
+                        </span>
+                        <Input
+                          className="w-full h-10 pt-6"
+                          placeholder="Enter CQL Query (Optional)"
+                          value={confluenceQuery}
+                          onChange={(e) => setConfluenceQuery(e.target.value)}
+                          disabled={isLoadingSitemapRef.current}
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 guru-sm:w-full">
                     <TooltipProvider>
@@ -1093,8 +1145,8 @@ const MonacoUrlEditor = ({
                         <Input
                           type="date"
                           className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
-                          value={zendeskStartTime}
-                          onChange={(e) => setZendeskStartTime(e.target.value)}
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
                         />
                       </div>
                       <div className="flex flex-col gap-1 flex-1">
@@ -1104,8 +1156,8 @@ const MonacoUrlEditor = ({
                         <Input
                           type="date"
                           className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
-                          value={zendeskEndTime}
-                          onChange={(e) => setZendeskEndTime(e.target.value)}
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
                         />
                       </div>
                       <TooltipProvider>

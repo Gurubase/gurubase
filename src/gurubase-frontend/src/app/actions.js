@@ -1266,7 +1266,12 @@ export async function fetchJiraIssues(integrationId, jqlQuery) {
   }
 }
 
-export async function fetchConfluencePages(integrationId, searchQuery) {
+export async function fetchConfluencePages(
+  integrationId,
+  searchQuery,
+  startTime,
+  endTime
+) {
   try {
     // Construct the endpoint URL using the integrationId
     const endpointUrl = `${process.env.NEXT_PUBLIC_BACKEND_FETCH_URL}/integrations/confluence/pages/${integrationId}/`;
@@ -1275,7 +1280,11 @@ export async function fetchConfluencePages(integrationId, searchQuery) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       // Send the search query in the request body
-      body: JSON.stringify({ query: searchQuery })
+      body: JSON.stringify({
+        query: searchQuery,
+        start_time: startTime,
+        end_time: endTime
+      })
     });
 
     if (!response) {
