@@ -142,7 +142,7 @@ export default function CustomPromptEditor({
                 <FormControl>
                   <Textarea
                     {...field}
-                    className="min-h-[400px] font-mono text-sm resize-none"
+                    className="min-h-[150px] font-mono text-sm resize-y"
                     placeholder="Prompt instructions will appear here"
                   />
                 </FormControl>
