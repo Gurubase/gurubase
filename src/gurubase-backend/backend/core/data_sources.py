@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from markitdown import MarkItDown
 from core.guru_types import get_guru_type_object_by_maintainer
 from core.proxy import format_proxies, get_random_proxies
-from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, ThrottleError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError
+from core.exceptions import ExcelContentExtractionError, JiraContentExtractionError, NotFoundError, PDFContentExtractionError, ThrottleError, WebsiteContentExtractionError, WebsiteContentExtractionThrottleError, YouTubeContentExtractionError, ZendeskContentExtractionError, ConfluenceContentExtractionError
 from core.models import DataSource, DataSourceExists, CrawlState
 from core.gcp import replace_media_root_with_nginx_base_url
 import unicodedata
@@ -1065,9 +1065,6 @@ class YouTubeService:
                 'msg': 'An error occurred while fetching the channel'
             }, 500
 
-
-class ConfluenceContentExtractionError(Exception):
-    pass
 
 
 def confluence_content_extraction(integration, confluence_page_url):

@@ -1,12 +1,14 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from core.models import GuruType, WidgetId
+from core.models import GuruType
+from integrations.models import WidgetId
 import secrets
-
+from core.utils import get_default_settings
 
 class WidgetIdTests(TestCase):
     def setUp(self):
         # Mock the secrets.token_urlsafe to return a predictable value for testing
+        get_default_settings()
         self.original_token_urlsafe = secrets.token_urlsafe
         secrets.token_urlsafe = lambda x: "test_widget_key"
         

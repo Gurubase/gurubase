@@ -67,7 +67,7 @@ export default function Footer({ guruType, slug, sidebarExists = false }) {
         </article>
       </section>
 
-      {isBetaFeaturesEnabled && <NotificationCard />}
+      {(!isBetaFeaturesEnabled || !isSelfHosted) && <NotificationCard />}
     </main>
   );
 }

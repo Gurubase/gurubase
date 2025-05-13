@@ -11,6 +11,9 @@ from slack_sdk import WebClient
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from core.auth import jwt_auth
+from core.exceptions import NotFoundError
+from core.guru_types import get_guru_type_object_by_maintainer
 from core.utils import get_base_url
 from core.views import api_answer
 from integrations.bots.helpers import NotEnoughData, NotRelated, cleanup_title, get_trust_score_emoji, strip_first_header
@@ -627,3 +630,91 @@ async def send_channel_unauthorized_message(
         )
     except SlackApiError as e:
         logger.error(f"Error sending unauthorized channel message: {e.response}", exc_info=True)
+
+@api_view(['POST'])
+@jwt_auth
+def add_channels(request, guru_type):
+    """Add new channels to the Slack integration by validating channel IDs."""
+    try:
+        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
+    except PermissionError:
+        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except NotFoundError:
+        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        integration = Integration.objects.get(
+            guru_type=guru_type_object,
+            type=Integration.Type.SLACK
+        )
+    except Integration.DoesNotExist:
+        return Response({'msg': 'Slack integration not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        channels = request.data.get('channels', [])
+        if not channels:
+            return Response(
+                {"msg": "Channel IDs list is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the Slack strategy
+        strategy = IntegrationFactory.get_strategy(Integration.Type.SLACK, integration)
+        
+        # Validate each channel individually
+        successful_channels = []
+        failed_channels = []
+        
+        for channel in channels:
+            result = strategy.validate_channel(channel['id'])
+            if result['success']:
+                result['data']['mode'] = channel['mode']
+                successful_channels.append(result['data'])
+            else:
+                failed_channels.append({
+                    'id': channel['id'],
+                })
+            
+            time.sleep(1)
+        
+        already_existing_channels = []
+        # Update integration channels if we have successful ones
+        if successful_channels:
+            current_channels = integration.channels or []
+            
+            # Add new channels, avoiding duplicates
+            existing_channel_ids = {c.get('id') for c in current_channels}
+            for channel in successful_channels:
+                if channel['id'] not in existing_channel_ids:
+                    current_channels.append(channel)
+                else:
+                    already_existing_channels.append(channel)
+            
+            integration.channels = current_channels
+            integration.save()
+            
+            # Update cache
+            cache = caches['alternate']
+            cache_key = f"slack_integration:{integration.external_id}"
+            cache.set(cache_key, integration, timeout=0)
+
+        # Return results
+        response_data = {
+            'id': integration.id,
+            'type': integration.type,
+            'guru_type': integration.guru_type.slug,
+            'channels': integration.channels,
+            'allow_dm': integration.allow_dm,
+            'successful': successful_channels,
+            'failed': failed_channels,
+            'existing': already_existing_channels
+        }
+        
+        if failed_channels:
+            return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+        else:
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+    except Exception as e:
+        logger.error(f"Error adding channels: {e}", exc_info=True)
+        return Response({'msg': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
