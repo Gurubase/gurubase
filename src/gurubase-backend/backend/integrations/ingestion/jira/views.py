@@ -42,9 +42,15 @@ def list_jira_issues(request, integration_id):
     if not jql_query:
         jql_query = 'ORDER BY created DESC'
 
+    start_time = request.data.get('start_time')
+    end_time = request.data.get('end_time')
+
+    if not start_time or not end_time:        
+        return Response({'msg': 'Start and end time are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         jira_requester = JiraRequester(integration)
-        issues = jira_requester.list_issues(jql_query=jql_query)
+        issues = jira_requester.list_issues(jql_query=jql_query, start_time=start_time, end_time=end_time)
         return Response({'issues': issues, 'issue_count': len(issues)}, status=status.HTTP_200_OK)
     except ValueError as e:
         # Handle specific errors from JiraRequester

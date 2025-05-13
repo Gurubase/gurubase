@@ -300,7 +300,12 @@ const MonacoUrlEditor = ({
   const handleJiraFetch = async () => {
     try {
       onSitemapLoadingChange(true);
-      const response = await fetchJiraIssues(integrationId, jiraQuery);
+      const response = await fetchJiraIssues(
+        integrationId,
+        jiraQuery,
+        startTime,
+        endTime
+      );
 
       if (!isLoadingSitemapRef.current) {
         return;
@@ -865,165 +870,151 @@ const MonacoUrlEditor = ({
           )}
           {sourceType === "jira" && (
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
-              {!showJiraInput ? (
-                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+              <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">
+                      Start Date
+                    </label>
+                    <Input
+                      type="date"
+                      className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-500 font-medium">
+                      End Date
+                    </label>
+                    <Input
+                      type="date"
+                      className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                    />
+                  </div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
-                          onClick={() => setShowJiraInput(true)}>
-                          <Icon icon="mdi:jira" className="h-4 w-4" />
-                          <span className="text-sm">Fetch Issues</span>
-                        </Button>
+                        <div>
+                          <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent>
+                        <div className="space-y-1">
+                          <p>Start date is included and end date is excluded</p>
+                          <p>
+                            If time filtering is applied in the JQL as well, it
+                            is AND'ed with the selected time interval.
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="min-w-[300px] relative">
+                  <span className="absolute top-2 text-xs font-normal text-gray-500 left-3">
+                    JQL
+                  </span>
+                  <Input
+                    className="w-full h-10 pt-6"
+                    placeholder="Enter JQL Query (Optional)"
+                    value={jiraQuery}
+                    onChange={(e) => setJiraQuery(e.target.value)}
+                    disabled={isLoadingSitemapRef.current}
+                  />
+                </div>
+                <div className="flex items-center gap-2 guru-sm:w-full">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {jiraButtonContent()}
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
                         <p>Fetch issues using a JQL query</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
-                  <div className="relative w-full">
-                    <span className="absolute left-3 top-2 text-xs font-normal text-gray-500">
-                      JQL
-                    </span>
-                    <Input
-                      className="w-[600px] h-10 guru-sm:w-full pt-6"
-                      placeholder="Enter JQL Query (Optional)"
-                      value={jiraQuery}
-                      onChange={(e) => setJiraQuery(e.target.value)}
-                      disabled={isLoadingSitemapRef.current}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 guru-sm:w-full">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          {jiraButtonContent()}
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p>Fetch issues using a JQL query</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {/* <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 hover:bg-gray-100"
-                      disabled={isLoadingSitemapRef.current}
-                      onClick={() => {
-                        setShowJiraInput(false);
-                        setJiraQuery(defaultJQL);
-                      }}>
-                      ✕
-                    </Button> */}
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
           {sourceType === "confluence" && (
             <div className={`flex items-center gap-2 guru-sm:w-full`}>
-              {!showConfluenceInput ? (
-                <div className="flex items-center gap-2 guru-sm:flex-col guru-sm:w-full">
+              <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
+                <div className="relative w-full">
+                  <div className="flex items-center gap-4 w-full">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500 font-medium">
+                          Start Date
+                        </label>
+                        <Input
+                          type="date"
+                          className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-gray-500 font-medium">
+                          End Date
+                        </label>
+                        <Input
+                          type="date"
+                          className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                        />
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1">
+                              <p>
+                                Start date is included and end date is excluded
+                              </p>
+                              <p>
+                                If time filtering is applied in the CQL as well,
+                                it is AND'ed with the selected time interval.
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="min-w-[300px] relative">
+                      <span className="absolute top-2 text-xs font-normal text-gray-500 left-3">
+                        CQL
+                      </span>
+                      <Input
+                        className="w-full h-10 pt-6"
+                        placeholder="Enter CQL Query (Optional)"
+                        value={confluenceQuery}
+                        onChange={(e) => setConfluenceQuery(e.target.value)}
+                        disabled={isLoadingSitemapRef.current}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 guru-sm:w-full">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 hover:bg-gray-100 flex items-center gap-1.5 guru-sm:w-full"
-                          onClick={() => setShowConfluenceInput(true)}>
-                          <Icon icon="mdi:confluence" className="h-4 w-4" />
-                          <span className="text-sm">Fetch Pages</span>
-                        </Button>
+                        {confluenceButtonContent()}
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Fetch pages using a search query</p>
+                      <TooltipContent side="right">
+                        <p>Fetch pages using a CQL query</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 animate-in slide-in-from-right-5 guru-sm:w-full guru-sm:flex-col">
-                  <div className="relative w-full">
-                    <div className="flex items-center gap-4 w-full">
-                      <div className="flex items-center gap-4">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs text-gray-500 font-medium">
-                            Start Date
-                          </label>
-                          <Input
-                            type="date"
-                            className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="text-xs text-gray-500 font-medium">
-                            End Date
-                          </label>
-                          <Input
-                            type="date"
-                            className="h-8 border-gray-200 focus:border-gray-300 focus:ring-gray-300"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                          />
-                        </div>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div>
-                                <SolarInfoCircleBold className="h-4 w-4 text-gray-200" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="space-y-1">
-                                <p>
-                                  Start date is included and end date is
-                                  excluded
-                                </p>
-                                <p>
-                                  If time filtering is applied in the CQL as
-                                  well, it is AND'ed with the selected time
-                                  interval.
-                                </p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      <div className="min-w-[300px] relative">
-                        <span className="absolute top-2 text-xs font-normal text-gray-500 left-3">
-                          CQL
-                        </span>
-                        <Input
-                          className="w-full h-10 pt-6"
-                          placeholder="Enter CQL Query (Optional)"
-                          value={confluenceQuery}
-                          onChange={(e) => setConfluenceQuery(e.target.value)}
-                          disabled={isLoadingSitemapRef.current}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 guru-sm:w-full">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          {confluenceButtonContent()}
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          <p>Fetch pages using a CQL query</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {/* <Button
+                  {/* <Button
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2 hover:bg-gray-100"
@@ -1034,9 +1025,8 @@ const MonacoUrlEditor = ({
                       }}>
                       ✕
                     </Button> */}
-                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
           {sourceType === "youtube" && (

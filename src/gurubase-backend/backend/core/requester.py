@@ -939,13 +939,14 @@ class JiraRequester():
             password=integration.jira_api_key
         )
 
-    def list_issues(self, jql_query, start=0, max_results=50):
+    def list_issues(self, jql_query, batch=50, start_time=None, end_time=None):
         """
         List Jira issues using JQL query with pagination
         Args:
             jql_query (str): JQL query string to filter issues
-            start (int): Starting index for pagination (unused, kept for compatibility)
-            max_results (int): Maximum number of results to fetch per request
+            batch (int): Maximum number of results to fetch per request
+            start_time (str, optional): Start time for filtering issues.
+            end_time (str, optional): End time for filtering issues.
         Returns:
             list: List of Jira issues matching the query
         Raises:
@@ -954,11 +955,17 @@ class JiraRequester():
         try:
             all_issues = []
             current_start = 0
-            page_size = max_results
+            page_size = batch
+
+            query = f'({jql_query})'  # Enclose to prevent operator reordering
+            if start_time:
+                query += f" AND created >= '{start_time}'"
+            if end_time:
+                query += f" AND created < '{end_time}'"
             
             while True:
                 # Get issues using JQL
-                issues_data = self.jira.jql(jql_query, start=current_start, limit=page_size)
+                issues_data = self.jira.jql(query, start=current_start, limit=page_size)
                 issues = issues_data.get('issues', [])
                 
                 if not issues:
