@@ -90,7 +90,6 @@ urlpatterns += [
 
     path('integrations/', include('integrations.urls')),
 
-    path('prompt_templates/<str:guru_type>/', core_views.get_prompt_templates, name='get_prompt_templates'),
 
 ]
 

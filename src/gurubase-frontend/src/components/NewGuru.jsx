@@ -1205,8 +1205,6 @@ export default function NewGuru({
 
   const onSubmit = async (data) => {
     try {
-      console.log("onSubmit", data);
-      console.log("dirtyChanges", dirtyChanges);
       // Check data source limits first
       if (!validateSourceLimits(sources, dirtyChanges, customGuruData)) {
         return;
@@ -1579,7 +1577,11 @@ export default function NewGuru({
       });
 
       fetchDataSources(guruSlug);
-      setDirtyChanges({ sources: [], guruUpdated: false });
+      setDirtyChanges({
+        sources: [],
+        guruUpdated: false,
+        promptUpdated: false
+      });
     } catch (error) {
       CustomToast({
         message: `Error ${isEditMode ? "updating" : "creating"} guru: ${error.message}`,
@@ -2535,7 +2537,7 @@ export default function NewGuru({
               setIconUrl={setIconUrl}
               setDirtyChanges={setDirtyChanges}
               allowCustomPrompt={allowCustomPrompt}
-              guruData={guruData}
+              guruData={customGuruData}
             />
 
             {/* Use SourcesTableSection component */}

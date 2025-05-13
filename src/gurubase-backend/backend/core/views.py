@@ -419,6 +419,9 @@ def my_gurus(request, guru_slug=None):
             user_gurus = sub_query.filter(active=True).order_by('-date_created')
         else:
             user_gurus = sub_query.filter(maintainers=user, active=True).order_by('-date_created')
+
+        default_settings = get_default_settings()
+        default_prompts = default_settings.prompt_templates
         
         gurus_data = []
         for guru in user_gurus:
@@ -428,9 +431,9 @@ def my_gurus(request, guru_slug=None):
             if settings.ENV == 'selfhosted':
                 icon_url = replace_media_root_with_nginx_base_url(guru.icon_url)
             else:
-                icon_url = guru.icon_url            
-
-            gurus_data.append({
+                icon_url = guru.icon_url     
+                   
+            data = {
                 'id': guru.id,
                 'name': guru.name,
                 'slug': guru.slug,
@@ -447,8 +450,23 @@ def my_gurus(request, guru_slug=None):
                 'widget_ids': WidgetIdSerializer(widget_ids, many=True).data,
                 'github_repo_limit': guru.github_repo_count_limit,
                 'ready': guru.ready,
-                'allow_custom_prompt': guru.allow_custom_prompt
-            })
+                'allow_custom_prompt': guru.allow_custom_prompt,
+            }
+
+            if guru.allow_custom_prompt:
+                prompts = []
+                for prompt in default_prompts:
+                    prompts.append(prompt)
+
+                prompts.append({
+                    'id': 'current_prompt',
+                    'name': 'Current Prompt',
+                    'content': guru.custom_instruction_prompt
+                })                
+
+                data['prompts'] = prompts
+
+            gurus_data.append(data)
         
         if guru_slug:
             return Response(gurus_data[0], status=status.HTTP_200_OK)
@@ -1946,29 +1964,3 @@ def validate_ollama_url(request):
         'is_valid': True,
         'models': models
     })
-
-@api_view(['GET'])
-@jwt_auth
-def get_prompt_templates(request, guru_type):
-    """
-    Get all available prompt templates
-    """
-    try:
-        guru_type_object = get_guru_type_object_by_maintainer(guru_type, request)
-    except PermissionError:
-        return Response({'msg': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-    except NotFoundError:
-        return Response({'msg': f'Guru type {guru_type} not found'}, status=status.HTTP_404_NOT_FOUND)    
-    guru_prompt = guru_type_object.custom_instruction_prompt
-    def_settings = get_default_settings()
-    prompts = def_settings.prompt_templates
-    prompts.append({
-        'id': 'current_prompt',
-        'name': 'Current Prompt',
-        'content': guru_prompt
-    })
-    
-    return Response({
-        'prompts': prompts
-    })
-

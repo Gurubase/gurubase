@@ -21,13 +21,13 @@ import {
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
 import { useForm } from "react-hook-form";
 import { ChevronDown } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PromptEditor({
-  guruType,
+  onPromptChange,
   templates,
-  isLoading,
-  onPromptChange
+  isSourcesProcessing,
+  isProcessing,
+  isSubmitting
 }) {
   const [selectedPreset, setSelectedPreset] = useState("current_prompt");
   const [originalContent, setOriginalContent] = useState("");
@@ -37,50 +37,46 @@ export default function PromptEditor({
     }
   });
 
-  // Set initial content when templates are loaded
+  // Update content when templates change
   useEffect(() => {
-    if (templates?.length > 0) {
-      const currentPrompt = templates.find((t) => t.id === "current_prompt");
-      if (currentPrompt) {
-        form.setValue("promptContent", currentPrompt.content);
-        setOriginalContent(currentPrompt.content);
-      }
+    const currentPrompt = templates?.find((t) => t.id === "current_prompt");
+    if (currentPrompt) {
+      form.setValue("promptContent", currentPrompt.content);
+      setOriginalContent(currentPrompt.content);
     }
+    setSelectedPreset("current_prompt");
   }, [templates, form]);
 
-  // Update form content when preset changes
-  useEffect(() => {
-    if (selectedPreset && templates?.length > 0) {
-      const template = templates.find((t) => t.id === selectedPreset);
-      if (template) {
-        form.setValue("promptContent", template.content);
-        if (selectedPreset === "current_prompt") {
-          setOriginalContent(template.content);
-        }
-        // Notify parent of prompt change
-        onPromptChange?.({
-          content: template.content,
-          templateId: selectedPreset,
-          isModified:
-            selectedPreset !== "current_prompt" ||
-            template.content !== originalContent
-        });
-      }
-    }
-  }, [selectedPreset, templates, form, originalContent, onPromptChange]);
-
   const handlePresetChange = (value) => {
-    setSelectedPreset(value);
+    const template = templates.find((t) => t.id === value);
+    if (template) {
+      setSelectedPreset(value);
+      form.setValue("promptContent", template.content);
+      // Only mark as modified if the content differs from original prompt
+      const isModified = template.content !== originalContent;
+      onPromptChange?.({
+        content: template.content,
+        templateId: value,
+        isModified,
+        isCustomPrompt: value !== "current_prompt"
+      });
+    }
   };
 
   const handleReset = () => {
-    form.setValue("promptContent", originalContent);
-    // Notify parent of reset
-    onPromptChange?.({
-      content: originalContent,
-      templateId: "current_prompt",
-      isModified: false
-    });
+    // Find the template for the currently selected preset
+    const selectedTemplate = templates.find((t) => t.id === selectedPreset);
+    if (selectedTemplate) {
+      form.setValue("promptContent", selectedTemplate.content);
+      // Only mark as modified if the content differs from original prompt
+      const isModified = selectedTemplate.content !== originalContent;
+      onPromptChange?.({
+        content: selectedTemplate.content,
+        templateId: selectedPreset,
+        isModified,
+        isCustomPrompt: selectedPreset !== "current_prompt"
+      });
+    }
   };
 
   // Add form watch to track content changes
@@ -90,36 +86,13 @@ export default function PromptEditor({
         onPromptChange?.({
           content: value.promptContent,
           templateId: selectedPreset,
-          isModified: value.promptContent !== originalContent
+          isModified: value.promptContent !== originalContent,
+          isCustomPrompt: selectedPreset !== "current_prompt"
         });
       }
     });
     return () => subscription.unsubscribe();
   }, [form, selectedPreset, originalContent, onPromptChange]);
-
-  if (isLoading) {
-    return (
-      <div>
-        <div className="flex items-center space-x-2 mb-6">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-6 w-6 rounded-full" />
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center space-x-3">
-              <Skeleton className="h-11 w-[400px] rounded-[12px]" />
-              <Skeleton className="h-11 w-24 rounded-[12px]" />
-            </div>
-          </div>
-
-          <div className="w-full">
-            <Skeleton className="h-[400px] w-full rounded-lg" />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -131,7 +104,10 @@ export default function PromptEditor({
       <div className="space-y-6">
         <div>
           <div className="flex items-center space-x-2">
-            <Select value={selectedPreset} onValueChange={handlePresetChange}>
+            <Select
+              disabled={isSourcesProcessing || isProcessing || isSubmitting}
+              value={selectedPreset}
+              onValueChange={handlePresetChange}>
               <SelectTrigger className="w-full md:w-[300px] rounded-[12px] focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Select a template" />
                 <ChevronDown className="h-4 w-4 ml-2 text-gray-500" />
@@ -145,6 +121,7 @@ export default function PromptEditor({
               </SelectContent>
             </Select>
             <Button
+              disabled={isSourcesProcessing || isProcessing || isSubmitting}
               variant="outline"
               onClick={(e) => {
                 e.preventDefault();
@@ -159,6 +136,7 @@ export default function PromptEditor({
           <FormField
             control={form.control}
             name="promptContent"
+            disabled={isSourcesProcessing || isProcessing || isSubmitting}
             render={({ field }) => (
               <FormItem>
                 <FormControl>

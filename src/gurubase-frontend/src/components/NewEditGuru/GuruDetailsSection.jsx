@@ -31,10 +31,6 @@ export function GuruDetailsSection({
   allowCustomPrompt,
   guruData
 }) {
-  const [templates, setTemplates] = useState([]);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
-
-  // Add handler for prompt changes
   const handlePromptChange = useCallback(
     ({ content, templateId, isModified }) => {
       if (isModified) {
@@ -55,30 +51,6 @@ export function GuruDetailsSection({
     },
     [setDirtyChanges]
   );
-
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      if (!guruData?.slug) {
-        setIsLoadingTemplates(false);
-        return;
-      }
-
-      setIsLoadingTemplates(true);
-      try {
-        const data = await getPromptTemplates(guruData.slug);
-
-        if (data && !data.error && data.prompts) {
-          setTemplates(data.prompts);
-        } else {
-        }
-      } catch (error) {
-      } finally {
-        setIsLoadingTemplates(false);
-      }
-    };
-
-    fetchTemplates();
-  }, [guruData?.slug]);
 
   return (
     <div>
@@ -183,7 +155,9 @@ export function GuruDetailsSection({
                     />
                     <Button
                       className="text-gray-600 hover:text-gray-700 mb-2"
-                      disabled={isProcessing || isSubmitting}
+                      disabled={
+                        isProcessing || isSubmitting || isSourcesProcessing
+                      }
                       type="button"
                       variant="outline"
                       onClick={() =>
@@ -234,10 +208,11 @@ export function GuruDetailsSection({
       </div>
       {allowCustomPrompt && (
         <CustomPrompt
-          guruType={guruData.slug}
-          templates={templates}
-          isLoading={isLoadingTemplates}
           onPromptChange={handlePromptChange}
+          templates={guruData?.prompts}
+          isProcessing={isProcessing}
+          isSubmitting={isSubmitting}
+          isSourcesProcessing={isSourcesProcessing}
         />
       )}
     </div>
