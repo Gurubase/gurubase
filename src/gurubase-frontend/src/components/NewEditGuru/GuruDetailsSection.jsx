@@ -14,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { HeaderTooltip } from "@/components/ui/header-tooltip";
 import { SolarGalleryAddBold } from "@/components/Icons";
 import { Upload } from "lucide-react";
-import CustomPrompt from "./CustomPrompt";
-import { getPromptTemplates } from "@/app/actions";
+import CustomPromptEditor from "./CustomPromptEditor";
 
 export function GuruDetailsSection({
   form,
@@ -207,7 +206,7 @@ export function GuruDetailsSection({
         />
       </div>
       {allowCustomPrompt && (
-        <CustomPrompt
+        <CustomPromptEditor
           onPromptChange={handlePromptChange}
           templates={guruData?.prompts}
           isProcessing={isProcessing}

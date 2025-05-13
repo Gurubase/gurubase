@@ -22,7 +22,7 @@ import { HeaderTooltip } from "@/components/ui/header-tooltip";
 import { useForm } from "react-hook-form";
 import { ChevronDown } from "lucide-react";
 
-export default function PromptEditor({
+export default function CustomPromptEditor({
   onPromptChange,
   templates,
   isSourcesProcessing,
