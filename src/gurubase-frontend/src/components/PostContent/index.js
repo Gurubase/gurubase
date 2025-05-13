@@ -30,7 +30,9 @@ const CustomLink = React.memo(({ node, ...props }) => {
   const isLocalhost =
     href && (href.includes("localhost") || href.includes("127.0.0.1"));
 
-  if (isLocalhost) {
+  const isSelfHosted = process.env.NEXT_PUBLIC_NODE_ENV === "selfhosted";
+
+  if (!isSelfHosted && isLocalhost) {
     return <span {...props} />;
   }
 
