@@ -1788,14 +1788,14 @@ def with_redis_lock(redis_client, lock_key_func, timeout):
                     raise e2
                 finally:
                     if datetime.now(UTC) - start_time > timedelta(seconds=timeout):
-                        logging.warn(f'The function {func.__name__} took longer than {timeout} seconds to execute.')
+                        logging.warning(f'The function {func.__name__} took longer than {timeout} seconds to execute.')
                     else:
                         redis_client.delete(lock_key)
                     
                 return result
 
             except Locked:
-                logging.warn(f'Could not acquire lock {lock_key}.')
+                logging.warning(f'Could not acquire lock {lock_key}.')
                 
             except Exception as e:
                 logging.error(f'Failed to execute the function {func.__name__} due to {traceback.format_exc()}.')
