@@ -370,17 +370,6 @@ Gurubase currently hosts **hundreds** of Gurus, and it grows every day. Here are
 ### What is Gurubase?
 Gurubase is a RAG system that creates AI-powered Q&A assistants ("Gurus"). It processes various data sources like web pages, videos, PDFs, GitHub code repositories, Jira issues, and Zendesk tickets, Confluence Pages, Excels and articles to provide context-aware answers.
 
-### How does Gurubase work?
-Gurubase uses a modern RAG architecture:
-1. **Indexing**: Processes and chunks data sources
-2. **Embedding**: Converts text into vector representations
-3. **Storage**: Stores vectors in Milvus for efficient similarity search
-4. **Retrieval**: Finds relevant context when questions are asked
-5. **Generation**: Uses LLMs to generate accurate answers based on retrieved context
-6. **Evaluation**: Evaluates the contexts to prevent hallucinations
-
-Check the [ARCHITECTURE.md](src/gurubase-backend/ARCHITECTURE.md) file for more details.
-
 ### What types of data sources can I use?
 Gurubase supports multiple data source types:
 - 📄 Web Pages
