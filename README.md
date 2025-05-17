@@ -32,7 +32,6 @@
 - [How to Claim a Guru](#how-to-claim-a-guru)
 - [Integrate Your Guru](#integrate-your-guru)
 - [How to Update Datasources](#how-to-update-datasources)
-- [Contributing](#contributing)
 - [Help](#help)
 - [Used By](#used-by)
 - [Frequently Asked Questions](#frequently-asked-questions)
@@ -129,10 +128,6 @@ You can also see the "Last Index Date" on the URL pages.
 
 > [!NOTE]
 > GitHub repositories are reindexed automatically twice a day.
-
-## Contributing
-
-We welcome contributions to Gurubase! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) file for guidelines on how to contribute, including code standards, testing requirements, and the pull request process.
 
 ## License
 
